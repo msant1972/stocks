@@ -120,7 +120,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Barra superior com pesquisa, estado dos dados e menu do utilizador.
 - Área principal com largura confortável e limite proposto de 1440 px.
 - Conteúdo em grelha de 12 colunas.
-- Menu lateral: Visão geral, Acompanhar, Carteira, Operações, Alertas e Definições.
+- Menu lateral: Visão geral, Acompanhar, HeatMap, Carteira, Operações, Alertas, Utilizadores (só administradores) e Definições.
 
 ### Tablet — de 768 a 1199 px
 
@@ -132,8 +132,8 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 ### Telemóvel — abaixo de 768 px
 
 - Conteúdo numa coluna.
-- Navegação inferior com Visão geral, Acompanhar, Carteira e Alertas.
-- Operações acessíveis na Carteira; Definições no menu do utilizador.
+- Navegação inferior com Visão geral, Acompanhar, HeatMap, Carteira e Alertas.
+- Operações acessíveis na Carteira; Definições através do ícone na barra superior, onde ficam também o atalho para Utilizadores (administradores) e «Terminar sessão».
 - Modais complexos passam a ecrãs completos ou folhas inferiores acessíveis.
 - Respeitar áreas seguras do dispositivo e reservar espaço para a navegação fixa.
 - Evitar scroll horizontal da página; tabelas podem ter região de scroll própria devidamente identificada.
@@ -155,13 +155,14 @@ Apresentar um formulário simples, centrado numa superfície limpa, com identifi
 
 ### 5.2. Visão geral
 
-Hierarquia proposta:
+Hierarquia implementada:
 
-1. Título e indicação discreta «Ambiente de simulação».
+1. Título, indicação discreta «Ambiente de simulação» e data da última sessão das cotações.
 2. Cartão principal com valor da carteira e referência temporal da valorização.
-3. Resumo: saldo virtual, montante investido e resultado acumulado.
-4. Lista de instrumentos acompanhados, com fecho e variação diária.
-5. Operações recentes e alertas activos.
+3. Resumo: saldo virtual, montante investido e resultado acumulado face ao capital inicial.
+4. «Momento do mercado»: barra com a distribuição do SMA10/SMA200 na última sessão (acima de +1%, entre −1% e +1%, abaixo de −1%, com as cores do HeatMap e as contagens escritas) e duas listas com os 5 instrumentos mais fortes e mais fracos, com ligação a cada um.
+
+A lista de instrumentos acompanhados fica em Acompanhar e as operações recentes em Operações.
 
 Evitar chamar «rentabilidade» a um valor cujo método de cálculo ainda não foi definido. Cada resultado deve ter descrição clara do período e da base de cálculo.
 
@@ -169,15 +170,20 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 
 ### 5.3. Acompanhamento e detalhe de instrumento
 
-- Pesquisa por designação, ticker e mercado.
+- Pesquisa por designação, ticker e mercado; catálogo partilhado sempre visível.
+- Tabela com instrumento, estado, último fecho, volume da sessão, variação e data da sessão.
+- Botão «Validar agora (N)» com o número de instrumentos por validar; desactivado com «Nada por validar». Enquanto houver pendentes, a lista actualiza-se sozinha.
 - Acções «Adicionar instrumento» (símbolo Yahoo, ex.: `GALP.LS`) e «Importar Excel», com modelo descarregável e pré-visualização das linhas válidas, duplicadas e com erro antes de gravar.
 - Estados do instrumento: «A validar», «Activo» e «Inválido» (com o motivo, ex.: «Não está cotado em EUR»).
 - Ticker em destaque, com nome, mercado e moeda próximos.
 - Fecho diário, variação e data da sessão sempre visíveis.
 - Gráfico principal com selecção «1M», «3M», «6M», «1A» e «2A».
 - Indicação «Dados diários» junto ao selector de período.
-- Acções «Adicionar à lista», «Criar alerta» e «Simular operação».
-- Disponibilizar resumo textual e acesso aos dados do gráfico em tabela.
+- Acções «Adicionar à lista», «Criar alerta», «Aplicar estratégia» e «Simular operação».
+- Botões de indicadores por cima do gráfico (EMA9, SMA10, SMA50, SMA125, SMA200), que servem também de legenda; selecção guardada no browser.
+- Gráfico de momento por baixo do histórico, sincronizado com ele (cursor e tooltip): área SMA10/SMA200 − 1 em colunas verdes («a subir») ou vermelhas («a descer»), linha SMA8/SMA125 − 1 e linha do zero; valores actuais no cabeçalho; botão «Momento» para mostrar ou esconder.
+- «Aplicar estratégia» mostra a simulação no histórico: marcadores C (compra), R (reforço) e V (venda) com letra, e um painel com o resultado, as operações, os reforços, os sinais ignorados e a comparação com comprar e manter. Indicar sempre que é uma simulação e que não altera a carteira.
+- Disponibilizar resumo textual e acesso aos dados do gráfico em tabela, incluindo os indicadores e o momento visíveis.
 
 Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Não animar pontos como se fossem actualizados em tempo real. Se a cobertura for inferior a dois anos, indicar o período efectivamente disponível.
 
@@ -233,6 +239,25 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Preferências de apresentação e informação de conta efectivamente suportadas.
 - Explicação das regras da simulação e das limitações dos dados.
 - Estado ou data de actualização dos dados, quando disponível.
+- Para administradores, atalho para Utilizadores; para todos, «Terminar sessão» (necessário em telemóvel, onde não há barra lateral).
+
+### 5.9. HeatMap
+
+- Mapa de calor (treemap) dos 20 instrumentos com maior valor negociado no período, do catálogo ou da lista do utilizador.
+- Tamanho de cada quadrado: valor negociado (preço × volume); cor: verde acima de +1%, cinzento entre −1% e +1%, vermelho abaixo de −1%.
+- Cada quadrado mostra o símbolo e a variação; o texto encolhe ou desaparece nos quadrados pequenos. Tooltip com nome, variação, valor negociado, último fecho e datas; clique abre o instrumento.
+- Período em menu (1 dia, 5 dias por omissão, 30 dias) e filtro «Todos / A minha lista», guardados no URL.
+- Legenda com contagens por cor, texto «Top 20 de N instrumentos» e vista em tabela.
+
+### 5.10. Utilizadores
+
+Só para administradores (o menu não aparece aos restantes):
+
+- Tabela com nome, email, perfil, data de criação e última sessão; a própria conta identificada com «(você)».
+- «Adicionar utilizador» com email, nome, palavra-passe visível com botão «Gerar», capital inicial (1 000 000 EUR por omissão) e opção de administrador.
+- «Redefinir palavra-passe» explica que as sessões do utilizador são terminadas.
+- «Remover» pede para escrever o email do utilizador e avisa que todos os dados são apagados.
+- A própria conta não pode ser removida nem redefinida aqui (usar Definições).
 
 Não introduzir ecrãs para funcionalidades futuras como se estivessem operacionais.
 
@@ -291,6 +316,21 @@ Para cada ecrã, desenhar: inicial, carregamento, sucesso, vazio, erro, dados pa
 - Formatar moedas através de `Intl.NumberFormat('pt-PT', ...)`.
 - Mostrar códigos de moeda quando o símbolo for ambíguo.
 - Distinguir data da sessão, instante de recolha e instante da operação.
+
+Séries do gráfico (paleta categórica validada para daltonismo, em ordem fixa, nos dois temas):
+
+| Série | Claro | Escuro |
+|---|---|---|
+| Fecho ajustado | `#005fcc` | `#3987e5` |
+| EMA9 | `#eb6834` | `#d95926` |
+| SMA10 | `#1baf7a` | `#199e70` |
+| SMA50 | `#eda100` | `#c98500` |
+| SMA125 | `#e87ba4` | `#d55181` |
+| SMA200 | `#008300` | `#008300` |
+
+- Indicadores na mesma escala do preço (um só eixo); o momento num gráfico próprio por baixo, com marcas redondas no eixo e o zero sempre incluído.
+- HeatMap e barra de momento: verde `#1a7f45`, cinzento `#6b7079`, vermelho `#c0362c` (texto branco com contraste ≥ 4,98:1), iguais nos dois temas.
+- Marcadores da estratégia com letra (C, R, V), não só cor.
 
 Os exemplos de números usados em protótipos devem ser identificados como dados de demonstração e não permanecer como valores reais na aplicação publicada.
 
@@ -440,7 +480,7 @@ button, input, select, textarea { font: inherit; }
 
 O tema «Sistema» deve resolver o atributo `data-theme` através de `prefers-color-scheme`, respeitar a escolha explícita do utilizador e evitar flashes de tema no carregamento. Estes estilos são uma base; não constituem por si só uma biblioteca completa de componentes acessíveis.
 
-## 11. Organização React proposta
+## 11. Organização React
 
 ```text
 src/
@@ -448,7 +488,7 @@ src/
   components/
     ui/            # Button, Input, Dialog, Tabs, Tooltip
     layout/        # Sidebar, Topbar, MobileNavigation
-    finance/       # MoneyValue, QuoteDate, PriceChange, DailyChart
+    finance/       # PriceChange, PnL, QuoteDate, DailyChart, StrategyPanel
     feedback/      # EmptyState, ErrorState, Skeleton, DataStatus
   features/
     auth/
@@ -458,7 +498,10 @@ src/
     portfolio/
     trades/
     alerts/
+    heatmap/
+    users/
     settings/
+  lib/             # api, queries, format, theme, momentum, strategy
   styles/
     tokens.css
     global.css

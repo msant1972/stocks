@@ -20,14 +20,20 @@ npm run build      # gera dist/
 
 A API serve `dist/` quando `STOCKS_FRONTEND_DIST` aponta para essa pasta, na mesma origem que `/api`. Assim o cookie de sessão `SameSite=Strict` funciona sem CORS. Os ficheiros com hash ficam em cache durante um ano; o `index.html` nunca fica em cache.
 
+## Testes
+
+```bash
+npm test           # node --test: cálculos do momento e da estratégia (src/lib/momentum.js, src/lib/strategy.js)
+```
+
 ## Organização
 
 ```text
 src/
   app/          rotas e protecção da sessão
   components/   ui (botões, campos, modal), layout, finance (valores, gráfico), feedback (estados, avisos)
-  features/     uma pasta por ecrã: auth, overview, watchlist, instruments, portfolio, trades, alerts, settings
-  lib/          cliente da API, consultas, formatação pt-PT e tema
+  features/     uma pasta por ecrã: auth, overview, watchlist, instruments, heatmap, portfolio, trades, alerts, users, settings
+  lib/          cliente da API, consultas, formatação pt-PT, tema, momento (momentum.js) e estratégia (strategy.js)
   styles/       tokens.css (cores e medidas do guia) e global.css
 ```
 

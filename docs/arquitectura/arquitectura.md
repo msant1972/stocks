@@ -86,7 +86,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 |---|---|
 | Entrar | Login por email e palavra-passe |
 | Visão geral | Valor da carteira, saldo e resultado; momento do mercado (distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos) |
-| Acompanhar | Catálogo partilhado, lista do utilizador, adicionar símbolos ou importar Excel/CSV com pré-visualização, botão «Validar agora» |
+| Acompanhar | Catálogo partilhado e lista do utilizador (último fecho, volume, variação, sessão), adicionar símbolos ou importar Excel/CSV com pré-visualização, botão «Validar agora» |
 | Instrumento | Último fecho e variação, gráfico diário (1M a 2A) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, aplicar estratégia |
 | HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5 ou 30 sessões |
 | Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |

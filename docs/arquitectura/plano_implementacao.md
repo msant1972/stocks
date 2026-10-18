@@ -4,7 +4,13 @@
 
 As fases F0 a F7 estão implementadas e a versão 1 está em produção em https://stocks.graus.pt. A arquitectura implementada está descrita em [Arquitectura](arquitectura.md).
 
-Acrescentado além do plano inicial: indicadores técnicos (EMA9, SMA10/50/125/200) guardados na BD, gráfico de momento, módulo HeatMap, botão «Validar agora» com arranque imediato do motor de recolha, e gestão de utilizadores na interface.
+Acrescentado além do plano inicial:
+- indicadores técnicos (EMA9, SMA10/50/125/200) guardados na BD e gráfico de momento (SMA10/SMA200 e SMA8/SMA125);
+- estratégia de momento simulada no histórico, com zona neutra, filtro de venda pelo SMA8/SMA125 e compras de reforço (o backtesting estava inicialmente fora do âmbito; não há negociação automática);
+- módulo HeatMap (top 20 por valor negociado) e quadro «Momento do mercado» na Visão geral;
+- botão «Validar agora» com arranque imediato do motor de recolha, e coluna Volume em Acompanhar;
+- gestão de utilizadores na interface;
+- capital virtual inicial de 1 000 000 EUR por omissão.
 
 Pendente: configuração do SMTP, cópias de segurança fora do servidor e as decisões em aberto listadas na secção 9 da arquitectura. O restante deste documento mantém-se como registo do plano original.
 
