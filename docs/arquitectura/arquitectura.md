@@ -85,7 +85,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Ecrã | Função |
 |---|---|
 | Entrar | Login por email e palavra-passe |
-| Visão geral | Valor da carteira, saldo, resultado, instrumentos acompanhados e actividade |
+| Visão geral | Valor da carteira, saldo, resultado, momento do mercado (distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos), instrumentos acompanhados e actividade |
 | Acompanhar | Catálogo partilhado, lista do utilizador, adicionar símbolos ou importar Excel/CSV com pré-visualização, botão «Validar agora» |
 | Instrumento | Último fecho e variação, gráfico diário (1M a 2A) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, aplicar estratégia |
 | HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5 ou 30 sessões |
@@ -116,6 +116,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Carteira e operações | `GET /portfolio`, `GET /portfolio/positions`, `GET /simulated-trades/preview`, `POST /simulated-trades`, `GET /simulated-trades` |
 | Alertas | `GET/POST /alerts`, `PATCH/DELETE /alerts/{id}`, `GET /alerts/events` |
 | Mapa de calor | `GET /heatmap?period=1\|5\|30&scope=all\|watchlist&limit=20` |
+| Mercado | `GET /market/momentum?top=5` (distribuição do SMA10/SMA200 na última sessão e extremos; cache 10 min) |
 | Estado | `GET /status` |
 | Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}` |
 | Saúde | `GET /health/live`, `GET /health/ready` (fora de `/api/v1`) |
