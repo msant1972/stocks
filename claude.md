@@ -20,3 +20,5 @@ A negociação é exclusivamente simulada: não há operações com dinheiro rea
 - [Plano de implementação](docs/arquitectura/plano_implementacao.md)
 - [Guia de estilos UI/UX](docs/arquitectura/guia_estilos.md)
 - [Análise e decisões](docs/arquitectura/analise_e_decisoes.md)
+
+usar o /model opusplan
