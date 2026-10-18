@@ -1,6 +1,15 @@
 import * as f from '../../lib/format.js';
-import { NEUTRAL_BAND, SELL_MAX_WAVE125, STRATEGY_BUDGET } from '../../lib/strategy.js';
+import { NEUTRAL_BAND, REINFORCE_GAIN, SELL_MAX_WAVE125, STRATEGY_BUDGET } from '../../lib/strategy.js';
 import { PnL } from './finance.jsx';
+
+function Reinforcements({ lots }) {
+  if (lots.length < 2) return null;
+  return (
+    <div className="small muted" style={{ whiteSpace: 'normal' }}>
+      + {lots.length - 1} {lots.length === 2 ? 'reforço' : 'reforços'}: {lots.slice(1).map((l) => `${f.shortDate(l.date)} a ${f.price(l.price)}`).join(', ')}
+    </div>
+  );
+}
 
 /** Resultado da simulação da estratégia de momento no histórico (não altera a carteira). */
 export default function StrategyPanel({ result, currency = 'EUR', symbol }) {
@@ -13,8 +22,9 @@ export default function StrategyPanel({ result, currency = 'EUR', symbol }) {
         <p className="small muted" style={{ marginTop: 4 }}>
           Compra {f.money(STRATEGY_BUDGET, currency, 0)} quando o SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a subir»;
           vende tudo após uma «a subir» seguida de duas «a descer», mas só com o SMA8/SMA125 abaixo de {SELL_MAX_WAVE125}%
-          {sellsHeld > 0 && `(${sellsHeld} ${sellsHeld === 1 ? 'venda não executada' : 'vendas não executadas'} por esta condição)`}. Os sinais são ignorados quando o SMA10/SMA200 está entre
-          −{NEUTRAL_BAND}% e +{NEUTRAL_BAND}%{skipped > 0 && ` (${skipped} ${skipped === 1 ? 'sinal ignorado' : 'sinais ignorados'} no período)`}. Executa ao fecho da sessão do sinal, uma posição de cada vez,
+          {sellsHeld > 0 && ` (${sellsHeld} ${sellsHeld === 1 ? 'venda não executada' : 'vendas não executadas'} por esta condição)`}. Os sinais são ignorados quando o SMA10/SMA200 está entre
+          −{NEUTRAL_BAND}% e +{NEUTRAL_BAND}%. Reforça com mais {f.money(STRATEGY_BUDGET, currency, 0)} sempre que o fecho sobe
+          mais de {REINFORCE_GAIN}% face à compra mais recente{skipped > 0 && ` (${skipped} ${skipped === 1 ? 'sinal ignorado' : 'sinais ignorados'} no período)`}. Executa ao fecho da sessão do sinal, uma posição de cada vez,
           sem comissões. Período: {firstDate ? `desde ${f.date(firstDate)}` : 'sem dados suficientes'}. Não altera a carteira virtual.
         </p>
       </div>
@@ -23,12 +33,12 @@ export default function StrategyPanel({ result, currency = 'EUR', symbol }) {
         <div>
           <p className="stat-label">Resultado da estratégia</p>
           <p className="stat-value"><PnL value={summary.total} currency={currency} /> <span className="small muted">{f.pct(summary.totalPct.toFixed(2))}</span></p>
-          <p className="small muted">sobre {f.money(STRATEGY_BUDGET, currency, 0)} por operação</p>
+          <p className="small muted">sobre o capital máximo investido ({f.money(summary.peakCost, currency, 0)})</p>
         </div>
         <div>
           <p className="stat-label">Operações fechadas</p>
           <p className="stat-value">{summary.closed}</p>
-          <p className="small muted">{summary.wins} com ganho · {summary.closed - summary.wins} com perda</p>
+          <p className="small muted">{summary.wins} com ganho · {summary.closed - summary.wins} com perda · {summary.reinforcements} {summary.reinforcements === 1 ? 'reforço' : 'reforços'}</p>
         </div>
         <div>
           <p className="stat-label">Posição aberta</p>
@@ -50,8 +60,9 @@ export default function StrategyPanel({ result, currency = 'EUR', symbol }) {
             <thead>
               <tr>
                 <th scope="col">Compra</th>
-                <th scope="col" className="r">Preço</th>
+                <th scope="col" className="r">Preço médio</th>
                 <th scope="col" className="r">Unidades</th>
+                <th scope="col" className="r">Investido</th>
                 <th scope="col">Venda</th>
                 <th scope="col" className="r">Preço</th>
                 <th scope="col" className="r">Resultado</th>
@@ -60,9 +71,10 @@ export default function StrategyPanel({ result, currency = 'EUR', symbol }) {
             <tbody>
               {trades.map((t) => (
                 <tr key={t.buyDate}>
-                  <td style={{ whiteSpace: 'nowrap' }}>{f.date(t.buyDate)}</td>
-                  <td className="r">{f.price(t.buyPrice, currency)}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{f.date(t.buyDate)}<Reinforcements lots={t.lots} /></td>
+                  <td className="r">{f.price(t.avgPrice, currency)}</td>
                   <td className="r">{f.quantity(t.quantity)}</td>
+                  <td className="r">{f.money(t.cost, currency)}</td>
                   <td style={{ whiteSpace: 'nowrap' }}>{f.date(t.sellDate)}</td>
                   <td className="r">{f.price(t.sellPrice, currency)}</td>
                   <td className="r"><PnL value={t.pnl} currency={currency} /><div className="small muted">{f.pct(t.pnlPct.toFixed(2))}</div></td>
@@ -70,9 +82,10 @@ export default function StrategyPanel({ result, currency = 'EUR', symbol }) {
               ))}
               {open && (
                 <tr>
-                  <td style={{ whiteSpace: 'nowrap' }}>{f.date(open.buyDate)}</td>
-                  <td className="r">{f.price(open.buyPrice, currency)}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>{f.date(open.buyDate)}<Reinforcements lots={open.lots} /></td>
+                  <td className="r">{f.price(open.avgPrice, currency)}</td>
                   <td className="r">{f.quantity(open.quantity)}</td>
+                  <td className="r">{f.money(open.cost, currency)}</td>
                   <td className="muted small">Em aberto · {f.price(open.lastPrice, currency)} a {f.date(open.lastDate)}</td>
                   <td className="r muted">—</td>
                   <td className="r"><PnL value={open.pnl} currency={currency} /><div className="small muted">{f.pct(open.pnlPct.toFixed(2))} não realizado</div></td>

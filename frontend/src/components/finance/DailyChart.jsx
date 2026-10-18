@@ -90,17 +90,22 @@ function MomentumTooltip({ active, payload }) {
   );
 }
 
-/** Marcador de operação da estratégia: triângulo com letra (C compra, V venda), não só cor. */
+const MARKER = {
+  buy: { letter: 'C', color: 'var(--positive)', up: true },
+  add: { letter: 'R', color: 'var(--accent)', up: true },
+  sell: { letter: 'V', color: 'var(--negative)', up: false },
+};
+
+/** Marcador de operação da estratégia: triângulo com letra (C compra, R reforço, V venda), não só cor. */
 function SignalMarker({ cx, cy, side }) {
   if (cx == null || cy == null) return null;
-  const buy = side === 'buy';
-  const color = buy ? 'var(--positive)' : 'var(--negative)';
+  const { letter, color, up: buy } = MARKER[side];
   const tip = buy ? cy + 6 : cy - 6;
   const base = buy ? cy + 22 : cy - 22;
   return (
     <g>
       <path d={`M${cx},${tip} L${cx - 8},${base} L${cx + 8},${base} Z`} fill={color} stroke="var(--surface)" strokeWidth={1.5} />
-      <text x={cx} y={buy ? base + 13 : base - 5} textAnchor="middle" fontSize={11} fontWeight={700} fill={color}>{buy ? 'C' : 'V'}</text>
+      <text x={cx} y={buy ? base + 13 : base - 5} textAnchor="middle" fontSize={11} fontWeight={700} fill={color}>{letter}</text>
     </g>
   );
 }

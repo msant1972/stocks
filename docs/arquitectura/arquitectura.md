@@ -235,10 +235,12 @@ O botão «Aplicar estratégia» corre no browser um backtest sobre o histórico
 - compra 15 000 € (quantidade inteira) quando as três últimas sessões foram descer, subir, subir;
 - vende tudo quando foram subir, descer, descer e o SMA8/SMA125 está abaixo de 1% nessa sessão (caso contrário mantém a posição);
 - ignora os sinais quando, na sessão do sinal, o SMA10/SMA200 está entre −1% e +1% (inclusive);
+- reforça com mais 15 000 € sempre que o fecho sobe mais de 10% face ao preço da compra mais recente (o seguinte exige outros +10%); numa sessão com venda executada não há reforço;
 - executa ao fecho real do dia do sinal, uma posição de cada vez, sem comissões; uma posição aberta no fim é valorizada ao último fecho;
-- compara com comprar e manter o mesmo montante desde a primeira sessão com estado conhecido.
+- o resultado em % é calculado sobre o capital máximo investido em simultâneo;
+- compara com comprar e manter 15 000 € desde a primeira sessão com estado conhecido.
 
-O gráfico marca as compras (C) e as vendas (V); um painel mostra o resultado, as operações, os sinais ignorados e as vendas não executadas pela condição do SMA8/SMA125.
+O gráfico marca as compras (C), os reforços (R) e as vendas (V); um painel mostra o resultado, as operações, os sinais ignorados e as vendas não executadas pela condição do SMA8/SMA125.
 
 ### 5.5. Operação simulada
 
