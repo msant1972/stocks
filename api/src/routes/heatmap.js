@@ -53,10 +53,12 @@ export default async function heatmapRoutes(app, { pool }) {
       querystring: z.object({
         period: z.coerce.number().int().refine((p) => HEATMAP_PERIODS.includes(p), 'período deve ser 1, 5 ou 30').default(5),
         scope: z.enum(['all', 'watchlist']).default('all'),
+        limit: z.coerce.number().int().min(1).max(500).default(20).describe('Só os N instrumentos com maior valor negociado'),
       }),
       response: {
         200: z.object({
           period: z.number(),
+          total: z.number().describe('Instrumentos disponíveis antes do limite'),
           latestSession: IsoDate.nullable(),
           items: z.array(z.object({
             instrumentId: z.number(), symbol: z.string(), name: z.string().nullable(), exchange: z.string().nullable(),
@@ -66,7 +68,7 @@ export default async function heatmapRoutes(app, { pool }) {
       },
     },
   }, async (req) => {
-    const { period, scope } = req.query;
+    const { period, scope, limit } = req.query;
     let hit = cache.get(period);
     if (!hit || Date.now() - hit.at > CACHE_MS) {
       hit = { at: Date.now(), items: await computeHeatmap(pool, period) };
@@ -78,6 +80,8 @@ export default async function heatmapRoutes(app, { pool }) {
       const ids = new Set(w.map((r) => Number(r.instrument_id)));
       items = items.filter((i) => ids.has(i.instrumentId));
     }
-    return { period, latestSession: items.reduce((m, i) => (i.toDate > (m ?? '') ? i.toDate : m), null), items };
+    const total = items.length;
+    items = items.slice(0, limit); // já ordenados por valor negociado, do maior para o menor
+    return { period, total, latestSession: items.reduce((m, i) => (i.toDate > (m ?? '') ? i.toDate : m), null), items };
   });
 }

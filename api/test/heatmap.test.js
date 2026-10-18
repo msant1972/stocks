@@ -37,6 +37,14 @@ describe.skipIf(!hasTestDb)('mapa de calor', () => {
     expect((await ana.get('/heatmap?scope=watchlist')).json().items.map((i) => i.symbol)).toEqual(['SOBE.LS']);
   });
 
+  it('limita aos N instrumentos com maior valor negociado (20 por omissão)', async () => {
+    expect((await ana.get('/heatmap?period=1')).json()).toMatchObject({ total: 3 });
+    const top = (await ana.get('/heatmap?period=1&limit=1')).json();
+    expect(top.total).toBe(3);
+    expect(top.items.map((i) => i.symbol)).toEqual(['DESCE.LS']);
+    expect((await ana.get('/heatmap?limit=0')).statusCode).toBe(400);
+  });
+
   it('recusa períodos não suportados', async () => {
     expect((await ana.get('/heatmap?period=7')).statusCode).toBe(400);
   });

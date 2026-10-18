@@ -7,6 +7,9 @@ import * as f from '../../lib/format.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Field, Segmented } from '../../components/ui/controls.jsx';
 
+// Só os instrumentos com maior valor negociado (preço × volume) no período.
+const TOP = 20;
+
 const PERIODS = [
   { value: '1', label: '1 dia' },
   { value: '5', label: '5 dias' },
@@ -84,7 +87,7 @@ export default function HeatmapPage() {
 
   const q = useQuery({
     queryKey: ['heatmap', period, scope],
-    queryFn: () => api.get(`/heatmap?period=${period}&scope=${scope}`),
+    queryFn: () => api.get(`/heatmap?period=${period}&scope=${scope}&limit=${TOP}`),
     placeholderData: (prev) => prev,
   });
   const items = q.data?.items ?? [];
@@ -127,6 +130,7 @@ export default function HeatmapPage() {
           ))}
         </div>
         <p className="small muted" style={{ marginBottom: '1rem' }}>
+          {q.data && <><strong style={{ color: 'var(--text)' }}>Top {items.length} de {q.data.total} instrumentos</strong> por valor negociado. </>}
           Tamanho de cada quadrado: valor negociado (preço × volume) nas últimas {n === 1 ? 'sessão' : `${n} sessões`}
           {first && q.data?.latestSession && <> ({f.date(first)} a {f.date(q.data.latestSession)})</>}.
           A variação compara o último fecho ajustado com o de {n === 1 ? 'uma sessão' : `${n} sessões`} antes. Clique num quadrado para ver o instrumento.
@@ -139,7 +143,7 @@ export default function HeatmapPage() {
           </EmptyState>
         ) : (
           <div className="heatmap-box" role="img"
-            aria-label={`Mapa de calor de ${items.length} instrumentos: ${counts.up ?? 0} a subir mais de 1%, ${counts.flat ?? 0} entre −1% e +1%, ${counts.down ?? 0} a descer mais de 1%. Ver tabela para os valores.`}
+            aria-label={`Mapa de calor dos ${items.length} instrumentos com maior valor negociado: ${counts.up ?? 0} a subir mais de 1%, ${counts.flat ?? 0} entre −1% e +1%, ${counts.down ?? 0} a descer mais de 1%. Ver tabela para os valores.`}
             style={{ opacity: q.isFetching ? 0.6 : 1 }}>
             <ResponsiveContainer width="100%" height="100%">
               <Treemap data={data} dataKey="size" nameKey="symbol" aspectRatio={4 / 3} isAnimationActive={false}

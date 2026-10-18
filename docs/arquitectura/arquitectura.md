@@ -88,7 +88,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Visão geral | Valor da carteira, saldo, resultado, instrumentos acompanhados e actividade |
 | Acompanhar | Catálogo partilhado, lista do utilizador, adicionar símbolos ou importar Excel/CSV com pré-visualização, botão «Validar agora» |
 | Instrumento | Último fecho e variação, gráfico diário (1M a 2A) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação |
-| HeatMap | Mapa de calor do catálogo ou da lista: tamanho pelo valor negociado, cor pela variação; período de 1, 5 ou 30 sessões |
+| HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5 ou 30 sessões |
 | Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |
 | Operações | Histórico filtrável por tipo, instrumento e datas |
 | Alertas | Regras com pré-visualização em linguagem natural, activação e eventos com o estado do envio |
@@ -115,7 +115,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Lista | `GET /watchlist`, `POST /watchlist/items`, `DELETE /watchlist/items/{id}` |
 | Carteira e operações | `GET /portfolio`, `GET /portfolio/positions`, `GET /simulated-trades/preview`, `POST /simulated-trades`, `GET /simulated-trades` |
 | Alertas | `GET/POST /alerts`, `PATCH/DELETE /alerts/{id}`, `GET /alerts/events` |
-| Mapa de calor | `GET /heatmap?period=1\|5\|30&scope=all\|watchlist` |
+| Mapa de calor | `GET /heatmap?period=1\|5\|30&scope=all\|watchlist&limit=20` |
 | Estado | `GET /status` |
 | Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}` |
 | Saúde | `GET /health/live`, `GET /health/ready` (fora de `/api/v1`) |
@@ -139,7 +139,7 @@ Por instrumento activo e para N ∈ {1, 5, 30} sessões:
 - variação = fecho ajustado da última sessão ÷ fecho ajustado N sessões antes − 1;
 - valor negociado = Σ fecho × volume das N sessões.
 
-A cor é verde acima de +1%, cinzenta entre −1% e +1% e vermelha abaixo de −1%. O resultado do catálogo fica em memória durante 10 minutos, porque as cotações só mudam com a recolha diária.
+Só são devolvidos os N instrumentos com maior valor negociado (20 por omissão), com o total disponível. A cor é verde acima de +1%, cinzenta entre −1% e +1% e vermelha abaixo de −1%. O resultado do catálogo fica em memória durante 10 minutos, porque as cotações só mudam com a recolha diária.
 
 ### 4.3. Base de dados
 
