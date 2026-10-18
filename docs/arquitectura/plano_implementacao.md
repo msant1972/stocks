@@ -1,414 +1,188 @@
 # Plano de Implementação — Plataforma de Simulação e Acompanhamento de Acções
 
-## Estado (18 out. 2026)
+Estado em 18 out. 2026. Versão 1 em produção em https://stocks.graus.pt, no ramo `main`.
 
-As fases F0 a F7 estão implementadas e a versão 1 está em produção em https://stocks.graus.pt. A arquitectura implementada está descrita em [Arquitectura](arquitectura.md).
+Documentos relacionados: [Arquitectura](arquitectura.md) (o que está construído), [Análise e decisões](analise_e_decisoes.md) (porquê), [Guia de estilos](guia_estilos.md) (interface) e [deploy/README.md](../../deploy/README.md) (operação).
 
-Acrescentado além do plano inicial:
-- indicadores técnicos (EMA9, SMA10/50/125/200) guardados na BD e gráfico de momento (SMA10/SMA200 e SMA8/SMA125);
-- estratégia de momento simulada no histórico, com zona neutra, filtro de venda pelo SMA8/SMA125 e compras de reforço (o backtesting estava inicialmente fora do âmbito; não há negociação automática);
-- módulo HeatMap (top 20 por valor negociado) e quadro «Momento do mercado» na Visão geral;
-- botão «Validar agora» com arranque imediato do motor de recolha, e coluna Volume em Acompanhar;
-- gestão de utilizadores na interface;
-- configuração SMTP em Definições (palavra-passe cifrada na BD) com email de teste, usada pelo motor de alertas;
-- capital virtual inicial de 1 000 000 EUR por omissão.
+## 1. Resumo
 
-Pendente: introduzir os dados do fornecedor SMTP em Definições, cópias de segurança fora do servidor e as decisões em aberto listadas na secção 9 da arquitectura. O restante deste documento mantém-se como registo do plano original.
+As oito fases do plano (F0 a F7) foram executadas e a aplicação está publicada com HTTPS, recolha diária agendada, alertas e cópias de segurança diárias. Depois da publicação foram acrescentadas várias funcionalidades a pedido (secção 4), entre elas a simulação de uma estratégia no histórico, que estava fora do âmbito inicial.
 
-## 1. Objectivo do plano
+Para considerar a versão 1 operacionalmente fechada, falta:
 
-Implementar uma primeira versão funcional da aplicação, organizada em cinco módulos: interface React, middleware/API Node.js, base de dados MariaDB, motor de recolha Python e motor de alertas Python.
+1. introduzir os dados do fornecedor SMTP em Definições e enviar um email de teste;
+2. passar a carteira de produção para 1 000 000 € (comandos na secção 8);
+3. copiar as cópias de segurança para fora do servidor e demonstrar um restauro.
 
-Este plano é uma proposta de execução. As durações são estimativas de planeamento, não compromissos de entrega. O início depende da validação do âmbito, da disponibilidade da equipa e do acesso aos serviços externos.
+## 2. Âmbito
 
-## 2. Âmbito da primeira versão
+### 2.1. Requisitos (todos cumpridos)
 
-### 2.1. Requisitos confirmados
-
-- Negociação exclusivamente simulada e acompanhamento de acções.
+- Negociação exclusivamente simulada e acompanhamento de acções; sem operações reais nem corretoras.
 - Histórico de dois anos por instrumento, com granularidade diária.
-- Alertas por email com frequência máxima de uma notificação por hora, cumprida com um email de resumo por utilizador após cada recolha diária.
-- Cinco módulos funcionais, de acordo com a arquitectura definida.
-- Ausência de operações reais ou integração com corretoras.
+- Alertas por email com no máximo uma notificação por hora, cumprido com um resumo por utilizador após cada recolha diária e um intervalo mínimo de 60 minutos.
+- Cinco módulos: interface React, API Node.js, MariaDB, motor de recolha Python e motor de alertas Python.
 
-### 2.2. Decisões tomadas (18 out. 2026)
+### 2.2. Decisões aplicadas
 
-Detalhe e justificação em [Análise e decisões](analise_e_decisoes.md).
+Detalhe em [Análise e decisões](analise_e_decisoes.md).
 
-- Utilizadores: grupo privado.
-- Fonte de dados: yfinance, atrás de um adaptador substituível e com versão fixada.
-- Uma carteira por utilizador, em EUR; só são aceites instrumentos cotados em EUR, verificado pela moeda devolvida pelo fornecedor.
-- Catálogo global partilhado, preenchido à mão ou por importação de Excel, com validação assíncrona pelo motor de recolha.
-- Alertas: um email de resumo por utilizador após cada recolha diária.
-- Recolha diária nos dias úteis às 19h00 de Lisboa.
-- Cotações não são apagadas; os dois anos definem a profundidade da carga inicial.
-- Fecho não ajustado e ajustado guardados na mesma linha; operações com o não ajustado, gráficos com o ajustado.
-- Migrações versionadas em `db/migrations/`, no formato dbmate, como fonte única do esquema.
+- Grupo privado de utilizadores; contas criadas por administradores.
+- yfinance atrás de um adaptador substituível, com versão fixada.
+- Instrumentos e carteira em EUR; catálogo global partilhado com importação de Excel.
+- Recolha nos dias úteis às 19h00 de Lisboa; cotações nunca apagadas.
+- Operações ao último fecho não ajustado; gráficos e indicadores sobre o fecho ajustado.
+- Quantidades inteiras, sem posições curtas nem comissões; custo médio ponderado.
+- Capital virtual inicial de 1 000 000 € por omissão.
 
-### 2.3. Propostas a validar na fase inicial
+### 2.3. Fora do âmbito (mantém-se)
 
-- Simulações executadas ao último fecho diário disponível, claramente identificado.
-- Quantidades inteiras, sem posições curtas, alavancagem ou derivados.
-- Capital inicial configurável; reposição de capital fora do fluxo normal do MVP.
-- Custo médio ponderado para cálculo do custo de aquisição.
-- Sem comissões, dividendos ou ajustamentos automáticos de eventos societários no MVP.
-- Apenas instrumentos cuja política de preços e eventos societários tenha sido validada no piloto.
-- Alertas iniciais de fecho acima/abaixo de um limite e variação percentual entre sessões.
-- Contas criadas por comando de administração (CLI), sem registo público.
+- Negociação real, pagamentos, corretoras e custódia.
+- Cotações intradiárias e alertas em tempo real.
+- Negociação automática: a estratégia só é simulada no histórico e não executa operações.
+- Aplicações móveis nativas, carteiras multimoeda, vendas a descoberto e tratamento completo de dividendos e desdobramentos.
+- Alta disponibilidade.
 
-Qualquer alteração destas decisões ou propostas deverá actualizar o âmbito, os testes e a estimativa.
+## 3. Execução das fases
 
-### 2.4. Fora do âmbito
-
-- Negociação real, pagamentos, integração com corretoras e custódia de activos.
-- Streaming, cotações intradiárias e alertas de mercado em tempo real.
-- Aplicações móveis nativas.
-- Backtesting de estratégias e negociação automática.
-- Carteiras multimoeda, vendas a descoberto e tratamento completo de dividendos e desdobramentos.
-- Alta disponibilidade distribuída na primeira implantação.
-
-## 3. Equipa, duração e premissas
-
-### 3.1. Equipa de referência
-
-| Papel | Participação prevista |
-|---|---|
-| Responsável funcional | Validação de regras, prioridades e aceitação; disponibilidade semanal |
-| Programador full-stack | Desenvolvimento React, Node.js, Python, integração e testes |
-| Apoio de infraestrutura/DevOps | Ambientes, pipeline, segurança, publicação e recuperação |
-| Apoio QA/segurança | Revisão de testes e validação antes do piloto |
-
-Os papéis podem ser acumulados, mas a capacidade e o prazo devem ser revistos quando isso acontecer.
-
-### 3.2. Estimativa de referência
-
-- Execução base: dez semanas de calendário.
-- Reserva de planeamento: duas semanas adicionais.
-- Horizonte indicativo: dez a doze semanas, a confirmar após a prova de conceito do fornecedor de dados.
-- Esforço indicativo de desenvolvimento: 40 a 50 dias-pessoa.
-- Esforço adicional de apoio técnico e validação: 6 a 10 dias-pessoa, distribuídos pelo projecto.
-
-A estimativa pressupõe um programador experiente com dedicação predominante, uma interface simples, um conjunto limitado de mercados no piloto e ausência de alterações significativas ao âmbito. Não se deve somar o esforço de várias pessoas e tratá-lo directamente como duração de calendário.
-
-## 4. Cronograma e marcos
-
-| Fase | Janela indicativa | Resultado | Dependências |
+| Fase | Resultado previsto | Estado | Observações |
 |---|---|---|---|
-| F0 — Requisitos e prova de conceito | Semana 1 | Âmbito e fonte de dados validados | Acesso aos serviços e responsável funcional |
-| F1 — Fundação técnica | Semana 2 | Repositório, ambientes, base de dados e pipeline | F0 aprovada |
-| F2 — Recolha e histórico | Semanas 3–4 | Dois anos de dados diários consultáveis | F1 e contrato de dados |
-| F3 — API e acompanhamento | Semanas 4–5 | Login, pesquisa, watchlist e gráficos | Fundação da API e dados de F2 |
-| F4 — Carteira e simulação | Semanas 6–7 | Compras, vendas e resultados simulados | F3 e regras de simulação fechadas |
-| F5 — Alertas e email | Semana 8 | Regras, limitação horária e registos | F2, autenticação e SMTP |
-| F6 — Integração e endurecimento | Semana 9 | Versão candidata testada | F2 a F5 concluídas |
-| F7 — Piloto e publicação | Semana 10 | Aceitação e aplicação operacional | F6 aprovada |
-| Reserva | Semanas 11–12, se necessária | Correcções e imprevistos | Aprovação do responsável |
+| F0 — Requisitos e prova de conceito | Âmbito e fonte validados | Concluída | Decisões registadas; prova de conceito do motor de recolha; lista inicial de 41 símbolos. O SMTP não foi confirmado nesta fase |
+| F1 — Fundação técnica | Repositório, ambientes, BD, pipeline | Concluída, com lacunas | Stack fixada, migrações dbmate, OpenAPI gerado, CI com testes em cada componente. Falta análise estática (lint) e auditoria de dependências no CI; desenvolvimento e produção partilham o servidor |
+| F2 — Recolha e histórico | Dois anos consultáveis | Concluída | 295 instrumentos activos, cerca de 148 mil sessões; idempotência, validação, novas tentativas e concorrência testadas |
+| F3 — API e acompanhamento | Login, pesquisa, lista, gráficos | Concluída | Isolamento entre utilizadores testado; importação de Excel com pré-visualização |
+| F4 — Carteira e simulação | Operações transaccionais | Concluída | Concorrência, idempotência, custo médio e aritmética decimal exacta testados |
+| F5 — Alertas e email | Regras, resumo, registos | Concluída, sem envio real | Resumo por utilizador, desduplicação, envios falhados e incertos testados. Envio real pendente do fornecedor SMTP |
+| F6 — Integração e segurança | Versão testada, restauro demonstrado | Parcial | Testes ponta a ponta no browser, revisão de sessões, CSRF, CSP e segredos. Falta demonstrar o restauro, medir desempenho com carga e registar controlos OWASP ASVS |
+| F7 — Piloto e publicação | Aplicação em produção | Concluída | Publicada com Caddy (HTTPS), systemd e backup diário. Piloto informal com o responsável funcional, sem aceitação formal registada |
 
-Na semana 4, as tarefas de F2 e F3 são sequenciadas dentro da capacidade disponível; não se pressupõe que o mesmo programador execute ambas a tempo inteiro.
+Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução foi feita com apoio de IA num único dia (18 out. 2026), com o responsável funcional a validar cada passo. As lacunas acima resultam sobretudo das actividades que exigem tempo de calendário: piloto, restauro testado e medições de carga.
 
-Marcos de aprovação:
+## 4. Funcionalidades acrescentadas após o plano inicial
 
-- M0: requisitos e política de dados aprovados.
-- M1: histórico diário validado e API de consulta funcional.
-- M2: simulação transaccional aprovada.
-- M3: alertas, email de resumo e desduplicação aprovados.
-- M4: piloto, recuperação e publicação aprovados.
+| Funcionalidade | Descrição |
+|---|---|
+| Indicadores técnicos | EMA9, SMA10/50/125/200 guardados na BD e recalculados em cada recolha; botões para os mostrar no gráfico |
+| Gráfico de momento | SMA10/SMA200 − 1 (verde a subir, vermelho a descer) e SMA8/SMA125 − 1, sincronizado com o histórico |
+| Estratégia de momento | Simulação no histórico: compra 15 000 € após descer-subir-subir, vende após subir-descer-descer com SMA8/SMA125 < 1%, ignora sinais com SMA10/SMA200 entre −1% e +1%, reforça a cada +10% desde a última compra |
+| HeatMap | Treemap dos 20 instrumentos com maior valor negociado em 1, 5 ou 30 sessões |
+| Momento do mercado | Quadro na Visão geral com a distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos |
+| Validar agora | Arranque imediato do motor de recolha (unit `.path` do systemd) e botão para forçar a validação |
+| Coluna Volume | Volume da última sessão em Acompanhar |
+| Gestão de utilizadores | Página para administradores: criar, redefinir palavra-passe, remover |
+| Configuração SMTP | Em Definições, com palavra-passe cifrada na BD e email de teste pelo motor de alertas |
+| Capital de 1 M€ | Valor por omissão das contas novas |
 
-## 5. Plano detalhado por fase
+## 5. Backlog
 
-### F0 — Requisitos e prova de conceito
-
-Tarefas:
-
-- Validar as propostas da secção 2.3 e registar decisões.
-- Conjunto piloto: lista inicial de 41 instrumentos cotados em EUR (`engines/fetcher/seeds/instrumentos_iniciais.txt`).
-- Confirmar identificação por instrumento e mercado, datas de sessão e fuso horário.
-- Ensaiar a recolha de dois anos diários, dados em falta e actualizações incrementais.
-- Validar abertura, máximo, mínimo, fecho, volume e política de preços ajustados.
-- Avaliar eventos societários: não misturar séries ajustadas e não ajustadas; documentar limitações e tratamento de posições afectadas.
-- Confirmar SMTP, destinatários de teste e credenciais.
-- Desenhar e validar os ecrãs principais.
-
-Decidido: yfinance para um grupo privado. A documentação do projecto declara que não é uma integração oficial da Yahoo, remete para os termos da Yahoo e alerta para utilização pessoal; o risco é aceite para este cenário, mas a viabilidade de um serviço aberto a terceiros não deve ser assumida.
-
-Estado: a prova de conceito do motor de recolha está concluída (carga de dois anos, actualização incremental, validação da moeda, testes com fornecedor simulado).
-
-Entregáveis:
-
-- Backlog priorizado e regras de negócio.
-- Registo das decisões de arquitectura.
-- Prova de conceito de dados e SMTP.
-- Esboços dos ecrãs.
-
-Critério de saída: fonte tecnicamente adequada para o cenário pretendido, ou decisão de substituir o fornecedor antes de avançar.
-
-### F1 — Fundação técnica e infraestrutura
-
-Tarefas:
-
-- Criar repositório com áreas frontend, API, motores, migrações e documentação.
-- Definir versões suportadas e fixar dependências.
-- Criar ambientes local e de testes; preparar produção separada.
-- Implementar pipeline com análise estática, testes e construção dos artefactos.
-- Criar esquema inicial e migrações versionadas.
-- Configurar segredos, logs, HTTPS e contas de serviço.
-- Definir o contrato OpenAPI e o formato comum de erros.
-- Preparar autenticação e autorização de base.
-
-Modelo de implantação proposto: serviços separados no Ubuntu, geridos por systemd, com proxy inverso HTTPS. O frontend é publicado como conteúdo estático. Docker pode ser adoptado mediante decisão explícita, sem duplicar abordagens de implantação.
-
-Critério de saída: instalação repetível num ambiente vazio, API com health check e migrações executadas com sucesso.
-
-### F2 — Base de dados e motor de recolha
-
-Tarefas:
-
-- Criar instrumentos (com estado de validação), cotações, tarefas de carga e estados de recolha.
-- Definir unicidade por instrumento e data de sessão.
-- Implementar carga inicial de dois anos e actualização incremental.
-- Fazer inserção/actualização idempotente e tratar correcções do fornecedor.
-- Validar valores, cobertura, moeda e datas.
-- Implementar novas tentativas com espera progressiva e limite configurável.
-- Impedir sobreposição de recolhas do mesmo instrumento.
-- Validar no fornecedor os instrumentos adicionados e rejeitar os que não estão cotados em EUR.
-- Não apagar cotações; os dois anos definem a profundidade da carga inicial.
-- Disponibilizar métricas da última sessão recolhida e dos erros.
-
-Entregáveis:
-
-- Migrações de instrumentos e cotações.
-- Comando de carga inicial e processo agendado incremental.
-- Relatório de cobertura e falhas do conjunto piloto.
-
-Estado: migração, carga inicial, actualização incremental e testes implementados na prova de conceito; falta instalar os timers systemd e produzir o relatório do conjunto piloto.
-
-Critérios de saída:
-
-- Recolhas repetidas não criam duplicações.
-- Instrumentos com menos de dois anos apresentam cobertura real, sem dados fabricados.
-- Fins de semana e feriados não são preenchidos como sessões artificiais.
-- Uma falha num instrumento não interrompe todos os restantes.
-
-### F3 — API, autenticação e interface de acompanhamento
-
-Tarefas:
-
-- Implementar início e fim de sessão e protecção dos endpoints.
-- Validar propriedade dos recursos em todas as operações.
-- Criar pesquisa no catálogo, detalhe de instrumento, histórico paginado e watchlist.
-- Adicionar instrumentos ao catálogo à mão e por importação de Excel (modelo descarregável; só a coluna `ticker` é obrigatória), com pré-visualização de linhas válidas, duplicadas e com erro.
-- Mostrar os estados «A validar», «Activo» e «Inválido».
-- Construir gráficos diários e estados de carregamento/erro.
-- Mostrar data da cotação, moeda, cobertura e aviso de dados desactualizados.
-- Definir um limiar de desactualização adequado ao calendário das sessões.
-- Criar testes de isolamento entre utilizadores.
-
-Critério de saída: um utilizador autenticado acompanha instrumentos e consulta o histórico sem conseguir aceder aos recursos privados de outro utilizador.
-
-### F4 — Carteira virtual e simulação
-
-Tarefas:
-
-- Criar carteira, movimentos de saldo, operações e posições.
-- Usar representação decimal para quantidades monetárias, com política de arredondamento explícita.
-- Validar saldo e quantidade antes de concluir operações.
-- Guardar preço aplicado, moeda, data da cotação e instante do pedido.
-- Implementar idempotência dos pedidos de operação.
-- Aplicar transacções e controlo de concorrência nas actualizações do saldo e das posições.
-- Calcular custo médio, ganhos realizados e valorização não realizada.
-- Mostrar aviso de execução simplificada ao último fecho disponível.
-
-A implementação de concorrência poderá usar bloqueio de linhas com SELECT FOR UPDATE dentro de uma transacção. A documentação MariaDB esclarece que a cláusula depende de uma transacção ou de autocommit desactivado para produzir o efeito esperado no InnoDB.
-
-Critérios de saída:
-
-- Duas compras concorrentes não podem gastar o mesmo saldo.
-- Uma venda não pode tornar a posição negativa.
-- Repetir um pedido com a mesma chave de idempotência não duplica a operação.
-- Uma falha a meio da operação não deixa saldo, posição e histórico inconsistentes.
-- Os resultados coincidem com cenários de referência calculados para os testes.
-
-### F5 — Motor de alertas e SMTP
-
-Tarefas:
-
-- Criar regras por instrumento e utilizador.
-- Avaliar regras após actualização das cotações diárias, encadeado no fim da recolha.
-- Registar eventos com chave única por regra, sessão e tipo de condição.
-- Agrupar os eventos novos de cada utilizador num único email de resumo.
-- Reservar tarefas atomicamente para impedir dois processos de enviarem o mesmo resumo em simultâneo.
-- Criar o template do resumo com, para cada evento, instrumento, condição, valor, moeda e data da cotação.
-- Registar tentativas, estados e falhas SMTP.
-- Implementar repetição limitada e painel de diagnóstico.
-
-Política decidida: um email de resumo por utilizador por execução. Como só há uma recolha por dia, o limite de uma hora fica cumprido sem política de eventos pendentes. Um evento cujo envio falhou entra no resumo da execução seguinte.
-
-O agrupamento e a desduplicação são controlos distintos. Não se deve prometer entrega exactamente uma vez por SMTP: se o servidor aceitar a mensagem e a ligação falhar antes da confirmação local, pode existir incerteza. Nesses casos, registar estado incerto e aplicar a política de reconciliação aprovada, evitando reenvio cego.
-
-Critérios de saída:
-
-- Cada utilizador recebe no máximo um email de resumo por execução.
-- Reavaliar o mesmo evento não produz novo envio após sucesso registado.
-- Reiniciar processos não elimina o histórico de controlo.
-- Falhas e estados incertos ficam visíveis para diagnóstico.
-
-### F6 — Integração, segurança e fiabilidade
-
-Tarefas:
-
-- Executar testes ponta a ponta e regressão.
-- Rever autenticação, sessões, autorização, validação de entradas e gestão de segredos.
-- Testar injecção SQL, acesso indevido a recursos e limitação de pedidos.
-- Verificar dependências e remover credenciais de logs.
-- Ensaiar indisponibilidade do fornecedor e do SMTP.
-- Executar testes de concorrência das operações e dos alertas.
-- Medir tempos de resposta com um volume de dados e concorrência aprovados na F0.
-- Realizar backup e restauro completo num ambiente separado.
-
-Usar o OWASP ASVS como referência para seleccionar e registar os controlos de segurança e os respectivos testes, sem alegar certificação automática por seguir uma lista.
-
-Critério de saída: nenhum defeito bloqueante ou crítico aberto, testes essenciais aprovados e restauro demonstrado.
-
-### F7 — Piloto, aceitação e publicação
-
-Tarefas:
-
-- Disponibilizar a versão candidata a um grupo piloto.
-- Validar os cenários de aceitação com o responsável funcional.
-- Corrigir defeitos e actualizar documentação.
-- Preparar configuração de produção, DNS e TLS.
-- Confirmar backups, monitorização e notificações operacionais.
-- Publicar versão identificada e executar testes rápidos pós-publicação.
-- Entregar o procedimento de operação e recuperação.
-
-Critério de saída: aceitação formal, aplicação publicada, responsáveis identificados e procedimento de rollback validado.
-
-## 6. Backlog prioritário
-
-| ID | Item | Prioridade | Aceitação resumida |
+| ID | Item | Prioridade | Estado |
 |---|---|---|---|
-| US01 | Autenticação | P0 | Sessões e isolamento de utilizadores testados |
-| US02 | Pesquisa de instrumentos | P0 | Identificação inequívoca pelo símbolo Yahoo (inclui o mercado) |
-| US02b | Adicionar e importar instrumentos | P0 | Introdução manual e importação de Excel com pré-visualização; estados de validação visíveis |
-| US03 | Histórico diário | P0 | Até dois anos disponíveis, sem duplicação |
-| US04 | Watchlist | P1 | Adicionar/remover apenas da própria lista |
-| US05 | Carteira virtual | P0 | Capital inicial e saldo coerentes |
-| US06 | Compra simulada | P0 | Saldo validado e operação atómica |
-| US07 | Venda simulada | P0 | Quantidade validada e operação atómica |
-| US08 | Posições e resultados | P0 | Valores conferidos com cenários de referência |
-| US09 | Regras de alerta | P0 | Activação, edição e desactivação funcionais |
-| US10 | Envio de alertas | P0 | Resumo único por utilizador e desduplicação testados |
-| US11 | Estado das recolhas | P1 | Última execução e erros visíveis |
-| US12 | Backup e recuperação | P0 | Restauro integral demonstrado |
+| US01 | Autenticação | P0 | Feito |
+| US02 | Pesquisa de instrumentos | P0 | Feito |
+| US02b | Adicionar e importar instrumentos | P0 | Feito |
+| US03 | Histórico diário | P0 | Feito |
+| US04 | Lista de acompanhamento | P1 | Feito |
+| US05 | Carteira virtual | P0 | Feito |
+| US06 | Compra simulada | P0 | Feito |
+| US07 | Venda simulada | P0 | Feito |
+| US08 | Posições e resultados | P0 | Feito |
+| US09 | Regras de alerta | P0 | Feito |
+| US10 | Envio de alertas | P0 | Feito; envio real depende do SMTP |
+| US11 | Estado das recolhas | P1 | Feito (`/status`, Definições, «Validar agora») |
+| US12 | Backup e recuperação | P0 | Parcial: backup diário activo; falta cópia externa e restauro demonstrado |
+| US13 | Indicadores e momento | — | Feito |
+| US14 | Estratégia simulada | — | Feito |
+| US15 | HeatMap e momento do mercado | — | Feito |
+| US16 | Gestão de utilizadores | — | Feito |
+| US17 | Configuração SMTP na interface | — | Feito |
 
-P0 indica indispensável à publicação; P1 indica importante mas adiável mediante decisão explícita. A redução do âmbito não pode eliminar controlos de integridade ou segurança.
+## 6. Testes
 
-## 7. Modelo de dados a implementar
-
-| Grupo | Tabelas lógicas propostas |
-|---|---|
-| Identidade | users, sessions |
-| Mercado | instruments, daily_quotes, fetch_jobs |
-| Acompanhamento | watchlists, watchlist_items |
-| Simulação | portfolios, cash_movements, simulated_trades, positions |
-| Alertas | alert_rules, alert_events, email_deliveries |
-| Operação | audit_log, job_runs |
-
-`instruments`, `daily_quotes` e `fetch_jobs` já existem (`db/migrations/20261018000001_instrumentos_cotacoes.sql`). Os restantes nomes e a normalização final serão definidos em F1. Todas as alterações são introduzidas por migrações versionadas no formato dbmate. Os estados e relações devem ter restrições e índices adequados.
-
-Convenções propostas:
-
-- Instantes técnicos em UTC; data de sessão separada segundo o mercado.
-- Fecho não ajustado (`close`) para operações e fecho ajustado (`adj_close`) para gráficos.
-- Valores monetários em DECIMAL, com precisão definida no desenho detalhado.
-- Chaves únicas para cotações, pedidos idempotentes e eventos de alerta.
-- Preço de execução e data da cotação preservados nas operações.
-- Registos de auditoria sem passwords, tokens ou credenciais SMTP.
-
-## 8. Contrato de API inicial
-
-| Área | Endpoints indicativos |
-|---|---|
-| Sessão | POST /api/v1/auth/login; POST /api/v1/auth/logout; GET /api/v1/me |
-| Instrumentos | GET /api/v1/instruments; GET /api/v1/instruments/{id}; POST /api/v1/instruments; POST /api/v1/instruments/import; GET /api/v1/instruments/import/template |
-| Histórico | GET /api/v1/instruments/{id}/quotes?from=...&to=... |
-| Watchlist | GET /api/v1/watchlist; POST /api/v1/watchlist/items; DELETE /api/v1/watchlist/items/{id} |
-| Carteira | GET /api/v1/portfolio; GET /api/v1/portfolio/positions |
-| Operações | POST /api/v1/simulated-trades; GET /api/v1/simulated-trades |
-| Alertas | GET/POST /api/v1/alerts; PATCH/DELETE /api/v1/alerts/{id} |
-| Operação | GET /health/live; GET /health/ready |
-
-O contrato deverá definir paginação, limites, validação, autenticação, idempotência e formato dos erros. Endpoints de diagnóstico detalhado não devem expor dados internos publicamente.
-
-## 9. Estratégia de testes
-
-| Categoria | Cenários essenciais |
-|---|---|
-| Unitários | Custo médio, saldo, condições de alerta, arredondamento e agrupamento do resumo |
-| Base de dados | Unicidade, transacções, migrações e concorrência |
-| Fornecedor | Timeouts, falhas parciais, correcções e histórico incompleto |
-| API | Autorização, validação, paginação e idempotência |
-| Interface | Login, gráficos, estados de erro, compra/venda e alertas |
-| Email | Sucesso, falha, reinício, concorrência, resumo único e estado incerto |
-| Recuperação | Backup, restauro, reinício e reconciliação de tarefas |
-| Segurança | Sessões, acesso entre utilizadores e ausência de segredos nos logs |
-
-Os testes automáticos usam dados e relógio controlados; a passagem do pipeline não depende da disponibilidade do Yahoo Finance nem de email real. Os testes com serviços externos ficam separados e identificados.
-
-## 10. Riscos e mitigação
-
-| Risco | Mitigação | Responsável |
+| Componente | Ferramenta | Testes |
 |---|---|---|
-| Fonte sem adequação técnica ou direitos de uso | Uso restrito a grupo privado; adaptador substituível e versão fixada | Responsável funcional e desenvolvimento |
-| Alterações no yfinance (bloqueios 429, endpoints, valores por omissão) | Versão fixada, testes com fornecedor simulado, novas tentativas com espera progressiva | Desenvolvimento |
-| Dados atrasados ou incompletos | Mostrar antiguidade e cobertura; política de bloqueio aprovada | Desenvolvimento |
-| Eventos societários distorcem posições | Política explícita e restrições do MVP; sinalizar casos afectados | Responsável funcional |
-| Gastos concorrentes do saldo | Transacções, bloqueio e testes concorrentes | Desenvolvimento |
-| Alertas repetidos | Chaves únicas, reserva atómica e controlo persistente | Desenvolvimento |
-| Aceitação SMTP ambígua | Estado incerto e reconciliação, sem reenvio automático cego | Desenvolvimento e operação |
-| Falha do servidor único | Backups, restauro testado e risco aceite | Infraestrutura |
-| Aumento do âmbito | Backlog aprovado e controlo de alterações | Responsável funcional |
-| Ausência de dedicação prevista | Rever capacidade e replanear marcos | Coordenação |
+| API | Vitest contra a base `stocks_test` | 54 |
+| Motor de recolha | pytest, fornecedor simulado | 21 |
+| Motor de alertas | pytest, mailer simulado | 18 |
+| Frontend (cálculos) | `node --test` | 11 |
 
-## 11. Publicação e rollback
+O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pull request, com MariaDB 10.11, e verifica que o contrato OpenAPI está actualizado. Os testes nunca contactam o Yahoo nem enviam emails. Cada funcionalidade de interface foi também verificada no browser (Chromium headless) em desktop e telemóvel, com uma cópia dos dados reais na base de testes.
 
-Checklist de publicação:
+## 7. Riscos
 
-- [ ] Âmbito e regras aprovados.
-- [ ] Fonte de dados validada para a utilização pretendida.
-- [ ] Configuração e segredos de produção verificados.
-- [ ] Migrações ensaiadas e backup pré-publicação disponível.
-- [ ] Testes de saldo, concorrência e isolamento aprovados.
-- [ ] Testes de resumo único e duplicação de alertas aprovados.
-- [ ] Logs, monitorização e alertas operacionais activos.
-- [ ] Backup e restauro demonstrados.
-- [ ] Piloto aceite e limitações comunicadas.
-- [ ] Procedimento de rollback aprovado.
+| Risco | Mitigação | Estado |
+|---|---|---|
+| Fonte de dados não oficial | Uso privado; adaptador substituível; versão fixada | Aceite |
+| Alterações no yfinance (429, endpoints) | Novas tentativas com espera progressiva; testes com fornecedor simulado | Mitigado |
+| Dados do fornecedor incorrectos | Validação das sessões; releitura de 7 dias; datas visíveis | Mitigado (ex.: fechos repetidos observados a 16 out.) |
+| Eventos societários | Gráficos ajustados; limitação documentada | Aceite |
+| Gastos concorrentes do saldo | Transacções, bloqueio da carteira, testes concorrentes | Resolvido |
+| Alertas repetidos | Chave única por regra e sessão; reserva por utilizador | Resolvido |
+| Aceitação SMTP ambígua | Estado `uncertain`, sem reenvio cego | Resolvido |
+| Servidor único | Backup diário local | Pendente: cópia externa e restauro testado |
+| Perda da chave de cifra | Chave criada uma vez e nunca substituída | Aceite: perdê-la obriga a reintroduzir a palavra-passe SMTP |
+| Desenvolvimento no servidor de produção | Base de testes separada; publicação só com `install.sh` | Pendente: ambiente de testes separado |
+| Aumento do âmbito | Alterações pequenas, com testes e commit por funcionalidade | Em curso |
 
-Rollback proposto:
+## 8. Próximos passos
 
-1. Suspender novas operações simuladas e envios, preservando logs e eventos.
-2. Avaliar compatibilidade da versão anterior com o esquema actual.
-3. Repor a versão anterior apenas quando essa compatibilidade estiver garantida.
-4. Se for necessário restaurar dados, obter aprovação explícita para a perda ou reconciliação das escritas posteriores ao backup.
-5. Validar saldos, posições, recolhas e notificações antes de retomar os processos.
+### P0 — fechar a versão 1
 
-## 12. Documentação e entrega
+1. **SMTP:** escolher o fornecedor, preencher Definições → Envio de email (SMTP), enviar um email de teste, e configurar SPF e DKIM se o remetente usar `graus.pt`.
+2. **Capital da carteira de produção:** passar a carteira existente para 1 000 000 € (o modo automático bloqueou a alteração; tem de ser corrida pelo administrador):
+   ```bash
+   sudo sed -i 's/^STOCKS_INITIAL_CAPITAL=.*/STOCKS_INITIAL_CAPITAL=1000000.00/' /etc/stocks/stocks.env && sudo systemctl restart stocks-api
+   sudo mariadb stocks -e "START TRANSACTION;
+     UPDATE portfolios SET cash_balance = cash_balance + (1000000.00 - initial_capital), initial_capital = 1000000.00 WHERE id = 1 AND initial_capital = 10000.00;
+     UPDATE cash_movements SET amount = 1000000.00 WHERE portfolio_id = 1 AND kind = 'initial';
+     COMMIT;"
+   ```
+3. **Cópias de segurança:** copiar `/var/backups/stocks` para fora do servidor (S3 ou snapshots EBS) e fazer um restauro de teste numa base separada, registando o resultado.
 
-Entregáveis finais:
+### P1 — robustez
 
-- Código-fonte e instruções de instalação.
-- Arquitectura actualizada e decisões registadas.
-- Modelo de dados e migrações.
-- Contrato OpenAPI.
-- Testes automáticos e resultados de aceitação.
-- Manual de utilização com as limitações da simulação.
-- Guia de configuração de dados e SMTP.
-- Procedimentos de publicação, backup, restauro e rollback.
-- Lista de limitações conhecidas e backlog de evolução.
+4. Análise estática (ESLint, Ruff) e auditoria de dependências (`npm audit`, `pip-audit`) no CI.
+5. Ambiente de testes separado da produção (outra máquina ou contentores), e trabalho por ramos com pull requests.
+6. Contas de BD por componente (API e motores com permissões mínimas).
+7. Alerta operacional ao administrador quando a recolha diária ou os alertas falham (`job_runs` em `failed`).
+8. Medição de desempenho com o volume real e registo dos controlos OWASP ASVS aplicados.
 
-## 13. Critério global de conclusão
+### P2 — evolução funcional (a decidir com o responsável funcional)
 
-A primeira versão considera-se concluída quando permite acompanhar instrumentos com histórico diário disponível até dois anos, simular compras e vendas com integridade de saldo e posições, gerir alertas por email com um resumo por utilizador após cada recolha diária e operar com monitorização e recuperação testadas.
+9. Estratégia: opção de execução ao fecho do dia seguinte (mais realista), parâmetros configuráveis e aplicação a vários instrumentos de uma vez.
+10. Histórico: períodos «5A» e «Tudo» no gráfico à medida que o histórico cresce.
+11. Simulação: comissões opcionais e tratamento de desdobramentos nas posições.
+12. Logótipos ou categorias por sector no HeatMap, se houver fonte com direitos de uso.
 
-A aceitação depende dos critérios funcionais e operacionais, não apenas da conclusão do código. A aplicação deve comunicar de forma inequívoca que não executa operações reais e que utiliza dados diários, não cotações em tempo real.
+## 9. Publicação e rollback
+
+Lista de verificação da versão 1:
+
+- [x] Âmbito e regras aprovados (validação contínua com o responsável funcional).
+- [x] Fonte de dados validada para uso privado.
+- [x] Configuração e segredos de produção em `/etc/stocks` (modo 640).
+- [x] Migrações aplicadas com dbmate pelo `install.sh`.
+- [x] Testes de saldo, concorrência e isolamento aprovados.
+- [x] Testes de resumo único e desduplicação de alertas aprovados.
+- [ ] Monitorização com alerta operacional (hoje: `journalctl`, `/status` e Definições).
+- [ ] Backup externo e restauro demonstrado (hoje: backup diário local).
+- [ ] Envio real de email verificado (pendente do fornecedor SMTP).
+- [x] Procedimento de rollback documentado em [deploy/README.md](../../deploy/README.md).
+
+Rollback:
+
+1. Suspender os timers (`stocks-fetcher-run`, `stocks-daily`), preservando logs e eventos.
+2. Verificar se a versão anterior é compatível com o esquema actual; as migrações não são revertidas automaticamente.
+3. `git checkout <versão anterior>` e `sudo deploy/install.sh`.
+4. Se for preciso restaurar dados, obter aprovação explícita para a perda ou reconciliação das escritas posteriores ao backup.
+5. Validar saldos, posições, recolhas e alertas antes de retomar os timers.
+
+## 10. Critério de conclusão
+
+A versão 1 considera-se concluída quando permite:
+
+- acompanhar instrumentos com histórico diário até dois anos — **cumprido**;
+- simular compras e vendas com integridade de saldo e posições — **cumprido**;
+- gerir alertas por email com um resumo por utilizador após cada recolha diária — **cumprido; falta o envio real (SMTP)**;
+- operar com monitorização e recuperação testadas — **parcial: falta alerta operacional, cópia externa e restauro demonstrado**.
+
+A aplicação comunica de forma inequívoca que não executa operações reais e que usa dados diários, não cotações em tempo real.
