@@ -41,8 +41,13 @@ def settings():
 def conn(settings):
     c = db.connect(settings)
     with c.cursor() as cur:
-        for table in ("fetch_jobs", "daily_quotes", "instruments"):
-            cur.execute(f"DROP TABLE IF EXISTS {table}")
+        # Recria o esquema completo: as tabelas das outras migrações têm chaves estrangeiras
+        # para instruments, por isso apagam-se todas.
+        cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+        cur.execute("SHOW TABLES")
+        for row in cur.fetchall():
+            cur.execute(f"DROP TABLE `{next(iter(row.values()))}`")
+        cur.execute("SET FOREIGN_KEY_CHECKS = 1")
         for path in sorted(MIGRATIONS.glob("*.sql")):
             for stmt in _up_statements(path):
                 cur.execute(stmt)
