@@ -130,7 +130,7 @@ Por ordem de impacto, com a minha recomendação:
 | 7 | Preços ajustados | Guardar ambos; operar com não ajustado; gráficos com ajustado. |
 | 8 | Capital virtual inicial | **Decidido:** 1 000 000 EUR por omissão, configurável por conta; sem reposição. |
 | 9 | Stack concreta | Fixar framework Node, acesso à BD, ferramenta única de migrações, bibliotecas React e versões. |
-| 10 | Criação de contas e SMTP | **Decidido:** contas criadas por administradores (página Utilizadores ou CLI); SMTP configurável em Definições, com palavra-passe cifrada. Falta escolher o fornecedor. |
+| 10 | Criação de contas e SMTP | **Decidido:** contas criadas por administradores (página Utilizadores ou CLI); SMTP configurável em Definições, com palavra-passe cifrada; fornecedor OVH (`ssl0.ovh.net`, SSL/TLS, remetente `stocks@graus.pt`). |
 
 As restantes propostas do plano (último fecho, sem comissões, custo médio, quantidades inteiras, sem posições curtas, alertas «acima/abaixo» e «variação %») parecem-me adequadas e podem ser aprovadas tal como estão.
 

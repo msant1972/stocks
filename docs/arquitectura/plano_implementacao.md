@@ -8,11 +8,11 @@ Documentos relacionados: [Arquitectura](arquitectura.md) (o que está construíd
 
 As oito fases do plano (F0 a F7) foram executadas e a aplicação está publicada com HTTPS, recolha diária agendada, alertas e cópias de segurança diárias. Depois da publicação foram acrescentadas várias funcionalidades a pedido (secção 4), entre elas a simulação de uma estratégia no histórico, que estava fora do âmbito inicial.
 
-Para considerar a versão 1 operacionalmente fechada, falta:
+Os três pendentes da versão 1 foram fechados pelo administrador a 18 out. 2026:
 
-1. introduzir os dados do fornecedor SMTP em Definições e enviar um email de teste;
-2. passar a carteira de produção para 1 000 000 € (comandos na secção 8);
-3. copiar as cópias de segurança para fora do servidor e demonstrar um restauro.
+1. SMTP configurado em Definições (OVH, `ssl0.ovh.net:465`, SSL/TLS, remetente `stocks@graus.pt`), com email de teste aceite;
+2. carteira de produção passada para 1 000 000 € e valor por omissão actualizado em `/etc/stocks/stocks.env`;
+3. cópias de segurança copiadas para fora do servidor e restauro testado (procedimento gerido pelo administrador, fora do servidor).
 
 ## 2. Âmbito
 
@@ -52,8 +52,8 @@ Detalhe em [Análise e decisões](analise_e_decisoes.md).
 | F2 — Recolha e histórico | Dois anos consultáveis | Concluída | 295 instrumentos activos, cerca de 148 mil sessões; idempotência, validação, novas tentativas e concorrência testadas |
 | F3 — API e acompanhamento | Login, pesquisa, lista, gráficos | Concluída | Isolamento entre utilizadores testado; importação de Excel com pré-visualização |
 | F4 — Carteira e simulação | Operações transaccionais | Concluída | Concorrência, idempotência, custo médio e aritmética decimal exacta testados |
-| F5 — Alertas e email | Regras, resumo, registos | Concluída, sem envio real | Resumo por utilizador, desduplicação, envios falhados e incertos testados. Envio real pendente do fornecedor SMTP |
-| F6 — Integração e segurança | Versão testada, restauro demonstrado | Parcial | Testes ponta a ponta no browser, revisão de sessões, CSRF, CSP e segredos. Falta demonstrar o restauro, medir desempenho com carga e registar controlos OWASP ASVS |
+| F5 — Alertas e email | Regras, resumo, registos | Concluída | Resumo por utilizador, desduplicação, envios falhados e incertos testados. SMTP da OVH configurado em Definições e email de teste aceite |
+| F6 — Integração e segurança | Versão testada, restauro demonstrado | Concluída, com lacunas | Testes ponta a ponta no browser, revisão de sessões, CSRF, CSP e segredos; restauro testado pelo administrador. Falta medir desempenho com carga e registar controlos OWASP ASVS |
 | F7 — Piloto e publicação | Aplicação em produção | Concluída | Publicada com Caddy (HTTPS), systemd e backup diário. Piloto informal com o responsável funcional, sem aceitação formal registada |
 
 Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução foi feita com apoio de IA num único dia (18 out. 2026), com o responsável funcional a validar cada passo. As lacunas acima resultam sobretudo das actividades que exigem tempo de calendário: piloto, restauro testado e medições de carga.
@@ -89,9 +89,9 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US07 | Venda simulada | P0 | Feito |
 | US08 | Posições e resultados | P0 | Feito |
 | US09 | Regras de alerta | P0 | Feito |
-| US10 | Envio de alertas | P0 | Feito; envio real depende do SMTP |
+| US10 | Envio de alertas | P0 | Feito (SMTP da OVH) |
 | US11 | Estado das recolhas | P1 | Feito (`/status`, Definições, «Validar agora») |
-| US12 | Backup e recuperação | P0 | Parcial: backup diário activo; falta cópia externa e restauro demonstrado |
+| US12 | Backup e recuperação | P0 | Feito: backup diário local, cópia externa e restauro testado pelo administrador |
 | US13 | Indicadores e momento | — | Feito |
 | US14 | Estratégia simulada | — | Feito |
 | US15 | HeatMap e momento do mercado | — | Feito |
@@ -121,7 +121,7 @@ O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pul
 | Gastos concorrentes do saldo | Transacções, bloqueio da carteira, testes concorrentes | Resolvido |
 | Alertas repetidos | Chave única por regra e sessão; reserva por utilizador | Resolvido |
 | Aceitação SMTP ambígua | Estado `uncertain`, sem reenvio cego | Resolvido |
-| Servidor único | Backup diário local | Pendente: cópia externa e restauro testado |
+| Servidor único | Backup diário local, cópia externa e restauro testado | Mitigado; indisponibilidade conjunta aceite |
 | Perda da chave de cifra | Chave criada uma vez e nunca substituída | Aceite: perdê-la obriga a reintroduzir a palavra-passe SMTP |
 | Desenvolvimento no servidor de produção | Base de testes separada; publicação só com `install.sh` | Pendente: ambiente de testes separado |
 | Aumento do âmbito | Alterações pequenas, com testes e commit por funcionalidade | Em curso |
@@ -130,16 +130,7 @@ O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pul
 
 ### P0 — fechar a versão 1
 
-1. **SMTP:** escolher o fornecedor, preencher Definições → Envio de email (SMTP), enviar um email de teste, e configurar SPF e DKIM se o remetente usar `graus.pt`.
-2. **Capital da carteira de produção:** passar a carteira existente para 1 000 000 € (o modo automático bloqueou a alteração; tem de ser corrida pelo administrador):
-   ```bash
-   sudo sed -i 's/^STOCKS_INITIAL_CAPITAL=.*/STOCKS_INITIAL_CAPITAL=1000000.00/' /etc/stocks/stocks.env && sudo systemctl restart stocks-api
-   sudo mariadb stocks -e "START TRANSACTION;
-     UPDATE portfolios SET cash_balance = cash_balance + (1000000.00 - initial_capital), initial_capital = 1000000.00 WHERE id = 1 AND initial_capital = 10000.00;
-     UPDATE cash_movements SET amount = 1000000.00 WHERE portfolio_id = 1 AND kind = 'initial';
-     COMMIT;"
-   ```
-3. **Cópias de segurança:** copiar `/var/backups/stocks` para fora do servidor (S3 ou snapshots EBS) e fazer um restauro de teste numa base separada, registando o resultado.
+Concluído a 18 out. 2026 (SMTP, carteira a 1 M€, cópia externa e restauro). Recomenda-se repetir o teste de restauro periodicamente, por exemplo a cada trimestre.
 
 ### P1 — robustez
 
@@ -167,8 +158,8 @@ Lista de verificação da versão 1:
 - [x] Testes de saldo, concorrência e isolamento aprovados.
 - [x] Testes de resumo único e desduplicação de alertas aprovados.
 - [ ] Monitorização com alerta operacional (hoje: `journalctl`, `/status` e Definições).
-- [ ] Backup externo e restauro demonstrado (hoje: backup diário local).
-- [ ] Envio real de email verificado (pendente do fornecedor SMTP).
+- [x] Backup externo e restauro demonstrado (administrador).
+- [x] Envio real de email verificado (email de teste pelo SMTP da OVH).
 - [x] Procedimento de rollback documentado em [deploy/README.md](../../deploy/README.md).
 
 Rollback:
@@ -185,7 +176,7 @@ A versão 1 considera-se concluída quando permite:
 
 - acompanhar instrumentos com histórico diário até dois anos — **cumprido**;
 - simular compras e vendas com integridade de saldo e posições — **cumprido**;
-- gerir alertas por email com um resumo por utilizador após cada recolha diária — **cumprido; falta o envio real (SMTP)**;
-- operar com monitorização e recuperação testadas — **parcial: falta alerta operacional, cópia externa e restauro demonstrado**.
+- gerir alertas por email com um resumo por utilizador após cada recolha diária — **cumprido**;
+- operar com monitorização e recuperação testadas — **recuperação testada; falta o alerta operacional ao administrador (P1)**.
 
 A aplicação comunica de forma inequívoca que não executa operações reais e que usa dados diários, não cotações em tempo real.

@@ -84,7 +84,7 @@ O SMTP configura-se em **Definições → Envio de email (SMTP)** (administrador
 
 ## Cópias de segurança e recuperação
 
-As cópias ficam em `/var/backups/stocks`, **no mesmo servidor**. Para proteger contra a perda do servidor, copie-as para fora, por exemplo com `rclone`/`aws s3 cp` num timer, ou com snapshots EBS.
+As cópias ficam em `/var/backups/stocks` e são também copiadas para fora do servidor pelo administrador; o restauro foi testado a 18 out. 2026. Repita o teste de restauro periodicamente.
 
 Restaurar, depois de parar a API e os timers:
 

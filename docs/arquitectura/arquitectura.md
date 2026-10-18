@@ -28,7 +28,7 @@ Este documento descreve a arquitectura implementada. As decisões que lhe deram 
 | Simulação | Último fecho diário não ajustado; sem comissões; quantidades inteiras; sem posições curtas; custo médio ponderado |
 | Capital virtual | 1 000 000 EUR por omissão nas contas novas (configurável por conta); sem reposição |
 | Estratégia | Simulação no histórico de uma estratégia de momento (secção 5.4); não executa operações nem altera a carteira |
-| Email | Servidor SMTP configurado pelos administradores em Definições; sem configuração, os alertas não enviam emails |
+| Email | Servidor SMTP configurado pelos administradores em Definições (hoje OVH, `ssl0.ovh.net:465`, remetente `stocks@graus.pt`); sem configuração, os alertas não enviam emails |
 
 O requisito «frequência máxima de 1h» é cumprido com um único email de resumo por utilizador, enviado depois de cada recolha diária, e com um intervalo mínimo de 60 minutos entre emails ao mesmo utilizador. Como os dados são diários, o caso relevante é o de várias regras a disparar na mesma noite, que o resumo agrupa numa só mensagem.
 
@@ -293,8 +293,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 Testes automáticos em cada componente: API com Vitest contra uma BD de testes (58), motor de recolha (21) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
-- **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado só por cópias de segurança.
-- **Cópias no mesmo servidor:** ainda não há cópia para fora do servidor.
+- **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por cópias de segurança diárias, com cópia externa e restauro testado pelo administrador.
 - **Fonte não oficial:** o yfinance pode mudar ou ser limitado pelo Yahoo; a versão está fixada e o adaptador é substituível.
 - **Ambientes:** desenvolvimento e produção partilham o servidor e a base `stocks`; os testes usam a base `stocks_test`.
 
@@ -310,7 +309,7 @@ Riscos aceites ou pendentes:
 | A ausência ou insuficiência de dados históricos é apresentada explicitamente | Cumprido |
 | Uma compra simulada não excede o saldo; uma venda não excede a quantidade | Cumprido (testado, incluindo concorrência) |
 | Cada operação conserva o preço e a data da cotação utilizados | Cumprido |
-| Cada utilizador recebe no máximo um email de alertas por hora | Cumprido (testado); envio real pendente do SMTP |
+| Cada utilizador recebe no máximo um email de alertas por hora | Cumprido (testado); SMTP da OVH configurado |
 | O mesmo evento não gera notificações repetidas | Cumprido (testado) |
 | As falhas de recolha e de envio são registadas | Cumprido |
 
@@ -318,8 +317,6 @@ Riscos aceites ou pendentes:
 
 | Tema | Situação |
 |---|---|
-| SMTP | Configurável em Definições; fornecedor e credenciais ainda por introduzir, até lá os alertas correm em `--dry-run` |
-| Cópias de segurança | Copiar para fora do servidor (S3, snapshots EBS) e testar o restauro periodicamente |
 | Eventos societários | Dividendos e desdobramentos não alteram as posições simuladas; um desdobramento numa acção detida distorce o resultado |
 | Comissões e custos | Excluídos; podem ser acrescentados à regra de simulação |
 | Reposição de capital | Não existe; o capital inicial (1 000 000 EUR por omissão) é definido na criação da conta |
