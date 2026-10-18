@@ -4,7 +4,7 @@ Estado: versão 1 em produção em https://stocks.graus.pt (actualizado a 18 out
 
 ## 1. Objectivo e âmbito
 
-A aplicação permite acompanhar acções, consultar o histórico diário com indicadores técnicos, ver um mapa de calor do mercado, gerir uma carteira virtual, simular compras e vendas e receber alertas por email.
+A aplicação permite acompanhar acções, consultar o histórico diário com indicadores técnicos e momento, simular uma estratégia de momento no histórico, ver o mapa de calor e o momento do mercado, gerir uma carteira virtual, simular compras e vendas e receber alertas por email.
 
 A negociação é exclusivamente simulada. Não há operações com dinheiro real, integração com corretoras nem execução de ordens em bolsa.
 
@@ -26,6 +26,9 @@ Este documento descreve a arquitectura implementada. As decisões que lhe deram 
 | Recolha diária | Dias úteis às 19h00 de Lisboa, depois do fecho das bolsas europeias (17h30 CET) |
 | Alertas | Email; um resumo por utilizador após cada recolha diária, nunca mais do que um email por hora |
 | Simulação | Último fecho diário não ajustado; sem comissões; quantidades inteiras; sem posições curtas; custo médio ponderado |
+| Capital virtual | 1 000 000 EUR por omissão nas contas novas (configurável por conta); sem reposição |
+| Estratégia | Simulação no histórico de uma estratégia de momento (secção 5.4); não executa operações nem altera a carteira |
+| Email | Servidor SMTP configurado pelos administradores em Definições; sem configuração, os alertas não enviam emails |
 
 O requisito «frequência máxima de 1h» é cumprido com um único email de resumo por utilizador, enviado depois de cada recolha diária, e com um intervalo mínimo de 60 minutos entre emails ao mesmo utilizador. Como os dados são diários, o caso relevante é o de várias regras a disparar na mesma noite, que o resumo agrupa numa só mensagem.
 
@@ -39,7 +42,7 @@ A aplicação mantém os cinco módulos do desenho original:
 | 2 | Middleware / API | Node.js 22, Fastify 5, Zod, mysql2 (SQL directo) | `api/` |
 | 3 | Base de dados | MariaDB 11.8; migrações dbmate | `db/migrations/` |
 | 4 | Motor de recolha | Python 3, yfinance, PyMySQL | `engines/fetcher/` |
-| 5 | Motor de alertas | Python 3, PyMySQL, smtplib | `engines/alerts/` |
+| 5 | Motor de alertas | Python 3, PyMySQL, smtplib, cryptography | `engines/alerts/` |
 
 Tudo corre num único servidor Ubuntu (`stocks.graus.pt`). O Caddy termina o HTTPS e encaminha para a API, que serve também o frontend compilado na mesma origem. Os motores Python são processos de curta duração lançados pelo systemd.
 
@@ -63,7 +66,8 @@ flowchart LR
         SYSD -->|5 min / sinal / 19h00| FETCH
         SYSD -->|após a recolha diária| ALERT
         FETCH -->|cotações e indicadores| DB
-        ALERT <-->|regras, eventos, envios| DB
+        ALERT <-->|regras, eventos, envios, SMTP| DB
+        API -.->|email de teste| ALERT
     end
 
     YAHOO["Yahoo Finance"]
@@ -74,7 +78,7 @@ flowchart LR
     ALERT -->|email de resumo| SMTP
 ```
 
-A interface nunca acede à base de dados: fala só com a API. A API nunca fala com o Yahoo: pede ao motor de recolha, através da fila `fetch_jobs` e do ficheiro de sinal. Os motores não comunicam entre si; coordenam-se pela base de dados e pela ordem de execução no systemd.
+A interface nunca acede à base de dados: fala só com a API. A API nunca fala com o Yahoo: pede ao motor de recolha, através da fila `fetch_jobs` e do ficheiro de sinal. A API também não envia emails: para o email de teste em Definições, invoca o motor de alertas (`python -m alerts test`). Os motores não comunicam entre si; coordenam-se pela base de dados e pela ordem de execução no systemd.
 
 ## 4. Descrição dos módulos
 
@@ -101,6 +105,7 @@ Regras da interface:
 - Não há actualizações optimistas do saldo: a interface espera pela confirmação do servidor.
 - Enquanto há instrumentos «A validar», as listas actualizam-se a cada 5 segundos; caso contrário não há polling, porque os dados são diários.
 - O gráfico (Recharts) é carregado só na página do instrumento.
+- O momento e a estratégia são calculados no browser (`src/lib/momentum.js`, `src/lib/strategy.js`), sobre os indicadores devolvidos pela API, e têm testes próprios.
 - As cores das séries do gráfico foram validadas para daltonismo nos dois temas; as cores do HeatMap têm contraste de pelo menos 4,98:1 com o texto branco.
 
 ### 4.2. Middleware / API
@@ -183,7 +188,7 @@ Os símbolos são descarregados um a um, porque o Yahoo só serve o histórico p
 
 ### 4.5. Motor de alertas por email
 
-Comando `python -m alerts run [--dry-run]`, executado a seguir à recolha diária.
+Comandos `python -m alerts run [--dry-run | --dry-run-if-unconfigured]` (a recolha diária usa o segundo modo) e `python -m alerts test --to EMAIL`.
 
 | Tipo | Limite | Quando dispara |
 |---|---|---|
@@ -224,7 +229,7 @@ Os alertas apenas notificam; nunca desencadeiam operações.
 
 1. `stocks-daily.timer` (dias úteis, 19h00 de Lisboa) executa `deploy/bin/daily.sh`.
 2. O motor de recolha pede a actualização de todos os activos, processa-os, recalcula os indicadores e regista a execução em `job_runs`.
-3. Mesmo que a recolha tenha falhas, o motor de alertas corre a seguir: avalia cada regra uma vez por sessão, regista os eventos e envia um resumo por utilizador.
+3. Mesmo que a recolha tenha falhas, o motor de alertas corre a seguir (`--dry-run-if-unconfigured`): avalia cada regra uma vez por sessão, regista os eventos e envia um resumo por utilizador, ou só mostra os resumos no registo se não houver SMTP configurado.
 
 ### 5.3. Consulta do histórico
 
@@ -271,7 +276,7 @@ Um administrador cria contas (com carteira e capital inicial), redefine palavras
 
 ## 7. Implantação e operação
 
-Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: dependências, código em `/opt/stocks`, ambientes Python, build do frontend, migrações, units systemd e Caddy.
+Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: dependências, código em `/opt/stocks`, chave de cifra `/etc/stocks/secret.key` (criada uma vez, nunca substituída), ambientes Python, build do frontend, migrações, units systemd e Caddy. O serviço da API recebe `STOCKS_FETCH_TRIGGER_FILE` e `STOCKS_ALERTS_PYTHON` para sinalizar o motor de recolha e enviar o email de teste.
 
 | Unit | Quando | Função |
 |---|---|---|
@@ -281,7 +286,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias) |
 
-Testes automáticos em cada componente (API com Vitest contra uma BD de testes; motores com pytest e fornecedor ou mailer simulados; cálculos do frontend com `node --test`) e CI no GitHub Actions com MariaDB 10.11. Os testes nunca contactam o Yahoo nem enviam emails.
+Testes automáticos em cada componente: API com Vitest contra uma BD de testes (54), motor de recolha (21) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado só por cópias de segurança.
@@ -317,7 +322,9 @@ Riscos aceites ou pendentes:
 | Contas de BD por componente | Uma única conta `stocks`; separar API e motores reduziria o impacto de uma falha de segurança |
 | Retenção de operações e auditoria | Sem eliminação; definir se for necessário |
 | Ambiente de testes separado | Hoje partilha o servidor de produção |
+| Execução da estratégia | Ao fecho do próprio dia do sinal (optimista); a execução ao fecho do dia seguinte seria mais realista |
+| Alerta operacional | Falhas da recolha ou dos alertas só ficam em `job_runs` e no `journalctl`; não há notificação ao administrador |
 
 ## 10. Base documental
 
-Documento elaborado a partir do diagrama original, dos requisitos e das decisões de 18 out. 2026, e actualizado para a implementação publicada. O código de referência é o do ramo `main`; o contrato da API está em [api/openapi.yaml](../../api/openapi.yaml).
+Documento elaborado a partir do diagrama original, dos requisitos e das decisões de 18 out. 2026, e actualizado para a implementação publicada. O código de referência é o do ramo `main`; o contrato da API está em [api/openapi.yaml](../../api/openapi.yaml). Os próximos passos estão na secção 8 do [plano de implementação](plano_implementacao.md).
