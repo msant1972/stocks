@@ -2300,5 +2300,88 @@ paths:
                   - lastFetchRun
                   - lastAlertsRun
                 additionalProperties: false
+  /api/v1/heatmap:
+    get:
+      summary: Variação e valor negociado por instrumento no período
+      tags:
+        - Mapa de calor
+      parameters:
+        - schema:
+            default: 5
+            type: integer
+            minimum: -9007199254740991
+            maximum: 9007199254740991
+          in: query
+          name: period
+          required: false
+        - schema:
+            default: all
+            type: string
+            enum:
+              - all
+              - watchlist
+          in: query
+          name: scope
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: number
+                  latestSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        exchange:
+                          nullable: true
+                          type: string
+                        fromDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        toDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        close:
+                          type: string
+                        changePct:
+                          type: string
+                        tradedValue:
+                          type: string
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - exchange
+                        - fromDate
+                        - toDate
+                        - close
+                        - changePct
+                        - tradedValue
+                      additionalProperties: false
+                required:
+                  - period
+                  - latestSession
+                  - items
+                additionalProperties: false
 security:
   - session: []

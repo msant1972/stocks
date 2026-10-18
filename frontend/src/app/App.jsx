@@ -6,6 +6,7 @@ import { ToastProvider } from '../components/feedback/Toast.jsx';
 import LoginPage from '../features/auth/LoginPage.jsx';
 import OverviewPage from '../features/overview/OverviewPage.jsx';
 import WatchlistPage from '../features/watchlist/WatchlistPage.jsx';
+import HeatmapPage from '../features/heatmap/HeatmapPage.jsx';
 import InstrumentPage from '../features/instruments/InstrumentPage.jsx';
 import PortfolioPage from '../features/portfolio/PortfolioPage.jsx';
 import TradesPage from '../features/trades/TradesPage.jsx';
@@ -30,6 +31,7 @@ export default function App() {
         <Route element={<RequireSession><Shell /></RequireSession>}>
           <Route index element={<OverviewPage />} />
           <Route path="acompanhar" element={<WatchlistPage />} />
+          <Route path="heatmap" element={<HeatmapPage />} />
           <Route path="instrumentos/:id" element={<InstrumentPage />} />
           <Route path="carteira" element={<PortfolioPage />} />
           <Route path="operacoes" element={<TradesPage />} />

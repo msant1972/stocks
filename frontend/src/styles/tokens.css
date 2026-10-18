@@ -32,6 +32,10 @@
   --series-sma50: #eda100;
   --series-sma125: #e87ba4;
   --series-sma200: #008300;
+  /* HeatMap: texto branco com contraste ≥ 4,98:1 nas três cores (iguais nos dois temas). */
+  --heat-up: #1a7f45;
+  --heat-flat: #6b7079;
+  --heat-down: #c0362c;
   --sidebar-width: 232px;
   --content-max: 1440px;
 }

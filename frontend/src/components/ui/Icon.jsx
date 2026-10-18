@@ -18,6 +18,7 @@ const PATHS = {
   trash: 'M5 7h14M10 7V5h4v2m-7 0 1 12h8l1-12',
   chevron: 'M9 6l6 6-6 6',
   trend: 'M4 17l6-6 4 4 6-7',
+  heatmap: 'M3 4h10v9H3V4Zm12 0h6v5h-6V4Zm0 7h6v9h-6v-9ZM3 15h10v5H3v-5Z',
 };
 
 export default function Icon({ name, size = 20, label }) {

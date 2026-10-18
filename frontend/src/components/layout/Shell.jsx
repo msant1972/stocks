@@ -9,12 +9,13 @@ import Icon from '../ui/Icon.jsx';
 const NAV = [
   { to: '/', label: 'Visão geral', icon: 'overview', end: true },
   { to: '/acompanhar', label: 'Acompanhar', icon: 'watch' },
+  { to: '/heatmap', label: 'HeatMap', icon: 'heatmap' },
   { to: '/carteira', label: 'Carteira', icon: 'portfolio' },
   { to: '/operacoes', label: 'Operações', icon: 'trades' },
   { to: '/alertas', label: 'Alertas', icon: 'alerts' },
   { to: '/definicoes', label: 'Definições', icon: 'settings' },
 ];
-const MOBILE_NAV = NAV.filter((n) => ['/', '/acompanhar', '/carteira', '/alertas'].includes(n.to));
+const MOBILE_NAV = NAV.filter((n) => ['/', '/acompanhar', '/heatmap', '/carteira', '/alertas'].includes(n.to));
 
 function DataStatus() {
   const { data } = useStatus();
