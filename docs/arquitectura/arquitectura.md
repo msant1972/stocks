@@ -95,6 +95,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5 ou 30 sessões |
 | Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |
 | Operações | Histórico filtrável por tipo, instrumento e datas |
+| Sinais | Compras, reforços e vendas da estratégia aplicada virtualmente a todos os instrumentos, nas últimas 1 a 10 sessões, com filtro por tipo e botões Comprar e Vender (operação na carteira virtual) |
 | Alertas | Regras com pré-visualização em linguagem natural, activação e eventos com o estado do envio |
 | Utilizadores | Só administradores: listar, adicionar, redefinir palavra-passe e remover contas |
 | Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, terminar sessão; para administradores, configuração SMTP com email de teste |
@@ -105,7 +106,7 @@ Regras da interface:
 - Não há actualizações optimistas do saldo: a interface espera pela confirmação do servidor.
 - Enquanto há instrumentos «A validar», as listas actualizam-se a cada 5 segundos; caso contrário não há polling, porque os dados são diários.
 - O gráfico (Recharts) é carregado só na página do instrumento.
-- O momento e a estratégia são calculados no browser (`src/lib/momentum.js`, `src/lib/strategy.js`), sobre os indicadores devolvidos pela API, e têm testes próprios.
+- O momento e a estratégia são módulos JavaScript puros em `shared/` (`momentum.js`, `strategy.js`), usados pelo browser (gráfico e «Aplicar estratégia») e pela API (página Sinais); assim o servidor e o browser calculam exactamente o mesmo. Têm testes próprios.
 - As cores das séries do gráfico foram validadas para daltonismo nos dois temas; as cores do HeatMap têm contraste de pelo menos 4,98:1 com o texto branco.
 
 ### 4.2. Middleware / API
@@ -122,6 +123,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Alertas | `GET/POST /alerts`, `PATCH/DELETE /alerts/{id}`, `GET /alerts/events` |
 | Mapa de calor | `GET /heatmap?period=1\|5\|30&scope=all\|watchlist&limit=20` |
 | Mercado | `GET /market/momentum?top=5` (distribuição do SMA10/SMA200 na última sessão e extremos), `GET /market/crossovers?sessions=5` (cruzamentos SMA10/SMA50: ascendente se SMA10 ≤ SMA50 na sessão anterior e > na seguinte, descendente o inverso; conta o mais recente por instrumento); cache 10 min |
+| Sinais | `GET /signals?sessions=5` (estratégia aplicada a todos os instrumentos activos com todo o histórico; cache 10 min) |
 | Estado | `GET /status` |
 | Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}`, `GET/PUT /admin/smtp`, `POST /admin/smtp/test` |
 | Saúde | `GET /health/live`, `GET /health/ready` (fora de `/api/v1`) |
@@ -250,6 +252,8 @@ O botão «Aplicar estratégia» corre no browser um backtest sobre o histórico
 
 O gráfico marca as compras (C), os reforços (R) e as vendas (V); um painel mostra o resultado, as operações, os sinais ignorados e as vendas não executadas pela condição do SMA8/SMA125.
 
+A página **Sinais** aplica a mesma estratégia, no servidor, a todos os instrumentos activos com todo o histórico (para reconstruir a posição virtual de cada um) e lista os sinais das últimas N sessões. Os botões Comprar e Vender abrem uma operação simulada normal na carteira do utilizador; os sinais nunca executam operações sozinhos.
+
 ### 5.5. Operação simulada
 
 1. A interface pede a pré-visualização (preço, data, total, saldo e unidades após a operação).
@@ -286,7 +290,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias) |
 
-Testes automáticos em cada componente: API com Vitest contra uma BD de testes (55), motor de recolha (21) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
+Testes automáticos em cada componente: API com Vitest contra uma BD de testes (58), motor de recolha (21) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado só por cópias de segurança.

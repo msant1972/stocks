@@ -23,7 +23,7 @@ A API serve `dist/` quando `STOCKS_FRONTEND_DIST` aponta para essa pasta, na mes
 ## Testes
 
 ```bash
-npm test           # node --test: cálculos do momento e da estratégia (src/lib/momentum.js, src/lib/strategy.js)
+npm test           # node --test: cálculos do momento e da estratégia (shared/momentum.js, shared/strategy.js)
 ```
 
 ## Organização
@@ -32,8 +32,8 @@ npm test           # node --test: cálculos do momento e da estratégia (src/lib
 src/
   app/          rotas e protecção da sessão
   components/   ui (botões, campos, modal), layout, finance (valores, gráfico), feedback (estados, avisos)
-  features/     uma pasta por ecrã: auth, overview, watchlist, instruments, heatmap, portfolio, trades, alerts, users, settings
-  lib/          cliente da API, consultas, formatação pt-PT, tema, momento (momentum.js) e estratégia (strategy.js)
+  features/     uma pasta por ecrã: auth, overview, watchlist, instruments, heatmap, portfolio, trades, signals, alerts, users, settings
+  lib/          cliente da API, consultas, formatação pt-PT e tema; momentum.js e strategy.js reexportam ../shared (partilhado com a API)
   styles/       tokens.css (cores e medidas do guia) e global.css
 ```
 

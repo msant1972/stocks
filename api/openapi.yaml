@@ -3298,5 +3298,97 @@ paths:
                   - up
                   - down
                 additionalProperties: false
+  /api/v1/signals:
+    get:
+      summary: Sinais da estratégia de momento em todos os instrumentos (últimas N
+        sessões)
+      tags:
+        - Sinais
+      description: "Compra: SMA10/SMA200 descer-subir-subir sem posição virtual;
+        reforço: +10% desde a última compra; venda: subir-descer-descer com
+        SMA8/SMA125 < 1%. Sinais ignorados na zona neutra (±1%). Simulação; não
+        são recomendações."
+      parameters:
+        - schema:
+            default: 5
+            type: integer
+            minimum: 1
+            maximum: 20
+          in: query
+          name: sessions
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: number
+                  latestSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        side:
+                          type: string
+                          enum:
+                            - buy
+                            - add
+                            - sell
+                        date:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        sessionsAgo:
+                          type: number
+                        price:
+                          type: string
+                          description: Fecho real na sessão do sinal
+                        lastClose:
+                          type: string
+                        lastDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        changeSincePct:
+                          type: string
+                          description: Variação do fecho real desde o sinal, em %
+                        momentumPct:
+                          nullable: true
+                          description: SMA10/SMA200 − 1 na última sessão, em %
+                          type: string
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - side
+                        - date
+                        - sessionsAgo
+                        - price
+                        - lastClose
+                        - lastDate
+                        - changeSincePct
+                        - momentumPct
+                      additionalProperties: false
+                required:
+                  - sessions
+                  - latestSession
+                  - items
+                additionalProperties: false
 security:
   - session: []

@@ -120,7 +120,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Barra superior com pesquisa, estado dos dados e menu do utilizador.
 - Área principal com largura confortável e limite proposto de 1440 px.
 - Conteúdo em grelha de 12 colunas.
-- Menu lateral: Visão geral, Acompanhar, HeatMap, Carteira, Operações, Alertas, Utilizadores (só administradores) e Definições.
+- Menu lateral: Visão geral, Acompanhar, HeatMap, Carteira, Operações, Sinais, Alertas, Utilizadores (só administradores) e Definições.
 
 ### Tablet — de 768 a 1199 px
 
@@ -132,7 +132,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 ### Telemóvel — abaixo de 768 px
 
 - Conteúdo numa coluna.
-- Navegação inferior com Visão geral, Acompanhar, HeatMap, Carteira e Alertas.
+- Navegação inferior com Visão geral, Acompanhar, HeatMap, Carteira, Sinais e Alertas.
 - Operações acessíveis na Carteira; Definições através do ícone na barra superior, onde ficam também o atalho para Utilizadores (administradores) e «Terminar sessão».
 - Modais complexos passam a ecrãs completos ou folhas inferiores acessíveis.
 - Respeitar áreas seguras do dispositivo e reservar espaço para a navegação fixa.
@@ -252,7 +252,14 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Período em menu (1 dia, 5 dias por omissão, 30 dias) e filtro «Todos / A minha lista», guardados no URL.
 - Legenda com contagens por cor, texto «Top 20 de N instrumentos» e vista em tabela.
 
-### 5.10. Utilizadores
+### 5.10. Sinais
+
+- Lista dos sinais da estratégia (compra C, reforço R, venda V, com etiqueta de cor e letra) em todos os instrumentos, ordenados do mais recente.
+- Filtro por tipo com contagens e período (última sessão a últimas 10 sessões), guardados no URL.
+- Cada linha: sessão («há N sessões»), sinal, instrumento, preço do sinal, variação desde o sinal (com o último fecho), SMA10/SMA200 actual e botões «Comprar» e «Vender»; «Vender» desactivado quando o instrumento não está na carteira.
+- Aviso com as regras e a indicação de que são resultados de uma simulação, não recomendações.
+
+### 5.11. Utilizadores
 
 Só para administradores (o menu não aparece aos restantes):
 
@@ -502,9 +509,10 @@ src/
     trades/
     alerts/
     heatmap/
+    signals/
     users/
     settings/
-  lib/             # api, queries, format, theme, momentum, strategy
+  lib/             # api, queries, format, theme; momentum e strategy reexportam ../shared
   styles/
     tokens.css
     global.css

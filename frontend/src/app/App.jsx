@@ -11,6 +11,7 @@ import InstrumentPage from '../features/instruments/InstrumentPage.jsx';
 import PortfolioPage from '../features/portfolio/PortfolioPage.jsx';
 import TradesPage from '../features/trades/TradesPage.jsx';
 import AlertsPage from '../features/alerts/AlertsPage.jsx';
+import SignalsPage from '../features/signals/SignalsPage.jsx';
 import SettingsPage from '../features/settings/SettingsPage.jsx';
 import UsersPage from '../features/users/UsersPage.jsx';
 
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="instrumentos/:id" element={<InstrumentPage />} />
           <Route path="carteira" element={<PortfolioPage />} />
           <Route path="operacoes" element={<TradesPage />} />
+          <Route path="sinais" element={<SignalsPage />} />
           <Route path="alertas" element={<AlertsPage />} />
           <Route path="utilizadores" element={<UsersPage />} />
           <Route path="definicoes" element={<SettingsPage />} />

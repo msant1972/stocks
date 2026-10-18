@@ -2,10 +2,10 @@ name: API
 
 on:
   pull_request:
-    paths: ["api/**", "db/migrations/**", ".github/workflows/api.yml"]
+    paths: ["api/**", "shared/**", "db/migrations/**", ".github/workflows/api.yml"]
   push:
     branches: [main]
-    paths: ["api/**", "db/migrations/**", ".github/workflows/api.yml"]
+    paths: ["api/**", "shared/**", "db/migrations/**", ".github/workflows/api.yml"]
 
 jobs:
   test:

@@ -12,11 +12,12 @@ const NAV = [
   { to: '/heatmap', label: 'HeatMap', icon: 'heatmap' },
   { to: '/carteira', label: 'Carteira', icon: 'portfolio' },
   { to: '/operacoes', label: 'Operações', icon: 'trades' },
+  { to: '/sinais', label: 'Sinais', icon: 'signals' },
   { to: '/alertas', label: 'Alertas', icon: 'alerts' },
   { to: '/utilizadores', label: 'Utilizadores', icon: 'users', admin: true },
   { to: '/definicoes', label: 'Definições', icon: 'settings' },
 ];
-const MOBILE_NAV = NAV.filter((n) => ['/', '/acompanhar', '/heatmap', '/carteira', '/alertas'].includes(n.to));
+const MOBILE_NAV = NAV.filter((n) => ['/', '/acompanhar', '/heatmap', '/sinais', '/carteira', '/alertas'].includes(n.to));
 
 function DataStatus() {
   const { data } = useStatus();

@@ -22,6 +22,7 @@ import statusRoutes from './routes/status.js';
 import heatmapRoutes from './routes/heatmap.js';
 import adminRoutes from './routes/admin.js';
 import marketRoutes from './routes/market.js';
+import signalRoutes from './routes/signals.js';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
@@ -127,6 +128,7 @@ export async function buildApp({ pool, cfg, logger = true }) {
     await api.register(heatmapRoutes, opts);
     await api.register(adminRoutes, opts);
     await api.register(marketRoutes, opts);
+    await api.register(signalRoutes, opts);
   }, { prefix: '/api/v1' });
 
   // Em produção a API pode servir também o frontend compilado (aplicação de página única).
