@@ -10,9 +10,10 @@ Acrescentado além do plano inicial:
 - módulo HeatMap (top 20 por valor negociado) e quadro «Momento do mercado» na Visão geral;
 - botão «Validar agora» com arranque imediato do motor de recolha, e coluna Volume em Acompanhar;
 - gestão de utilizadores na interface;
+- configuração SMTP em Definições (palavra-passe cifrada na BD) com email de teste, usada pelo motor de alertas;
 - capital virtual inicial de 1 000 000 EUR por omissão.
 
-Pendente: configuração do SMTP, cópias de segurança fora do servidor e as decisões em aberto listadas na secção 9 da arquitectura. O restante deste documento mantém-se como registo do plano original.
+Pendente: introduzir os dados do fornecedor SMTP em Definições, cópias de segurança fora do servidor e as decisões em aberto listadas na secção 9 da arquitectura. O restante deste documento mantém-se como registo do plano original.
 
 ## 1. Objectivo do plano
 

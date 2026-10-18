@@ -240,6 +240,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Explicação das regras da simulação e das limitações dos dados.
 - Estado ou data de actualização dos dados, quando disponível.
 - Para administradores, atalho para Utilizadores; para todos, «Terminar sessão» (necessário em telemóvel, onde não há barra lateral).
+- Para administradores, «Envio de email (SMTP)»: servidor, segurança (STARTTLS, SSL/TLS, sem cifra, com a porta ajustada à escolha), porta, utilizador, «Palavra-passe SMTP» (nunca mostrada; «Definida. Deixe vazio para manter.»), remetente, e os botões «Guardar», «Enviar email de teste» e «Remover palavra-passe». Indicar quem fez a última alteração e que, sem configuração, os alertas não enviam emails.
 
 ### 5.9. HeatMap
 

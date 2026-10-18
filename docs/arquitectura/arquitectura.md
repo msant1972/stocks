@@ -320,4 +320,4 @@ Riscos aceites ou pendentes:
 
 ## 10. Base documental
 
-Documento elaborado a partir do diagrama original, dos requisitos e das decisões de 18 out. 2026, e actualizado para a implementação publicada. O código de referência é o do ramo `feat/mvp`; o contrato da API está em [api/openapi.yaml](../../api/openapi.yaml).
+Documento elaborado a partir do diagrama original, dos requisitos e das decisões de 18 out. 2026, e actualizado para a implementação publicada. O código de referência é o do ramo `main`; o contrato da API está em [api/openapi.yaml](../../api/openapi.yaml).

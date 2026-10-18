@@ -130,7 +130,7 @@ Por ordem de impacto, com a minha recomendação:
 | 7 | Preços ajustados | Guardar ambos; operar com não ajustado; gráficos com ajustado. |
 | 8 | Capital virtual inicial | **Decidido:** 1 000 000 EUR por omissão, configurável por conta; sem reposição. |
 | 9 | Stack concreta | Fixar framework Node, acesso à BD, ferramenta única de migrações, bibliotecas React e versões. |
-| 10 | Criação de contas e SMTP | CLI de administração; fornecedor SMTP escolhido. |
+| 10 | Criação de contas e SMTP | **Decidido:** contas criadas por administradores (página Utilizadores ou CLI); SMTP configurável em Definições, com palavra-passe cifrada. Falta escolher o fornecedor. |
 
 As restantes propostas do plano (último fecho, sem comissões, custo médio, quantidades inteiras, sem posições curtas, alertas «acima/abaixo» e «variação %») parecem-me adequadas e podem ser aprovadas tal como estão.
 
@@ -140,4 +140,4 @@ As restantes propostas do plano (último fecho, sem comissões, custo médio, qu
 2. ~~Criar o repositório e colocar lá estes documentos.~~ Feito.
 3. ~~Prova de conceito do motor de recolha.~~ Feito (`engines/fetcher/`).
 4. ~~Fechar o esquema da BD e o contrato OpenAPI.~~ Feito (`db/migrations/`, `api/openapi.yaml`).
-5. ~~Seguir a ordem do plano.~~ MVP implementado no ramo `feat/mvp`: API, frontend, motor de alertas e implantação (`deploy/`). Stack fixada: Fastify + mysql2 + Zod, Vite + React + TanStack Query + Recharts, dbmate, Caddy e systemd.
+5. ~~Seguir a ordem do plano.~~ MVP implementado e integrado no ramo `main` (18 out. 2026): API, frontend, motor de alertas e implantação (`deploy/`). Stack fixada: Fastify + mysql2 + Zod, Vite + React + TanStack Query + Recharts, dbmate, Caddy e systemd.
