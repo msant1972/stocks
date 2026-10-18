@@ -1,0 +1,2236 @@
+openapi: 3.0.3
+info:
+  title: Stocks API
+  version: 1.0.0
+  description: API da plataforma de simulação e acompanhamento de acções. Todas as
+    operações são simuladas e usam cotações diárias, não dados em tempo real.
+    Autenticação por cookie de sessão (stocks_session), obtido em POST
+    /api/v1/auth/login.
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: stocks_session
+  schemas: {}
+paths:
+  /api/v1/auth/login:
+    post:
+      summary: Iniciar sessão
+      tags:
+        - Sessão
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  maxLength: 255
+                password:
+                  type: string
+                  maxLength: 200
+              required:
+                - email
+                - password
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      email:
+                        type: string
+                      name:
+                        type: string
+                      isAdmin:
+                        type: boolean
+                    required:
+                      - id
+                      - email
+                      - name
+                      - isAdmin
+                    additionalProperties: false
+                required:
+                  - user
+                additionalProperties: false
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/auth/logout:
+    post:
+      summary: Terminar sessão
+      tags:
+        - Sessão
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+  /api/v1/me:
+    get:
+      summary: Utilizador autenticado
+      tags:
+        - Sessão
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      email:
+                        type: string
+                      name:
+                        type: string
+                      isAdmin:
+                        type: boolean
+                    required:
+                      - id
+                      - email
+                      - name
+                      - isAdmin
+                    additionalProperties: false
+                required:
+                  - user
+                additionalProperties: false
+  /api/v1/me/password:
+    put:
+      summary: Alterar palavra-passe (termina todas as sessões)
+      tags:
+        - Sessão
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currentPassword:
+                  type: string
+                  maxLength: 200
+                newPassword:
+                  type: string
+                  maxLength: 200
+              required:
+                - currentPassword
+                - newPassword
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/instruments:
+    get:
+      summary: Pesquisar no catálogo global
+      tags:
+        - Instrumentos
+      parameters:
+        - schema:
+            type: string
+            maxLength: 64
+          in: query
+          name: q
+          required: false
+          description: Texto no símbolo ou na designação
+        - schema:
+            type: string
+            enum:
+              - pending
+              - active
+              - invalid
+          in: query
+          name: status
+          required: false
+        - schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 200
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        exchange:
+                          nullable: true
+                          type: string
+                        currency:
+                          nullable: true
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - pending
+                            - active
+                            - invalid
+                        statusReason:
+                          nullable: true
+                          type: string
+                        firstSession:
+                          nullable: true
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        lastSession:
+                          nullable: true
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        inWatchlist:
+                          type: boolean
+                        latest:
+                          nullable: true
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                              pattern: ^\d{4}-\d{2}-\d{2}$
+                              description: Data AAAA-MM-DD
+                            close:
+                              type: string
+                              description: 'Valor decimal em texto, ex.: "1234.50"'
+                            previousDate:
+                              nullable: true
+                              type: string
+                              pattern: ^\d{4}-\d{2}-\d{2}$
+                              description: Data AAAA-MM-DD
+                            previousClose:
+                              nullable: true
+                              type: string
+                              description: 'Valor decimal em texto, ex.: "1234.50"'
+                            changePct:
+                              nullable: true
+                              type: string
+                              description: 'Valor decimal em texto, ex.: "1234.50"'
+                          required:
+                            - date
+                            - close
+                            - previousDate
+                            - previousClose
+                            - changePct
+                          additionalProperties: false
+                      required:
+                        - id
+                        - symbol
+                        - name
+                        - exchange
+                        - currency
+                        - status
+                        - statusReason
+                        - firstSession
+                        - lastSession
+                        - inWatchlist
+                        - latest
+                      additionalProperties: false
+                  total:
+                    type: number
+                required:
+                  - items
+                  - total
+                additionalProperties: false
+    post:
+      summary: Adicionar símbolos ao catálogo (validação assíncrona no fornecedor)
+      tags:
+        - Instrumentos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                symbols:
+                  minItems: 1
+                  maxItems: 1000
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 64
+                addToWatchlist:
+                  default: true
+                  type: boolean
+              required:
+                - symbols
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        symbol:
+                          type: string
+                        result:
+                          type: string
+                          enum:
+                            - created
+                            - exists
+                            - error
+                        message:
+                          type: string
+                        instrumentId:
+                          nullable: true
+                          type: number
+                      required:
+                        - symbol
+                        - result
+                        - message
+                        - instrumentId
+                      additionalProperties: false
+                required:
+                  - results
+                additionalProperties: false
+  /api/v1/instruments/import/preview:
+    post:
+      summary: Pré-visualizar importação de .xlsx ou .csv (multipart, campo "file");
+        não grava nada
+      tags:
+        - Instrumentos
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        line:
+                          type: number
+                        symbol:
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - new
+                            - exists
+                            - duplicate
+                            - error
+                        message:
+                          type: string
+                      required:
+                        - line
+                        - symbol
+                        - status
+                        - message
+                      additionalProperties: false
+                  summary:
+                    type: object
+                    properties:
+                      new:
+                        type: number
+                      exists:
+                        type: number
+                      duplicate:
+                        type: number
+                      error:
+                        type: number
+                    required:
+                      - new
+                      - exists
+                      - duplicate
+                      - error
+                    additionalProperties: false
+                required:
+                  - rows
+                  - summary
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/instruments/import/template:
+    get:
+      summary: Modelo .xlsx para importação
+      tags:
+        - Instrumentos
+      responses:
+        "200":
+          description: Default Response
+  /api/v1/instruments/{id}:
+    get:
+      summary: Detalhe do instrumento e estado da recolha
+      tags:
+        - Instrumentos
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                  symbol:
+                    type: string
+                  name:
+                    nullable: true
+                    type: string
+                  exchange:
+                    nullable: true
+                    type: string
+                  currency:
+                    nullable: true
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - pending
+                      - active
+                      - invalid
+                  statusReason:
+                    nullable: true
+                    type: string
+                  firstSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  lastSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  inWatchlist:
+                    type: boolean
+                  latest:
+                    nullable: true
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                        pattern: ^\d{4}-\d{2}-\d{2}$
+                        description: Data AAAA-MM-DD
+                      close:
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      previousDate:
+                        nullable: true
+                        type: string
+                        pattern: ^\d{4}-\d{2}-\d{2}$
+                        description: Data AAAA-MM-DD
+                      previousClose:
+                        nullable: true
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      changePct:
+                        nullable: true
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                    required:
+                      - date
+                      - close
+                      - previousDate
+                      - previousClose
+                      - changePct
+                    additionalProperties: false
+                  sessions:
+                    type: number
+                  fetch:
+                    nullable: true
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - queued
+                          - running
+                          - done
+                          - failed
+                      kind:
+                        type: string
+                        enum:
+                          - initial
+                          - incremental
+                      lastError:
+                        nullable: true
+                        type: string
+                      finishedAt:
+                        nullable: true
+                        type: string
+                    required:
+                      - status
+                      - kind
+                      - lastError
+                      - finishedAt
+                    additionalProperties: false
+                required:
+                  - id
+                  - symbol
+                  - name
+                  - exchange
+                  - currency
+                  - status
+                  - statusReason
+                  - firstSession
+                  - lastSession
+                  - inWatchlist
+                  - latest
+                  - sessions
+                  - fetch
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/instruments/{id}/quotes:
+    get:
+      summary: Cotações diárias (por omissão, os últimos dois anos)
+      tags:
+        - Histórico
+      parameters:
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          in: query
+          name: from
+          required: false
+          description: Data AAAA-MM-DD
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          in: query
+          name: to
+          required: false
+          description: Data AAAA-MM-DD
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instrumentId:
+                    type: number
+                  symbol:
+                    type: string
+                  currency:
+                    nullable: true
+                    type: string
+                  firstSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  lastSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  quotes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        open:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        high:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        low:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        close:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        adjClose:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        volume:
+                          nullable: true
+                          type: number
+                      required:
+                        - date
+                        - open
+                        - high
+                        - low
+                        - close
+                        - adjClose
+                        - volume
+                      additionalProperties: false
+                  truncated:
+                    type: boolean
+                required:
+                  - instrumentId
+                  - symbol
+                  - currency
+                  - firstSession
+                  - lastSession
+                  - quotes
+                  - truncated
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/watchlist:
+    get:
+      summary: Instrumentos acompanhados pelo utilizador
+      tags:
+        - Watchlist
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        exchange:
+                          nullable: true
+                          type: string
+                        currency:
+                          nullable: true
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - pending
+                            - active
+                            - invalid
+                        statusReason:
+                          nullable: true
+                          type: string
+                        firstSession:
+                          nullable: true
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        lastSession:
+                          nullable: true
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        inWatchlist:
+                          type: boolean
+                        latest:
+                          nullable: true
+                          type: object
+                          properties:
+                            date:
+                              type: string
+                              pattern: ^\d{4}-\d{2}-\d{2}$
+                              description: Data AAAA-MM-DD
+                            close:
+                              type: string
+                              description: 'Valor decimal em texto, ex.: "1234.50"'
+                            previousDate:
+                              nullable: true
+                              type: string
+                              pattern: ^\d{4}-\d{2}-\d{2}$
+                              description: Data AAAA-MM-DD
+                            previousClose:
+                              nullable: true
+                              type: string
+                              description: 'Valor decimal em texto, ex.: "1234.50"'
+                            changePct:
+                              nullable: true
+                              type: string
+                              description: 'Valor decimal em texto, ex.: "1234.50"'
+                          required:
+                            - date
+                            - close
+                            - previousDate
+                            - previousClose
+                            - changePct
+                          additionalProperties: false
+                      required:
+                        - id
+                        - symbol
+                        - name
+                        - exchange
+                        - currency
+                        - status
+                        - statusReason
+                        - firstSession
+                        - lastSession
+                        - inWatchlist
+                        - latest
+                      additionalProperties: false
+                required:
+                  - items
+                additionalProperties: false
+  /api/v1/watchlist/items:
+    post:
+      summary: Acompanhar um instrumento do catálogo
+      tags:
+        - Watchlist
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instrumentId:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                  maximum: 9007199254740991
+              required:
+                - instrumentId
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/watchlist/items/{instrumentId}:
+    delete:
+      summary: Deixar de acompanhar
+      tags:
+        - Watchlist
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: instrumentId
+          required: true
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/portfolio:
+    get:
+      summary: Resumo da carteira virtual e posições
+      tags:
+        - Carteira
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currency:
+                    type: string
+                  initialCapital:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  cashBalance:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  invested:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  marketValue:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  totalValue:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  unrealizedPnl:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  realizedPnl:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  totalPnl:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  totalPnlPct:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  valuationDate:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  positions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        exchange:
+                          nullable: true
+                          type: string
+                        quantity:
+                          type: number
+                        averageCost:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        costBasis:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        price:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        quoteDate:
+                          nullable: true
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        marketValue:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        unrealizedPnl:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        unrealizedPct:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        realizedPnl:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - exchange
+                        - quantity
+                        - averageCost
+                        - costBasis
+                        - price
+                        - quoteDate
+                        - marketValue
+                        - unrealizedPnl
+                        - unrealizedPct
+                        - realizedPnl
+                      additionalProperties: false
+                required:
+                  - currency
+                  - initialCapital
+                  - cashBalance
+                  - invested
+                  - marketValue
+                  - totalValue
+                  - unrealizedPnl
+                  - realizedPnl
+                  - totalPnl
+                  - totalPnlPct
+                  - valuationDate
+                  - positions
+                additionalProperties: false
+  /api/v1/portfolio/positions:
+    get:
+      summary: Posições abertas
+      tags:
+        - Carteira
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        exchange:
+                          nullable: true
+                          type: string
+                        quantity:
+                          type: number
+                        averageCost:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        costBasis:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        price:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        quoteDate:
+                          nullable: true
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        marketValue:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        unrealizedPnl:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        unrealizedPct:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        realizedPnl:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - exchange
+                        - quantity
+                        - averageCost
+                        - costBasis
+                        - price
+                        - quoteDate
+                        - marketValue
+                        - unrealizedPnl
+                        - unrealizedPct
+                        - realizedPnl
+                      additionalProperties: false
+                required:
+                  - items
+                additionalProperties: false
+  /api/v1/simulated-trades/preview:
+    get:
+      summary: Pré-visualizar uma operação simulada (não grava nada)
+      tags:
+        - Operações
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: query
+          name: instrumentId
+          required: true
+        - schema:
+            type: string
+            enum:
+              - buy
+              - sell
+          in: query
+          name: side
+          required: true
+        - schema:
+            type: integer
+            minimum: 1
+            maximum: 10000000
+          in: query
+          name: quantity
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instrumentId:
+                    type: number
+                  side:
+                    type: string
+                    enum:
+                      - buy
+                      - sell
+                  quantity:
+                    type: number
+                  currency:
+                    type: string
+                  price:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  quoteDate:
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  amount:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  cashAfter:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  quantityAfter:
+                    type: number
+                  error:
+                    nullable: true
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - instrumentId
+                  - side
+                  - quantity
+                  - currency
+                  - price
+                  - quoteDate
+                  - amount
+                  - cashAfter
+                  - quantityAfter
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/simulated-trades:
+    post:
+      summary: Executar compra ou venda simulada ao último fecho disponível
+      tags:
+        - Operações
+      description: Repetir o pedido com a mesma idempotencyKey devolve a operação
+        original (200) sem a duplicar. Se expectedPrice/expectedQuoteDate não
+        coincidirem com a cotação actual, responde 409 PRICE_CHANGED.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instrumentId:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                  maximum: 9007199254740991
+                side:
+                  type: string
+                  enum:
+                    - buy
+                    - sell
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 10000000
+                idempotencyKey:
+                  type: string
+                  minLength: 8
+                  maxLength: 64
+                  pattern: ^[A-Za-z0-9_-]+$
+                expectedPrice:
+                  type: string
+                  pattern: ^\d+(\.\d+)?$
+                expectedQuoteDate:
+                  type: string
+                  pattern: ^\d{4}-\d{2}-\d{2}$
+                  description: Data AAAA-MM-DD
+              required:
+                - instrumentId
+                - side
+                - quantity
+                - idempotencyKey
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trade:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      instrumentId:
+                        type: number
+                      symbol:
+                        type: string
+                      name:
+                        nullable: true
+                        type: string
+                      side:
+                        type: string
+                        enum:
+                          - buy
+                          - sell
+                      quantity:
+                        type: number
+                      price:
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      amount:
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      currency:
+                        type: string
+                      quoteDate:
+                        type: string
+                        pattern: ^\d{4}-\d{2}-\d{2}$
+                        description: Data AAAA-MM-DD
+                      realizedPnl:
+                        nullable: true
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      requestedAt:
+                        type: string
+                    required:
+                      - id
+                      - instrumentId
+                      - symbol
+                      - name
+                      - side
+                      - quantity
+                      - price
+                      - amount
+                      - currency
+                      - quoteDate
+                      - realizedPnl
+                      - requestedAt
+                    additionalProperties: false
+                  replayed:
+                    type: boolean
+                required:
+                  - trade
+                  - replayed
+                additionalProperties: false
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  trade:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      instrumentId:
+                        type: number
+                      symbol:
+                        type: string
+                      name:
+                        nullable: true
+                        type: string
+                      side:
+                        type: string
+                        enum:
+                          - buy
+                          - sell
+                      quantity:
+                        type: number
+                      price:
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      amount:
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      currency:
+                        type: string
+                      quoteDate:
+                        type: string
+                        pattern: ^\d{4}-\d{2}-\d{2}$
+                        description: Data AAAA-MM-DD
+                      realizedPnl:
+                        nullable: true
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      requestedAt:
+                        type: string
+                    required:
+                      - id
+                      - instrumentId
+                      - symbol
+                      - name
+                      - side
+                      - quantity
+                      - price
+                      - amount
+                      - currency
+                      - quoteDate
+                      - realizedPnl
+                      - requestedAt
+                    additionalProperties: false
+                  replayed:
+                    type: boolean
+                required:
+                  - trade
+                  - replayed
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    get:
+      summary: Histórico de operações simuladas
+      tags:
+        - Operações
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: query
+          name: instrumentId
+          required: false
+        - schema:
+            type: string
+            enum:
+              - buy
+              - sell
+          in: query
+          name: side
+          required: false
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          in: query
+          name: from
+          required: false
+          description: Data AAAA-MM-DD
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          in: query
+          name: to
+          required: false
+          description: Data AAAA-MM-DD
+        - schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 200
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        side:
+                          type: string
+                          enum:
+                            - buy
+                            - sell
+                        quantity:
+                          type: number
+                        price:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        amount:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        currency:
+                          type: string
+                        quoteDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        realizedPnl:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        requestedAt:
+                          type: string
+                      required:
+                        - id
+                        - instrumentId
+                        - symbol
+                        - name
+                        - side
+                        - quantity
+                        - price
+                        - amount
+                        - currency
+                        - quoteDate
+                        - realizedPnl
+                        - requestedAt
+                      additionalProperties: false
+                  total:
+                    type: number
+                required:
+                  - items
+                  - total
+                additionalProperties: false
+  /api/v1/alerts:
+    get:
+      summary: Regras de alerta do utilizador
+      tags:
+        - Alertas
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        currency:
+                          nullable: true
+                          type: string
+                        kind:
+                          type: string
+                          enum:
+                            - close_above
+                            - close_below
+                            - change_up
+                            - change_down
+                        threshold:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        active:
+                          type: boolean
+                        lastEvaluatedSession:
+                          nullable: true
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        lastEventSession:
+                          nullable: true
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        lastSentAt:
+                          nullable: true
+                          type: string
+                        createdAt:
+                          type: string
+                        updatedAt:
+                          type: string
+                      required:
+                        - id
+                        - instrumentId
+                        - symbol
+                        - name
+                        - currency
+                        - kind
+                        - threshold
+                        - active
+                        - lastEvaluatedSession
+                        - lastEventSession
+                        - lastSentAt
+                        - createdAt
+                        - updatedAt
+                      additionalProperties: false
+                required:
+                  - items
+                additionalProperties: false
+    post:
+      summary: Criar regra de alerta
+      tags:
+        - Alertas
+      description: "close_above/close_below: limite em EUR, notificado quando a
+        condição passa a verificar-se. change_up/change_down: variação
+        percentual face à sessão anterior, avaliada em cada sessão."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instrumentId:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                  maximum: 9007199254740991
+                kind:
+                  type: string
+                  enum:
+                    - close_above
+                    - close_below
+                    - change_up
+                    - change_down
+                threshold:
+                  anyOf:
+                    - type: string
+                    - type: number
+              required:
+                - instrumentId
+                - kind
+                - threshold
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                  instrumentId:
+                    type: number
+                  symbol:
+                    type: string
+                  name:
+                    nullable: true
+                    type: string
+                  currency:
+                    nullable: true
+                    type: string
+                  kind:
+                    type: string
+                    enum:
+                      - close_above
+                      - close_below
+                      - change_up
+                      - change_down
+                  threshold:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  active:
+                    type: boolean
+                  lastEvaluatedSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  lastEventSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  lastSentAt:
+                    nullable: true
+                    type: string
+                  createdAt:
+                    type: string
+                  updatedAt:
+                    type: string
+                required:
+                  - id
+                  - instrumentId
+                  - symbol
+                  - name
+                  - currency
+                  - kind
+                  - threshold
+                  - active
+                  - lastEvaluatedSession
+                  - lastEventSession
+                  - lastSentAt
+                  - createdAt
+                  - updatedAt
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/alerts/{id}:
+    patch:
+      summary: Editar, activar ou desactivar regra
+      tags:
+        - Alertas
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                kind:
+                  type: string
+                  enum:
+                    - close_above
+                    - close_below
+                    - change_up
+                    - change_down
+                threshold:
+                  anyOf:
+                    - type: string
+                    - type: number
+                active:
+                  type: boolean
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                  instrumentId:
+                    type: number
+                  symbol:
+                    type: string
+                  name:
+                    nullable: true
+                    type: string
+                  currency:
+                    nullable: true
+                    type: string
+                  kind:
+                    type: string
+                    enum:
+                      - close_above
+                      - close_below
+                      - change_up
+                      - change_down
+                  threshold:
+                    type: string
+                    description: 'Valor decimal em texto, ex.: "1234.50"'
+                  active:
+                    type: boolean
+                  lastEvaluatedSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  lastEventSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  lastSentAt:
+                    nullable: true
+                    type: string
+                  createdAt:
+                    type: string
+                  updatedAt:
+                    type: string
+                required:
+                  - id
+                  - instrumentId
+                  - symbol
+                  - name
+                  - currency
+                  - kind
+                  - threshold
+                  - active
+                  - lastEvaluatedSession
+                  - lastEventSession
+                  - lastSentAt
+                  - createdAt
+                  - updatedAt
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    delete:
+      summary: Apagar regra
+      tags:
+        - Alertas
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/alerts/events:
+    get:
+      summary: Eventos recentes e estado do envio
+      tags:
+        - Alertas
+      parameters:
+        - schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 200
+          in: query
+          name: limit
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                        ruleId:
+                          type: number
+                        kind:
+                          type: string
+                          enum:
+                            - close_above
+                            - close_below
+                            - change_up
+                            - change_down
+                        threshold:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        symbol:
+                          type: string
+                        sessionDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        close:
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        changePct:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        deliveryStatus:
+                          type: string
+                          enum:
+                            - pending
+                            - sending
+                            - sent
+                            - failed
+                            - uncertain
+                        deliveredAt:
+                          nullable: true
+                          type: string
+                      required:
+                        - id
+                        - ruleId
+                        - kind
+                        - threshold
+                        - symbol
+                        - sessionDate
+                        - close
+                        - changePct
+                        - deliveryStatus
+                        - deliveredAt
+                      additionalProperties: false
+                required:
+                  - items
+                additionalProperties: false
+  /api/v1/status:
+    get:
+      summary: "Estado dos dados: última sessão, recolhas e alertas"
+      tags:
+        - Operação
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  latestSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  instruments:
+                    type: object
+                    properties:
+                      pending:
+                        type: number
+                      active:
+                        type: number
+                      invalid:
+                        type: number
+                    required:
+                      - pending
+                      - active
+                      - invalid
+                    additionalProperties: false
+                  failedJobs:
+                    type: number
+                  lastFetchRun:
+                    nullable: true
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - running
+                          - done
+                          - failed
+                      startedAt:
+                        type: string
+                      finishedAt:
+                        nullable: true
+                        type: string
+                      detail:
+                        nullable: true
+                        type: string
+                    required:
+                      - status
+                      - startedAt
+                      - finishedAt
+                      - detail
+                    additionalProperties: false
+                  lastAlertsRun:
+                    nullable: true
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - running
+                          - done
+                          - failed
+                      startedAt:
+                        type: string
+                      finishedAt:
+                        nullable: true
+                        type: string
+                      detail:
+                        nullable: true
+                        type: string
+                    required:
+                      - status
+                      - startedAt
+                      - finishedAt
+                      - detail
+                    additionalProperties: false
+                required:
+                  - latestSession
+                  - instruments
+                  - failedJobs
+                  - lastFetchRun
+                  - lastAlertsRun
+                additionalProperties: false
+security:
+  - session: []
