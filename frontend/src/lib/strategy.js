@@ -1,7 +1,7 @@
 /**
  * Estratégia de momento sobre o SMA10/SMA200 (área do gráfico de momento), simulada no histórico:
  *   compra 15 000 € quando as três últimas sessões foram «a descer», «a subir», «a subir»;
- *   vende tudo quando foram «a subir», «a descer», «a descer».
+ *   vende tudo quando foram «a subir», «a descer», «a descer» e o SMA8/SMA125 está abaixo de 1%.
  * Sem compras nem vendas quando, na sessão do sinal, o SMA10/SMA200 está entre −1% e +1% (inclusive).
  * Execução ao fecho real (não ajustado) da sessão em que o padrão se completa; uma posição de
  * cada vez; quantidades inteiras; sem comissões. Não altera a carteira virtual.
@@ -10,6 +10,8 @@
 export const STRATEGY_BUDGET = 15000;
 /** Zona neutra do SMA10/SMA200, em %: dentro dela os sinais são ignorados. */
 export const NEUTRAL_BAND = 1;
+/** A venda só se executa com o SMA8/SMA125 abaixo deste valor, em %. */
+export const SELL_MAX_WAVE125 = 1;
 
 const BUY = [false, true, true];
 const SELL = [true, false, false];
@@ -34,7 +36,8 @@ export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
   const trades = [];
   const signals = []; // { date, side } para os marcadores do gráfico
   let open = null;
-  let skipped = 0;
+  let skipped = 0;      // sinais na zona neutra do SMA10/SMA200
+  let sellsHeld = 0;    // padrões de venda não executados por o SMA8/SMA125 estar em 1% ou mais
   for (let i = 0; i < quotes.length; i++) {
     const price = Number(quotes[i].close);
     const neutral = mom[i].wave != null && Math.abs(mom[i].wave) <= NEUTRAL_BAND;
@@ -48,6 +51,10 @@ export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
       open = { buyDate: quotes[i].date, buyPrice: price, quantity, cost: round2(quantity * price) };
       signals.push({ date: quotes[i].date, side: 'buy' });
     } else if (open && matches(states, i, SELL)) {
+      if (!(mom[i].wave125 != null && mom[i].wave125 < SELL_MAX_WAVE125)) {
+        sellsHeld += 1;
+        continue;
+      }
       const proceeds = round2(open.quantity * price);
       trades.push({ ...open, sellDate: quotes[i].date, sellPrice: price, proceeds, pnl: round2(proceeds - open.cost), pnlPct: (proceeds / open.cost - 1) * 100 });
       signals.push({ date: quotes[i].date, side: 'sell' });
@@ -77,7 +84,7 @@ export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
   const realized = round2(trades.reduce((s, t) => s + t.pnl, 0));
   const total = round2(realized + (open?.pnl ?? 0));
   return {
-    trades, open, signals, skipped,
+    trades, open, signals, skipped, sellsHeld,
     firstDate: startIdx >= 0 ? quotes[startIdx].date : null,
     summary: {
       closed: trades.length,

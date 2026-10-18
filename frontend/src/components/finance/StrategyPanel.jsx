@@ -1,10 +1,10 @@
 import * as f from '../../lib/format.js';
-import { NEUTRAL_BAND, STRATEGY_BUDGET } from '../../lib/strategy.js';
+import { NEUTRAL_BAND, SELL_MAX_WAVE125, STRATEGY_BUDGET } from '../../lib/strategy.js';
 import { PnL } from './finance.jsx';
 
 /** Resultado da simulação da estratégia de momento no histórico (não altera a carteira). */
 export default function StrategyPanel({ result, currency = 'EUR', symbol }) {
-  const { trades, open, summary, firstDate, skipped } = result;
+  const { trades, open, summary, firstDate, skipped, sellsHeld } = result;
   const bh = summary.buyHold;
   return (
     <section className="stack" style={{ gap: '1rem' }} aria-labelledby="strategy-title">
@@ -12,7 +12,8 @@ export default function StrategyPanel({ result, currency = 'EUR', symbol }) {
         <h3 id="strategy-title" style={{ fontSize: '1.0625rem', fontWeight: 600 }}>Estratégia de momento — simulação no histórico</h3>
         <p className="small muted" style={{ marginTop: 4 }}>
           Compra {f.money(STRATEGY_BUDGET, currency, 0)} quando o SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a subir»;
-          vende tudo após uma «a subir» seguida de duas «a descer». Os sinais são ignorados quando o SMA10/SMA200 está entre
+          vende tudo após uma «a subir» seguida de duas «a descer», mas só com o SMA8/SMA125 abaixo de {SELL_MAX_WAVE125}%
+          {sellsHeld > 0 && `(${sellsHeld} ${sellsHeld === 1 ? 'venda não executada' : 'vendas não executadas'} por esta condição)`}. Os sinais são ignorados quando o SMA10/SMA200 está entre
           −{NEUTRAL_BAND}% e +{NEUTRAL_BAND}%{skipped > 0 && ` (${skipped} ${skipped === 1 ? 'sinal ignorado' : 'sinais ignorados'} no período)`}. Executa ao fecho da sessão do sinal, uma posição de cada vez,
           sem comissões. Período: {firstDate ? `desde ${f.date(firstDate)}` : 'sem dados suficientes'}. Não altera a carteira virtual.
         </p>

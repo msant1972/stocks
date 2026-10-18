@@ -4,8 +4,8 @@ import { backtest, sessionStates } from '../src/lib/strategy.js';
 
 // Constrói sessões com SMA10/SMA200 sempre definida e a direcção indicada (true sobe, false desce).
 // As duas primeiras sessões nunca têm estado conhecido, qualquer que seja o valor indicado.
-function fixture(states, prices, waves = []) {
-  const mom = states.map((s, i) => ({ wave: waves[i] ?? 5, rising: s === true }));
+function fixture(states, prices, waves = [], waves125 = []) {
+  const mom = states.map((s, i) => ({ wave: waves[i] ?? 5, wave125: waves125[i] ?? 0, rising: s === true }));
   const quotes = prices.map((p, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, close: String(p) }));
   return { mom, quotes };
 }
@@ -54,4 +54,16 @@ test('ignora sinais quando o SMA10/SMA200 está entre −1% e +1%', () => {
   assert.equal(r.skipped, 2);
   assert.deepEqual(r.signals, [{ date: '2026-01-11', side: 'buy' }]);
   assert.equal(r.open.buyDate, '2026-01-11');
+});
+
+test('só vende com o SMA8/SMA125 abaixo de 1%', () => {
+  //            0     1     2      3     4     5     6      7      8     9      10
+  const s = [null, null, false, true, true, true, false, false, true, false, false];
+  const p = [10, 10, 10, 10, 10, 11, 12, 12, 13, 14, 14];
+  // venda no índice 7 com SMA8/SMA125 em 1% (não inferior) → mantém; venda no índice 10 com 0,9% → vende.
+  const { quotes, mom } = fixture(s, p, [], { 7: 1, 10: 0.9 });
+  const r = backtest(quotes, mom);
+  assert.equal(r.sellsHeld, 1);
+  assert.equal(r.trades.length, 1);
+  assert.deepEqual([r.trades[0].sellDate, r.trades[0].sellPrice], ['2026-01-11', 14]);
 });
