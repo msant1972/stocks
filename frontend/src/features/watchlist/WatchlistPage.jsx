@@ -104,11 +104,12 @@ export default function WatchlistPage() {
           <p className="page-sub">A sua lista de instrumentos e o catálogo partilhado. Cotações diárias, não em tempo real.</p>
         </div>
         <div className="row">
-          {pending > 0 && (
-            <Button onClick={forceFetch} busy={forcing} title="Pedir já ao Yahoo Finance os dados dos instrumentos «A validar»">
-              {forcing ? 'A pedir…' : `Validar agora (${pending})`}
-            </Button>
-          )}
+          <Button
+            onClick={forceFetch} busy={forcing} disabled={pending === 0}
+            title={pending > 0 ? 'Pedir já ao Yahoo Finance os dados dos instrumentos «A validar»' : 'Todos os instrumentos do catálogo estão validados'}
+          >
+            {forcing ? 'A pedir…' : pending > 0 ? `Validar agora (${pending})` : 'Nada por validar'}
+          </Button>
           <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" size={18} />Adicionar instrumentos</Button>
         </div>
       </div>
