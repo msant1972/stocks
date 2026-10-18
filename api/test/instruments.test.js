@@ -87,6 +87,7 @@ describe.skipIf(!hasTestDb)('catálogo, histórico e watchlist', () => {
     expect(item.symbol).toBe('EDP.LS');
     expect(item.latest.close).toBe('4.200000');
     expect(item.latest.changePct).toBe('5.00');
+    expect(item.latest.volume).toBe(1000);
 
     const detail = await ana.get(`/instruments/${id}`);
     expect(detail.json().sessions).toBe(4);

@@ -23,6 +23,7 @@ export const InstrumentStatus = z.enum(['pending', 'active', 'invalid']);
 export const LatestQuote = z.object({
   date: IsoDate,
   close: Decimal,
+  volume: z.number().nullable().describe('Volume da última sessão'),
   previousDate: IsoDate.nullable(),
   previousClose: NullableDecimal,
   changePct: NullableDecimal,

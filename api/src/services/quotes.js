@@ -2,14 +2,14 @@ import { ratio, toScaled } from '../money.js';
 
 /**
  * Último fecho e fecho anterior de cada instrumento, numa só consulta.
- * Devolve Map(instrumentId -> { date, close, previousDate, previousClose, changePct }).
+ * Devolve Map(instrumentId -> { date, close, volume, previousDate, previousClose, changePct }).
  */
 export async function latestQuotes(conn, instrumentIds) {
   const ids = [...new Set(instrumentIds.map(Number))];
   const out = new Map();
   if (ids.length === 0) return out;
   const [rows] = await conn.query(
-    `SELECT q.instrument_id, q.session_date, q.close,
+    `SELECT q.instrument_id, q.session_date, q.close, q.volume,
             (SELECT p.session_date FROM daily_quotes p
               WHERE p.instrument_id = q.instrument_id AND p.session_date < q.session_date
               ORDER BY p.session_date DESC LIMIT 1) AS previous_date,
@@ -25,6 +25,7 @@ export async function latestQuotes(conn, instrumentIds) {
     out.set(Number(r.instrument_id), {
       date: r.session_date,
       close: r.close,
+      volume: r.volume == null ? null : Number(r.volume),
       previousDate: r.previous_date,
       previousClose: r.previous_close,
       changePct: r.previous_close ? changePct(r.close, r.previous_close) : null,

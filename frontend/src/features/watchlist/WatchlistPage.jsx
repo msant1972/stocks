@@ -20,6 +20,7 @@ function InstrumentTable({ items, action }) {
             <th scope="col">Instrumento</th>
             <th scope="col">Estado</th>
             <th scope="col" className="r">Último fecho</th>
+            <th scope="col" className="r">Volume</th>
             <th scope="col" className="r">Variação</th>
             <th scope="col">Sessão</th>
             <th scope="col"><span className="visually-hidden">Acções</span></th>
@@ -34,6 +35,7 @@ function InstrumentTable({ items, action }) {
               </td>
               <td><InstrumentStatus status={i.status} /></td>
               <td className="r">{i.latest ? f.price(i.latest.close, i.currency) : '—'}</td>
+              <td className="r">{f.quantity(i.latest?.volume)}</td>
               <td className="r">{i.latest ? <PriceChange value={i.latest.changePct} /> : '—'}</td>
               <td className="small muted" style={{ whiteSpace: 'nowrap' }}>{i.latest ? f.date(i.latest.date) : '—'}</td>
               <td className="r">{action(i)}</td>
@@ -123,7 +125,7 @@ export default function WatchlistPage() {
         <section className="card" aria-labelledby="search-title">
           <div className="card-head">
             <h2 id="search-title" className="card-title">Catálogo partilhado</h2>
-            {search.data && <span className="small muted">{search.data.total} instrumentos</span>}
+            {search.data && <span className="small muted">{search.data.total} {search.data.total === 1 ? 'instrumento' : 'instrumentos'}</span>}
           </div>
           <form role="search" onSubmit={(e) => e.preventDefault()} style={{ marginBottom: '1rem' }}>
             <label htmlFor="catalog-q" className="visually-hidden">Designação ou símbolo</label>
@@ -145,7 +147,7 @@ export default function WatchlistPage() {
         <section className="card" aria-labelledby="mine-title">
           <div className="card-head">
             <h2 id="mine-title" className="card-title">A minha lista</h2>
-            {watchlist.data && <span className="small muted">{watchlist.data.items.length} instrumentos</span>}
+            {watchlist.data && <span className="small muted">{watchlist.data.items.length} {watchlist.data.items.length === 1 ? 'instrumento' : 'instrumentos'}</span>}
           </div>
           {watchlist.isPending ? <Loading /> : watchlist.error ? <ErrorState error={watchlist.error} onRetry={watchlist.refetch} /> :
             watchlist.data.items.length === 0 ? (
