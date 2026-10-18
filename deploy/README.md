@@ -84,7 +84,20 @@ O SMTP configura-se em **Definições → Envio de email (SMTP)** (administrador
 
 ## Cópias de segurança e recuperação
 
-As cópias ficam em `/var/backups/stocks` e são também copiadas para fora do servidor pelo administrador; o restauro foi testado a 18 out. 2026. Repita o teste de restauro periodicamente.
+Há dois níveis de cópia:
+
+1. **Dumps diários** (`stocks-backup.timer`, 03:30 UTC) em `/var/backups/stocks`, guardados 14 dias. São consistentes, porque são feitos com `mariadb-dump --single-transaction`.
+2. **Snapshots EBS** do volume do servidor, geridos na AWS (frequência e retenção definidas na consola ou no Data Lifecycle Manager). Protegem contra a perda do servidor e incluem os dumps do ponto 1.
+
+O restauro foi testado a 18 out. 2026. Repita o teste periodicamente, por exemplo uma vez por trimestre.
+
+**Recuperar a partir de um snapshot EBS.** Um snapshot do volume é «crash-consistent»: os ficheiros do MariaDB podem não estar num estado consistente. Use antes o dump mais recente que o snapshot contém:
+
+1. Na AWS, criar um volume a partir do snapshot e anexá-lo a uma instância (a própria ou uma nova).
+2. Montar o volume, por exemplo em `/mnt/recuperacao`, e localizar `/mnt/recuperacao/var/backups/stocks/stocks-<data>.sql.gz`.
+3. Restaurar esse dump com o procedimento abaixo.
+
+Se for preciso reconstruir o servidor inteiro, basta lançar uma instância a partir do snapshot: o sistema, a configuração (`/etc/stocks`, incluindo `secret.key`) e o código (`/opt/stocks`) vêm com ele. Depois restaure o dump para garantir uma base de dados consistente.
 
 Restaurar, depois de parar a API e os timers:
 

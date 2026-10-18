@@ -288,12 +288,12 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-fetcher-run.path` | quando a API escreve o sinal | Arranca o motor de recolha de imediato |
 | `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança para a fila de recolha |
 | `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
-| `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias) |
+| `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é feita por snapshots EBS do volume, geridos na AWS |
 
 Testes automáticos em cada componente: API com Vitest contra uma BD de testes (58), motor de recolha (21) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
-- **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por cópias de segurança diárias, com cópia externa e restauro testado pelo administrador.
+- **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e snapshots EBS do volume (cópia fora do servidor, geridos na AWS), com restauro testado pelo administrador.
 - **Fonte não oficial:** o yfinance pode mudar ou ser limitado pelo Yahoo; a versão está fixada e o adaptador é substituível.
 - **Ambientes:** desenvolvimento e produção partilham o servidor e a base `stocks`; os testes usam a base `stocks_test`.
 

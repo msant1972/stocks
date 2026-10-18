@@ -12,7 +12,7 @@ Os três pendentes da versão 1 foram fechados pelo administrador a 18 out. 2026
 
 1. SMTP configurado em Definições (OVH, `ssl0.ovh.net:465`, SSL/TLS, remetente `stocks@graus.pt`), com email de teste aceite;
 2. carteira de produção passada para 1 000 000 € e valor por omissão actualizado em `/etc/stocks/stocks.env`;
-3. cópias de segurança copiadas para fora do servidor e restauro testado (procedimento gerido pelo administrador, fora do servidor).
+3. cópia fora do servidor por snapshots EBS do volume (geridos na AWS) e restauro testado.
 
 ## 2. Âmbito
 
@@ -91,7 +91,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US09 | Regras de alerta | P0 | Feito |
 | US10 | Envio de alertas | P0 | Feito (SMTP da OVH) |
 | US11 | Estado das recolhas | P1 | Feito (`/status`, Definições, «Validar agora») |
-| US12 | Backup e recuperação | P0 | Feito: backup diário local, cópia externa e restauro testado pelo administrador |
+| US12 | Backup e recuperação | P0 | Feito: dumps diários locais, snapshots EBS e restauro testado |
 | US13 | Indicadores e momento | — | Feito |
 | US14 | Estratégia simulada | — | Feito |
 | US15 | HeatMap e momento do mercado | — | Feito |
@@ -121,7 +121,7 @@ O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pul
 | Gastos concorrentes do saldo | Transacções, bloqueio da carteira, testes concorrentes | Resolvido |
 | Alertas repetidos | Chave única por regra e sessão; reserva por utilizador | Resolvido |
 | Aceitação SMTP ambígua | Estado `uncertain`, sem reenvio cego | Resolvido |
-| Servidor único | Backup diário local, cópia externa e restauro testado | Mitigado; indisponibilidade conjunta aceite |
+| Servidor único | Dumps diários, snapshots EBS e restauro testado | Mitigado; indisponibilidade conjunta aceite |
 | Perda da chave de cifra | Chave criada uma vez e nunca substituída | Aceite: perdê-la obriga a reintroduzir a palavra-passe SMTP |
 | Desenvolvimento no servidor de produção | Base de testes separada; publicação só com `install.sh` | Pendente: ambiente de testes separado |
 | Aumento do âmbito | Alterações pequenas, com testes e commit por funcionalidade | Em curso |
@@ -158,7 +158,7 @@ Lista de verificação da versão 1:
 - [x] Testes de saldo, concorrência e isolamento aprovados.
 - [x] Testes de resumo único e desduplicação de alertas aprovados.
 - [ ] Monitorização com alerta operacional (hoje: `journalctl`, `/status` e Definições).
-- [x] Backup externo e restauro demonstrado (administrador).
+- [x] Backup externo (snapshots EBS) e restauro demonstrado.
 - [x] Envio real de email verificado (email de teste pelo SMTP da OVH).
 - [x] Procedimento de rollback documentado em [deploy/README.md](../../deploy/README.md).
 
