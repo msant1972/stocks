@@ -25,7 +25,7 @@ Os problemas não estão na coerência, estão em quatro pontos que bloqueiam o 
 | Limite de alertas | Coerente | Os três documentos adoptam «por regra e por utilizador, janela móvel de 60 min». |
 | Moeda | Coerente, mas ambíguo | Plano: «uma carteira e uma moeda por utilizador; instrumentos de outras moedas excluídos». Não diz se ficam excluídos só da carteira ou também da watchlist e alertas. O guia usa «150,00 USD» como exemplo de alerta. |
 | Retenção de 2 anos | Coerente | Mas ver secção 4.4: apagar dados antigos não traz benefício. |
-| Referências `[web:21]`, `[web:27]`, etc. | Resto de exportação | São marcadores de citações de uma conversa e não apontam para nada. Substituir por links reais ou remover. |
+| Referências `[web:21]`, `[web:27]`, etc. | Resolvido | Marcadores removidos dos documentos. |
 
 ## 3. Lacunas (o que falta para começar a escrever código)
 
@@ -136,8 +136,8 @@ As restantes propostas do plano (último fecho, sem comissões, custo médio, qu
 
 ## 7. Próximos passos recomendados
 
-1. Responder às decisões 1 a 4 (são as que mudam o desenho).
-2. Criar o repositório (monorepo com `frontend/`, `api/`, `engines/`, `db/migrations/`, `docs/`) e colocar lá estes documentos e um registo de decisões.
-3. Fazer uma prova de conceito curta do motor de recolha: carregar dois anos de 10 a 20 tickers do mercado escolhido, guardar no MariaDB com chave única (instrumento, data) e verificar fins-de-semana, feriados, dados em falta e preços ajustados.
+1. ~~Responder às decisões 1 a 4.~~ Feito; decisões reflectidas na arquitectura, no plano e no guia de estilos.
+2. ~~Criar o repositório e colocar lá estes documentos.~~ Feito.
+3. ~~Prova de conceito do motor de recolha.~~ Feito (`engines/fetcher/`).
 4. Fechar o esquema da BD e o contrato OpenAPI a partir das decisões.
 5. Seguir a ordem do plano (recolha → consulta e watchlist → carteira e simulação → alertas), com uma versão de processo mais leve se for um projecto individual.

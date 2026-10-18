@@ -13,7 +13,8 @@ Este guia estabelece uma proposta visual e funcional para implementação. Os va
 - Negociação exclusivamente simulada.
 - Carteira e saldo virtuais.
 - Histórico diário dos últimos dois anos, sujeito à disponibilidade dos dados.
-- Alertas por email limitados a um envio por hora, por regra e por utilizador, segundo a interpretação adoptada na arquitectura.
+- Alertas por email agrupados num único resumo por utilizador, enviado após a recolha diária das cotações.
+- Instrumentos cotados em EUR e carteira em EUR.
 - Ausência de cotações intradiárias e de execução real em bolsa.
 
 A interface nunca deve criar a impressão de negociação real ou de acompanhamento em tempo real.
@@ -36,7 +37,7 @@ A sensação de qualidade deve resultar da consistência e da atenção aos deta
 6. Honestidade dos dados: mostrar moeda, data da cotação e natureza simulada das operações.
 7. Acessibilidade de base: teclado, contraste e movimento reduzido fazem parte do desenho inicial.
 
-As HIG da Apple servem como inspiração de interacção e apresentação, adaptada ao contexto web e não como imposição de componentes nativos. [web:38]
+As HIG da Apple servem como inspiração de interacção e apresentação, adaptada ao contexto web e não como imposição de componentes nativos.
 
 ## 3. Linguagem visual
 
@@ -83,7 +84,7 @@ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
 | Dados compactos | 14–15 px | 400–500 | Tabelas |
 | Legenda | 13–14 px | 400 | Fonte, data e ajuda |
 
-Implementar tamanhos em rem e layouts adaptáveis ao aumento de texto. Evitar pesos muito finos e mistura de várias famílias; a orientação da Apple privilegia legibilidade e uma hierarquia tipográfica consistente. [web:46]
+Implementar tamanhos em rem e layouts adaptáveis ao aumento de texto. Evitar pesos muito finos e mistura de várias famílias; a orientação da Apple privilegia legibilidade e uma hierarquia tipográfica consistente.
 
 Para números financeiros, usar `font-variant-numeric: tabular-nums`. Não alterar a largura de cartões ou colunas quando os valores mudam.
 
@@ -107,7 +108,7 @@ Não transformar todas as superfícies em cápsulas nem colocar cartões dentro 
 - Modais: fundo opaco e scrim escuro leve.
 - Barra superior: translucidez opcional e moderada, com fundo alternativo opaco.
 
-Reservar o efeito de vidro para navegação ou controlos flutuantes. Não aplicar transparência a tabelas, gráficos ou valores financeiros. A orientação Apple sobre materiais distingue a camada de controlos da camada de conteúdo e desaconselha Liquid Glass nesta última. [web:41]
+Reservar o efeito de vidro para navegação ou controlos flutuantes. Não aplicar transparência a tabelas, gráficos ou valores financeiros. A orientação Apple sobre materiais distingue a camada de controlos da camada de conteúdo e desaconselha Liquid Glass nesta última.
 
 Não depender de blur para conseguir contraste. A versão sem blur deve permanecer visualmente completa.
 
@@ -169,6 +170,8 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 ### 5.3. Acompanhamento e detalhe de instrumento
 
 - Pesquisa por designação, ticker e mercado.
+- Acções «Adicionar instrumento» (símbolo Yahoo, ex.: `GALP.LS`) e «Importar Excel», com modelo descarregável e pré-visualização das linhas válidas, duplicadas e com erro antes de gravar.
+- Estados do instrumento: «A validar», «Activo» e «Inválido» (com o motivo, ex.: «Não está cotado em EUR»).
 - Ticker em destaque, com nome, mercado e moeda próximos.
 - Fecho diário, variação e data da sessão sempre visíveis.
 - Gráfico principal com selecção «1M», «3M», «6M», «1A» e «2A».
@@ -218,11 +221,11 @@ Após sucesso, mostrar um recibo simples com preço efectivamente aplicado, quan
 - Listagem com instrumento, condição, estado e último envio.
 - Interruptor acessível para activar/desactivar.
 - Formulário simples com pré-visualização da condição em linguagem natural.
-- Texto «No máximo um email por hora para esta regra».
+- Texto «Os alertas disparados são enviados num único email de resumo, após a actualização diária das cotações.»
 - Ajuda «As condições são avaliadas com cotações diárias, não em tempo real.»
 - Distinguir «Activo», «Pausado», «A aguardar dados» e «Falha de envio» apenas quando existirem estados correspondentes no backend.
 
-Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 USD.»
+Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 €.»
 
 ### 5.8. Definições
 
@@ -303,7 +306,7 @@ Os exemplos de números usados em protótipos devem ser identificados como dados
 
 Priorizar opacidade e transformações. Evitar animar dimensões, blur de grandes áreas, fundos contínuos, parallax e contadores financeiros a deslizar.
 
-O movimento deve apoiar a compreensão, não atrasar as tarefas. Respeitar `prefers-reduced-motion` e remover movimento não essencial; a Apple recomenda movimento intencional e possibilidade de o reduzir. [web:39][web:36]
+O movimento deve apoiar a compreensão, não atrasar as tarefas. Respeitar `prefers-reduced-motion` e remover movimento não essencial; a Apple recomenda movimento intencional e possibilidade de o reduzir.
 
 Objectivo de fluidez: não bloquear escrita, scroll ou foco durante actualizações. Medir a experiência nos dispositivos de referência; não prometer uma taxa fixa de fotogramas sem validação.
 
@@ -321,7 +324,7 @@ Objectivo de implementação: WCAG 2.2 nível AA, sujeito a testes automáticos 
 - Respeitar movimento reduzido e oferecer superfícies opacas para a aparência sem transparência.
 - Não bloquear colagem ou gestores de palavras-passe.
 
-As WCAG 2.2 AA definem um mínimo de 24 × 24 CSS px para alvos de ponteiro, com excepções e regras de espaçamento. Neste projecto adopta-se preferencialmente 44 × 44 px para controlos frequentes, como escolha de conforto, não como mínimo AA obrigatório. [web:40][web:37]
+As WCAG 2.2 AA definem um mínimo de 24 × 24 CSS px para alvos de ponteiro, com excepções e regras de espaçamento. Neste projecto adopta-se preferencialmente 44 × 44 px para controlos frequentes, como escolha de conforto, não como mínimo AA obrigatório.
 
 Testar pelo menos com teclado, VoiceOver/Safari e NVDA/Firefox ou combinação equivalente disponível. A preferência por transparência reduzida pode ser oferecida na aplicação, sem depender de suporte uniforme de uma media query no navegador.
 
@@ -479,7 +482,7 @@ src/
 - [ ] Cotação diária e respectiva data sempre identificadas.
 - [ ] Operações e saldos claramente assinalados como virtuais.
 - [ ] Confirmação de operações preserva contexto e apresenta os valores aplicados.
-- [ ] Alertas explicam o limite de uma hora e a base diária dos dados.
+- [ ] Alertas explicam o envio em resumo e a base diária dos dados.
 - [ ] Estados vazios, erro, carregamento e desactualização desenhados e implementados.
 - [ ] Utilização completa por teclado e foco visível.
 - [ ] Gráficos com alternativa de consulta dos dados.
@@ -490,4 +493,4 @@ src/
 
 ## 13. Briefing resumido para implementação
 
-> Criar uma interface React premium, serena e fluida para uma plataforma de simulação e acompanhamento de acções. Inspirar-se na clareza e contenção das interfaces Apple sem copiar a marca. Usar tipografia de sistema, grelha consistente, superfícies sólidas, espaços generosos, cantos suaves, sombras discretas e azul como destaque. Disponibilizar temas claro, escuro e sistema. Reservar translucidez para navegação, nunca para os dados. Desenhar Visão geral, Acompanhamento, Detalhe do instrumento, Carteira, Operações, Alertas e Definições. Mostrar sempre a natureza virtual das operações e a data das cotações diárias. Suportar histórico de dois anos e explicar o limite de um email por hora por regra. Priorizar acessibilidade, navegação por teclado, movimento reduzido, estados de erro e clareza financeira. A experiência deve transmitir confiança e qualidade sem sugerir dados em tempo real nem execução real de ordens.
+> Criar uma interface React premium, serena e fluida para uma plataforma de simulação e acompanhamento de acções. Inspirar-se na clareza e contenção das interfaces Apple sem copiar a marca. Usar tipografia de sistema, grelha consistente, superfícies sólidas, espaços generosos, cantos suaves, sombras discretas e azul como destaque. Disponibilizar temas claro, escuro e sistema. Reservar translucidez para navegação, nunca para os dados. Desenhar Visão geral, Acompanhamento, Detalhe do instrumento, Carteira, Operações, Alertas e Definições. Mostrar sempre a natureza virtual das operações e a data das cotações diárias. Suportar histórico de dois anos e explicar que os alertas chegam num email de resumo após a actualização diária. Priorizar acessibilidade, navegação por teclado, movimento reduzido, estados de erro e clareza financeira. A experiência deve transmitir confiança e qualidade sem sugerir dados em tempo real nem execução real de ordens.

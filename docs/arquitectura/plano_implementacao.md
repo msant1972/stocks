@@ -12,27 +12,38 @@ Este plano é uma proposta de execução. As durações são estimativas de plan
 
 - Negociação exclusivamente simulada e acompanhamento de acções.
 - Histórico de dois anos por instrumento, com granularidade diária.
-- Alertas por email com frequência máxima de uma notificação por hora.
+- Alertas por email com frequência máxima de uma notificação por hora, cumprida com um email de resumo por utilizador após cada recolha diária.
 - Cinco módulos funcionais, de acordo com a arquitectura definida.
 - Ausência de operações reais ou integração com corretoras.
 
-### 2.2. Interpretações e propostas a validar na fase inicial
+### 2.2. Decisões tomadas (18 out. 2026)
 
-- Limite horário aplicado por regra e por utilizador, com intervalo móvel de 60 minutos, e não por hora de relógio.
-- Histórico mantido numa janela móvel de dois anos.
-- Recolha diária após disponibilização dos dados de cada sessão.
+Detalhe e justificação em [Análise e decisões](analise_e_decisoes.md).
+
+- Utilizadores: grupo privado.
+- Fonte de dados: yfinance, atrás de um adaptador substituível e com versão fixada.
+- Uma carteira por utilizador, em EUR; só são aceites instrumentos cotados em EUR, verificado pela moeda devolvida pelo fornecedor.
+- Catálogo global partilhado, preenchido à mão ou por importação de Excel, com validação assíncrona pelo motor de recolha.
+- Alertas: um email de resumo por utilizador após cada recolha diária.
+- Recolha diária nos dias úteis às 19h00 de Lisboa.
+- Cotações não são apagadas; os dois anos definem a profundidade da carga inicial.
+- Fecho não ajustado e ajustado guardados na mesma linha; operações com o não ajustado, gráficos com o ajustado.
+- Migrações versionadas em `db/migrations/`, no formato dbmate, como fonte única do esquema.
+
+### 2.3. Propostas a validar na fase inicial
+
 - Simulações executadas ao último fecho diário disponível, claramente identificado.
-- Uma carteira e uma moeda por utilizador no MVP; instrumentos de outras moedas ficam excluídos até existir suporte cambial.
 - Quantidades inteiras, sem posições curtas, alavancagem ou derivados.
 - Capital inicial configurável; reposição de capital fora do fluxo normal do MVP.
 - Custo médio ponderado para cálculo do custo de aquisição.
 - Sem comissões, dividendos ou ajustamentos automáticos de eventos societários no MVP.
 - Apenas instrumentos cuja política de preços e eventos societários tenha sido validada no piloto.
 - Alertas iniciais de fecho acima/abaixo de um limite e variação percentual entre sessões.
+- Contas criadas por comando de administração (CLI), sem registo público.
 
-Qualquer alteração destas propostas deverá actualizar o âmbito, os testes e a estimativa.
+Qualquer alteração destas decisões ou propostas deverá actualizar o âmbito, os testes e a estimativa.
 
-### 2.3. Fora do âmbito
+### 2.4. Fora do âmbito
 
 - Negociação real, pagamentos, integração com corretoras e custódia de activos.
 - Streaming, cotações intradiárias e alertas de mercado em tempo real.
@@ -85,7 +96,7 @@ Marcos de aprovação:
 - M0: requisitos e política de dados aprovados.
 - M1: histórico diário validado e API de consulta funcional.
 - M2: simulação transaccional aprovada.
-- M3: alertas e limite de 60 minutos aprovados.
+- M3: alertas, email de resumo e desduplicação aprovados.
 - M4: piloto, recuperação e publicação aprovados.
 
 ## 5. Plano detalhado por fase
@@ -94,8 +105,8 @@ Marcos de aprovação:
 
 Tarefas:
 
-- Validar as propostas da secção 2.2 e registar decisões.
-- Seleccionar um conjunto piloto proposto de 10 a 20 instrumentos, de um mercado e moeda iniciais.
+- Validar as propostas da secção 2.3 e registar decisões.
+- Conjunto piloto: lista inicial de 41 instrumentos cotados em EUR (`engines/fetcher/seeds/instrumentos_iniciais.txt`).
 - Confirmar identificação por instrumento e mercado, datas de sessão e fuso horário.
 - Ensaiar a recolha de dois anos diários, dados em falta e actualizações incrementais.
 - Validar abertura, máximo, mínimo, fecho, volume e política de preços ajustados.
@@ -103,7 +114,9 @@ Tarefas:
 - Confirmar SMTP, destinatários de teste e credenciais.
 - Desenhar e validar os ecrãs principais.
 
-O eventual uso de yfinance fica condicionado à avaliação das condições de utilização dos dados. A documentação do projecto declara que não é uma integração oficial da Yahoo, remete para os termos da Yahoo e alerta para utilização pessoal. A viabilidade de um serviço multiutilizador não deve ser assumida. [web:27]
+Decidido: yfinance para um grupo privado. A documentação do projecto declara que não é uma integração oficial da Yahoo, remete para os termos da Yahoo e alerta para utilização pessoal; o risco é aceite para este cenário, mas a viabilidade de um serviço aberto a terceiros não deve ser assumida.
+
+Estado: a prova de conceito do motor de recolha está concluída (carga de dois anos, actualização incremental, validação da moeda, testes com fornecedor simulado).
 
 Entregáveis:
 
@@ -112,7 +125,7 @@ Entregáveis:
 - Prova de conceito de dados e SMTP.
 - Esboços dos ecrãs.
 
-Critério de saída: fonte tecnicamente adequada e utilização autorizada para o cenário pretendido, ou decisão de substituir o fornecedor antes de avançar.
+Critério de saída: fonte tecnicamente adequada para o cenário pretendido, ou decisão de substituir o fornecedor antes de avançar.
 
 ### F1 — Fundação técnica e infraestrutura
 
@@ -135,14 +148,15 @@ Critério de saída: instalação repetível num ambiente vazio, API com health 
 
 Tarefas:
 
-- Criar instrumentos, cotações, tarefas de carga e estados de recolha.
+- Criar instrumentos (com estado de validação), cotações, tarefas de carga e estados de recolha.
 - Definir unicidade por instrumento e data de sessão.
 - Implementar carga inicial de dois anos e actualização incremental.
 - Fazer inserção/actualização idempotente e tratar correcções do fornecedor.
 - Validar valores, cobertura, moeda e datas.
 - Implementar novas tentativas com espera progressiva e limite configurável.
 - Impedir sobreposição de recolhas do mesmo instrumento.
-- Manter janela móvel de dois anos sem apagar dados de operações simuladas.
+- Validar no fornecedor os instrumentos adicionados e rejeitar os que não estão cotados em EUR.
+- Não apagar cotações; os dois anos definem a profundidade da carga inicial.
 - Disponibilizar métricas da última sessão recolhida e dos erros.
 
 Entregáveis:
@@ -150,6 +164,8 @@ Entregáveis:
 - Migrações de instrumentos e cotações.
 - Comando de carga inicial e processo agendado incremental.
 - Relatório de cobertura e falhas do conjunto piloto.
+
+Estado: migração, carga inicial, actualização incremental e testes implementados na prova de conceito; falta instalar os timers systemd e produzir o relatório do conjunto piloto.
 
 Critérios de saída:
 
@@ -164,7 +180,9 @@ Tarefas:
 
 - Implementar início e fim de sessão e protecção dos endpoints.
 - Validar propriedade dos recursos em todas as operações.
-- Criar pesquisa, detalhe de instrumento, histórico paginado e watchlist.
+- Criar pesquisa no catálogo, detalhe de instrumento, histórico paginado e watchlist.
+- Adicionar instrumentos ao catálogo à mão e por importação de Excel (modelo descarregável; só a coluna `ticker` é obrigatória), com pré-visualização de linhas válidas, duplicadas e com erro.
+- Mostrar os estados «A validar», «Activo» e «Inválido».
 - Construir gráficos diários e estados de carregamento/erro.
 - Mostrar data da cotação, moeda, cobertura e aviso de dados desactualizados.
 - Definir um limiar de desactualização adequado ao calendário das sessões.
@@ -185,7 +203,7 @@ Tarefas:
 - Calcular custo médio, ganhos realizados e valorização não realizada.
 - Mostrar aviso de execução simplificada ao último fecho disponível.
 
-A implementação de concorrência poderá usar bloqueio de linhas com SELECT FOR UPDATE dentro de uma transacção. A documentação MariaDB esclarece que a cláusula depende de uma transacção ou de autocommit desactivado para produzir o efeito esperado no InnoDB. [web:21]
+A implementação de concorrência poderá usar bloqueio de linhas com SELECT FOR UPDATE dentro de uma transacção. A documentação MariaDB esclarece que a cláusula depende de uma transacção ou de autocommit desactivado para produzir o efeito esperado no InnoDB.
 
 Critérios de saída:
 
@@ -200,21 +218,21 @@ Critérios de saída:
 Tarefas:
 
 - Criar regras por instrumento e utilizador.
-- Avaliar regras após actualização das cotações diárias.
+- Avaliar regras após actualização das cotações diárias, encadeado no fim da recolha.
 - Registar eventos com chave única por regra, sessão e tipo de condição.
-- Verificar intervalo móvel de 60 minutos desde o último envio bem-sucedido.
-- Reservar tarefas atomicamente para impedir dois processos de enviarem o mesmo evento em simultâneo.
-- Criar templates de email com instrumento, condição, valor, moeda e data da cotação.
+- Agrupar os eventos novos de cada utilizador num único email de resumo.
+- Reservar tarefas atomicamente para impedir dois processos de enviarem o mesmo resumo em simultâneo.
+- Criar o template do resumo com, para cada evento, instrumento, condição, valor, moeda e data da cotação.
 - Registar tentativas, estados e falhas SMTP.
 - Implementar repetição limitada e painel de diagnóstico.
 
-Política proposta: um evento bloqueado pelo intervalo horário fica pendente até expirar o intervalo, se a regra continuar activa e o evento ainda for relevante. A validade e eventual substituição por evento mais recente deverão ser aprovadas em F0.
+Política decidida: um email de resumo por utilizador por execução. Como só há uma recolha por dia, o limite de uma hora fica cumprido sem política de eventos pendentes. Um evento cujo envio falhou entra no resumo da execução seguinte.
 
-A limitação de frequência e a desduplicação são controlos distintos. Não se deve prometer entrega exactamente uma vez por SMTP: se o servidor aceitar a mensagem e a ligação falhar antes da confirmação local, pode existir incerteza. Nesses casos, registar estado incerto e aplicar a política de reconciliação aprovada, evitando reenvio cego.
+O agrupamento e a desduplicação são controlos distintos. Não se deve prometer entrega exactamente uma vez por SMTP: se o servidor aceitar a mensagem e a ligação falhar antes da confirmação local, pode existir incerteza. Nesses casos, registar estado incerto e aplicar a política de reconciliação aprovada, evitando reenvio cego.
 
 Critérios de saída:
 
-- Não existe novo envio conhecido como bem-sucedido da mesma regra/utilizador antes de decorridos 60 minutos.
+- Cada utilizador recebe no máximo um email de resumo por execução.
 - Reavaliar o mesmo evento não produz novo envio após sucesso registado.
 - Reiniciar processos não elimina o histórico de controlo.
 - Falhas e estados incertos ficam visíveis para diagnóstico.
@@ -232,7 +250,7 @@ Tarefas:
 - Medir tempos de resposta com um volume de dados e concorrência aprovados na F0.
 - Realizar backup e restauro completo num ambiente separado.
 
-Usar o OWASP ASVS como referência para seleccionar e registar os controlos de segurança e os respectivos testes, sem alegar certificação automática por seguir uma lista. [web:26]
+Usar o OWASP ASVS como referência para seleccionar e registar os controlos de segurança e os respectivos testes, sem alegar certificação automática por seguir uma lista.
 
 Critério de saída: nenhum defeito bloqueante ou crítico aberto, testes essenciais aprovados e restauro demonstrado.
 
@@ -255,7 +273,8 @@ Critério de saída: aceitação formal, aplicação publicada, responsáveis id
 | ID | Item | Prioridade | Aceitação resumida |
 |---|---|---|---|
 | US01 | Autenticação | P0 | Sessões e isolamento de utilizadores testados |
-| US02 | Pesquisa de instrumentos | P0 | Identificação inequívoca por instrumento e mercado |
+| US02 | Pesquisa de instrumentos | P0 | Identificação inequívoca pelo símbolo Yahoo (inclui o mercado) |
+| US02b | Adicionar e importar instrumentos | P0 | Introdução manual e importação de Excel com pré-visualização; estados de validação visíveis |
 | US03 | Histórico diário | P0 | Até dois anos disponíveis, sem duplicação |
 | US04 | Watchlist | P1 | Adicionar/remover apenas da própria lista |
 | US05 | Carteira virtual | P0 | Capital inicial e saldo coerentes |
@@ -263,7 +282,7 @@ Critério de saída: aceitação formal, aplicação publicada, responsáveis id
 | US07 | Venda simulada | P0 | Quantidade validada e operação atómica |
 | US08 | Posições e resultados | P0 | Valores conferidos com cenários de referência |
 | US09 | Regras de alerta | P0 | Activação, edição e desactivação funcionais |
-| US10 | Envio de alertas | P0 | Intervalo de 60 minutos e desduplicação testados |
+| US10 | Envio de alertas | P0 | Resumo único por utilizador e desduplicação testados |
 | US11 | Estado das recolhas | P1 | Última execução e erros visíveis |
 | US12 | Backup e recuperação | P0 | Restauro integral demonstrado |
 
@@ -280,11 +299,12 @@ P0 indica indispensável à publicação; P1 indica importante mas adiável medi
 | Alertas | alert_rules, alert_events, email_deliveries |
 | Operação | audit_log, job_runs |
 
-Os nomes e a normalização final serão definidos em F1. Todas as alterações são introduzidas por migrações versionadas. Os estados e relações devem ter restrições e índices adequados.
+`instruments`, `daily_quotes` e `fetch_jobs` já existem (`db/migrations/20261018000001_instrumentos_cotacoes.sql`). Os restantes nomes e a normalização final serão definidos em F1. Todas as alterações são introduzidas por migrações versionadas no formato dbmate. Os estados e relações devem ter restrições e índices adequados.
 
 Convenções propostas:
 
 - Instantes técnicos em UTC; data de sessão separada segundo o mercado.
+- Fecho não ajustado (`close`) para operações e fecho ajustado (`adj_close`) para gráficos.
 - Valores monetários em DECIMAL, com precisão definida no desenho detalhado.
 - Chaves únicas para cotações, pedidos idempotentes e eventos de alerta.
 - Preço de execução e data da cotação preservados nas operações.
@@ -295,7 +315,7 @@ Convenções propostas:
 | Área | Endpoints indicativos |
 |---|---|
 | Sessão | POST /api/v1/auth/login; POST /api/v1/auth/logout; GET /api/v1/me |
-| Instrumentos | GET /api/v1/instruments; GET /api/v1/instruments/{id} |
+| Instrumentos | GET /api/v1/instruments; GET /api/v1/instruments/{id}; POST /api/v1/instruments; POST /api/v1/instruments/import; GET /api/v1/instruments/import/template |
 | Histórico | GET /api/v1/instruments/{id}/quotes?from=...&to=... |
 | Watchlist | GET /api/v1/watchlist; POST /api/v1/watchlist/items; DELETE /api/v1/watchlist/items/{id} |
 | Carteira | GET /api/v1/portfolio; GET /api/v1/portfolio/positions |
@@ -309,12 +329,12 @@ O contrato deverá definir paginação, limites, validação, autenticação, id
 
 | Categoria | Cenários essenciais |
 |---|---|
-| Unitários | Custo médio, saldo, condições de alerta, arredondamento e intervalo horário |
+| Unitários | Custo médio, saldo, condições de alerta, arredondamento e agrupamento do resumo |
 | Base de dados | Unicidade, transacções, migrações e concorrência |
 | Fornecedor | Timeouts, falhas parciais, correcções e histórico incompleto |
 | API | Autorização, validação, paginação e idempotência |
 | Interface | Login, gráficos, estados de erro, compra/venda e alertas |
-| Email | Sucesso, falha, reinício, concorrência, limite horário e estado incerto |
+| Email | Sucesso, falha, reinício, concorrência, resumo único e estado incerto |
 | Recuperação | Backup, restauro, reinício e reconciliação de tarefas |
 | Segurança | Sessões, acesso entre utilizadores e ausência de segredos nos logs |
 
@@ -324,7 +344,8 @@ Os testes automáticos usam dados e relógio controlados; a passagem do pipeline
 
 | Risco | Mitigação | Responsável |
 |---|---|---|
-| Fonte sem adequação técnica ou direitos de uso | Validar em F0 e manter adaptador substituível | Responsável funcional e desenvolvimento |
+| Fonte sem adequação técnica ou direitos de uso | Uso restrito a grupo privado; adaptador substituível e versão fixada | Responsável funcional e desenvolvimento |
+| Alterações no yfinance (bloqueios 429, endpoints, valores por omissão) | Versão fixada, testes com fornecedor simulado, novas tentativas com espera progressiva | Desenvolvimento |
 | Dados atrasados ou incompletos | Mostrar antiguidade e cobertura; política de bloqueio aprovada | Desenvolvimento |
 | Eventos societários distorcem posições | Política explícita e restrições do MVP; sinalizar casos afectados | Responsável funcional |
 | Gastos concorrentes do saldo | Transacções, bloqueio e testes concorrentes | Desenvolvimento |
@@ -343,7 +364,7 @@ Checklist de publicação:
 - [ ] Configuração e segredos de produção verificados.
 - [ ] Migrações ensaiadas e backup pré-publicação disponível.
 - [ ] Testes de saldo, concorrência e isolamento aprovados.
-- [ ] Testes de limite horário e duplicação de alertas aprovados.
+- [ ] Testes de resumo único e duplicação de alertas aprovados.
 - [ ] Logs, monitorização e alertas operacionais activos.
 - [ ] Backup e restauro demonstrados.
 - [ ] Piloto aceite e limitações comunicadas.
@@ -373,6 +394,6 @@ Entregáveis finais:
 
 ## 13. Critério global de conclusão
 
-A primeira versão considera-se concluída quando permite acompanhar instrumentos com histórico diário disponível até dois anos, simular compras e vendas com integridade de saldo e posições, gerir alertas por email com o limite aprovado de 60 minutos e operar com monitorização e recuperação testadas.
+A primeira versão considera-se concluída quando permite acompanhar instrumentos com histórico diário disponível até dois anos, simular compras e vendas com integridade de saldo e posições, gerir alertas por email com um resumo por utilizador após cada recolha diária e operar com monitorização e recuperação testadas.
 
 A aceitação depende dos critérios funcionais e operacionais, não apenas da conclusão do código. A aplicação deve comunicar de forma inequívoca que não executa operações reais e que utiliza dados diários, não cotações em tempo real.

@@ -6,7 +6,7 @@ A aplicação permite acompanhar acções, consultar cotações históricas, ger
 
 A negociação é exclusivamente simulada. Não estão previstas operações com dinheiro real, integração com corretoras ou execução de ordens em bolsa.
 
-Este documento consolida os requisitos definidos e as propostas de implementação apresentadas na conversa. As opções identificadas como propostas deverão ser validadas antes do desenvolvimento.
+Este documento consolida os requisitos definidos, as decisões registadas em [Análise e decisões](analise_e_decisoes.md) (18 out. 2026) e as propostas de implementação. As opções identificadas como «decidido» estão fechadas; as identificadas como propostas deverão ser validadas antes do desenvolvimento.
 
 ## 2. Requisitos e parâmetros funcionais
 
@@ -17,11 +17,15 @@ Este documento consolida os requisitos definidos e as propostas de implementaç�
 | Histórico por ticker | Últimos dois anos |
 | Granularidade histórica | Diária |
 | Canal de alertas | Email |
-| Limite de notificações | Uma por hora, por regra e por utilizador — interpretação adoptada |
-| Recolha histórica | Diária, após disponibilização dos dados da sessão — proposta |
-| Retenção | Janela móvel de dois anos — proposta |
+| Limite de notificações | Um email de resumo por utilizador após cada recolha diária — decidido |
+| Utilizadores | Grupo privado; contas criadas por comando de administração — decidido / proposta |
+| Mercados e moeda | Instrumentos cotados em EUR (Euronext, Xetra, Madrid, Helsínquia, entre outros); carteira em EUR — decidido |
+| Fonte de dados | Yahoo Finance via yfinance, atrás de um adaptador substituível e com versão fixada — decidido |
+| Catálogo de instrumentos | Global e partilhado, preenchido à mão ou por importação de Excel — decidido |
+| Recolha histórica | Dias úteis às 19h00 de Lisboa, depois do fecho das 17h30 CET — decidido |
+| Retenção | Sem eliminação de cotações; os dois anos definem apenas a profundidade da carga inicial — adoptado na prova de conceito |
 
-A expressão «frequência máxima de 1h» é interpretada como um intervalo mínimo de 60 minutos entre notificações da mesma regra para o mesmo utilizador. Não estabelece uma obrigação de envio de hora a hora nem uma frequência de actualização das cotações.
+O requisito «frequência máxima de 1h» é cumprido com um único email de resumo por utilizador, enviado depois de cada recolha diária, com todos os alertas disparados nessa execução. Como só há uma recolha por dia, cada utilizador recebe no máximo um email de alertas por dia, em qualquer interpretação do limite. O requisito não estabelece uma obrigação de envio de hora a hora nem uma frequência de actualização das cotações.
 
 ## 3. Visão geral da arquitectura
 
@@ -75,6 +79,7 @@ Responsabilidades propostas:
 
 - Autenticar o utilizador e apresentar a sessão.
 - Pesquisar instrumentos e consultar gráficos diários dos últimos dois anos.
+- Adicionar instrumentos ao catálogo, à mão ou por importação de um ficheiro Excel, e mostrar o estado de validação.
 - Gerir listas de acompanhamento.
 - Apresentar a data de referência das cotações.
 - Criar uma carteira com capital virtual.
@@ -128,8 +133,9 @@ Responsabilidades propostas:
 | Entidade | Conteúdo principal |
 |---|---|
 | Utilizadores | Identificação, autenticação e preferências |
-| Instrumentos | Identificador, ticker, mercado, moeda e designação |
-| Cotações diárias | Instrumento, data de sessão, abertura, máximo, mínimo, fecho, volume e origem |
+| Instrumentos | Identificador, símbolo Yahoo, mercado, moeda, designação, estado de validação e cobertura |
+| Cotações diárias | Instrumento, data de sessão, abertura, máximo, mínimo, fecho não ajustado, fecho ajustado, volume e origem |
+| Pedidos de recolha | Instrumento, tipo (inicial ou incremental), estado, tentativas e último erro |
 | Listas de acompanhamento | Instrumentos acompanhados por utilizador |
 | Carteiras virtuais | Titular, moeda, capital inicial e saldo virtual |
 | Operações simuladas | Compra/venda, quantidade, preço aplicado, moeda, data da cotação e instante do pedido |
@@ -137,7 +143,11 @@ Responsabilidades propostas:
 | Notificações | Evento, tentativa de envio, resultado e instante de envio |
 | Auditoria | Acções relevantes e respectivos instantes |
 
-Propõe-se uma chave única por instrumento e data de sessão para as cotações diárias. O instrumento deve ser identificado de forma inequívoca, incluindo o mercado, e não apenas pelo texto do ticker.
+As cotações diárias têm chave única por instrumento e data de sessão. O instrumento é identificado pelo símbolo Yahoo, que inclui o sufixo do mercado (ex.: `GALP.LS`, `SIE.DE`) e é por isso inequívoco.
+
+O fecho não ajustado é usado nas operações simuladas, por ser o preço que efectivamente existiu; o fecho ajustado é usado nos gráficos.
+
+O esquema é mantido por migrações versionadas em `db/migrations/`, no formato do dbmate, como fonte única para a API e para os motores Python.
 
 A representação das posições e o método de cálculo de resultados deverão ser definidos no desenho detalhado.
 
@@ -145,21 +155,23 @@ A representação das posições e o método de cálculo de resultados deverão 
 
 Tecnologia prevista: Python.
 
-Fonte representada no diagrama original: Yahoo Finance. A adequação técnica e as condições de utilização da fonte deverão ser validadas antes da implementação.
+Fonte decidida: Yahoo Finance via yfinance, com a versão fixada e isolada atrás da interface `QuoteProvider`, para poder ser substituída. O yfinance não é uma API oficial e destina-se a uso pessoal; o risco é aceite para um grupo privado, mas não deve ser assumido para um serviço aberto a terceiros.
 
 Responsabilidades propostas:
 
-1. Recolher os últimos dois anos de dados diários quando um instrumento é adicionado.
-2. Actualizar diariamente os instrumentos acompanhados.
-3. Validar e normalizar os dados recebidos.
-4. Inserir novos registos e actualizar dados corrigidos pelo fornecedor.
-5. Evitar duplicações em recolhas repetidas.
-6. Manter a janela móvel de dois anos.
+1. Validar os instrumentos adicionados: confirmar que o símbolo existe e que a moeda é EUR, e preencher designação, mercado e moeda.
+2. Recolher os últimos dois anos de dados diários quando um instrumento é adicionado.
+3. Actualizar diariamente os instrumentos activos.
+4. Validar e normalizar os dados recebidos.
+5. Inserir novos registos e actualizar dados corrigidos pelo fornecedor.
+6. Evitar duplicações em recolhas repetidas.
 7. Registar falhas e permitir novas tentativas.
+
+As cotações não são apagadas: dois anos por instrumento são cerca de 500 linhas, e mesmo milhares de instrumentos durante vários anos ficam num volume que o MariaDB gere sem esforço.
 
 A granularidade diária corresponde a um registo por sessão com dados disponíveis, não a um registo obrigatório por dia de calendário. Quando não existirem dois anos de dados, a aplicação deve apresentar a cobertura efectivamente disponível, sem fabricar valores.
 
-O preço e a data utilizados numa operação simulada permanecem no histórico dessa operação, mesmo quando a cotação original sair da janela de retenção.
+O preço e a data utilizados numa operação simulada ficam registados na própria operação, independentemente da tabela de cotações.
 
 O motor recolhe dados de mercado; não executa operações simuladas nem ordens reais.
 
@@ -171,23 +183,22 @@ Responsabilidades propostas:
 
 - Consultar regras activas e cotações disponíveis.
 - Avaliar as condições configuradas.
-- Verificar o intervalo desde a última notificação enviada com sucesso.
-- Enviar o email quando a condição e as regras de frequência o permitirem.
+- Agrupar os eventos de cada utilizador num único email de resumo.
 - Registar o resultado de cada tentativa.
 - Evitar notificações duplicadas para o mesmo evento.
 
 #### Regra de envio
 
 ```text
-Enviar uma notificação quando:
-- a regra está activa;
-- a condição se verifica;
-- existe um evento ainda não notificado;
-- não houve um envio bem-sucedido da mesma regra
-  para o mesmo utilizador nos últimos 60 minutos.
+Após cada recolha diária, para cada utilizador:
+- reunir os eventos de regras activas cuja condição se verifica
+  e que ainda não foram notificados;
+- se existir pelo menos um, enviar um único email de resumo
+  com todos esses eventos;
+- marcar os eventos incluídos como notificados após envio bem-sucedido.
 ```
 
-Propõe-se identificar cada evento pela regra, pela data da cotação e pela condição detectada. Uma cotação diária inalterada não deve gerar emails repetidos de hora a hora.
+Cada evento é identificado pela regra, pela data da cotação e pela condição detectada. Uma cotação diária inalterada não gera emails repetidos.
 
 Os alertas apenas notificam o utilizador; não desencadeiam compras ou vendas automáticas.
 
@@ -195,22 +206,22 @@ Os alertas apenas notificam o utilizador; não desencadeiam compras ou vendas au
 
 ### 5.1. Activação de um instrumento
 
-1. O utilizador adiciona um instrumento através da interface.
-2. A API valida o instrumento e regista o acompanhamento.
-3. O motor de recolha identifica a necessidade de carga inicial.
-4. O motor obtém até dois anos de histórico diário disponível.
+1. O utilizador adiciona um símbolo através da interface, à mão ou por importação de um ficheiro Excel.
+2. Se o símbolo ainda não existir no catálogo, a API grava-o com o estado «A validar» e cria um pedido de carga inicial em `fetch_jobs`.
+3. O motor de recolha reserva o pedido e consulta o fornecedor.
+4. Se o símbolo existir e estiver cotado em EUR, o motor preenche designação, mercado e moeda, obtém até dois anos de histórico diário e passa o instrumento a «Activo»; caso contrário, passa-o a «Inválido», com o motivo.
 5. Os dados são validados e persistidos.
-6. A interface apresenta o histórico disponível e o estado da actualização.
+6. A interface apresenta o estado de validação, o histórico disponível e a cobertura efectiva.
 
 ### 5.2. Actualização diária e alertas
 
 1. O motor de recolha consulta o fornecedor externo.
 2. Valida e guarda os dados disponibilizados para cada sessão.
 3. O motor de alertas avalia as regras sobre os dados actualizados.
-4. Verifica a existência de eventos já notificados e o intervalo de 60 minutos.
-5. Envia os emails elegíveis e regista os resultados.
+4. Exclui os eventos já notificados.
+5. Envia um email de resumo por utilizador com eventos novos e regista os resultados.
 
-A forma de coordenação entre os motores deverá ser definida na implementação, sem introduzir obrigatoriamente um sexto módulo funcional.
+Proposta de coordenação: o motor de alertas corre no fim da recolha diária, encadeado no mesmo timer systemd, sem fila externa nem sexto módulo funcional.
 
 ### 5.3. Consulta de cotações
 
@@ -229,9 +240,9 @@ A forma de coordenação entre os motores deverá ser definida na implementaçã
 
 ## 6. Relação entre granularidade e frequência dos alertas
 
-O histórico definido tem granularidade diária. O limite de uma hora controla a frequência dos envios, não implica a existência de novas cotações de hora a hora.
+O histórico definido tem granularidade diária. Com uma cotação por sessão e desduplicação por evento, cada regra só pode disparar uma vez por dia; um limite de 60 minutos por regra ficaria, na prática, sem efeito. O email de resumo resolve o caso que realmente importa (várias regras a disparar na mesma noite) e cumpre o limite de uma hora em qualquer interpretação.
 
-Na versão inicial, propõe-se avaliar os alertas após a actualização dos dados diários. Caso se pretenda detectar movimentos durante a sessão, será necessário especificar uma recolha intradiária separada. Essa evolução não altera necessariamente a retenção do histórico diário de dois anos.
+Na versão inicial, os alertas são avaliados após a actualização dos dados diários. Caso se pretenda detectar movimentos durante a sessão, será necessário especificar uma recolha intradiária separada. Essa evolução não altera necessariamente a retenção do histórico diário de dois anos.
 
 ## 7. Implantação e operação
 
@@ -254,13 +265,14 @@ A localização do frontend, o mecanismo de agendamento, a gestão dos processos
 
 - A aplicação não envia ordens para corretoras.
 - Ao adicionar um instrumento, procura carregar os últimos dois anos de histórico diário disponível.
+- Instrumentos inexistentes ou não cotados em EUR ficam marcados como inválidos, com o motivo.
 - A repetição de uma recolha não cria cotações duplicadas.
 - A interface identifica a data de referência dos preços apresentados.
 - A ausência de dados históricos é apresentada explicitamente.
 - Uma compra simulada não excede o saldo virtual disponível.
 - Uma venda simulada não excede a quantidade detida.
 - Cada operação conserva o preço e a data da cotação utilizados.
-- A mesma regra não envia mais de um email ao mesmo utilizador num período de 60 minutos.
+- Cada utilizador recebe no máximo um email de alertas por recolha diária.
 - O mesmo evento não gera notificações repetidas.
 - As falhas de recolha e de envio são registadas.
 
@@ -268,21 +280,20 @@ A localização do frontend, o mecanismo de agendamento, a gestão dos processos
 
 | Tema | Decisão necessária |
 |---|---|
-| Limite de alertas | Confirmar se é por regra e utilizador ou global por utilizador |
-| Capital virtual | Valor inicial e possibilidade de reposição |
-| Mercados | Bolsas e instrumentos suportados |
-| Moedas | Carteira numa só moeda ou suporte multimoeda |
-| Preço de simulação | Confirmar a utilização do último fecho diário disponível |
+| Capital virtual | Valor inicial e possibilidade de reposição (proposta: configurável, ex.: 10 000 EUR, sem reposição no MVP) |
+| Preço de simulação | Confirmar a utilização do último fecho diário não ajustado disponível |
 | Custos | Inclusão ou exclusão de comissões e outros custos simulados |
 | Resultados | Método de custo e cálculo de ganhos e perdas |
 | Eventos societários | Tratamento de dividendos e desdobramentos |
-| Cotações | Utilização de valores ajustados ou não ajustados |
 | Dados desactualizados | Limite de antiguidade e política para bloquear operações simuladas |
 | Alertas | Tipos de condição, reactivação e eventos temporariamente suprimidos pelo limite horário |
-| Fonte de dados | Adequação, disponibilidade e condições de utilização |
-| Retenção | Confirmar a janela móvel de dois anos para cotações e definir retenção de operações e auditoria |
-| Operação | Agendamento, novas tentativas, backups e objectivos de recuperação |
+| Retenção | Definir retenção de operações e auditoria |
+| Stack técnica | Framework Node, acesso à BD, bibliotecas React e versões |
+| Contas e SMTP | Confirmar criação de contas por CLI e escolher o fornecedor SMTP |
+| Operação | Backups e objectivos de recuperação |
+
+Já decididos e reflectidos neste documento: utilizadores, fonte de dados, mercados e moeda, limite de alertas, catálogo, hora da recolha, retenção de cotações e preços ajustados. Ver [Análise e decisões](analise_e_decisoes.md).
 
 ## 10. Base documental
 
-Documento elaborado a partir do diagrama fornecido e dos requisitos definidos na conversa. As descrições de implementação são propostas de arquitectura e não uma confirmação de funcionalidades já existentes.
+Documento elaborado a partir do diagrama fornecido, dos requisitos definidos e das decisões de 18 out. 2026. O motor de recolha e as tabelas `instruments`, `daily_quotes` e `fetch_jobs` já existem (prova de conceito); as restantes descrições de implementação são propostas de arquitectura e não uma confirmação de funcionalidades já existentes.
