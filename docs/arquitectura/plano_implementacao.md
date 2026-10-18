@@ -1,5 +1,13 @@
 # Plano de Implementação — Plataforma de Simulação e Acompanhamento de Acções
 
+## Estado (18 out. 2026)
+
+As fases F0 a F7 estão implementadas e a versão 1 está em produção em https://stocks.graus.pt. A arquitectura implementada está descrita em [Arquitectura](arquitectura.md).
+
+Acrescentado além do plano inicial: indicadores técnicos (EMA9, SMA10/50/125/200) guardados na BD, gráfico de momento, módulo HeatMap, botão «Validar agora» com arranque imediato do motor de recolha, e gestão de utilizadores na interface.
+
+Pendente: configuração do SMTP, cópias de segurança fora do servidor e as decisões em aberto listadas na secção 9 da arquitectura. O restante deste documento mantém-se como registo do plano original.
+
 ## 1. Objectivo do plano
 
 Implementar uma primeira versão funcional da aplicação, organizada em cinco módulos: interface React, middleware/API Node.js, base de dados MariaDB, motor de recolha Python e motor de alertas Python.

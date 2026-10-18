@@ -1,12 +1,14 @@
 # Arquitectura de Software — Plataforma de Simulação e Acompanhamento de Acções
 
+Estado: versão 1 em produção em https://stocks.graus.pt (actualizado a 18 out. 2026).
+
 ## 1. Objectivo e âmbito
 
-A aplicação permite acompanhar acções, consultar cotações históricas, gerir uma carteira virtual, simular compras e vendas e receber alertas por email.
+A aplicação permite acompanhar acções, consultar o histórico diário com indicadores técnicos, ver um mapa de calor do mercado, gerir uma carteira virtual, simular compras e vendas e receber alertas por email.
 
-A negociação é exclusivamente simulada. Não estão previstas operações com dinheiro real, integração com corretoras ou execução de ordens em bolsa.
+A negociação é exclusivamente simulada. Não há operações com dinheiro real, integração com corretoras nem execução de ordens em bolsa.
 
-Este documento consolida os requisitos definidos, as decisões registadas em [Análise e decisões](analise_e_decisoes.md) (18 out. 2026) e as propostas de implementação. As opções identificadas como «decidido» estão fechadas; as identificadas como propostas deverão ser validadas antes do desenvolvimento.
+Este documento descreve a arquitectura implementada. As decisões que lhe deram origem estão em [Análise e decisões](analise_e_decisoes.md); a execução, em [Plano de implementação](plano_implementacao.md); a interface, no [Guia de estilos](guia_estilos.md); a operação do servidor, em [deploy/README.md](../../deploy/README.md).
 
 ## 2. Requisitos e parâmetros funcionais
 
@@ -14,286 +16,289 @@ Este documento consolida os requisitos definidos, as decisões registadas em [An
 |---|---|
 | Modalidade | Simulação e acompanhamento |
 | Operações reais | Fora do âmbito |
-| Histórico por ticker | Últimos dois anos |
-| Granularidade histórica | Diária |
-| Canal de alertas | Email |
-| Limite de notificações | Um email de resumo por utilizador após cada recolha diária — decidido |
-| Utilizadores | Grupo privado; contas criadas por comando de administração — decidido / proposta |
-| Mercados e moeda | Instrumentos cotados em EUR (Euronext, Xetra, Madrid, Helsínquia, entre outros); carteira em EUR — decidido |
-| Fonte de dados | Yahoo Finance via yfinance, atrás de um adaptador substituível e com versão fixada — decidido |
-| Catálogo de instrumentos | Global e partilhado, preenchido à mão ou por importação de Excel — decidido |
-| Recolha histórica | Dias úteis às 19h00 de Lisboa, depois do fecho das 17h30 CET — decidido |
-| Retenção | Sem eliminação de cotações; os dois anos definem apenas a profundidade da carga inicial — adoptado na prova de conceito |
+| Utilizadores | Grupo privado; contas criadas por administradores (página Utilizadores ou CLI); sem registo público |
+| Mercados e moeda | Instrumentos cotados em EUR (Euronext, Xetra, Madrid, Milão, Helsínquia, Viena, entre outros), verificado pela moeda devolvida pelo fornecedor; carteira em EUR |
+| Fonte de dados | Yahoo Finance via yfinance, versão fixada, atrás de um adaptador substituível |
+| Catálogo | Global e partilhado; preenchido à mão ou por importação de Excel/CSV; cada utilizador escolhe os instrumentos que acompanha |
+| Granularidade | Diária: um registo por sessão de bolsa |
+| Histórico | Carga inicial de dois anos; actualização diária; as cotações nunca são apagadas |
+| Indicadores | EMA9, SMA10, SMA50, SMA125 e SMA200 por sessão, guardados na BD; momento SMA10/SMA200 e SMA8/SMA125 |
+| Recolha diária | Dias úteis às 19h00 de Lisboa, depois do fecho das bolsas europeias (17h30 CET) |
+| Alertas | Email; um resumo por utilizador após cada recolha diária, nunca mais do que um email por hora |
+| Simulação | Último fecho diário não ajustado; sem comissões; quantidades inteiras; sem posições curtas; custo médio ponderado |
 
-O requisito «frequência máxima de 1h» é cumprido com um único email de resumo por utilizador, enviado depois de cada recolha diária, com todos os alertas disparados nessa execução. Como só há uma recolha por dia, cada utilizador recebe no máximo um email de alertas por dia, em qualquer interpretação do limite. O requisito não estabelece uma obrigação de envio de hora a hora nem uma frequência de actualização das cotações.
+O requisito «frequência máxima de 1h» é cumprido com um único email de resumo por utilizador, enviado depois de cada recolha diária, e com um intervalo mínimo de 60 minutos entre emails ao mesmo utilizador. Como os dados são diários, o caso relevante é o de várias regras a disparar na mesma noite, que o resumo agrupa numa só mensagem.
 
 ## 3. Visão geral da arquitectura
 
-A aplicação está organizada em cinco módulos:
+A aplicação mantém os cinco módulos do desenho original:
 
-1. Interface UX com o utilizador — React.
-2. Middleware/API — Node.js.
-3. Base de dados — MariaDB.
-4. Motor de recolha de cotações — Python.
-5. Motor de alertas por email — Python.
+| # | Módulo | Tecnologia | Pasta |
+|---|---|---|---|
+| 1 | Interface | React 19, Vite, TanStack Query, React Router, Recharts | `frontend/` |
+| 2 | Middleware / API | Node.js 22, Fastify 5, Zod, mysql2 (SQL directo) | `api/` |
+| 3 | Base de dados | MariaDB 11.8; migrações dbmate | `db/migrations/` |
+| 4 | Motor de recolha | Python 3, yfinance, PyMySQL | `engines/fetcher/` |
+| 5 | Motor de alertas | Python 3, PyMySQL, smtplib | `engines/alerts/` |
 
-O backend é alojado num servidor Ubuntu. As integrações externas representadas no diagrama original são o Yahoo Finance e um serviço SMTP. O alojamento do frontend deverá ser definido na implantação.
+Tudo corre num único servidor Ubuntu (`stocks.graus.pt`). O Caddy termina o HTTPS e encaminha para a API, que serve também o frontend compilado na mesma origem. Os motores Python são processos de curta duração lançados pelo systemd.
 
 ```mermaid
 flowchart LR
-    U["Utilizador"]
+    U["Utilizador<br/>(browser)"]
 
-    subgraph WEB["Aplicação Web"]
-        UI["1. Interface UX<br/>React"]
-    end
-
-    subgraph SERVER["Servidor Ubuntu — Backend"]
-        API["2. Middleware / API<br/>Node.js"]
-        DB[("3. Base de dados<br/>MariaDB")]
-        FETCH["4. Motor de cotações<br/>Python"]
+    subgraph SERVER["Servidor Ubuntu — stocks.graus.pt"]
+        CADDY["Caddy<br/>HTTPS :443"]
+        API["2. API Node.js<br/>+ frontend compilado (1)"]
+        DB[("3. MariaDB")]
+        FETCH["4. Motor de recolha<br/>Python"]
         ALERT["5. Motor de alertas<br/>Python"]
+        SYSD["systemd<br/>timers e .path"]
+        SIG["/var/lib/stocks/<br/>fetch-request"]
 
-        API <-->|Consultar e persistir dados| DB
-        FETCH -->|Guardar cotações diárias| DB
-        ALERT <-->|Ler regras e cotações / registar envios| DB
+        CADDY --> API
+        API <-->|SQL| DB
+        API -->|escreve sinal| SIG
+        SIG -->|stocks-fetcher-run.path| SYSD
+        SYSD -->|5 min / sinal / 19h00| FETCH
+        SYSD -->|após a recolha diária| ALERT
+        FETCH -->|cotações e indicadores| DB
+        ALERT <-->|regras, eventos, envios| DB
     end
 
-    DATA["Fornecedor de cotações<br/>Yahoo Finance"]
-    SMTP["Serviço SMTP"]
+    YAHOO["Yahoo Finance"]
+    SMTP["Servidor SMTP"]
 
-    U --> UI
-    UI <-->|HTTPS / JSON| API
-    FETCH <-->|Consultar / receber dados| DATA
-    ALERT -->|Enviar email| SMTP
+    U -->|HTTPS / JSON| CADDY
+    FETCH -->|histórico diário| YAHOO
+    ALERT -->|email de resumo| SMTP
 ```
 
-O diagrama representa uma vista lógica. As setas indicam comunicações entre módulos, não processos de execução de ordens reais. O diagrama Mermaid requer um visualizador Markdown compatível para apresentação gráfica.
+A interface nunca acede à base de dados: fala só com a API. A API nunca fala com o Yahoo: pede ao motor de recolha, através da fila `fetch_jobs` e do ficheiro de sinal. Os motores não comunicam entre si; coordenam-se pela base de dados e pela ordem de execução no systemd.
 
 ## 4. Descrição dos módulos
 
-### 4.1. Interface UX com o utilizador
+### 4.1. Interface
 
-Tecnologia prevista: React.
+Aplicação de página única em React, servida pela API em produção e pelo Vite em desenvolvimento (com `/api` encaminhado para a API local). Segue o [guia de estilos](guia_estilos.md): temas claro, escuro e «Sistema» sem flash no carregamento, navegação lateral (desktop), lateral recolhível (tablet) e inferior (telemóvel), e estados de carregamento, vazio, erro e dados desactualizados em todos os ecrãs.
 
-Responsabilidades propostas:
+| Ecrã | Função |
+|---|---|
+| Entrar | Login por email e palavra-passe |
+| Visão geral | Valor da carteira, saldo, resultado, instrumentos acompanhados e actividade |
+| Acompanhar | Catálogo partilhado, lista do utilizador, adicionar símbolos ou importar Excel/CSV com pré-visualização, botão «Validar agora» |
+| Instrumento | Último fecho e variação, gráfico diário (1M a 2A) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação |
+| HeatMap | Mapa de calor do catálogo ou da lista: tamanho pelo valor negociado, cor pela variação; período de 1, 5 ou 30 sessões |
+| Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |
+| Operações | Histórico filtrável por tipo, instrumento e datas |
+| Alertas | Regras com pré-visualização em linguagem natural, activação e eventos com o estado do envio |
+| Utilizadores | Só administradores: listar, adicionar, redefinir palavra-passe e remover contas |
+| Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, terminar sessão |
 
-- Autenticar o utilizador e apresentar a sessão.
-- Pesquisar instrumentos e consultar gráficos diários dos últimos dois anos.
-- Adicionar instrumentos ao catálogo, à mão ou por importação de um ficheiro Excel, e mostrar o estado de validação.
-- Gerir listas de acompanhamento.
-- Apresentar a data de referência das cotações.
-- Criar uma carteira com capital virtual.
-- Simular compras e vendas.
-- Consultar posições, saldo e histórico de operações.
-- Criar, editar, activar e desactivar regras de alerta.
+Regras da interface:
+- Os valores monetários chegam como strings decimais e só passam a número para apresentação. Formatação pt-PT («12 345,67 €», «16 out. 2026»).
+- Cada preço mostra a data da sessão. Operações e saldos aparecem sempre como simulados.
+- Não há actualizações optimistas do saldo: a interface espera pela confirmação do servidor.
+- Enquanto há instrumentos «A validar», as listas actualizam-se a cada 5 segundos; caso contrário não há polling, porque os dados são diários.
+- O gráfico (Recharts) é carregado só na página do instrumento.
+- As cores das séries do gráfico foram validadas para daltonismo nos dois temas; as cores do HeatMap têm contraste de pelo menos 4,98:1 com o texto branco.
 
-A interface comunica apenas com a API, sem acesso directo à base de dados. Deve identificar claramente os valores e as operações como simulados.
+### 4.2. Middleware / API
 
-### 4.2. Middleware/API
+API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para o pedido e a resposta; o contrato OpenAPI ([api/openapi.yaml](../../api/openapi.yaml)) é gerado a partir deles, e o CI falha se não estiver actualizado. A documentação interactiva fica em `/api/docs`.
 
-Tecnologia prevista: Node.js.
+| Área | Rotas |
+|---|---|
+| Sessão | `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PUT /me/password` |
+| Instrumentos | `GET /instruments`, `GET /instruments/{id}`, `POST /instruments`, `POST /instruments/import/preview`, `GET /instruments/import/template`, `POST /instruments/fetch` |
+| Histórico | `GET /instruments/{id}/quotes` (cotações e indicadores) |
+| Lista | `GET /watchlist`, `POST /watchlist/items`, `DELETE /watchlist/items/{id}` |
+| Carteira e operações | `GET /portfolio`, `GET /portfolio/positions`, `GET /simulated-trades/preview`, `POST /simulated-trades`, `GET /simulated-trades` |
+| Alertas | `GET/POST /alerts`, `PATCH/DELETE /alerts/{id}`, `GET /alerts/events` |
+| Mapa de calor | `GET /heatmap?period=1\|5\|30&scope=all\|watchlist` |
+| Estado | `GET /status` |
+| Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}` |
+| Saúde | `GET /health/live`, `GET /health/ready` (fora de `/api/v1`) |
 
-Responsabilidades propostas:
+Erros no formato comum `{ "error": { "code", "message", "details" } }`, com códigos estáveis (`INSUFFICIENT_FUNDS`, `PRICE_CHANGED`, `STALE_QUOTE`, `FORBIDDEN`…).
 
-- Disponibilizar os endpoints utilizados pela interface.
-- Gerir autenticação e autorização.
-- Validar pedidos e aplicar regras de negócio.
-- Gerir utilizadores, instrumentos, listas de acompanhamento e alertas.
-- Consultar cotações históricas.
-- Gerir carteiras, saldos e operações simuladas.
-- Calcular posições e resultados.
-- Registar operações relevantes para auditoria.
+#### Regras da simulação
 
-#### Regras iniciais propostas para simulação
+- Preço: último fecho diário **não ajustado** disponível (o preço que efectivamente existiu); a data da cotação fica registada na operação.
+- Compra limitada ao saldo; venda limitada à quantidade detida; sem posições curtas; quantidades inteiras; sem comissões.
+- Saldo, posição, operação e movimento de saldo são actualizados numa só transacção, com a carteira bloqueada (`SELECT … FOR UPDATE`). Duas compras simultâneas não gastam o mesmo saldo.
+- Cada pedido traz uma chave de idempotência: repeti-lo devolve a operação original em vez de criar outra.
+- O cliente envia o preço e a data que mostrou na pré-visualização; se a cotação tiver mudado, a API responde `409 PRICE_CHANGED` e a interface pede nova confirmação.
+- Só instrumentos activos e em EUR. Cotações com mais de 7 dias de calendário (`STOCKS_MAX_QUOTE_AGE_DAYS`) bloqueiam a operação.
+- Custo médio ponderado: a posição guarda o custo total; numa venda retira-se a fracção proporcional e a última unidade leva o resto, para o custo chegar exactamente a zero.
+- Aritmética decimal exacta com BigInt; arredondamento meio para longe de zero, a 2 casas nos montantes.
 
-- Cada operação utiliza o último preço diário disponível.
-- O preço aplicado, a data da cotação e o instante do pedido ficam registados.
-- O preço não é apresentado como cotação em tempo real.
-- Uma compra não pode exceder o saldo virtual disponível.
-- Uma venda não pode exceder a quantidade detida.
-- Não são permitidas posições curtas na versão inicial.
-- A actualização do saldo, da posição e do registo da operação é transaccional.
-- A repetição técnica do mesmo pedido não deve originar operações duplicadas.
+#### Mapa de calor
 
-Estas regras constituem uma simulação simplificada, não uma reprodução da execução em mercado.
+Por instrumento activo e para N ∈ {1, 5, 30} sessões:
+- variação = fecho ajustado da última sessão ÷ fecho ajustado N sessões antes − 1;
+- valor negociado = Σ fecho × volume das N sessões.
+
+A cor é verde acima de +1%, cinzenta entre −1% e +1% e vermelha abaixo de −1%. O resultado do catálogo fica em memória durante 10 minutos, porque as cotações só mudam com a recolha diária.
 
 ### 4.3. Base de dados
 
-Tecnologia prevista: MariaDB.
+MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O esquema é definido só pelas migrações em `db/migrations/` (formato dbmate), partilhadas pela API e pelos motores. Instantes técnicos em UTC; datas de sessão em `DATE`; valores em `DECIMAL`.
 
-Responsabilidades propostas:
-
-- Persistir os dados funcionais da aplicação.
-- Manter a integridade das relações entre entidades.
-- Suportar as consultas da API e dos motores de processamento.
-- Guardar informação de auditoria e resultados de notificações.
-
-#### Estrutura lógica inicial
-
-| Entidade | Conteúdo principal |
+| Tabela | Conteúdo |
 |---|---|
-| Utilizadores | Identificação, autenticação e preferências |
-| Instrumentos | Identificador, símbolo Yahoo, mercado, moeda, designação, estado de validação e cobertura |
-| Cotações diárias | Instrumento, data de sessão, abertura, máximo, mínimo, fecho não ajustado, fecho ajustado, volume e origem |
-| Pedidos de recolha | Instrumento, tipo (inicial ou incremental), estado, tentativas e último erro |
-| Listas de acompanhamento | Instrumentos acompanhados por utilizador |
-| Carteiras virtuais | Titular, moeda, capital inicial e saldo virtual |
-| Operações simuladas | Compra/venda, quantidade, preço aplicado, moeda, data da cotação e instante do pedido |
-| Regras de alerta | Instrumento, condição, utilizador e estado |
-| Notificações | Evento, tentativa de envio, resultado e instante de envio |
-| Auditoria | Acções relevantes e respectivos instantes |
+| `instruments` | Catálogo global: símbolo Yahoo (único), mercado, moeda, nome, estado (`pending`/`active`/`invalid`) e motivo, primeira e última sessão |
+| `daily_quotes` | Uma linha por (instrumento, sessão): abertura, máximo, mínimo, fecho, fecho ajustado, volume, origem, e os indicadores `ema9`, `sma10`, `sma50`, `sma125`, `sma200` |
+| `fetch_jobs` | Fila de recolha: tipo (inicial ou incremental), estado, tentativas, próxima tentativa, último erro |
+| `job_runs` | Execuções da recolha diária e dos alertas, para diagnóstico |
+| `users`, `sessions` | Contas (hash scrypt, perfil de administrador, desactivação) e sessões (só o SHA-256 do token) |
+| `watchlist_items` | Uma lista por utilizador sobre o catálogo |
+| `portfolios`, `cash_movements` | Carteira em EUR com capital inicial e saldo; movimentos de saldo |
+| `simulated_trades` | Operações com preço, montante, data da cotação, resultado realizado e chave de idempotência (única por carteira) |
+| `positions` | Quantidade, custo total e resultado realizado por instrumento |
+| `alert_rules`, `alert_events` | Regras e eventos detectados (únicos por regra e sessão) |
+| `email_deliveries` | Resumos enviados e o seu estado (`sending`, `sent`, `failed`, `uncertain`) |
+| `audit_log` | Acções relevantes, sem palavras-passe, tokens ou credenciais |
 
-As cotações diárias têm chave única por instrumento e data de sessão. O instrumento é identificado pelo símbolo Yahoo, que inclui o sufixo do mercado (ex.: `GALP.LS`, `SIE.DE`) e é por isso inequívoco.
+Remover um utilizador apaga em cascata as sessões, a carteira, as operações, as posições, a lista, os alertas e os envios; a auditoria mantém-se.
 
-O fecho não ajustado é usado nas operações simuladas, por ser o preço que efectivamente existiu; o fecho ajustado é usado nos gráficos.
-
-O esquema é mantido por migrações versionadas em `db/migrations/`, no formato do dbmate, como fonte única para a API e para os motores Python.
-
-A representação das posições e o método de cálculo de resultados deverão ser definidos no desenho detalhado.
+As cotações não são apagadas: 295 instrumentos com dois anos ocupam cerca de 15 MB e crescem cerca de 7,5 MB por ano.
 
 ### 4.4. Motor de recolha de cotações
 
-Tecnologia prevista: Python.
+Comandos `python -m fetcher add | run | update | status | indicators`. O yfinance fica isolado em `provider.py`, atrás da interface `QuoteProvider`.
 
-Fonte decidida: Yahoo Finance via yfinance, com a versão fixada e isolada atrás da interface `QuoteProvider`, para poder ser substituída. O yfinance não é uma API oficial e destina-se a uso pessoal; o risco é aceite para um grupo privado, mas não deve ser assumido para um serviço aberto a terceiros.
+1. **Validação assíncrona:** um símbolo novo fica `pending` com um pedido `initial`. O motor confirma no fornecedor que existe e que a moeda é EUR, preenche nome e mercado e passa-o a `active`, ou a `invalid` com o motivo.
+2. **Carga inicial:** dois anos de sessões diárias (`STOCKS_HISTORY_YEARS`).
+3. **Actualização diária:** um pedido `incremental` por instrumento activo, relendo os últimos 7 dias para apanhar correcções do fornecedor.
+4. **Gravação idempotente:** `INSERT … ON DUPLICATE KEY UPDATE` sobre a chave (instrumento, sessão).
+5. **Validação dos dados:** sessões com preços não positivos ou incoerentes são descartadas, não corrigidas.
+6. **Indicadores:** depois de cada recolha, a série completa do instrumento é recalculada sobre o fecho ajustado, porque os ajustes do fornecedor alteram os fechos do passado. SMA de N sessões; EMA9 iniciada com a SMA das primeiras 9 sessões e α = 0,2. Os valores ficam `NULL` enquanto não houver sessões suficientes.
+7. **Falhas:** falhas de rede e limite de pedidos voltam à fila com espera progressiva (2, 4, 8… minutos, até 5 tentativas). Uma falha num instrumento não pára os restantes, e uma falha de rede nunca invalida um instrumento.
+8. **Concorrência:** os pedidos são reservados com `SELECT … FOR UPDATE SKIP LOCKED`, e o mesmo instrumento nunca é recolhido por dois processos ao mesmo tempo.
 
-Responsabilidades propostas:
-
-1. Validar os instrumentos adicionados: confirmar que o símbolo existe e que a moeda é EUR, e preencher designação, mercado e moeda.
-2. Recolher os últimos dois anos de dados diários quando um instrumento é adicionado.
-3. Actualizar diariamente os instrumentos activos.
-4. Validar e normalizar os dados recebidos.
-5. Inserir novos registos e actualizar dados corrigidos pelo fornecedor.
-6. Evitar duplicações em recolhas repetidas.
-7. Registar falhas e permitir novas tentativas.
-
-As cotações não são apagadas: dois anos por instrumento são cerca de 500 linhas, e mesmo milhares de instrumentos durante vários anos ficam num volume que o MariaDB gere sem esforço.
-
-A granularidade diária corresponde a um registo por sessão com dados disponíveis, não a um registo obrigatório por dia de calendário. Quando não existirem dois anos de dados, a aplicação deve apresentar a cobertura efectivamente disponível, sem fabricar valores.
-
-O preço e a data utilizados numa operação simulada ficam registados na própria operação, independentemente da tabela de cotações.
-
-O motor recolhe dados de mercado; não executa operações simuladas nem ordens reais.
+Os símbolos são descarregados um a um, porque o Yahoo só serve o histórico por símbolo e o pedido individual devolve também a moeda e o nome. A carga de 293 símbolos demorou cerca de 1,5 minutos.
 
 ### 4.5. Motor de alertas por email
 
-Tecnologia prevista: Python.
+Comando `python -m alerts run [--dry-run]`, executado a seguir à recolha diária.
 
-Responsabilidades propostas:
+| Tipo | Limite | Quando dispara |
+|---|---|---|
+| `close_above` | EUR | O fecho passa a estar acima do limite (transição; não repete enquanto se mantém) |
+| `close_below` | EUR | O fecho passa a estar abaixo do limite (transição) |
+| `change_up` | % | Subida face à sessão anterior de pelo menos o limite; avaliado em cada sessão |
+| `change_down` | % | Descida face à sessão anterior de pelo menos o limite; avaliado em cada sessão |
 
-- Consultar regras activas e cotações disponíveis.
-- Avaliar as condições configuradas.
-- Agrupar os eventos de cada utilizador num único email de resumo.
-- Registar o resultado de cada tentativa.
-- Evitar notificações duplicadas para o mesmo evento.
-
-#### Regra de envio
+Regra de envio:
 
 ```text
 Após cada recolha diária, para cada utilizador:
-- reunir os eventos de regras activas cuja condição se verifica
-  e que ainda não foram notificados;
-- se existir pelo menos um, enviar um único email de resumo
-  com todos esses eventos;
-- marcar os eventos incluídos como notificados após envio bem-sucedido.
+- reunir os eventos ainda não notificados de regras activas (até 7 dias);
+- se o utilizador recebeu um email há menos de 60 minutos, adiar;
+- caso contrário, enviar um único email de resumo com todos esses eventos.
 ```
 
-Cada evento é identificado pela regra, pela data da cotação e pela condição detectada. Uma cotação diária inalterada não gera emails repetidos.
+- **Desduplicação:** a chave única (regra, sessão) impede notificar o mesmo evento duas vezes.
+- **Envio recusado** pelo servidor SMTP: os eventos voltam ao resumo seguinte.
+- **Ligação perdida** durante a transmissão: o envio fica `uncertain` e não é repetido automaticamente.
+- **Edição de regras:** criar, editar ou reactivar uma regra repõe o estado da avaliação.
+- **Sem SMTP configurado:** corre em `--dry-run`, mostra os resumos no registo e não grava nada.
 
-Os alertas apenas notificam o utilizador; não desencadeiam compras ou vendas automáticas.
+Os alertas apenas notificam; nunca desencadeiam operações.
 
 ## 5. Fluxos de funcionamento
 
-### 5.1. Activação de um instrumento
+### 5.1. Adicionar um instrumento
 
-1. O utilizador adiciona um símbolo através da interface, à mão ou por importação de um ficheiro Excel.
-2. Se o símbolo ainda não existir no catálogo, a API grava-o com o estado «A validar» e cria um pedido de carga inicial em `fetch_jobs`.
-3. O motor de recolha reserva o pedido e consulta o fornecedor.
-4. Se o símbolo existir e estiver cotado em EUR, o motor preenche designação, mercado e moeda, obtém até dois anos de histórico diário e passa o instrumento a «Activo»; caso contrário, passa-o a «Inválido», com o motivo.
-5. Os dados são validados e persistidos.
-6. A interface apresenta o estado de validação, o histórico disponível e a cobertura efectiva.
+1. O utilizador introduz símbolos ou importa um ficheiro; a importação mostra antes uma pré-visualização (novos, existentes, repetidos, com erro).
+2. A API grava os símbolos novos como `pending`, cria os pedidos `initial`, associa-os à lista do utilizador e escreve em `/var/lib/stocks/fetch-request`.
+3. A unit `stocks-fetcher-run.path` arranca o motor de imediato; o timer de 5 minutos é a rede de segurança.
+4. O motor valida, carrega dois anos e calcula os indicadores; a interface vê o estado passar a «Activo» ou «Inválido».
+5. «Validar agora» volta a pôr na fila, sem espera, os pendentes (incluindo os que falharam) e sinaliza o motor.
 
 ### 5.2. Actualização diária e alertas
 
-1. O motor de recolha consulta o fornecedor externo.
-2. Valida e guarda os dados disponibilizados para cada sessão.
-3. O motor de alertas avalia as regras sobre os dados actualizados.
-4. Exclui os eventos já notificados.
-5. Envia um email de resumo por utilizador com eventos novos e regista os resultados.
+1. `stocks-daily.timer` (dias úteis, 19h00 de Lisboa) executa `deploy/bin/daily.sh`.
+2. O motor de recolha pede a actualização de todos os activos, processa-os, recalcula os indicadores e regista a execução em `job_runs`.
+3. Mesmo que a recolha tenha falhas, o motor de alertas corre a seguir: avalia cada regra uma vez por sessão, regista os eventos e envia um resumo por utilizador.
 
-Proposta de coordenação: o motor de alertas corre no fim da recolha diária, encadeado no mesmo timer systemd, sem fila externa nem sexto módulo funcional.
+### 5.3. Consulta do histórico
 
-### 5.3. Consulta de cotações
-
-1. A interface solicita dados à API.
-2. A API consulta a base de dados.
-3. A API devolve os valores, as datas de referência e a cobertura disponível.
-4. A interface apresenta gráficos e tabelas.
+A API devolve, por omissão, os últimos dois anos de sessões, com os indicadores já calculados. A interface recorta o período escolhido, desenha o fecho ajustado e os indicadores pedidos, e calcula o momento (SMA10/SMA200 − 1 e SMA8/SMA125 − 1) sobre o histórico completo carregado.
 
 ### 5.4. Operação simulada
 
-1. O utilizador prepara e confirma uma compra ou venda simulada.
-2. A API valida permissões, quantidade, saldo e posição.
-3. A API determina o preço diário aplicável segundo a regra de simulação.
-4. A operação, o saldo e a posição são actualizados numa transacção.
-5. A API devolve o resultado à interface.
+1. A interface pede a pré-visualização (preço, data, total, saldo e unidades após a operação).
+2. O utilizador confirma; o pedido leva a chave de idempotência e o preço pré-visualizado.
+3. A API bloqueia a carteira, valida instrumento, moeda, idade da cotação, saldo ou quantidade, e grava tudo numa transacção.
+4. A interface mostra um recibo com o preço efectivamente aplicado.
 
-## 6. Relação entre granularidade e frequência dos alertas
+### 5.5. Gestão de utilizadores
 
-O histórico definido tem granularidade diária. Com uma cotação por sessão e desduplicação por evento, cada regra só pode disparar uma vez por dia; um limite de 60 minutos por regra ficaria, na prática, sem efeito. O email de resumo resolve o caso que realmente importa (várias regras a disparar na mesma noite) e cumpre o limite de uma hora em qualquer interpretação.
+Um administrador cria contas (com carteira e capital inicial), redefine palavras-passe (o que termina as sessões do utilizador) e remove contas com todos os dados. Não pode remover a própria conta, e a aplicação nunca fica sem administradores activos. Tudo fica na auditoria. O CLI `api/src/cli.js` faz o mesmo a partir do servidor.
 
-Na versão inicial, os alertas são avaliados após a actualização dos dados diários. Caso se pretenda detectar movimentos durante a sessão, será necessário especificar uma recolha intradiária separada. Essa evolução não altera necessariamente a retenção do histórico diário de dois anos.
+## 6. Segurança
+
+- HTTPS com certificado Let's Encrypt renovado pelo Caddy; HTTP redirecciona para HTTPS; HSTS.
+- Cookie de sessão `HttpOnly`, `Secure` e `SameSite=Strict`; na BD guarda-se só o SHA-256 do token; renovação com o uso.
+- Defesa adicional contra CSRF: pedidos de escrita com `Origin` diferente de `https://stocks.graus.pt` são recusados; a API não aceita `text/plain`.
+- Palavras-passe com scrypt (N = 2^17, r = 8, p = 1), mínimo de 10 caracteres; login com limite de 10 tentativas por IP em 15 minutos e tempo de resposta igual para emails inexistentes.
+- Autorização por recurso: cada utilizador só vê a sua carteira, lista, operações e alertas; a administração exige perfil de administrador.
+- Content-Security-Policy sem scripts inline além do script de tema, permitido pelo seu hash.
+- Serviços systemd com utilizador próprio (`stocks`), sistema de ficheiros só de leitura e escrita apenas onde é necessária (`/var/lib/stocks`, `/var/backups/stocks`).
+- Segredos em `/etc/stocks/stocks.env` (`root:stocks`, modo 640), fora do código; registos sem cookies nem credenciais.
+- MariaDB e API só escutam em `127.0.0.1`.
 
 ## 7. Implantação e operação
 
-Propostas para a implantação inicial:
+Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: dependências, código em `/opt/stocks`, ambientes Python, build do frontend, migrações, units systemd e Caddy.
 
-- Backend e motores Python no servidor Ubuntu.
-- API, motor de recolha e motor de alertas como processos independentes.
-- API publicada através de HTTPS.
-- Base de dados acessível apenas aos componentes autorizados.
-- Contas de base de dados com permissões adequadas a cada componente.
-- Segredos e credenciais fora do código-fonte.
-- Registos centralizados e monitorização dos processos.
-- Monitorização da última recolha bem-sucedida e dos erros SMTP.
-- Cópias de segurança e testes de recuperação.
-- Ambientes separados de desenvolvimento, testes e produção.
+| Unit | Quando | Função |
+|---|---|---|
+| `stocks-api.service` | sempre | API e frontend |
+| `stocks-fetcher-run.path` | quando a API escreve o sinal | Arranca o motor de recolha de imediato |
+| `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança para a fila de recolha |
+| `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
+| `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias) |
 
-A localização do frontend, o mecanismo de agendamento, a gestão dos processos e os objectivos de recuperação deverão ser definidos no desenho de implantação. A concentração do backend num único servidor deve ficar registada como risco de indisponibilidade conjunta.
+Testes automáticos em cada componente (API com Vitest contra uma BD de testes; motores com pytest e fornecedor ou mailer simulados; cálculos do frontend com `node --test`) e CI no GitHub Actions com MariaDB 10.11. Os testes nunca contactam o Yahoo nem enviam emails.
+
+Riscos aceites ou pendentes:
+- **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado só por cópias de segurança.
+- **Cópias no mesmo servidor:** ainda não há cópia para fora do servidor.
+- **Fonte não oficial:** o yfinance pode mudar ou ser limitado pelo Yahoo; a versão está fixada e o adaptador é substituível.
+- **Ambientes:** desenvolvimento e produção partilham o servidor e a base `stocks`; os testes usam a base `stocks_test`.
 
 ## 8. Critérios de aceitação
 
-- A aplicação não envia ordens para corretoras.
-- Ao adicionar um instrumento, procura carregar os últimos dois anos de histórico diário disponível.
-- Instrumentos inexistentes ou não cotados em EUR ficam marcados como inválidos, com o motivo.
-- A repetição de uma recolha não cria cotações duplicadas.
-- A interface identifica a data de referência dos preços apresentados.
-- A ausência de dados históricos é apresentada explicitamente.
-- Uma compra simulada não excede o saldo virtual disponível.
-- Uma venda simulada não excede a quantidade detida.
-- Cada operação conserva o preço e a data da cotação utilizados.
-- Cada utilizador recebe no máximo um email de alertas por recolha diária.
-- O mesmo evento não gera notificações repetidas.
-- As falhas de recolha e de envio são registadas.
-
-## 9. Decisões ainda por validar
-
-| Tema | Decisão necessária |
+| Critério | Estado |
 |---|---|
-| Capital virtual | Valor inicial e possibilidade de reposição (proposta: configurável, ex.: 10 000 EUR, sem reposição no MVP) |
-| Preço de simulação | Confirmar a utilização do último fecho diário não ajustado disponível |
-| Custos | Inclusão ou exclusão de comissões e outros custos simulados |
-| Resultados | Método de custo e cálculo de ganhos e perdas |
-| Eventos societários | Tratamento de dividendos e desdobramentos |
-| Dados desactualizados | Limite de antiguidade e política para bloquear operações simuladas |
-| Alertas | Tipos de condição, reactivação e eventos temporariamente suprimidos pelo limite horário |
-| Retenção | Definir retenção de operações e auditoria |
-| Stack técnica | Framework Node, acesso à BD, bibliotecas React e versões |
-| Contas e SMTP | Confirmar criação de contas por CLI e escolher o fornecedor SMTP |
-| Operação | Backups e objectivos de recuperação |
+| A aplicação não envia ordens para corretoras | Cumprido |
+| Ao adicionar um instrumento, carrega até dois anos de histórico diário | Cumprido |
+| Instrumentos inexistentes ou não cotados em EUR ficam inválidos, com o motivo | Cumprido |
+| Repetir uma recolha não cria cotações duplicadas | Cumprido (testado) |
+| A interface identifica a data de referência dos preços | Cumprido |
+| A ausência ou insuficiência de dados históricos é apresentada explicitamente | Cumprido |
+| Uma compra simulada não excede o saldo; uma venda não excede a quantidade | Cumprido (testado, incluindo concorrência) |
+| Cada operação conserva o preço e a data da cotação utilizados | Cumprido |
+| Cada utilizador recebe no máximo um email de alertas por hora | Cumprido (testado); envio real pendente do SMTP |
+| O mesmo evento não gera notificações repetidas | Cumprido (testado) |
+| As falhas de recolha e de envio são registadas | Cumprido |
 
-Já decididos e reflectidos neste documento: utilizadores, fonte de dados, mercados e moeda, limite de alertas, catálogo, hora da recolha, retenção de cotações e preços ajustados. Ver [Análise e decisões](analise_e_decisoes.md).
+## 9. Decisões ainda em aberto
+
+| Tema | Situação |
+|---|---|
+| SMTP | Fornecedor e credenciais por definir; até lá os alertas correm em `--dry-run` |
+| Cópias de segurança | Copiar para fora do servidor (S3, snapshots EBS) e testar o restauro periodicamente |
+| Eventos societários | Dividendos e desdobramentos não alteram as posições simuladas; um desdobramento numa acção detida distorce o resultado |
+| Comissões e custos | Excluídos; podem ser acrescentados à regra de simulação |
+| Reposição de capital | Não existe; o capital inicial é definido na criação da conta |
+| Contas de BD por componente | Uma única conta `stocks`; separar API e motores reduziria o impacto de uma falha de segurança |
+| Retenção de operações e auditoria | Sem eliminação; definir se for necessário |
+| Ambiente de testes separado | Hoje partilha o servidor de produção |
 
 ## 10. Base documental
 
-Documento elaborado a partir do diagrama fornecido, dos requisitos definidos e das decisões de 18 out. 2026. O motor de recolha e as tabelas `instruments`, `daily_quotes` e `fetch_jobs` já existem (prova de conceito); as restantes descrições de implementação são propostas de arquitectura e não uma confirmação de funcionalidades já existentes.
+Documento elaborado a partir do diagrama original, dos requisitos e das decisões de 18 out. 2026, e actualizado para a implementação publicada. O código de referência é o do ramo `feat/mvp`; o contrato da API está em [api/openapi.yaml](../../api/openapi.yaml).
