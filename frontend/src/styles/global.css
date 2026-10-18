@@ -250,6 +250,7 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .empty strong { color: var(--text); }
 
 .chart-box { height: 320px; }
+.chart-box-small { height: 170px; }
 .legend-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .legend-chip {
   display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.25rem; padding: 0.25rem 0.75rem;

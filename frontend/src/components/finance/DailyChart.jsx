@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react';
-import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as f from '../../lib/format.js';
+import { momentum, niceTicks } from '../../lib/momentum.js';
 import { Button, Segmented } from '../ui/controls.jsx';
 
 const RANGES = [
@@ -21,6 +22,14 @@ export const INDICATORS = [
 ];
 
 const STORAGE_KEY = 'stocks.indicators';
+const MOMENTUM_KEY = 'stocks.momentum';
+
+function readMomentum() {
+  try { return localStorage.getItem(MOMENTUM_KEY) !== 'off'; } catch { return true; }
+}
+
+const pctLabel = (v) => (v == null ? '—' : f.pct(v.toFixed(2)));
+const trendLabel = (rising) => (rising ? 'a subir' : 'a descer');
 
 function readSelection() {
   try {
@@ -59,6 +68,26 @@ function ChartTooltip({ active, payload, currency, selected }) {
   );
 }
 
+function MomentumTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload;
+  return (
+    <div className="card" style={{ padding: '0.5rem 0.75rem', boxShadow: 'var(--shadow-overlay)', minWidth: '12rem' }}>
+      <div className="small muted">{f.date(p.date)}</div>
+      <div className="spread small" style={{ gap: '1rem' }}>
+        <span className="row" style={{ gap: 6 }}>
+          <span className="swatch" style={{ background: p.rising ? 'var(--positive)' : 'var(--negative)', height: 8 }} />SMA10/SMA200
+        </span>
+        <span className="num">{pctLabel(p.wave)}{p.wave != null && <span className="muted"> · {trendLabel(p.rising)}</span>}</span>
+      </div>
+      <div className="spread small" style={{ gap: '1rem' }}>
+        <span className="row" style={{ gap: 6 }}><span className="swatch" style={{ background: 'var(--series-price)' }} />SMA8/SMA125</span>
+        <span className="num">{pctLabel(p.wave125)}</span>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Gráfico diário com o fecho ajustado (comparável ao longo do tempo, apesar de dividendos e
  * desdobramentos) e, opcionalmente, médias móveis sobre a mesma escala. Inclui resumo textual e
@@ -68,6 +97,7 @@ export default function DailyChart({ quotes, currency, symbol }) {
   const [range, setRange] = useState('1A');
   const [selected, setSelected] = useState(readSelection);
   const [showTable, setShowTable] = useState(false);
+  const [showMomentum, setShowMomentum] = useState(readMomentum);
   const tableId = useId();
 
   const toggle = (key) => {
@@ -78,16 +108,26 @@ export default function DailyChart({ quotes, currency, symbol }) {
     });
   };
 
+  const toggleMomentum = () => {
+    setShowMomentum((v) => {
+      try { localStorage.setItem(MOMENTUM_KEY, v ? 'off' : 'on'); } catch { /* só nesta sessão */ }
+      return !v;
+    });
+  };
+
+  // O momento é calculado sobre todo o histórico carregado e só depois recortado ao período.
+  const mom = useMemo(() => momentum(quotes), [quotes]);
   const data = useMemo(() => {
     if (!quotes.length) return [];
     const from = cutoff(quotes.at(-1).date, RANGES.find((r) => r.value === range).months);
     return quotes
-      .filter((q) => q.date >= from)
-      .map((q) => ({
+      .map((q, idx) => ({
         date: q.date, value: Number(q.adjClose ?? q.close), close: q.close,
         ...Object.fromEntries(INDICATORS.map((i) => [i.key, num(q[i.key])])),
-      }));
-  }, [quotes, range]);
+        ...mom[idx],
+      }))
+      .filter((d) => d.date >= from);
+  }, [quotes, range, mom]);
 
   if (!data.length) return null;
   const visible = INDICATORS.filter((i) => selected.includes(i.key));
@@ -105,6 +145,7 @@ export default function DailyChart({ quotes, currency, symbol }) {
   const coverageStart = quotes[0].date;
   const requestedStart = cutoff(quotes.at(-1).date, RANGES.find((r) => r.value === range).months);
   // Indicadores sem valor no início do período (histórico insuficiente para a janela).
+  const momentumTicks = niceTicks(data.flatMap((d) => [d.wave, d.wave125]));
   const partial = visible
     .map((i) => ({ ...i, firstDate: data.find((d) => d[i.key] != null)?.date }))
     .filter((i) => i.firstDate !== first.date);
@@ -123,6 +164,10 @@ export default function DailyChart({ quotes, currency, symbol }) {
             <span className="swatch" style={{ background: i.color }} />{i.label}
           </button>
         ))}
+        <button type="button" className="legend-chip" aria-pressed={showMomentum} onClick={toggleMomentum}
+          title="Gráfico de momento por baixo do histórico: SMA10/SMA200 e SMA8/SMA125">
+          <span className="swatch" style={{ background: 'var(--positive)', height: 8 }} />Momento
+        </button>
       </div>
 
       <p className="small muted" id={`${tableId}-summary`}>
@@ -130,11 +175,12 @@ export default function DailyChart({ quotes, currency, symbol }) {
         {change != null && <> ({f.pct(change.toFixed(2))})</>}. Mínimo {f.price(min, currency)}, máximo {f.price(max, currency)}.
         {coverageStart > requestedStart && <> Dados disponíveis apenas desde {f.date(coverageStart)}.</>}
         {visible.map((i) => last[i.key] != null && <span key={i.key}> {i.label} em {f.price(last[i.key], currency)}.</span>)}
+        {showMomentum && last.wave != null && <> Momento SMA10/SMA200 em {pctLabel(last.wave)} ({trendLabel(last.rising)}).</>}
       </p>
 
       <div className="chart-box" role="img" aria-labelledby={`${tableId}-summary`}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <ComposedChart data={data} syncId="historico" margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <defs>
               <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="var(--series-price)" stopOpacity={0.16} />
@@ -159,6 +205,49 @@ export default function DailyChart({ quotes, currency, symbol }) {
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+      {showMomentum && (
+        <section aria-labelledby={`${tableId}-mom`} className="stack" style={{ gap: '0.5rem' }}>
+          <div className="row small" style={{ gap: '1rem' }}>
+            <h3 id={`${tableId}-mom`} style={{ fontSize: '0.9375rem', fontWeight: 600 }}>Momento</h3>
+            <span className="row" style={{ gap: 6 }}>
+              <span className="swatch" style={{ background: last.rising ? 'var(--positive)' : 'var(--negative)', height: 8 }} />
+              SMA10/SMA200 <span className="num" style={{ fontWeight: 600 }}>{pctLabel(last.wave)}</span>
+              {last.wave != null && <span className="muted">({trendLabel(last.rising)})</span>}
+            </span>
+            <span className="row" style={{ gap: 6 }}>
+              <span className="swatch" style={{ background: 'var(--series-price)' }} />
+              SMA8/SMA125 <span className="num" style={{ fontWeight: 600 }}>{pctLabel(last.wave125)}</span>
+            </span>
+          </div>
+          <div className="chart-box-small" role="img"
+            aria-label={`Momento de ${symbol}: SMA10/SMA200 em ${pctLabel(last.wave)}, ${trendLabel(last.rising)}; SMA8/SMA125 em ${pctLabel(last.wave125)}.`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <CartesianGrid stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false}
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <YAxis width={64} tickLine={false} axisLine={false} ticks={momentumTicks}
+                  domain={[momentumTicks[0], momentumTicks.at(-1)]} interval={0}
+                  tickFormatter={(v) => `${f.number(v).replace(/,00$/, '')}%`} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <Tooltip content={<MomentumTooltip />} cursor={{ stroke: 'var(--control-border)' }} />
+                <Bar dataKey="wave" isAnimationActive={false}>
+                  {data.map((d) => (
+                    <Cell key={d.date} fill={d.rising ? 'var(--positive)' : 'var(--negative)'} fillOpacity={0.3} />
+                  ))}
+                </Bar>
+                <ReferenceLine y={0} stroke="var(--control-border)" strokeWidth={3} />
+                <Line type="linear" dataKey="wave125" stroke="var(--series-price)" strokeWidth={1.5} dot={false}
+                  activeDot={{ r: 4, stroke: 'var(--surface)', strokeWidth: 2 }} isAnimationActive={false} />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="small muted">
+            Área: SMA10/SMA200 − 1, verde quando sobe face às duas sessões anteriores e vermelha caso contrário.
+            Linha: SMA8/SMA125 − 1. Em percentagem, sobre o fecho ajustado.
+          </p>
+        </section>
+      )}
+
       <p className="small muted">
         Eixo vertical em {currency || 'EUR'} (fecho ajustado); a escala não começa em zero. As médias são calculadas sobre o fecho ajustado.
         {partial.map((i) => (
@@ -180,6 +269,7 @@ export default function DailyChart({ quotes, currency, symbol }) {
                   <th scope="col" className="r">Fecho</th>
                   <th scope="col" className="r">Fecho ajustado</th>
                   {visible.map((i) => <th key={i.key} scope="col" className="r">{i.label}</th>)}
+                  {showMomentum && <><th scope="col" className="r">SMA10/SMA200</th><th scope="col" className="r">SMA8/SMA125</th></>}
                 </tr>
               </thead>
               <tbody>
@@ -189,6 +279,12 @@ export default function DailyChart({ quotes, currency, symbol }) {
                     <td className="r">{f.price(d.close, currency)}</td>
                     <td className="r">{f.price(d.value, currency)}</td>
                     {visible.map((i) => <td key={i.key} className="r">{d[i.key] == null ? '—' : f.price(d[i.key], currency)}</td>)}
+                    {showMomentum && (
+                      <>
+                        <td className="r">{pctLabel(d.wave)}{d.wave != null && <span className="small muted"> {trendLabel(d.rising)}</span>}</td>
+                        <td className="r">{pctLabel(d.wave125)}</td>
+                      </>
+                    )}
                   </tr>
                 ))}
               </tbody>
