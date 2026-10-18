@@ -76,7 +76,19 @@ def main(argv=None) -> int:
         if args.command == "status":
             return cmd_status(conn, args)
         if args.command == "update":
-            print(f"{db.enqueue_incremental(conn)} actualizações pedidas")
+            run_id = db.start_run(conn, "fetch_update")
+            try:
+                requested = db.enqueue_incremental(conn)
+                n = run_pending(conn, YFinanceProvider(), settings)
+            except Exception as exc:
+                conn.rollback()
+                db.finish_run(conn, run_id, False, f"erro: {exc}")
+                raise
+            failed = db.failed_jobs_since(conn, run_id)
+            detail = f"{requested} actualizações pedidas, {n} pedidos processados, {failed} falhados"
+            db.finish_run(conn, run_id, failed == 0, detail)
+            print(detail)
+            return 0
         n = run_pending(conn, YFinanceProvider(), settings)
         print(f"{n} pedidos processados")
         return 0

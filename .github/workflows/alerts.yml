@@ -1,0 +1,36 @@
+name: Motor de alertas
+
+on:
+  pull_request:
+    paths: ["engines/alerts/**", "db/migrations/**", ".github/workflows/alerts.yml"]
+  push:
+    branches: [main]
+    paths: ["engines/alerts/**", "db/migrations/**", ".github/workflows/alerts.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: stocks_test
+          MARIADB_USER: stocks
+          MARIADB_PASSWORD: stocks
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    defaults:
+      run:
+        working-directory: engines/alerts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e '.[dev]'
+      - run: pytest -v
+        env:
+          STOCKS_TEST_DB_PASSWORD: stocks

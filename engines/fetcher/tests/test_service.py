@@ -134,3 +134,13 @@ def test_concurrent_workers_never_claim_the_same_job(conn, settings):
     for t in threads:
         t.join()
     assert sorted(claimed) == sorted(set(claimed)) and len(claimed) == 6
+
+
+def test_regista_execucao_da_actualizacao(conn):
+    run_id = db.start_run(conn, "fetch_update")
+    assert db.failed_jobs_since(conn, run_id) == 0
+    db.finish_run(conn, run_id, True, "1 actualizações pedidas")
+    with conn.cursor() as cur:
+        cur.execute("SELECT status, detail, finished_at FROM job_runs WHERE id = %s", (run_id,))
+        row = cur.fetchone()
+    assert row["status"] == "done" and row["finished_at"] is not None

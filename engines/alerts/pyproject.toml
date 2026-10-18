@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stocks-alerts"
+version = "0.1.0"
+description = "Motor de alertas por email: avalia regras sobre o fecho diário e envia um resumo por utilizador"
+requires-python = ">=3.11"
+dependencies = [
+  "PyMySQL==1.2.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==9.1.1"]
+
+[project.scripts]
+stocks-alerts = "alerts.__main__:main"
+
+[tool.setuptools]
+packages = ["alerts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

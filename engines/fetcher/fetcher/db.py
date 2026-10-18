@@ -196,6 +196,37 @@ def instrument_overview(conn) -> list[dict]:
     return rows
 
 
+def start_run(conn, kind: str) -> int:
+    """Regista o início de uma execução agendada (consultada pela API em /status)."""
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO job_runs (kind) VALUES (%s)", (kind,))
+        run_id = cur.lastrowid
+    conn.commit()
+    return run_id
+
+
+def finish_run(conn, run_id: int, ok: bool, detail: str) -> None:
+    with conn.cursor() as cur:
+        cur.execute(
+            "UPDATE job_runs SET status = %s, detail = %s, finished_at = NOW(3) WHERE id = %s",
+            ("done" if ok else "failed", detail[:4000], run_id),
+        )
+    conn.commit()
+
+
+def failed_jobs_since(conn, run_started_id: int) -> int:
+    """Pedidos incrementais que falharam definitivamente desde o início da execução."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "SELECT COUNT(*) AS n FROM fetch_jobs WHERE status = 'failed' AND kind = 'incremental' "
+            "AND finished_at >= (SELECT started_at FROM job_runs WHERE id = %s)",
+            (run_started_id,),
+        )
+        n = cur.fetchone()["n"]
+    conn.commit()
+    return n
+
+
 def history_start(today: date, years: int) -> date:
     try:
         return today.replace(year=today.year - years)
