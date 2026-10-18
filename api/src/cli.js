@@ -1,7 +1,7 @@
 /**
  * Administração de contas (não há registo público).
  *
- *   npm run cli -- create-user --email ana@exemplo.pt --name "Ana" [--admin] [--capital 10000]
+ *   npm run cli -- create-user --email ana@exemplo.pt --name "Ana" [--admin] [--capital 1000000]
  *   npm run cli -- set-password --email ana@exemplo.pt
  *   npm run cli -- disable-user --email ana@exemplo.pt
  *   npm run cli -- enable-user --email ana@exemplo.pt

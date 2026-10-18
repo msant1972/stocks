@@ -294,7 +294,7 @@ Riscos aceites ou pendentes:
 | Cópias de segurança | Copiar para fora do servidor (S3, snapshots EBS) e testar o restauro periodicamente |
 | Eventos societários | Dividendos e desdobramentos não alteram as posições simuladas; um desdobramento numa acção detida distorce o resultado |
 | Comissões e custos | Excluídos; podem ser acrescentados à regra de simulação |
-| Reposição de capital | Não existe; o capital inicial é definido na criação da conta |
+| Reposição de capital | Não existe; o capital inicial (1 000 000 EUR por omissão) é definido na criação da conta |
 | Contas de BD por componente | Uma única conta `stocks`; separar API e motores reduziria o impacto de uma falha de segurança |
 | Retenção de operações e auditoria | Sem eliminação; definir se for necessário |
 | Ambiente de testes separado | Hoje partilha o servidor de produção |

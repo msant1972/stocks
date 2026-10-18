@@ -1,7 +1,9 @@
 import { useId, useMemo, useState } from 'react';
-import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as f from '../../lib/format.js';
 import { momentum, niceTicks } from '../../lib/momentum.js';
+import { backtest } from '../../lib/strategy.js';
+import StrategyPanel from './StrategyPanel.jsx';
 import { Button, Segmented } from '../ui/controls.jsx';
 
 const RANGES = [
@@ -88,12 +90,27 @@ function MomentumTooltip({ active, payload }) {
   );
 }
 
+/** Marcador de operação da estratégia: triângulo com letra (C compra, V venda), não só cor. */
+function SignalMarker({ cx, cy, side }) {
+  if (cx == null || cy == null) return null;
+  const buy = side === 'buy';
+  const color = buy ? 'var(--positive)' : 'var(--negative)';
+  const tip = buy ? cy + 6 : cy - 6;
+  const base = buy ? cy + 22 : cy - 22;
+  return (
+    <g>
+      <path d={`M${cx},${tip} L${cx - 8},${base} L${cx + 8},${base} Z`} fill={color} stroke="var(--surface)" strokeWidth={1.5} />
+      <text x={cx} y={buy ? base + 13 : base - 5} textAnchor="middle" fontSize={11} fontWeight={700} fill={color}>{buy ? 'C' : 'V'}</text>
+    </g>
+  );
+}
+
 /**
  * Gráfico diário com o fecho ajustado (comparável ao longo do tempo, apesar de dividendos e
  * desdobramentos) e, opcionalmente, médias móveis sobre a mesma escala. Inclui resumo textual e
  * alternativa em tabela.
  */
-export default function DailyChart({ quotes, currency, symbol }) {
+export default function DailyChart({ quotes, currency, symbol, strategy = false }) {
   const [range, setRange] = useState('1A');
   const [selected, setSelected] = useState(readSelection);
   const [showTable, setShowTable] = useState(false);
@@ -117,6 +134,7 @@ export default function DailyChart({ quotes, currency, symbol }) {
 
   // O momento é calculado sobre todo o histórico carregado e só depois recortado ao período.
   const mom = useMemo(() => momentum(quotes), [quotes]);
+  const strategyResult = useMemo(() => (strategy ? backtest(quotes, mom) : null), [strategy, quotes, mom]);
   const data = useMemo(() => {
     if (!quotes.length) return [];
     const from = cutoff(quotes.at(-1).date, RANGES.find((r) => r.value === range).months);
@@ -202,6 +220,13 @@ export default function DailyChart({ quotes, currency, symbol }) {
               <Line key={i.key} type="linear" dataKey={i.key} stroke={i.color} strokeWidth={1.75} dot={false}
                 activeDot={{ r: 4, stroke: 'var(--surface)', strokeWidth: 2 }} connectNulls={false} isAnimationActive={false} />
             ))}
+            {strategyResult?.signals.filter((s) => s.date >= first.date).map((s) => {
+              const point = data.find((d) => d.date === s.date);
+              return point && (
+                <ReferenceDot key={`${s.side}-${s.date}`} x={s.date} y={point.value} r={0} ifOverflow="extendDomain"
+                  shape={(props) => <SignalMarker {...props} side={s.side} />} />
+              );
+            })}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
@@ -247,6 +272,8 @@ export default function DailyChart({ quotes, currency, symbol }) {
           </p>
         </section>
       )}
+
+      {strategyResult && <StrategyPanel result={strategyResult} currency={currency || 'EUR'} symbol={symbol} />}
 
       <p className="small muted">
         Eixo vertical em {currency || 'EUR'} (fecho ajustado); a escala não começa em zero. As médias são calculadas sobre o fecho ajustado.

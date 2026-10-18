@@ -22,6 +22,7 @@ export default function InstrumentPage() {
   const toast = useToast();
   const [trading, setTrading] = useState(false);
   const [alerting, setAlerting] = useState(false);
+  const [strategy, setStrategy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -66,6 +67,10 @@ export default function InstrumentPage() {
             {i.inWatchlist ? 'Remover da lista' : 'Adicionar à lista'}
           </Button>
           <Button onClick={() => setAlerting(true)} disabled={i.status === 'invalid'}>Criar alerta</Button>
+          <Button onClick={() => setStrategy((v) => !v)} aria-pressed={strategy} disabled={i.status !== 'active'}
+            title="Simular no histórico a estratégia de momento SMA10/SMA200">
+            {strategy ? 'Ocultar estratégia' : 'Aplicar estratégia'}
+          </Button>
           <Button variant="primary" onClick={() => setTrading(true)} disabled={!tradable}>Simular operação</Button>
         </div>
       </div>
@@ -117,7 +122,7 @@ export default function InstrumentPage() {
               quotes.data.quotes.length === 0 ? <EmptyState title="Sem cotações disponíveis">O fornecedor não devolveu sessões para este instrumento.</EmptyState> :
                 (
                   <Suspense fallback={<Loading rows={6} label="A carregar o gráfico…" />}>
-                    <DailyChart quotes={quotes.data.quotes} currency={i.currency} symbol={i.symbol} />
+                    <DailyChart quotes={quotes.data.quotes} currency={i.currency} symbol={i.symbol} strategy={strategy} />
                   </Suspense>
                 )}
           </section>

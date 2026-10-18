@@ -24,7 +24,7 @@ export function loadConfig(env = process.env) {
     sessionDays: Number(env.STOCKS_SESSION_DAYS || 7),
     // Tentativas de login por IP em 15 minutos.
     loginMaxAttempts: Number(env.STOCKS_LOGIN_MAX_ATTEMPTS || 10),
-    initialCapital: env.STOCKS_INITIAL_CAPITAL || '10000.00',
+    initialCapital: env.STOCKS_INITIAL_CAPITAL || '1000000.00',
     // Dias de calendário a partir dos quais a última cotação é considerada desactualizada
     // e as operações simuladas são recusadas (cobre fins-de-semana e feriados prolongados).
     maxQuoteAgeDays: Number(env.STOCKS_MAX_QUOTE_AGE_DAYS || 7),

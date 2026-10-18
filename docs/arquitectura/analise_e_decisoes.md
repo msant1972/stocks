@@ -128,7 +128,7 @@ Por ordem de impacto, com a minha recomendação:
 | 5 | Catálogo de instrumentos | **Decidido:** catálogo global partilhado, preenchido à mão ou por Excel; cada utilizador escolhe os instrumentos que acompanha na sua lista. |
 | 6 | Retenção | Não apagar cotações no MVP. |
 | 7 | Preços ajustados | Guardar ambos; operar com não ajustado; gráficos com ajustado. |
-| 8 | Capital virtual inicial | Valor configurável (ex.: 10 000 na moeda da carteira), sem reposição no MVP. |
+| 8 | Capital virtual inicial | **Decidido:** 1 000 000 EUR por omissão, configurável por conta; sem reposição. |
 | 9 | Stack concreta | Fixar framework Node, acesso à BD, ferramenta única de migrações, bibliotecas React e versões. |
 | 10 | Criação de contas e SMTP | CLI de administração; fornecedor SMTP escolhido. |
 

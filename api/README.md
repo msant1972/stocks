@@ -19,7 +19,7 @@ A configuração vem de variáveis de ambiente. Em desenvolvimento, as scripts `
 | `STOCKS_DB_PASSWORD` | obrigatória | |
 | `STOCKS_API_HOST`, `STOCKS_API_PORT` | `127.0.0.1`, `3000` | Endereço de escuta (atrás do proxy HTTPS) |
 | `STOCKS_PUBLIC_ORIGIN` | — | Ex.: `https://stocks.graus.pt`. Activa cookies `Secure` e recusa pedidos de escrita vindos de outra origem |
-| `STOCKS_INITIAL_CAPITAL` | `10000.00` | Capital virtual das contas novas, em EUR |
+| `STOCKS_INITIAL_CAPITAL` | `1000000.00` | Capital virtual das contas novas, em EUR |
 | `STOCKS_MAX_QUOTE_AGE_DAYS` | `7` | Dias de calendário a partir dos quais a última cotação está desactualizada e as operações são recusadas |
 | `STOCKS_SESSION_DAYS` | `7` | Validade da sessão, renovada com o uso |
 | `STOCKS_LOGIN_MAX_ATTEMPTS` | `10` | Tentativas de login por IP em 15 minutos |

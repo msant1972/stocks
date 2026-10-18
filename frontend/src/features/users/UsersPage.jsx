@@ -41,12 +41,12 @@ function CreateUserDialog({ open, onClose, onDone }) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [capital, setCapital] = useState('10000');
+  const [capital, setCapital] = useState('1000000');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
   function close() {
-    setEmail(''); setName(''); setPassword(''); setIsAdmin(false); setCapital('10000'); setError(null); setBusy(false);
+    setEmail(''); setName(''); setPassword(''); setIsAdmin(false); setCapital('1000000'); setError(null); setBusy(false);
     onClose();
   }
 
@@ -75,7 +75,7 @@ function CreateUserDialog({ open, onClose, onDone }) {
         <Field label="Email">{(p) => <input {...p} className="input" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
         <Field label="Nome">{(p) => <input {...p} className="input" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />}</Field>
         <PasswordField value={password} onChange={setPassword} />
-        <Field label="Capital virtual inicial (EUR)" error={capital && !capitalOk ? 'Indique um valor positivo, ex.: 10000.' : null}>
+        <Field label="Capital virtual inicial (EUR)" error={capital && !capitalOk ? 'Indique um valor positivo, ex.: 1000000.' : null}>
           {(p) => <input {...p} className="input num" inputMode="decimal" value={capital} onChange={(e) => setCapital(e.target.value)} />}
         </Field>
         <label className="row" style={{ gap: '0.5rem', cursor: 'pointer' }}>
