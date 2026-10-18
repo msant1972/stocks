@@ -123,7 +123,7 @@ Por ordem de impacto, com a minha recomendação:
 |---|---|---|
 | 1 | Utilizadores | **Decidido:** grupo privado. |
 | 2 | Fonte de dados | **Decidido:** yfinance, atrás de um adaptador substituível e com versão fixada. |
-| 3 | Mercados e moeda da carteira | **Decidido:** Euronext, carteira em EUR. Atenção: a Euronext Oslo cota em NOK; o MVP aceita só praças em EUR (Lisboa .LS, Paris .PA, Amesterdão .AS, Bruxelas .BR, Milão .MI, Dublin .IR). Recolha diária depois do fecho (17h30 CET), por volta das 19h em Lisboa. |
+| 3 | Mercados e moeda da carteira | **Decidido:** carteira em EUR. A lista inicial do Miguel (41 símbolos) inclui Euronext, Xetra (.DE), Madrid (.MC) e Helsínquia (.HE), por isso a regra passa a ser «instrumentos cotados em EUR», verificada pela moeda devolvida pelo fornecedor, e não «só Euronext». Recolha diária às 19h de Lisboa, depois do fecho das 17h30 CET. |
 | 4 | Limite de alertas | **Decidido:** email de resumo por utilizador após cada recolha diária. |
 | 5 | Catálogo de instrumentos | **Decidido:** catálogo global partilhado, preenchido à mão ou por Excel; cada utilizador escolhe os instrumentos que acompanha na sua lista. |
 | 6 | Retenção | Não apagar cotações no MVP. |
