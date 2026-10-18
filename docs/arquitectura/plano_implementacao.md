@@ -65,7 +65,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Indicadores técnicos | EMA9, SMA10/50/125/200 guardados na BD e recalculados em cada recolha; botões para os mostrar no gráfico |
 | Gráfico de momento | SMA10/SMA200 − 1 (verde a subir, vermelho a descer) e SMA8/SMA125 − 1, sincronizado com o histórico |
 | Estratégia de momento | Simulação no histórico: compra 15 000 € após descer-subir-subir, vende após subir-descer-descer com SMA8/SMA125 < 1%, ignora sinais com SMA10/SMA200 entre −1% e +1%, reforça a cada +10% desde a última compra |
-| HeatMap | Treemap dos 20 instrumentos com maior valor negociado em 1, 5 ou 30 sessões |
+| HeatMap | Treemap dos 20 instrumentos com maior valor negociado em 1, 5, 15 ou 30 sessões |
 | Momento do mercado | Quadro na Visão geral com a distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos |
 | Cruzamentos SMA10/SMA50 | Quadro na Visão geral com os cruzamentos ascendentes e descendentes das últimas 5 sessões |
 | Sinais | Página com os sinais da estratégia em todos os instrumentos (cálculo partilhado em `shared/`) e botões Comprar/Vender |

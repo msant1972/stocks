@@ -13,6 +13,7 @@ const TOP = 20;
 const PERIODS = [
   { value: '1', label: '1 dia' },
   { value: '5', label: '5 dias' },
+  { value: '15', label: '15 dias' },
   { value: '30', label: '30 dias' },
 ];
 

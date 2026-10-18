@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { IsoDate } from '../schemas.js';
 
-export const HEATMAP_PERIODS = [1, 5, 30];
+export const HEATMAP_PERIODS = [1, 5, 15, 30];
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
 
@@ -51,7 +51,7 @@ export default async function heatmapRoutes(app, { pool }) {
     schema: {
       tags: ['Mapa de calor'], summary: 'Variação e valor negociado por instrumento no período',
       querystring: z.object({
-        period: z.coerce.number().int().refine((p) => HEATMAP_PERIODS.includes(p), 'período deve ser 1, 5 ou 30').default(5),
+        period: z.coerce.number().int().refine((p) => HEATMAP_PERIODS.includes(p), 'período deve ser 1, 5, 15 ou 30').default(5),
         scope: z.enum(['all', 'watchlist']).default('all'),
         limit: z.coerce.number().int().min(1).max(500).default(20).describe('Só os N instrumentos com maior valor negociado'),
       }),
