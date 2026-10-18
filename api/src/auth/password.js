@@ -7,7 +7,7 @@ const scrypt = promisify(scryptCb);
 const PARAMS = { N: 2 ** 17, r: 8, p: 1, maxmem: 256 * 1024 * 1024 };
 const KEY_LEN = 32;
 
-export const MIN_PASSWORD_LENGTH = 10;
+export const MIN_PASSWORD_LENGTH = 8;
 
 export async function hashPassword(password, params = PARAMS) {
   const salt = randomBytes(16);

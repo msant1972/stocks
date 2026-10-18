@@ -9,7 +9,7 @@ import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Dialog, Field, Notice } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
 
-const MIN_PASSWORD = 10;
+const MIN_PASSWORD = 8; // igual a MIN_PASSWORD_LENGTH na API
 
 /** Palavra-passe aleatória de 16 caracteres, sem caracteres ambíguos. */
 function generatePassword() {

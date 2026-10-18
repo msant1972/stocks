@@ -16,7 +16,7 @@ function PasswordForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const { data: me } = useMe();
-  const tooShort = next && next.length < 10;
+  const tooShort = next && next.length < 8; // igual a MIN_PASSWORD_LENGTH na API
 
   async function submit(e) {
     e.preventDefault();
@@ -38,7 +38,7 @@ function PasswordForm() {
       <Field label="Palavra-passe actual">
         {(p) => <input {...p} className="input" type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />}
       </Field>
-      <Field label="Nova palavra-passe" help="Pelo menos 10 caracteres." error={tooShort ? 'A palavra-passe é demasiado curta.' : null}>
+      <Field label="Nova palavra-passe" help="Pelo menos 8 caracteres." error={tooShort ? 'A palavra-passe é demasiado curta.' : null}>
         {(p) => <input {...p} className="input" type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} />}
       </Field>
       {error && <Notice tone="error">{error}</Notice>}

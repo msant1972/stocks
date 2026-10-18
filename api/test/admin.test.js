@@ -39,6 +39,13 @@ describe.skipIf(!hasTestDb)('gestão de utilizadores', () => {
     expect((await admin.post('/admin/users', { email: 'nao-e-email', name: 'N', password: 'palavra-passe-longa' })).statusCode).toBe(400);
   });
 
+  it('exige pelo menos 8 caracteres na palavra-passe', async () => {
+    const seven = await admin.post('/admin/users', { email: 'sete@exemplo.pt', name: 'Sete', password: '1234567' });
+    expect(seven.json().error).toMatchObject({ code: 'WEAK_PASSWORD', message: 'a palavra-passe deve ter pelo menos 8 caracteres' });
+    expect((await admin.post('/admin/users', { email: 'oito@exemplo.pt', name: 'Oito', password: '12345678' })).statusCode).toBe(201);
+    await login(ctx.app, 'oito@exemplo.pt', '12345678');
+  });
+
   it('redefine a palavra-passe e termina as sessões do utilizador', async () => {
     const [[ana]] = await ctx.pool.query("SELECT id FROM users WHERE email = 'ana@exemplo.pt'");
     const session = api(ctx.app, await login(ctx.app, 'ana@exemplo.pt'));
