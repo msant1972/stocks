@@ -95,6 +95,7 @@ describe.skipIf(!hasTestDb)('catálogo, histórico e watchlist', () => {
     expect(hist.statusCode).toBe(200);
     expect(hist.json().quotes).toHaveLength(4);
     expect(hist.json().quotes[0].date < hist.json().quotes[3].date).toBe(true);
+    expect(hist.json().quotes[3]).toMatchObject({ ema9: null, sma10: null, sma200: null });
 
     expect((await ana.get('/instruments/999999')).statusCode).toBe(404);
     expect((await ana.get('/instruments/abc')).statusCode).toBe(400);

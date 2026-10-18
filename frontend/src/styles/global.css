@@ -250,6 +250,16 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .empty strong { color: var(--text); }
 
 .chart-box { height: 320px; }
+.legend-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.legend-chip {
+  display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.25rem; padding: 0.25rem 0.75rem;
+  border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text-secondary);
+  font-size: 0.875rem; font-weight: 500; cursor: pointer;
+}
+.legend-chip[aria-pressed="true"] { border-color: var(--control-border); background: var(--surface-muted); color: var(--text); }
+.legend-chip.static { cursor: default; border-color: transparent; padding-left: 0; }
+.swatch { width: 16px; height: 3px; border-radius: 2px; flex: none; }
+.legend-chip[aria-pressed="false"] .swatch { opacity: 0.35; }
 @media (max-width: 767px) { .chart-box { height: 240px; } }
 
 .toast-region { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 60; display: flex; flex-direction: column; gap: 0.5rem; }

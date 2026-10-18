@@ -5,6 +5,7 @@ import pymysql
 import pymysql.cursors
 
 from .config import Settings
+from . import indicators
 from .models import DailyQuote, InstrumentInfo
 
 # Um pedido em 'running' há mais do que isto é considerado abandonado (processo terminado a meio).
@@ -109,12 +110,46 @@ def upsert_quotes(cur, instrument_id: int, quotes: list[DailyQuote], source: str
     return len(quotes)
 
 
+def update_indicators(cur, instrument_id: int) -> int:
+    """Recalcula os indicadores de todas as sessões do instrumento sobre o fecho ajustado."""
+    cur.execute(
+        "SELECT session_date, COALESCE(adj_close, close) AS price FROM daily_quotes "
+        "WHERE instrument_id = %s ORDER BY session_date",
+        (instrument_id,),
+    )
+    rows = cur.fetchall()
+    if not rows:
+        return 0
+    values = indicators.compute([r["price"] for r in rows])
+    sets = ", ".join(f"{c} = %s" for c in indicators.COLUMNS)
+    cur.executemany(
+        f"UPDATE daily_quotes SET {sets}, fetched_at = fetched_at WHERE instrument_id = %s AND session_date = %s",
+        [(*v, instrument_id, r["session_date"]) for v, r in zip(values, rows)],
+    )
+    return len(rows)
+
+
+def recompute_all_indicators(conn) -> int:
+    """Recalcula os indicadores de todos os instrumentos activos (um por transacção)."""
+    with conn.cursor() as cur:
+        cur.execute("SELECT id FROM instruments WHERE status = 'active' ORDER BY id")
+        ids = [r["id"] for r in cur.fetchall()]
+    conn.commit()
+    for instrument_id in ids:
+        with conn.cursor() as cur:
+            update_indicators(cur, instrument_id)
+        conn.commit()
+    return len(ids)
+
+
 def complete_job(conn, job_id: int, instrument_id: int, info: InstrumentInfo | None,
                  quotes: list[DailyQuote], source: str, note: str | None) -> int:
     """Grava cotações, cobertura do instrumento e fim do pedido numa só transacção."""
     try:
         with conn.cursor() as cur:
             written = upsert_quotes(cur, instrument_id, quotes, source)
+            if written:
+                update_indicators(cur, instrument_id)
             if info is not None:
                 cur.execute(
                     "UPDATE instruments SET status = 'active', status_reason = NULL, "

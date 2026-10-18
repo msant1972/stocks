@@ -685,9 +685,13 @@ paths:
                 additionalProperties: false
   /api/v1/instruments/{id}/quotes:
     get:
-      summary: Cotações diárias (por omissão, os últimos dois anos)
+      summary: Cotações diárias e indicadores técnicos (por omissão, os últimos dois
+        anos)
       tags:
         - Histórico
+      description: ema9, sma10, sma50, sma125 e sma200 são calculados sobre o fecho
+        ajustado com todo o histórico disponível; são null enquanto não houver
+        sessões suficientes.
       parameters:
         - schema:
             type: string
@@ -767,6 +771,26 @@ paths:
                         volume:
                           nullable: true
                           type: number
+                        ema9:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        sma10:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        sma50:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        sma125:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        sma200:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
                       required:
                         - date
                         - open
@@ -775,6 +799,11 @@ paths:
                         - close
                         - adjClose
                         - volume
+                        - ema9
+                        - sma10
+                        - sma50
+                        - sma125
+                        - sma200
                       additionalProperties: false
                   truncated:
                     type: boolean

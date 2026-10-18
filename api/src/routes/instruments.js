@@ -167,7 +167,9 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
 
   app.get('/instruments/:id/quotes', {
     schema: {
-      tags: ['Histórico'], summary: 'Cotações diárias (por omissão, os últimos dois anos)',
+      tags: ['Histórico'], summary: 'Cotações diárias e indicadores técnicos (por omissão, os últimos dois anos)',
+      description: 'ema9, sma10, sma50, sma125 e sma200 são calculados sobre o fecho ajustado com todo o histórico '
+        + 'disponível; são null enquanto não houver sessões suficientes.',
       params: z.object({ id: Id }),
       querystring: z.object({ from: IsoDate.optional(), to: IsoDate.optional() }),
       response: {
@@ -177,6 +179,7 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
           quotes: z.array(z.object({
             date: IsoDate, open: NullableDecimal, high: NullableDecimal, low: NullableDecimal,
             close: Decimal, adjClose: NullableDecimal, volume: z.number().nullable(),
+            ema9: NullableDecimal, sma10: NullableDecimal, sma50: NullableDecimal, sma125: NullableDecimal, sma200: NullableDecimal,
           })),
           truncated: z.boolean(),
         }),
@@ -189,7 +192,7 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     const to = req.query.to ?? inst.last_session ?? new Date().toISOString().slice(0, 10);
     const from = req.query.from ?? yearsBefore(to, 2);
     const [rows] = await pool.query(
-      `SELECT session_date, open, high, low, close, adj_close, volume FROM daily_quotes
+      `SELECT session_date, open, high, low, close, adj_close, volume, ema9, sma10, sma50, sma125, sma200 FROM daily_quotes
         WHERE instrument_id = ? AND session_date BETWEEN ? AND ?
         ORDER BY session_date DESC LIMIT ?`,
       [inst.id, from, to, MAX_QUOTE_ROWS + 1],
@@ -201,6 +204,7 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       quotes: rows.slice(0, MAX_QUOTE_ROWS).reverse().map((q) => ({
         date: q.session_date, open: q.open, high: q.high, low: q.low, close: q.close,
         adjClose: q.adj_close, volume: q.volume == null ? null : Number(q.volume),
+        ema9: q.ema9, sma10: q.sma10, sma50: q.sma50, sma125: q.sma125, sma200: q.sma200,
       })),
       truncated,
     };

@@ -5,6 +5,7 @@
   python -m fetcher run                       processa os pedidos pendentes
   python -m fetcher update                    pede a actualização diária e processa
   python -m fetcher status                    cobertura e estado de cada instrumento
+  python -m fetcher indicators                recalcula EMA9 e SMA10/50/125/200 de todos os activos
 """
 import argparse
 import logging
@@ -64,6 +65,7 @@ def main(argv=None) -> int:
     sub.add_parser("run", help="processar pedidos pendentes")
     sub.add_parser("update", help="pedir actualização diária dos instrumentos activos e processar")
     sub.add_parser("status", help="mostrar cobertura e estado")
+    sub.add_parser("indicators", help="recalcular os indicadores técnicos de todos os instrumentos activos")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
@@ -75,6 +77,9 @@ def main(argv=None) -> int:
             return cmd_add(conn, args)
         if args.command == "status":
             return cmd_status(conn, args)
+        if args.command == "indicators":
+            print(f"indicadores recalculados para {db.recompute_all_indicators(conn)} instrumentos")
+            return 0
         if args.command == "update":
             run_id = db.start_run(conn, "fetch_update")
             try:

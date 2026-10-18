@@ -25,6 +25,13 @@
   --duration-fast: 120ms;
   --duration-normal: 180ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Séries do gráfico: paleta categórica validada (preço + 5 indicadores, ordem fixa). */
+  --series-price: #005fcc;
+  --series-ema9: #eb6834;
+  --series-sma10: #1baf7a;
+  --series-sma50: #eda100;
+  --series-sma125: #e87ba4;
+  --series-sma200: #008300;
   --sidebar-width: 232px;
   --content-max: 1440px;
 }
@@ -45,6 +52,12 @@
   --control-border: #8c93a3;
   --focus: #99c7ff;
   --scrim: rgb(0 0 0 / 0.56);
+  --series-price: #3987e5;
+  --series-ema9: #d95926;
+  --series-sma10: #199e70;
+  --series-sma50: #c98500;
+  --series-sma125: #d55181;
+  --series-sma200: #008300;
   --topbar-bg: rgb(16 17 20 / 0.82);
   --shadow-card: 0 4px 20px rgb(0 0 0 / 0.14);
   --shadow-overlay: 0 16px 48px rgb(0 0 0 / 0.4);
