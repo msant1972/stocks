@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AppError, notFound } from '../errors.js';
 import { Decimal, ErrorBody, Id, InstrumentStatus, InstrumentSummary, IsoDate, NullableDecimal } from '../schemas.js';
-import { addSymbols, importTemplate, previewImport, readSymbolFile } from '../services/instruments.js';
+import { addSymbols, importTemplate, previewImport, readSymbolFile, requestPendingFetch, triggerFetcher } from '../services/instruments.js';
 import { latestQuotes } from '../services/quotes.js';
 
 export function mapInstrument(r, quotes) {
@@ -29,7 +29,7 @@ function yearsBefore(date, n) {
   return t.toISOString().slice(0, 10);
 }
 
-export default async function instrumentRoutes(app, { pool }) {
+export default async function instrumentRoutes(app, { pool, cfg }) {
   app.get('/instruments', {
     schema: {
       tags: ['Instrumentos'], summary: 'Pesquisar no catálogo global',
@@ -77,7 +77,27 @@ export default async function instrumentRoutes(app, { pool }) {
         }),
       },
     },
-  }, async (req) => ({ results: await addSymbols(pool, req.user.id, req.body.symbols, req.body.addToWatchlist) }));
+  }, async (req) => {
+    const results = await addSymbols(pool, req.user.id, req.body.symbols, req.body.addToWatchlist);
+    if (results.some((r) => r.result === 'created')) await triggerFetcher(cfg, req.log);
+    return { results };
+  });
+
+  app.post('/instruments/fetch', {
+    config: { rateLimit: { max: 6, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Instrumentos'],
+      summary: 'Forçar a validação no fornecedor dos instrumentos «A validar»',
+      description: 'Põe os instrumentos pendentes (todos, ou os indicados) na fila sem espera e arranca o motor de recolha. '
+        + 'A validação é assíncrona: o estado de cada instrumento muda quando o motor o processar.',
+      body: z.object({ instrumentIds: z.array(Id).max(1000).optional() }),
+      response: { 202: z.object({ queued: z.number(), started: z.boolean() }) },
+    },
+  }, async (req, reply) => {
+    const queued = await requestPendingFetch(pool, req.user.id, req.body.instrumentIds);
+    const started = queued > 0 && (await triggerFetcher(cfg, req.log));
+    return reply.code(202).send({ queued, started });
+  });
 
   app.post('/instruments/import/preview', {
     config: { rateLimit: { max: 30, timeWindow: '1 minute' } },

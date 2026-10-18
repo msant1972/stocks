@@ -29,6 +29,7 @@ id stocks >/dev/null 2>&1 || useradd --system --home-dir "$APP" --shell /usr/sbi
 install -d -m 755 "$APP"
 install -d -m 750 -o root -g stocks /etc/stocks
 install -d -m 750 -o stocks -g stocks /var/backups/stocks
+install -d -m 755 -o stocks -g stocks /var/lib/stocks
 
 if [[ ! -f "$ENV_FILE" ]]; then
   install -m 640 -o root -g stocks "$SRC/deploy/stocks.env.example" "$ENV_FILE"
@@ -62,9 +63,9 @@ DATABASE_URL="mysql://${STOCKS_DB_USER}:${STOCKS_DB_PASSWORD}@${STOCKS_DB_HOST}:
   dbmate --migrations-dir "$APP/db/migrations" --no-dump-schema --wait up
 
 step "Serviços systemd"
-install -m 644 "$APP"/deploy/systemd/*.service "$APP"/deploy/systemd/*.timer /etc/systemd/system/
+install -m 644 "$APP"/deploy/systemd/*.service "$APP"/deploy/systemd/*.timer "$APP"/deploy/systemd/*.path /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now stocks-fetcher-run.timer stocks-daily.timer stocks-backup.timer
+systemctl enable --now stocks-fetcher-run.timer stocks-fetcher-run.path stocks-daily.timer stocks-backup.timer
 systemctl enable stocks-api.service
 systemctl restart stocks-api.service
 

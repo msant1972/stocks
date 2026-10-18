@@ -14,7 +14,8 @@ systemd timers ─▶ motor de recolha (cargas iniciais a cada 5 min; actualiza�
 | Unit | Quando | O que faz |
 |---|---|---|
 | `stocks-api.service` | sempre | API e frontend |
-| `stocks-fetcher-run.timer` | a cada 5 min | Valida e carrega os símbolos adicionados na aplicação |
+| `stocks-fetcher-run.path` | quando a aplicação pede | Arranca o motor de imediato ao adicionar símbolos ou em «Validar agora» (a API escreve em `/var/lib/stocks/fetch-request`) |
+| `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança: processa os pedidos que ficarem na fila |
 | `stocks-daily.timer` | dias úteis, 19:00 de Lisboa | Actualização das cotações e, a seguir, alertas ([bin/daily.sh](bin/daily.sh)) |
 | `stocks-backup.timer` | diariamente, 03:30 UTC | `mariadb-dump` para `/var/backups/stocks`, guardado durante 14 dias |
 

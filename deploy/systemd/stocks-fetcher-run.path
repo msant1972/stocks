@@ -1,0 +1,10 @@
+[Unit]
+Description=Stocks — arrancar o motor de recolha quando a aplicação o pede
+
+[Path]
+# A API escreve neste ficheiro ao adicionar símbolos ou em «Validar agora».
+PathModified=/var/lib/stocks/fetch-request
+Unit=stocks-fetcher-run.service
+
+[Install]
+WantedBy=paths.target

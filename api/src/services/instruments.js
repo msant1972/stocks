@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises';
 import ExcelJS from 'exceljs';
 import { audit, withTransaction } from '../db.js';
 import { AppError } from '../errors.js';
@@ -47,6 +48,49 @@ export async function addSymbols(pool, userId, rawSymbols, addToWatchlist) {
     }
   });
   return results;
+}
+
+/**
+ * Pede a validação imediata dos instrumentos «A validar»: os pedidos em fila deixam de esperar pela
+ * próxima tentativa, os que falharam voltam à fila e os que não têm pedido recebem um. Devolve quantos
+ * instrumentos ficaram na fila.
+ */
+export async function requestPendingFetch(pool, userId, instrumentIds = null) {
+  return withTransaction(pool, async (conn) => {
+    const filter = instrumentIds?.length ? ' AND i.id IN (?)' : '';
+    const args = instrumentIds?.length ? [instrumentIds] : [];
+    const [rows] = await conn.query(`SELECT i.id FROM instruments i WHERE i.status = 'pending'${filter} FOR UPDATE`, args);
+    const ids = rows.map((r) => Number(r.id));
+    if (!ids.length) return 0;
+    await conn.query("UPDATE fetch_jobs SET next_attempt_at = NOW(3) WHERE status = 'queued' AND instrument_id IN (?)", [ids]);
+    await conn.query(
+      `UPDATE fetch_jobs SET status = 'queued', next_attempt_at = NOW(3), attempts = 0, finished_at = NULL
+        WHERE status = 'failed' AND instrument_id IN (?)
+          AND NOT EXISTS (SELECT 1 FROM (SELECT instrument_id FROM fetch_jobs WHERE status IN ('queued','running')) a
+                           WHERE a.instrument_id = fetch_jobs.instrument_id)`,
+      [ids],
+    );
+    await conn.query(
+      `INSERT INTO fetch_jobs (instrument_id, kind)
+       SELECT i.id, 'initial' FROM instruments i
+        WHERE i.id IN (?) AND NOT EXISTS (SELECT 1 FROM fetch_jobs j WHERE j.instrument_id = i.id AND j.status IN ('queued','running'))`,
+      [ids],
+    );
+    await audit(conn, userId, 'instrument.fetch_request', null, null, { count: ids.length });
+    return ids.length;
+  });
+}
+
+/** Sinaliza o motor de recolha para arrancar já. Devolve false se não houver sinal configurado ou falhar. */
+export async function triggerFetcher(cfg, log) {
+  if (!cfg.fetchTriggerFile) return false;
+  try {
+    await fs.writeFile(cfg.fetchTriggerFile, `${new Date().toISOString()}\n`);
+    return true;
+  } catch (err) {
+    log?.warn({ err }, 'não foi possível sinalizar o motor de recolha');
+    return false;
+  }
 }
 
 /** Lê a coluna de símbolos de um .xlsx ou .csv. Devolve [{ line, raw }]. */

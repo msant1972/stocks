@@ -16,8 +16,18 @@ export const keys = {
 };
 
 export const useMe = () => useQuery({ queryKey: keys.me, queryFn: () => api.get('/me'), retry: false, staleTime: Infinity });
-export const useStatus = () => useQuery({ queryKey: keys.status, queryFn: () => api.get('/status'), staleTime: 5 * 60_000 });
-export const useWatchlist = () => useQuery({ queryKey: keys.watchlist, queryFn: () => api.get('/watchlist') });
+// Enquanto houver instrumentos «A validar», as listas voltam a ser consultadas a cada 5 s.
+const POLL_PENDING_MS = 5_000;
+const hasPending = (q) => q.state.data?.items?.some((i) => i.status === 'pending');
+
+export const useStatus = () => useQuery({
+  queryKey: keys.status, queryFn: () => api.get('/status'), staleTime: 5 * 60_000,
+  refetchInterval: (q) => (q.state.data?.instruments.pending > 0 ? POLL_PENDING_MS : false),
+});
+export const useWatchlist = () => useQuery({
+  queryKey: keys.watchlist, queryFn: () => api.get('/watchlist'),
+  refetchInterval: (q) => (hasPending(q) ? POLL_PENDING_MS : false),
+});
 export const usePortfolio = () => useQuery({ queryKey: keys.portfolio, queryFn: () => api.get('/portfolio') });
 export const useAlerts = () => useQuery({ queryKey: keys.alerts, queryFn: () => api.get('/alerts') });
 export const useAlertEvents = () => useQuery({ queryKey: keys.alertEvents, queryFn: () => api.get('/alerts/events?limit=20') });
@@ -46,5 +56,6 @@ export function useInstrumentSearch(q, enabled = true) {
     queryFn: () => api.get(`/instruments?limit=50${q ? `&q=${encodeURIComponent(q)}` : ''}`),
     enabled,
     placeholderData: (prev) => prev,
+    refetchInterval: (q) => (hasPending(q) ? POLL_PENDING_MS : false),
   });
 }

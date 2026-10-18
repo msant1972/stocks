@@ -401,6 +401,45 @@ paths:
                 required:
                   - results
                 additionalProperties: false
+  /api/v1/instruments/fetch:
+    post:
+      summary: Forçar a validação no fornecedor dos instrumentos «A validar»
+      tags:
+        - Instrumentos
+      description: "Põe os instrumentos pendentes (todos, ou os indicados) na fila sem
+        espera e arranca o motor de recolha. A validação é assíncrona: o estado
+        de cada instrumento muda quando o motor o processar."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instrumentIds:
+                  maxItems: 1000
+                  type: array
+                  items:
+                    type: integer
+                    minimum: 0
+                    exclusiveMinimum: true
+                    maximum: 9007199254740991
+      responses:
+        "202":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  queued:
+                    type: number
+                  started:
+                    type: boolean
+                required:
+                  - queued
+                  - started
+                additionalProperties: false
   /api/v1/instruments/import/preview:
     post:
       summary: Pré-visualizar importação de .xlsx ou .csv (multipart, campo "file");

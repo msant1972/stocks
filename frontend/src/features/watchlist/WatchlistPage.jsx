@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useInstrumentSearch, useWatchlist } from '../../lib/queries.js';
+import { keys, useInstrumentSearch, useStatus, useWatchlist } from '../../lib/queries.js';
 import { InstrumentStatus, PriceChange } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
@@ -55,6 +55,25 @@ export default function WatchlistPage() {
   const qc = useQueryClient();
   const watchlist = useWatchlist();
   const search = useInstrumentSearch(q);
+  const status = useStatus();
+  const pending = status.data?.instruments.pending ?? 0;
+  const [forcing, setForcing] = useState(false);
+
+  async function forceFetch() {
+    setForcing(true);
+    setActionError(null);
+    try {
+      const r = await api.post('/instruments/fetch', {});
+      qc.invalidateQueries({ queryKey: keys.status });
+      toast(r.queued === 0 ? 'Não há instrumentos por validar.'
+        : r.started ? `Validação de ${r.queued} ${r.queued === 1 ? 'instrumento iniciada' : 'instrumentos iniciada'}; a lista actualiza-se sozinha.`
+          : `${r.queued} ${r.queued === 1 ? 'instrumento ficou' : 'instrumentos ficaram'} na fila; a validação começa dentro de 5 minutos.`);
+    } catch (err) {
+      setActionError(errorMessage(err));
+    } finally {
+      setForcing(false);
+    }
+  }
 
   async function toggle(i) {
     setPendingId(i.id);
@@ -84,8 +103,20 @@ export default function WatchlistPage() {
           <h1 className="page-title">Acompanhar</h1>
           <p className="page-sub">A sua lista de instrumentos e o catálogo partilhado. Cotações diárias, não em tempo real.</p>
         </div>
-        <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" size={18} />Adicionar instrumentos</Button>
+        <div className="row">
+          {pending > 0 && (
+            <Button onClick={forceFetch} busy={forcing} title="Pedir já ao Yahoo Finance os dados dos instrumentos «A validar»">
+              {forcing ? 'A pedir…' : `Validar agora (${pending})`}
+            </Button>
+          )}
+          <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" size={18} />Adicionar instrumentos</Button>
+        </div>
       </div>
+      {pending > 0 && (
+        <p className="small muted" role="status" style={{ marginTop: '-0.75rem', marginBottom: '1.25rem' }}>
+          {pending} {pending === 1 ? 'instrumento' : 'instrumentos'} a validar no Yahoo Finance. A lista actualiza-se sozinha.
+        </p>
+      )}
 
       <div className="stack">
         <section className="card" aria-labelledby="search-title">

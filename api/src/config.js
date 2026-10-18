@@ -29,5 +29,8 @@ export function loadConfig(env = process.env) {
     // e as operações simuladas são recusadas (cobre fins-de-semana e feriados prolongados).
     maxQuoteAgeDays: Number(env.STOCKS_MAX_QUOTE_AGE_DAYS || 7),
     frontendDist: env.STOCKS_FRONTEND_DIST || null,
+    // Ficheiro observado por uma unit .path do systemd: tocar-lhe arranca o motor de recolha de imediato.
+    // Sem ele, os pedidos ficam para a próxima execução do timer (a cada 5 minutos).
+    fetchTriggerFile: env.STOCKS_FETCH_TRIGGER_FILE || null,
   };
 }

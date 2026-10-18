@@ -8,6 +8,7 @@ Type=simple
 User=stocks
 Group=stocks
 EnvironmentFile=/etc/stocks/stocks.env
+Environment=STOCKS_FETCH_TRIGGER_FILE=/var/lib/stocks/fetch-request
 WorkingDirectory=/opt/stocks/api
 ExecStart=/usr/bin/node src/server.js
 Restart=on-failure
@@ -17,6 +18,7 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
+ReadWritePaths=/var/lib/stocks
 PrivateDevices=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

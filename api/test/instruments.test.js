@@ -109,3 +109,45 @@ describe.skipIf(!hasTestDb)('catálogo, histórico e watchlist', () => {
     expect((await ana.del(`/watchlist/items/${id}`)).statusCode).toBe(204);
   });
 });
+
+describe.skipIf(!hasTestDb)('forçar validação no fornecedor', () => {
+  it('repõe na fila os pendentes e sinaliza o motor', async () => {
+    const fs = await import('node:fs');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    const { buildApp } = await import('../src/app.js');
+    const { testConfig } = await import('./helpers.js');
+    const ctx = await setup();
+    const trigger = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'trig-')), 'fetch-request');
+    const app = await buildApp({ pool: ctx.pool, cfg: { ...testConfig(), fetchTriggerFile: trigger }, logger: false });
+    await makeUser(ctx.pool, 'ana@exemplo.pt');
+    const ana = api(app, await login(app, 'ana@exemplo.pt'));
+
+    await ana.post('/instruments', { symbols: ['AAA.LS', 'BBB.LS', 'CCC.LS'] });
+    expect(fs.existsSync(trigger)).toBe(true); // adicionar símbolos já sinaliza o motor
+    fs.rmSync(trigger);
+    const [[a], [b], [c]] = await Promise.all(['AAA.LS', 'BBB.LS', 'CCC.LS'].map((s) =>
+      ctx.pool.query('SELECT id FROM instruments WHERE symbol = ?', [s]).then(([r]) => r)));
+    // AAA: em espera por uma tentativa futura; BBB: falhou; CCC: já activo (não conta).
+    await ctx.pool.query("UPDATE fetch_jobs SET next_attempt_at = NOW(3) + INTERVAL 1 HOUR WHERE instrument_id = ?", [a.id]);
+    await ctx.pool.query("UPDATE fetch_jobs SET status = 'failed', attempts = 5 WHERE instrument_id = ?", [b.id]);
+    await ctx.pool.query("UPDATE instruments SET status = 'active' WHERE id = ?", [c.id]);
+
+    const res = await ana.post('/instruments/fetch', {});
+    expect(res.statusCode).toBe(202);
+    expect(res.json()).toEqual({ queued: 2, started: true });
+    expect(fs.existsSync(trigger)).toBe(true);
+    const [jobs] = await ctx.pool.query(
+      "SELECT instrument_id, status, attempts, next_attempt_at <= NOW(3) AS ready FROM fetch_jobs WHERE instrument_id IN (?, ?)", [a.id, b.id]);
+    expect(jobs.every((j) => j.status === 'queued' && j.attempts === 0 && j.ready === 1)).toBe(true);
+
+    // Sem pendentes: nada a fazer, o motor não é sinalizado.
+    await ctx.pool.query("UPDATE instruments SET status = 'active'");
+    fs.rmSync(trigger);
+    expect((await ana.post('/instruments/fetch', {})).json()).toEqual({ queued: 0, started: false });
+    expect(fs.existsSync(trigger)).toBe(false);
+    await app.close();
+    await ctx.app.close();
+    await ctx.pool.end();
+  });
+});
