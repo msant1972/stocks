@@ -22,7 +22,7 @@ export default function SignalsPage() {
   const [params, setParams] = useSearchParams();
   const side = ['buy', 'add', 'sell'].includes(params.get('tipo')) ? params.get('tipo') : 'all';
   const sessions = PERIODS.includes(params.get('sessoes')) ? params.get('sessoes') : '5';
-  const [trade, setTrade] = useState(null); // { instrument, side }
+  const [trade, setTrade] = useState(null); // { instrument, side, quantity, note }
   const portfolio = usePortfolio();
   const q = useQuery({
     queryKey: ['signals', sessions],
@@ -121,10 +121,18 @@ export default function SignalsPage() {
                         </td>
                         <td className="r">{i.momentumPct == null ? '—' : <PriceChange value={i.momentumPct} showLabel={false} />}</td>
                         <td className="r" style={{ whiteSpace: 'nowrap' }}>
-                          <Button size="small" onClick={() => setTrade({ instrument, side: 'buy' })}>
+                          <Button size="small" onClick={() => setTrade({
+                            instrument, side: 'buy',
+                            // Orçamento da estratégia ao último fecho (o preço que a operação vai usar).
+                            quantity: Math.max(1, Math.floor(STRATEGY_BUDGET / Number(i.lastClose))),
+                            note: `≈ ${f.money(STRATEGY_BUDGET, 'EUR', 0)} (orçamento da estratégia) ao último fecho.`,
+                          })}>
                             Comprar<span className="visually-hidden"> {i.symbol}</span>
                           </Button>{' '}
-                          <Button size="small" onClick={() => setTrade({ instrument, side: 'sell' })} disabled={qty === 0}
+                          <Button size="small" onClick={() => setTrade({
+                            instrument, side: 'sell', quantity: qty,
+                            note: `Todas as unidades em carteira (${f.quantity(qty)}).`,
+                          })} disabled={qty === 0}
                             title={qty === 0 ? 'Não tem este instrumento na carteira' : `Tem ${f.quantity(qty)} unidades`}>
                             Vender<span className="visually-hidden"> {i.symbol}</span>
                           </Button>
@@ -139,7 +147,8 @@ export default function SignalsPage() {
         </section>
       </div>
 
-      <TradeDialog open={!!trade} onClose={() => setTrade(null)} instrument={trade?.instrument} initialSide={trade?.side} />
+      <TradeDialog open={!!trade} onClose={() => setTrade(null)} instrument={trade?.instrument} initialSide={trade?.side}
+        initialQuantity={trade?.quantity} quantityNote={trade?.note} />
     </>
   );
 }

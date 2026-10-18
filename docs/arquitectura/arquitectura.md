@@ -252,7 +252,7 @@ O botão «Aplicar estratégia» corre no browser um backtest sobre o histórico
 
 O gráfico marca as compras (C), os reforços (R) e as vendas (V); um painel mostra o resultado, as operações, os sinais ignorados e as vendas não executadas pela condição do SMA8/SMA125.
 
-A página **Sinais** aplica a mesma estratégia, no servidor, a todos os instrumentos activos com todo o histórico (para reconstruir a posição virtual de cada um) e lista os sinais das últimas N sessões. Os botões Comprar e Vender abrem uma operação simulada normal na carteira do utilizador; os sinais nunca executam operações sozinhos.
+A página **Sinais** aplica a mesma estratégia, no servidor, a todos os instrumentos activos com todo o histórico (para reconstruir a posição virtual de cada um) e lista os sinais das últimas N sessões. Os botões Comprar e Vender abrem uma operação simulada normal na carteira do utilizador, já com a quantidade preenchida (a que cabe em 15 000 € ao último fecho, ou todas as unidades em carteira); os sinais nunca executam operações sozinhos.
 
 ### 5.5. Operação simulada
 

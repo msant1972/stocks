@@ -19,7 +19,7 @@ function useDebounced(value, ms) {
  * Compra ou venda simulada (guia, secção 5.5). O total mostrado é uma pré-visualização: o servidor
  * volta a validar preço, saldo e quantidade, e pede nova confirmação se a cotação tiver mudado.
  */
-export default function TradeDialog({ open, onClose, instrument, initialSide = 'buy' }) {
+export default function TradeDialog({ open, onClose, instrument, initialSide = 'buy', initialQuantity = 1, quantityNote = null }) {
   const qc = useQueryClient();
   const [side, setSide] = useState(initialSide);
   const [qtyText, setQtyText] = useState('1');
@@ -31,9 +31,9 @@ export default function TradeDialog({ open, onClose, instrument, initialSide = '
 
   useEffect(() => {
     if (open) {
-      setSide(initialSide); setQtyText('1'); setReceipt(null); setError(null); setNotice(null); setKey(newIdempotencyKey());
+      setSide(initialSide); setQtyText(String(Math.max(1, initialQuantity || 1))); setReceipt(null); setError(null); setNotice(null); setKey(newIdempotencyKey());
     }
-  }, [open, initialSide]);
+  }, [open, initialSide, initialQuantity]);
 
   const qty = /^\d+$/.test(qtyText) ? Number(qtyText) : null;
   const qtyError = qtyText !== '' && (qty == null || qty < 1) ? 'Indique um número inteiro de unidades, a partir de 1.' : null;
@@ -117,7 +117,7 @@ export default function TradeDialog({ open, onClose, instrument, initialSide = '
           </div>
 
           <Field label="Quantidade (unidades)" error={qtyError}
-            help={side === 'sell' && p ? `Após a venda ficará com ${f.quantity(Math.max(p.quantityAfter, 0))} unidades.` : null}>
+            help={[side === initialSide ? quantityNote : null, side === 'sell' && p ? `Após a venda ficará com ${f.quantity(Math.max(p.quantityAfter, 0))} unidades.` : null].filter(Boolean).join(' ') || null}>
             {(props) => (
               <input {...props} className="input num" inputMode="numeric" autoComplete="off"
                 value={qtyText} onChange={(e) => changeQty(e.target.value)} />
