@@ -2,6 +2,7 @@
 # Cópia diária da base de dados (stocks-backup.service). Guarda os últimos 14 dias.
 # Os dados que importam são utilizadores, carteiras, operações e regras; as cotações são reconstruíveis.
 set -eu
+umask 077  # a cópia contém hashes de palavras-passe e dados dos utilizadores
 DIR=/var/backups/stocks
 FILE="$DIR/stocks-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
 MYSQL_PWD="$STOCKS_DB_PASSWORD" mariadb-dump --single-transaction --quick --routines \
