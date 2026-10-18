@@ -1,0 +1,16 @@
+[Unit]
+Description=Stocks — recolha diária das cotações e alertas por email
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=stocks
+Group=stocks
+EnvironmentFile=/etc/stocks/stocks.env
+ExecStart=/opt/stocks/deploy/bin/daily.sh
+TimeoutStartSec=2h
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

@@ -139,5 +139,5 @@ As restantes propostas do plano (último fecho, sem comissões, custo médio, qu
 1. ~~Responder às decisões 1 a 4.~~ Feito; decisões reflectidas na arquitectura, no plano e no guia de estilos.
 2. ~~Criar o repositório e colocar lá estes documentos.~~ Feito.
 3. ~~Prova de conceito do motor de recolha.~~ Feito (`engines/fetcher/`).
-4. Fechar o esquema da BD e o contrato OpenAPI a partir das decisões.
-5. Seguir a ordem do plano (recolha → consulta e watchlist → carteira e simulação → alertas), com uma versão de processo mais leve se for um projecto individual.
+4. ~~Fechar o esquema da BD e o contrato OpenAPI.~~ Feito (`db/migrations/`, `api/openapi.yaml`).
+5. ~~Seguir a ordem do plano.~~ MVP implementado no ramo `feat/mvp`: API, frontend, motor de alertas e implantação (`deploy/`). Stack fixada: Fastify + mysql2 + Zod, Vite + React + TanStack Query + Recharts, dbmate, Caddy e systemd.

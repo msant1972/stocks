@@ -1,0 +1,20 @@
+# Proxy HTTPS da aplicação. O Caddy obtém e renova o certificado TLS automaticamente
+# (requer as portas 80 e 443 abertas e o DNS de stocks.graus.pt a apontar para este servidor).
+stocks.graus.pt {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "same-origin"
+		X-Frame-Options "DENY"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# CSP só nas páginas da aplicação; a documentação da API (/api/docs) usa os seus próprios scripts.
+	@app not path /api/*
+	header @app Content-Security-Policy "default-src 'self'; script-src 'self' __THEME_SCRIPT_HASH__; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+
+	reverse_proxy 127.0.0.1:3000
+}

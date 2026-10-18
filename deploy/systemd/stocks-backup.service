@@ -1,0 +1,15 @@
+[Unit]
+Description=Stocks — cópia de segurança da base de dados
+After=mariadb.service
+
+[Service]
+Type=oneshot
+User=stocks
+Group=stocks
+EnvironmentFile=/etc/stocks/stocks.env
+ExecStart=/opt/stocks/deploy/bin/backup.sh
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/backups/stocks

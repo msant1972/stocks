@@ -1,0 +1,31 @@
+[Unit]
+Description=Stocks — API e frontend
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=stocks
+Group=stocks
+EnvironmentFile=/etc/stocks/stocks.env
+WorkingDirectory=/opt/stocks/api
+ExecStart=/usr/bin/node src/server.js
+Restart=on-failure
+RestartSec=5
+# Endurecimento
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+CapabilityBoundingSet=
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

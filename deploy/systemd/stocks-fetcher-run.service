@@ -1,0 +1,17 @@
+[Unit]
+Description=Stocks — cargas iniciais pedidas pela aplicação
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=stocks
+Group=stocks
+EnvironmentFile=/etc/stocks/stocks.env
+WorkingDirectory=/opt/stocks/engines/fetcher
+ExecStart=/opt/stocks/engines/fetcher/.venv/bin/python -m fetcher run
+TimeoutStartSec=30min
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
