@@ -125,10 +125,18 @@ export async function buildApp({ pool, cfg, logger = true }) {
 
   // Em produção a API pode servir também o frontend compilado (aplicação de página única).
   if (cfg.frontendDist && fs.existsSync(path.join(cfg.frontendDist, 'index.html'))) {
-    await app.register(fastifyStatic, { root: path.resolve(cfg.frontendDist), wildcard: false });
+    // wildcard (omissão): os ficheiros são procurados a cada pedido, por isso um build novo é servido
+    // sem reiniciar a API. Os ficheiros com hash ficam em cache; o index.html nunca.
+    await app.register(fastifyStatic, {
+      root: path.resolve(cfg.frontendDist),
+      setHeaders: (reply, filePath) => {
+        reply.header('cache-control', filePath.includes(`${path.sep}assets${path.sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache');
+      },
+    });
     app.setNotFoundHandler((req, reply) => {
-      if (req.method === 'GET' && !req.url.startsWith('/api/') && !req.url.startsWith('/health/')) {
-        return reply.sendFile('index.html');
+      const spaRoute = !req.url.startsWith('/api/') && !req.url.startsWith('/health/') && !req.url.startsWith('/assets/');
+      if (req.method === 'GET' && spaRoute) {
+        return reply.header('cache-control', 'no-cache').sendFile('index.html');
       }
       return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'rota inexistente' } });
     });

@@ -77,3 +77,30 @@ describe.skipIf(!hasTestDb)('autenticação e sessões', () => {
     await app.close();
   });
 });
+
+describe('frontend compilado', () => {
+  it('serve ficheiros criados depois do arranque e devolve index.html nas rotas da aplicação', async () => {
+    const fs = await import('node:fs');
+    const os = await import('node:os');
+    const path = await import('node:path');
+    const { buildApp } = await import('../src/app.js');
+    const { testConfig } = await import('./helpers.js');
+    const dist = fs.mkdtempSync(path.join(os.tmpdir(), 'dist-'));
+    fs.mkdirSync(path.join(dist, 'assets'));
+    fs.writeFileSync(path.join(dist, 'index.html'), '<!doctype html><title>t</title>');
+    const app = await buildApp({ pool: null, cfg: { ...testConfig(), frontendDist: dist }, logger: false });
+    fs.writeFileSync(path.join(dist, 'assets', 'novo-123.js'), 'export {}');
+    const js = await app.inject({ url: '/assets/novo-123.js' });
+    expect(js.statusCode).toBe(200);
+    expect(js.headers['content-type']).toContain('javascript');
+    expect(js.headers['cache-control']).toContain('immutable');
+    expect((await app.inject({ url: '/assets/inexistente.js' })).statusCode).toBe(404);
+    const spa = await app.inject({ url: '/carteira' });
+    expect(spa.headers['content-type']).toContain('text/html');
+    const missing = await app.inject({ url: '/api/v1/nada' });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json().error.code).toBe('NOT_FOUND');
+    await app.close();
+    fs.rmSync(dist, { recursive: true });
+  });
+});

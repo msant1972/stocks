@@ -1,0 +1,54 @@
+/* Tokens do guia de estilos (docs/arquitectura/guia_estilos.md, secções 3 e 10). */
+:root {
+  color-scheme: light;
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-muted: #eceef2;
+  --text: #1d1d1f;
+  --text-secondary: #555963;
+  --accent: #005fcc;
+  --on-accent: #ffffff;
+  --positive: #166534;
+  --negative: #b42318;
+  --warning: #854d0e;
+  --border: #dadde3;
+  --control-border: #737985;
+  --focus: #005fcc;
+  --scrim: rgb(0 0 0 / 0.32);
+  --topbar-bg: rgb(245 245 247 / 0.82);
+  --radius-control: 0.75rem;
+  --radius-card: 1.25rem;
+  --radius-modal: 1.5rem;
+  --shadow-card: 0 4px 20px rgb(0 0 0 / 0.04);
+  --shadow-overlay: 0 16px 48px rgb(0 0 0 / 0.14);
+  --duration-fast: 120ms;
+  --duration-normal: 180ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --sidebar-width: 232px;
+  --content-max: 1440px;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #101114;
+  --surface: #1c1d22;
+  --surface-muted: #25272e;
+  --text: #f5f5f7;
+  --text-secondary: #b6bac5;
+  --accent: #99c7ff;
+  --on-accent: #101114;
+  --positive: #86efac;
+  --negative: #fda29b;
+  --warning: #fde68a;
+  --border: #363a45;
+  --control-border: #8c93a3;
+  --focus: #99c7ff;
+  --scrim: rgb(0 0 0 / 0.56);
+  --topbar-bg: rgb(16 17 20 / 0.82);
+  --shadow-card: 0 4px 20px rgb(0 0 0 / 0.14);
+  --shadow-overlay: 0 16px 48px rgb(0 0 0 / 0.4);
+}
+
+/* Preferência de transparência reduzida, oferecida na própria aplicação. */
+:root[data-transparency="reduced"] { --topbar-bg: var(--bg); }
