@@ -3,6 +3,7 @@
  *
  *   npm run cli -- create-user --email ana@exemplo.pt --name "Ana" [--admin] [--capital 1000000]
  *   npm run cli -- set-password --email ana@exemplo.pt
+ *   npm run cli -- set-email --email ana@exemplo.pt --new-email ana.silva@exemplo.pt
  *   npm run cli -- disable-user --email ana@exemplo.pt
  *   npm run cli -- enable-user --email ana@exemplo.pt
  *   npm run cli -- list-users
@@ -45,7 +46,7 @@ async function main() {
     allowPositionals: true,
     options: {
       email: { type: 'string' }, name: { type: 'string' },
-      admin: { type: 'boolean', default: false }, capital: { type: 'string' },
+      admin: { type: 'boolean', default: false }, capital: { type: 'string' }, 'new-email': { type: 'string' },
     },
   });
   const [command] = positionals;
@@ -69,6 +70,22 @@ async function main() {
         console.log('palavra-passe alterada; as sessões abertas foram terminadas');
         break;
       }
+      case 'set-email': {
+        const id = await findUser(pool, values.email ?? '');
+        const next = normaliseEmail(values['new-email'] ?? '');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(next)) throw new Error('indique um --new-email válido');
+        await withTransaction(pool, async (conn) => {
+          try {
+            await conn.query('UPDATE users SET email = ? WHERE id = ?', [next, id]);
+          } catch (e) {
+            if (e.code === 'ER_DUP_ENTRY') throw new Error(`já existe um utilizador com o email ${next}`);
+            throw e;
+          }
+          await audit(conn, null, 'user.email_change', 'user', id, { from: normaliseEmail(values.email), to: next });
+        });
+        console.log(`email alterado para ${next}`);
+        break;
+      }
       case 'disable-user':
       case 'enable-user': {
         const id = await findUser(pool, values.email ?? '');
@@ -89,7 +106,7 @@ async function main() {
         break;
       }
       default:
-        throw new Error('comando desconhecido; use create-user, set-password, disable-user, enable-user ou list-users');
+        throw new Error('comando desconhecido; use create-user, set-password, set-email, disable-user, enable-user ou list-users');
     }
   } finally {
     await pool.end();

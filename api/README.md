@@ -33,7 +33,7 @@ npm run cli -- list-users
 npm run dev                                                      # API em http://127.0.0.1:3000
 ```
 
-Outros comandos: `set-password`, `disable-user` e `enable-user`, todos com `--email`.
+Outros comandos: `set-password`, `set-email` (com `--new-email`), `disable-user` e `enable-user`, todos com `--email`.
 
 ## Regras implementadas
 
