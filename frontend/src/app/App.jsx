@@ -12,6 +12,7 @@ import PortfolioPage from '../features/portfolio/PortfolioPage.jsx';
 import TradesPage from '../features/trades/TradesPage.jsx';
 import AlertsPage from '../features/alerts/AlertsPage.jsx';
 import SettingsPage from '../features/settings/SettingsPage.jsx';
+import UsersPage from '../features/users/UsersPage.jsx';
 
 function RequireSession({ children }) {
   const me = useMe();
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="carteira" element={<PortfolioPage />} />
           <Route path="operacoes" element={<TradesPage />} />
           <Route path="alertas" element={<AlertsPage />} />
+          <Route path="utilizadores" element={<UsersPage />} />
           <Route path="definicoes" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

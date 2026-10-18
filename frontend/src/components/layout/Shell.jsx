@@ -13,6 +13,7 @@ const NAV = [
   { to: '/carteira', label: 'Carteira', icon: 'portfolio' },
   { to: '/operacoes', label: 'Operações', icon: 'trades' },
   { to: '/alertas', label: 'Alertas', icon: 'alerts' },
+  { to: '/utilizadores', label: 'Utilizadores', icon: 'users', admin: true },
   { to: '/definicoes', label: 'Definições', icon: 'settings' },
 ];
 const MOBILE_NAV = NAV.filter((n) => ['/', '/acompanhar', '/heatmap', '/carteira', '/alertas'].includes(n.to));
@@ -70,7 +71,7 @@ export default function Shell() {
           <span className="brand-mark"><Icon name="trend" size={18} /></span>
           Stocks
         </Link>
-        {NAV.map((n) => (
+        {NAV.filter((n) => !n.admin || data?.user.isAdmin).map((n) => (
           <NavLink key={n.to} to={n.to} end={n.end} className="nav-link">
             <Icon name={n.icon} />{n.label}
           </NavLink>
@@ -96,6 +97,9 @@ export default function Shell() {
           <TopSearch />
           <div className="topbar-right">
             <DataStatus />
+            <Link to="/definicoes" className="button button-ghost icon-button mobile-only" aria-label="Definições e conta">
+              <Icon name="settings" />
+            </Link>
           </div>
         </header>
         <main id="conteudo" className="content" tabIndex={-1}>

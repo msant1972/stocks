@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
@@ -47,6 +47,22 @@ function PasswordForm() {
   );
 }
 
+function LogoutCard() {
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  async function logout() {
+    await api.post('/auth/logout').catch(() => {});
+    qc.clear();
+    navigate('/entrar', { replace: true });
+  }
+  return (
+    <section className="card spread" aria-labelledby="logout-title">
+      <h2 id="logout-title" className="card-title">Sessão</h2>
+      <Button onClick={logout}>Terminar sessão</Button>
+    </section>
+  );
+}
+
 export default function SettingsPage() {
   const [theme, setTheme] = useTheme();
   const [reduced, setReduced] = useReducedTransparency();
@@ -62,6 +78,16 @@ export default function SettingsPage() {
         </div>
       </div>
       <div className="stack">
+        {me?.user.isAdmin && (
+          <section className="card spread" aria-labelledby="admin-title">
+            <div>
+              <h2 id="admin-title" className="card-title">Utilizadores</h2>
+              <p className="small muted">Adicionar e remover contas e redefinir palavras-passe.</p>
+            </div>
+            <Link className="button" to="/utilizadores">Gerir utilizadores</Link>
+          </section>
+        )}
+
         <section className="card" aria-labelledby="look-title">
           <h2 id="look-title" className="card-title" style={{ marginBottom: '1rem' }}>Aparência</h2>
           <div className="stack" style={{ gap: '1rem' }}>
@@ -106,6 +132,8 @@ export default function SettingsPage() {
           <h2 id="pw-title" className="card-title" style={{ marginBottom: '1rem' }}>Palavra-passe</h2>
           <PasswordForm />
         </section>
+
+        <LogoutCard />
       </div>
     </>
   );

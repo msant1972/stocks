@@ -82,6 +82,9 @@ img, svg { display: block; }
 
 .mobile-nav { display: none; }
 .meta-end { text-align: right; }
+/* Especificidade acima de .button, que define display. */
+.topbar-right .mobile-only { display: none; }
+@media (max-width: 767px) { .topbar-right .mobile-only { display: inline-flex; } }
 @media (max-width: 767px) { .meta-end { text-align: left; } }
 .scrim { display: none; }
 
