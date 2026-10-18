@@ -2,11 +2,14 @@
  * Estratégia de momento sobre o SMA10/SMA200 (área do gráfico de momento), simulada no histórico:
  *   compra 15 000 € quando as três últimas sessões foram «a descer», «a subir», «a subir»;
  *   vende tudo quando foram «a subir», «a descer», «a descer».
+ * Sem compras nem vendas quando, na sessão do sinal, o SMA10/SMA200 está entre −1% e +1% (inclusive).
  * Execução ao fecho real (não ajustado) da sessão em que o padrão se completa; uma posição de
  * cada vez; quantidades inteiras; sem comissões. Não altera a carteira virtual.
  */
 
 export const STRATEGY_BUDGET = 15000;
+/** Zona neutra do SMA10/SMA200, em %: dentro dela os sinais são ignorados. */
+export const NEUTRAL_BAND = 1;
 
 const BUY = [false, true, true];
 const SELL = [true, false, false];
@@ -31,8 +34,14 @@ export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
   const trades = [];
   const signals = []; // { date, side } para os marcadores do gráfico
   let open = null;
+  let skipped = 0;
   for (let i = 0; i < quotes.length; i++) {
     const price = Number(quotes[i].close);
+    const neutral = mom[i].wave != null && Math.abs(mom[i].wave) <= NEUTRAL_BAND;
+    if (neutral && (open ? matches(states, i, SELL) : matches(states, i, BUY))) {
+      skipped += 1;
+      continue;
+    }
     if (!open && matches(states, i, BUY)) {
       const quantity = Math.floor(budget / price);
       if (quantity < 1) continue;
@@ -68,7 +77,7 @@ export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
   const realized = round2(trades.reduce((s, t) => s + t.pnl, 0));
   const total = round2(realized + (open?.pnl ?? 0));
   return {
-    trades, open, signals,
+    trades, open, signals, skipped,
     firstDate: startIdx >= 0 ? quotes[startIdx].date : null,
     summary: {
       closed: trades.length,

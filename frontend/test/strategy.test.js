@@ -4,8 +4,8 @@ import { backtest, sessionStates } from '../src/lib/strategy.js';
 
 // Constrói sessões com SMA10/SMA200 sempre definida e a direcção indicada (true sobe, false desce).
 // As duas primeiras sessões nunca têm estado conhecido, qualquer que seja o valor indicado.
-function fixture(states, prices) {
-  const mom = states.map((s) => ({ wave: 1, rising: s === true }));
+function fixture(states, prices, waves = []) {
+  const mom = states.map((s, i) => ({ wave: waves[i] ?? 5, rising: s === true }));
   const quotes = prices.map((p, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, close: String(p) }));
   return { mom, quotes };
 }
@@ -41,4 +41,17 @@ test('posição aberta no fim é valorizada ao último fecho e não compra duas 
   assert.equal(r.signals.length, 1); // o segundo padrão de compra é ignorado com posição aberta
   assert.deepEqual([r.open.quantity, r.open.cost, r.open.value, r.open.pnl], [2142, 14994, 17136, 2142]);
   assert.equal(r.summary.buyHold.startDate, '2026-01-03');
+});
+
+test('ignora sinais quando o SMA10/SMA200 está entre −1% e +1%', () => {
+  const s = [null, null, false, true, true, true, false, false, false, true, true, true, false, false];
+  const p = [10, 10, 10, 10, 10, 11, 12, 12, 12, 12, 12, 12, 13, 13];
+  // sinal de compra no índice 4 dentro da zona neutra (0,5%) → ignorado; compra no índice 10 (fora);
+  // sinal de venda no índice 7 sem posição não conta; venda no índice 13 com −1% (limite, inclusive) → ignorada.
+  const waves = { 4: 0.5, 13: -1 };
+  const { quotes, mom } = fixture(s, p, waves);
+  const r = backtest(quotes, mom);
+  assert.equal(r.skipped, 2);
+  assert.deepEqual(r.signals, [{ date: '2026-01-11', side: 'buy' }]);
+  assert.equal(r.open.buyDate, '2026-01-11');
 });

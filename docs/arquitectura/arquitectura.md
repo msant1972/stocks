@@ -87,7 +87,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Entrar | Login por email e palavra-passe |
 | Visão geral | Valor da carteira, saldo, resultado, instrumentos acompanhados e actividade |
 | Acompanhar | Catálogo partilhado, lista do utilizador, adicionar símbolos ou importar Excel/CSV com pré-visualização, botão «Validar agora» |
-| Instrumento | Último fecho e variação, gráfico diário (1M a 2A) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação |
+| Instrumento | Último fecho e variação, gráfico diário (1M a 2A) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, aplicar estratégia |
 | HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5 ou 30 sessões |
 | Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |
 | Operações | Histórico filtrável por tipo, instrumento e datas |
@@ -227,14 +227,27 @@ Os alertas apenas notificam; nunca desencadeiam operações.
 
 A API devolve, por omissão, os últimos dois anos de sessões, com os indicadores já calculados. A interface recorta o período escolhido, desenha o fecho ajustado e os indicadores pedidos, e calcula o momento (SMA10/SMA200 − 1 e SMA8/SMA125 − 1) sobre o histórico completo carregado.
 
-### 5.4. Operação simulada
+### 5.4. Estratégia de momento (simulação no histórico)
+
+O botão «Aplicar estratégia» corre no browser um backtest sobre o histórico carregado (`frontend/src/lib/strategy.js`), sem alterar a carteira:
+
+- estado de cada sessão = cor do momento (SMA10/SMA200 «a subir» ou «a descer»);
+- compra 15 000 € (quantidade inteira) quando as três últimas sessões foram descer, subir, subir;
+- vende tudo quando foram subir, descer, descer;
+- ignora os sinais quando, na sessão do sinal, o SMA10/SMA200 está entre −1% e +1% (inclusive);
+- executa ao fecho real do dia do sinal, uma posição de cada vez, sem comissões; uma posição aberta no fim é valorizada ao último fecho;
+- compara com comprar e manter o mesmo montante desde a primeira sessão com estado conhecido.
+
+O gráfico marca as compras (C) e as vendas (V); um painel mostra o resultado, as operações e os sinais ignorados.
+
+### 5.5. Operação simulada
 
 1. A interface pede a pré-visualização (preço, data, total, saldo e unidades após a operação).
 2. O utilizador confirma; o pedido leva a chave de idempotência e o preço pré-visualizado.
 3. A API bloqueia a carteira, valida instrumento, moeda, idade da cotação, saldo ou quantidade, e grava tudo numa transacção.
 4. A interface mostra um recibo com o preço efectivamente aplicado.
 
-### 5.5. Gestão de utilizadores
+### 5.6. Gestão de utilizadores
 
 Um administrador cria contas (com carteira e capital inicial), redefine palavras-passe (o que termina as sessões do utilizador) e remove contas com todos os dados. Não pode remover a própria conta, e a aplicação nunca fica sem administradores activos. Tudo fica na auditoria. O CLI `api/src/cli.js` faz o mesmo a partir do servidor.
 
