@@ -30,7 +30,9 @@ python3 -m venv .venv && . .venv/bin/activate
 pip install -e '.[dev]'
 ```
 
-Configuração por variáveis de ambiente:
+Configuração SMTP: preferencialmente em **Definições → Envio de email (SMTP)**, guardada na tabela `smtp_settings` com a palavra-passe cifrada (AES-256-GCM, chave em `STOCKS_SECRET_KEY_FILE`, por omissão `/etc/stocks/secret.key`). Na falta dela, usam-se as variáveis abaixo.
+
+Variáveis de ambiente:
 
 | Variável | Descrição |
 |---|---|
@@ -48,6 +50,8 @@ Com domínio próprio, configure SPF e DKIM no fornecedor SMTP; sem isso, os ema
 ```bash
 python -m alerts run --dry-run   # mostra os resumos no terminal; não envia nem grava nada
 python -m alerts run             # avalia e envia
+python -m alerts run --dry-run-if-unconfigured   # como run, mas em --dry-run se não houver SMTP (usado pela recolha diária)
+python -m alerts test --to ana@exemplo.pt        # email de teste (também disponível em Definições)
 ```
 
 ## Testes

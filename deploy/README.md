@@ -19,7 +19,7 @@ systemd timers ─▶ motor de recolha (cargas iniciais a cada 5 min; actualiza�
 | `stocks-daily.timer` | dias úteis, 19:00 de Lisboa | Actualização das cotações e, a seguir, alertas ([bin/daily.sh](bin/daily.sh)) |
 | `stocks-backup.timer` | diariamente, 03:30 UTC | `mariadb-dump` para `/var/backups/stocks`, guardado durante 14 dias |
 
-Os serviços correm com o utilizador de sistema `stocks`, com o sistema de ficheiros só de leitura (`ProtectSystem=strict`). A configuração e os segredos ficam em `/etc/stocks/stocks.env` (`root:stocks`, modo 640).
+Os serviços correm com o utilizador de sistema `stocks`, com o sistema de ficheiros só de leitura (`ProtectSystem=strict`). A configuração e os segredos ficam em `/etc/stocks/stocks.env` (`root:stocks`, modo 640). A chave que cifra os segredos guardados na BD (palavra-passe SMTP) fica em `/etc/stocks/secret.key`, criada pelo `install.sh` e nunca substituída: perdê-la obriga a voltar a introduzir a palavra-passe SMTP.
 
 ## Pré-requisitos
 
@@ -80,7 +80,7 @@ sudo systemctl start stocks-daily                  # forçar recolha e alertas a
 sudo systemctl start stocks-backup                 # forçar uma cópia de segurança
 ```
 
-Sem SMTP configurado, os alertas correm em `--dry-run`: os emails aparecem só no `journalctl -u stocks-daily` e não são enviados.
+O SMTP configura-se em **Definições → Envio de email (SMTP)** (administradores), com botão para enviar um email de teste. As variáveis `STOCKS_SMTP_*` só são usadas se não houver configuração em Definições. Sem nenhuma das duas, os alertas correm em `--dry-run`: os emails aparecem só no `journalctl -u stocks-daily` e não são enviados.
 
 ## Cópias de segurança e recuperação
 

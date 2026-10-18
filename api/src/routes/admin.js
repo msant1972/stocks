@@ -1,8 +1,13 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { z } from 'zod';
 import { audit, withTransaction } from '../db.js';
 import { AppError, notFound } from '../errors.js';
 import { ErrorBody, Id } from '../schemas.js';
 import { createUser, normaliseEmail, setPassword } from '../services/users.js';
+import { encryptSecret } from '../secrets.js';
+
+const run = promisify(execFile);
 
 const AdminUser = z.object({
   id: z.number(), email: z.string(), name: z.string(), isAdmin: z.boolean(), disabled: z.boolean(),
@@ -99,5 +104,88 @@ export default async function adminRoutes(app, { pool, cfg }) {
       await audit(conn, req.user.id, 'admin.user_delete', 'user', id, { email: u.email });
     });
     return reply.code(204).send(null);
+  });
+
+  // ---------- Configuração SMTP (usada pelo motor de alertas) ----------
+
+  const SmtpSettings = z.object({
+    configured: z.boolean(),
+    host: z.string().nullable(), port: z.number().nullable(), security: z.enum(['starttls', 'ssl', 'none']).nullable(),
+    username: z.string().nullable(), passwordSet: z.boolean(), sender: z.string().nullable(),
+    updatedAt: z.string().nullable(), updatedBy: z.string().nullable(),
+    canEncrypt: z.boolean(), canTest: z.boolean(),
+  });
+
+  async function readSmtp() {
+    const [[r]] = await pool.query(
+      `SELECT s.host, s.port, s.security, s.username, s.password_enc IS NOT NULL AS password_set, s.sender, s.updated_at, u.email AS updated_by
+         FROM smtp_settings s LEFT JOIN users u ON u.id = s.updated_by WHERE s.id = 1`,
+    );
+    return {
+      configured: Boolean(r), host: r?.host ?? null, port: r?.port ?? null, security: r?.security ?? null,
+      username: r?.username ?? null, passwordSet: Boolean(r?.password_set), sender: r?.sender ?? null,
+      updatedAt: r?.updated_at?.toISOString() ?? null, updatedBy: r?.updated_by ?? null,
+      canEncrypt: Boolean(cfg.secretKey), canTest: Boolean(cfg.alertsPython),
+    };
+  }
+
+  app.get('/admin/smtp', {
+    schema: { tags: ['Administração'], summary: 'Configuração SMTP (sem a palavra-passe)', response: { 200: SmtpSettings, 403: ErrorBody } },
+  }, async () => readSmtp());
+
+  app.put('/admin/smtp', {
+    schema: {
+      tags: ['Administração'], summary: 'Guardar a configuração SMTP usada pelos alertas',
+      description: 'password: omitir para manter a actual; string vazia para a apagar.',
+      body: z.object({
+        host: z.string().trim().min(1).max(255).regex(/^[A-Za-z0-9.-]+$/, 'servidor inválido'),
+        port: z.coerce.number().int().min(1).max(65535),
+        security: z.enum(['starttls', 'ssl', 'none']),
+        username: z.string().trim().max(255).optional().transform((v) => v || null),
+        password: z.string().max(500).optional(),
+        sender: z.string().trim().min(3).max(255).refine((v) => /[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+/.test(v), 'remetente sem endereço de email válido'),
+      }),
+      response: { 200: SmtpSettings, 400: ErrorBody, 403: ErrorBody, 409: ErrorBody },
+    },
+  }, async (req) => {
+    const { host, port, security, username, password, sender } = req.body;
+    if (password && !cfg.secretKey) {
+      throw new AppError(409, 'NO_SECRET_KEY', 'a chave de cifra do servidor não está configurada; não é possível guardar a palavra-passe');
+    }
+    const cols = ['host', 'port', 'security', 'username', 'sender', 'updated_by'];
+    const args = [host, port, security, username, sender, req.user.id];
+    // Sem campo password mantém-se a actual; string vazia apaga; caso contrário cifra a nova.
+    if (password !== undefined) {
+      cols.push('password_enc');
+      args.push(password ? encryptSecret(cfg.secretKey, password) : null);
+    }
+    await pool.query(
+      `INSERT INTO smtp_settings (id, ${cols.join(', ')}) VALUES (1, ${cols.map(() => '?').join(', ')})
+       ON DUPLICATE KEY UPDATE ${cols.map((c) => `${c} = VALUES(${c})`).join(', ')}`,
+      args,
+    );
+    await audit(pool, req.user.id, 'admin.smtp_update', 'smtp_settings', 1, {
+      host, port, security, username, sender, password: password === undefined ? 'mantida' : password ? 'alterada' : 'apagada',
+    });
+    return readSmtp();
+  });
+
+  app.post('/admin/smtp/test', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Administração'], summary: 'Enviar um email de teste ao administrador, pelo motor de alertas',
+      response: { 200: z.object({ ok: z.boolean(), message: z.string() }), 403: ErrorBody, 501: ErrorBody },
+    },
+  }, async (req) => {
+    if (!cfg.alertsPython) throw new AppError(501, 'TEST_UNAVAILABLE', 'o motor de alertas não está disponível neste servidor');
+    try {
+      const { stdout } = await run(cfg.alertsPython, ['-m', 'alerts', 'test', '--to', req.user.email], { timeout: 60_000, env: process.env });
+      await audit(pool, req.user.id, 'admin.smtp_test', 'smtp_settings', 1, { ok: true });
+      return { ok: true, message: stdout.trim().split('\n').at(-1) || 'email de teste enviado' };
+    } catch (err) {
+      const out = `${err.stdout ?? ''}${err.stderr ?? ''}`.trim().split('\n').filter(Boolean).at(-1);
+      await audit(pool, req.user.id, 'admin.smtp_test', 'smtp_settings', 1, { ok: false });
+      return { ok: false, message: err.killed ? 'sem resposta do servidor SMTP (tempo esgotado)' : out || 'falha no envio' };
+    }
   });
 }

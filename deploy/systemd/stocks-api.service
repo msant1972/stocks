@@ -9,6 +9,7 @@ User=stocks
 Group=stocks
 EnvironmentFile=/etc/stocks/stocks.env
 Environment=STOCKS_FETCH_TRIGGER_FILE=/var/lib/stocks/fetch-request
+Environment=STOCKS_ALERTS_PYTHON=/opt/stocks/engines/alerts/.venv/bin/python
 WorkingDirectory=/opt/stocks/api
 ExecStart=/usr/bin/node src/server.js
 Restart=on-failure

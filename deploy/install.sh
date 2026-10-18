@@ -36,6 +36,15 @@ if [[ ! -f "$ENV_FILE" ]]; then
   echo "Criado $ENV_FILE a partir do exemplo. Preencha STOCKS_DB_PASSWORD (e o SMTP) e volte a correr este script."
   exit 0
 fi
+# Chave para cifrar segredos guardados na BD (palavra-passe SMTP). Criada uma vez; nunca é substituída,
+# porque isso tornaria ilegíveis os segredos já guardados.
+if [[ ! -f /etc/stocks/secret.key ]]; then
+  (umask 027; head -c 32 /dev/urandom | base64 > /etc/stocks/secret.key)
+  echo "Criada a chave de cifra /etc/stocks/secret.key"
+fi
+chown root:stocks /etc/stocks/secret.key
+chmod 640 /etc/stocks/secret.key
+
 set -a; . "$ENV_FILE"; set +a
 [[ -n "${STOCKS_DB_PASSWORD:-}" ]] || { echo "STOCKS_DB_PASSWORD vazio em $ENV_FILE" >&2; exit 1; }
 

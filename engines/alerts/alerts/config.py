@@ -57,3 +57,27 @@ def load_settings() -> Settings:
         min_interval_minutes=int(env.get("STOCKS_ALERT_MIN_INTERVAL_MINUTES", "60")),
         max_event_age_days=int(env.get("STOCKS_ALERT_MAX_EVENT_AGE_DAYS", "7")),
     )
+
+
+def smtp_from_db(conn, key: bytes | None) -> SmtpSettings | None:
+    """Configuração SMTP guardada pelos administradores em Definições, ou None se não existir."""
+    from .secrets import decrypt
+
+    with conn.cursor() as cur:
+        cur.execute("SELECT host, port, security, username, password_enc, sender FROM smtp_settings WHERE id = 1")
+        row = cur.fetchone()
+    conn.commit()
+    if row is None:
+        return None
+    password = None
+    if row["password_enc"]:
+        if key is None:
+            raise RuntimeError("palavra-passe SMTP cifrada, mas a chave de cifra (STOCKS_SECRET_KEY_FILE) não está disponível")
+        password = decrypt(key, row["password_enc"])
+    return SmtpSettings(host=row["host"], port=row["port"], user=row["username"] or None, password=password,
+                        sender=row["sender"], security=row["security"])
+
+
+def resolve_smtp(conn, settings: Settings, key: bytes | None) -> SmtpSettings | None:
+    """Prioridade: configuração na BD (Definições); senão variáveis STOCKS_SMTP_*; senão None."""
+    return smtp_from_db(conn, key) or settings.smtp

@@ -2785,6 +2785,314 @@ paths:
                 required:
                   - error
                 additionalProperties: false
+  /api/v1/admin/smtp:
+    get:
+      summary: Configuração SMTP (sem a palavra-passe)
+      tags:
+        - Administração
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                  host:
+                    nullable: true
+                    type: string
+                  port:
+                    nullable: true
+                    type: number
+                  security:
+                    nullable: true
+                    type: string
+                    enum:
+                      - starttls
+                      - ssl
+                      - none
+                  username:
+                    nullable: true
+                    type: string
+                  passwordSet:
+                    type: boolean
+                  sender:
+                    nullable: true
+                    type: string
+                  updatedAt:
+                    nullable: true
+                    type: string
+                  updatedBy:
+                    nullable: true
+                    type: string
+                  canEncrypt:
+                    type: boolean
+                  canTest:
+                    type: boolean
+                required:
+                  - configured
+                  - host
+                  - port
+                  - security
+                  - username
+                  - passwordSet
+                  - sender
+                  - updatedAt
+                  - updatedBy
+                  - canEncrypt
+                  - canTest
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    put:
+      summary: Guardar a configuração SMTP usada pelos alertas
+      tags:
+        - Administração
+      description: "password: omitir para manter a actual; string vazia para a apagar."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                host:
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+                  pattern: ^[A-Za-z0-9.-]+$
+                port:
+                  type: integer
+                  minimum: 1
+                  maximum: 65535
+                security:
+                  type: string
+                  enum:
+                    - starttls
+                    - ssl
+                    - none
+                username:
+                  type: string
+                  maxLength: 255
+                password:
+                  type: string
+                  maxLength: 500
+                sender:
+                  type: string
+                  minLength: 3
+                  maxLength: 255
+              required:
+                - host
+                - port
+                - security
+                - sender
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                  host:
+                    nullable: true
+                    type: string
+                  port:
+                    nullable: true
+                    type: number
+                  security:
+                    nullable: true
+                    type: string
+                    enum:
+                      - starttls
+                      - ssl
+                      - none
+                  username:
+                    nullable: true
+                    type: string
+                  passwordSet:
+                    type: boolean
+                  sender:
+                    nullable: true
+                    type: string
+                  updatedAt:
+                    nullable: true
+                    type: string
+                  updatedBy:
+                    nullable: true
+                    type: string
+                  canEncrypt:
+                    type: boolean
+                  canTest:
+                    type: boolean
+                required:
+                  - configured
+                  - host
+                  - port
+                  - security
+                  - username
+                  - passwordSet
+                  - sender
+                  - updatedAt
+                  - updatedBy
+                  - canEncrypt
+                  - canTest
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/admin/smtp/test:
+    post:
+      summary: Enviar um email de teste ao administrador, pelo motor de alertas
+      tags:
+        - Administração
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+                  message:
+                    type: string
+                required:
+                  - ok
+                  - message
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "501":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
   /api/v1/market/momentum:
     get:
       summary: "Momento do catálogo (SMA10/SMA200 na última sessão): distribuição e

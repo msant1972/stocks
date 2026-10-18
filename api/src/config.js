@@ -1,3 +1,5 @@
+import { loadSecretKey } from './secrets.js';
+
 /** Configuração lida de variáveis de ambiente; os segredos nunca ficam no código. */
 export function loadConfig(env = process.env) {
   const required = (key) => {
@@ -32,5 +34,9 @@ export function loadConfig(env = process.env) {
     // Ficheiro observado por uma unit .path do systemd: tocar-lhe arranca o motor de recolha de imediato.
     // Sem ele, os pedidos ficam para a próxima execução do timer (a cada 5 minutos).
     fetchTriggerFile: env.STOCKS_FETCH_TRIGGER_FILE || null,
+    // Chave para cifrar segredos na BD (palavra-passe SMTP); em produção vem de /etc/stocks/secret.key.
+    secretKey: loadSecretKey({ STOCKS_SECRET_KEY_FILE: '/etc/stocks/secret.key', ...env }),
+    // Python do motor de alertas, usado para enviar o email de teste com o mesmo código dos alertas.
+    alertsPython: env.STOCKS_ALERTS_PYTHON || null,
   };
 }

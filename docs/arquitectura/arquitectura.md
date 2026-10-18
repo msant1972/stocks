@@ -93,7 +93,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Operações | Histórico filtrável por tipo, instrumento e datas |
 | Alertas | Regras com pré-visualização em linguagem natural, activação e eventos com o estado do envio |
 | Utilizadores | Só administradores: listar, adicionar, redefinir palavra-passe e remover contas |
-| Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, terminar sessão |
+| Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, terminar sessão; para administradores, configuração SMTP com email de teste |
 
 Regras da interface:
 - Os valores monetários chegam como strings decimais e só passam a número para apresentação. Formatação pt-PT («12 345,67 €», «16 out. 2026»).
@@ -118,7 +118,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Mapa de calor | `GET /heatmap?period=1\|5\|30&scope=all\|watchlist&limit=20` |
 | Mercado | `GET /market/momentum?top=5` (distribuição do SMA10/SMA200 na última sessão e extremos; cache 10 min) |
 | Estado | `GET /status` |
-| Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}` |
+| Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}`, `GET/PUT /admin/smtp`, `POST /admin/smtp/test` |
 | Saúde | `GET /health/live`, `GET /health/ready` (fora de `/api/v1`) |
 
 Erros no formato comum `{ "error": { "code", "message", "details" } }`, com códigos estáveis (`INSUFFICIENT_FUNDS`, `PRICE_CHANGED`, `STALE_QUOTE`, `FORBIDDEN`…).
@@ -159,6 +159,7 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 | `positions` | Quantidade, custo total e resultado realizado por instrumento |
 | `alert_rules`, `alert_events` | Regras e eventos detectados (únicos por regra e sessão) |
 | `email_deliveries` | Resumos enviados e o seu estado (`sending`, `sent`, `failed`, `uncertain`) |
+| `smtp_settings` | Configuração SMTP global (servidor, porta, segurança, utilizador, palavra-passe cifrada, remetente) |
 | `audit_log` | Acções relevantes, sem palavras-passe, tokens ou credenciais |
 
 Remover um utilizador apaga em cascata as sessões, a carteira, as operações, as posições, a lista, os alertas e os envios; a auditoria mantém-se.
@@ -204,7 +205,8 @@ Após cada recolha diária, para cada utilizador:
 - **Envio recusado** pelo servidor SMTP: os eventos voltam ao resumo seguinte.
 - **Ligação perdida** durante a transmissão: o envio fica `uncertain` e não é repetido automaticamente.
 - **Edição de regras:** criar, editar ou reactivar uma regra repõe o estado da avaliação.
-- **Sem SMTP configurado:** corre em `--dry-run`, mostra os resumos no registo e não grava nada.
+- **Configuração SMTP:** lida da tabela `smtp_settings` (Definições), com a palavra-passe decifrada com a chave do servidor; na falta dela, das variáveis `STOCKS_SMTP_*`; sem nenhuma, corre em `--dry-run`, mostra os resumos no registo e não grava nada.
+- **Email de teste:** `python -m alerts test --to …`, chamado pela API em Definições, usa exactamente o mesmo código de envio.
 
 Os alertas apenas notificam; nunca desencadeiam operações.
 
@@ -264,6 +266,7 @@ Um administrador cria contas (com carteira e capital inicial), redefine palavras
 - Content-Security-Policy sem scripts inline além do script de tema, permitido pelo seu hash.
 - Serviços systemd com utilizador próprio (`stocks`), sistema de ficheiros só de leitura e escrita apenas onde é necessária (`/var/lib/stocks`, `/var/backups/stocks`).
 - Segredos em `/etc/stocks/stocks.env` (`root:stocks`, modo 640), fora do código; registos sem cookies nem credenciais.
+- Palavra-passe SMTP cifrada na BD com AES-256-GCM; chave em `/etc/stocks/secret.key` (`root:stocks`, 640), partilhada pela API e pelo motor de alertas; a API nunca a devolve e a auditoria só regista se foi alterada.
 - MariaDB e API só escutam em `127.0.0.1`.
 
 ## 7. Implantação e operação
@@ -306,7 +309,7 @@ Riscos aceites ou pendentes:
 
 | Tema | Situação |
 |---|---|
-| SMTP | Fornecedor e credenciais por definir; até lá os alertas correm em `--dry-run` |
+| SMTP | Configurável em Definições; fornecedor e credenciais ainda por introduzir, até lá os alertas correm em `--dry-run` |
 | Cópias de segurança | Copiar para fora do servidor (S3, snapshots EBS) e testar o restauro periodicamente |
 | Eventos societários | Dividendos e desdobramentos não alteram as posições simuladas; um desdobramento numa acção detida distorce o resultado |
 | Comissões e custos | Excluídos; podem ser acrescentados à regra de simulação |

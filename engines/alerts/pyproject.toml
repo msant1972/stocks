@@ -9,6 +9,7 @@ description = "Motor de alertas por email: avalia regras sobre o fecho diário e
 requires-python = ">=3.11"
 dependencies = [
   "PyMySQL==1.2.3",
+  "cryptography==50.0.2",
 ]
 
 [project.optional-dependencies]

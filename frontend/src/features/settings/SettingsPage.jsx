@@ -6,6 +6,7 @@ import * as f from '../../lib/format.js';
 import { useMe, useStatus } from '../../lib/queries.js';
 import { useReducedTransparency, useTheme } from '../../lib/theme.js';
 import { Button, Field, Notice, Segmented, Switch } from '../../components/ui/controls.jsx';
+import SmtpCard from './SmtpCard.jsx';
 
 function PasswordForm() {
   const qc = useQueryClient();
@@ -87,6 +88,8 @@ export default function SettingsPage() {
             <Link className="button" to="/utilizadores">Gerir utilizadores</Link>
           </section>
         )}
+
+        {me?.user.isAdmin && <SmtpCard adminEmail={me.user.email} />}
 
         <section className="card" aria-labelledby="look-title">
           <h2 id="look-title" className="card-title" style={{ marginBottom: '1rem' }}>Aparência</h2>
