@@ -162,6 +162,8 @@ Hierarquia implementada:
 3. Resumo: saldo virtual, montante investido e resultado acumulado face ao capital inicial.
 4. «Momento do mercado»: barra com a distribuição do SMA10/SMA200 na última sessão (acima de +1%, entre −1% e +1%, abaixo de −1%, com as cores do HeatMap e as contagens escritas) e duas listas com os 5 instrumentos mais fortes e mais fracos, com ligação a cada um.
 
+5. «Cruzamentos SMA10 / SMA50»: instrumentos cuja SMA10 cruzou a SMA50 nas últimas 5 sessões, em duas tabelas (ascendentes ▲ e descendentes ▼, com contagem), com data do cruzamento («há N sessões») e distância actual entre as médias; scroll próprio quando a lista é longa.
+
 A lista de instrumentos acompanhados fica em Acompanhar e as operações recentes em Operações.
 
 Evitar chamar «rentabilidade» a um valor cujo método de cálculo ainda não foi definido. Cada resultado deve ter descrição clara do período e da base de cálculo.

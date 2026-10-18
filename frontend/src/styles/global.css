@@ -254,6 +254,8 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 
 .chart-box { height: 320px; }
 .chart-box-small { height: 170px; }
+.cx-name { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 767px) { .cx-name { max-width: 6.5rem; } }
 .momentum-bar { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; }
 .momentum-bar span { display: block; min-width: 4px; }
 .heatmap-box { height: min(640px, 70vh); min-height: 360px; }

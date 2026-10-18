@@ -3184,5 +3184,119 @@ paths:
                   - strongest
                   - weakest
                 additionalProperties: false
+  /api/v1/market/crossovers:
+    get:
+      summary: Instrumentos cuja SMA10 cruzou a SMA50 nas últimas N sessões
+      tags:
+        - Mercado
+      description: "Ascendente: SMA10 ≤ SMA50 na sessão anterior e SMA10 > SMA50 na
+        sessão do cruzamento; descendente: o inverso. Por instrumento conta o
+        cruzamento mais recente dentro da janela."
+      parameters:
+        - schema:
+            default: 5
+            type: integer
+            minimum: 1
+            maximum: 20
+          in: query
+          name: sessions
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: number
+                  latestSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  up:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        crossDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        sessionsAgo:
+                          type: number
+                        close:
+                          type: string
+                        sma10:
+                          type: string
+                        sma50:
+                          type: string
+                        gapPct:
+                          type: string
+                          description: SMA10/SMA50 − 1 na última sessão, em %
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - crossDate
+                        - sessionsAgo
+                        - close
+                        - sma10
+                        - sma50
+                        - gapPct
+                      additionalProperties: false
+                  down:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        crossDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        sessionsAgo:
+                          type: number
+                        close:
+                          type: string
+                        sma10:
+                          type: string
+                        sma50:
+                          type: string
+                        gapPct:
+                          type: string
+                          description: SMA10/SMA50 − 1 na última sessão, em %
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - crossDate
+                        - sessionsAgo
+                        - close
+                        - sma10
+                        - sma50
+                        - gapPct
+                      additionalProperties: false
+                required:
+                  - sessions
+                  - latestSession
+                  - up
+                  - down
+                additionalProperties: false
 security:
   - session: []

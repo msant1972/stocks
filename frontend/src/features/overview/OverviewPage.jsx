@@ -106,6 +106,73 @@ function MarketMomentumCard() {
   );
 }
 
+function CrossTable({ title, tone, items, empty }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <h3 className="stat-label" style={{ fontWeight: 500, marginBottom: 6 }}>
+        <span className={tone}>{tone === 'positive' ? '▲' : '▼'}</span> {title} <span className="num" style={{ color: 'var(--text)' }}>({items.length})</span>
+      </h3>
+      {items.length === 0 ? <p className="small muted">{empty}</p> : (
+        <div className="table-wrap" tabIndex={0} style={{ maxHeight: 360, overflowY: 'auto' }} aria-label={title}>
+          <table className="data">
+            <thead>
+              <tr>
+                <th scope="col">Instrumento</th>
+                <th scope="col">Cruzamento</th>
+                <th scope="col" className="r">SMA10/SMA50</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((e) => (
+                <tr key={e.instrumentId}>
+                  <td>
+                    <Link to={`/instrumentos/${e.instrumentId}`} className="row-link">{e.symbol}</Link>
+                    <div className="small muted cx-name">{e.name}</div>
+                  </td>
+                  <td className="small" style={{ whiteSpace: 'nowrap' }}>
+                    {f.shortDate(e.crossDate)}
+                    <div className="muted">{e.sessionsAgo === 0 ? 'última sessão' : `há ${e.sessionsAgo} ${e.sessionsAgo === 1 ? 'sessão' : 'sessões'}`}</div>
+                  </td>
+                  <td className="r"><PriceChange value={e.gapPct} showLabel={false} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Instrumentos cuja SMA10 cruzou a SMA50 nas últimas 5 sessões, nos dois sentidos. */
+function CrossoversCard() {
+  const q = useQuery({ queryKey: ['market-crossovers', 5], queryFn: () => api.get('/market/crossovers?sessions=5'), staleTime: 5 * 60_000 });
+  const c = q.data;
+  return (
+    <section className="card span-12" aria-labelledby="cx-title">
+      <div className="card-head">
+        <div>
+          <h2 id="cx-title" className="card-title">Cruzamentos SMA10 / SMA50</h2>
+          <p className="small muted">
+            Instrumentos cuja SMA10 cruzou a SMA50 nas últimas 5 sessões{c?.latestSession ? ` (até ${f.date(c.latestSession)})` : ''}.
+            A coluna SMA10/SMA50 mostra a distância actual entre as médias.
+          </p>
+        </div>
+      </div>
+      {q.isPending ? <Loading rows={4} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : (
+        <div className="grid" style={{ gap: '1.5rem' }}>
+          <div className="span-6">
+            <CrossTable title="Ascendentes — SMA10 passou acima da SMA50" tone="positive" items={c.up} empty="Nenhum cruzamento ascendente no período." />
+          </div>
+          <div className="span-6">
+            <CrossTable title="Descendentes — SMA10 passou abaixo da SMA50" tone="negative" items={c.down} empty="Nenhum cruzamento descendente no período." />
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function OverviewPage() {
   const { data } = useMe();
   const latest = useStatus().data?.latestSession;
@@ -123,6 +190,7 @@ export default function OverviewPage() {
       <div className="grid">
         <PortfolioCard />
         <MarketMomentumCard />
+        <CrossoversCard />
       </div>
     </>
   );

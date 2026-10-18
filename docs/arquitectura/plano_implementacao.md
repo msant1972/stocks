@@ -67,6 +67,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Estratégia de momento | Simulação no histórico: compra 15 000 € após descer-subir-subir, vende após subir-descer-descer com SMA8/SMA125 < 1%, ignora sinais com SMA10/SMA200 entre −1% e +1%, reforça a cada +10% desde a última compra |
 | HeatMap | Treemap dos 20 instrumentos com maior valor negociado em 1, 5 ou 30 sessões |
 | Momento do mercado | Quadro na Visão geral com a distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos |
+| Cruzamentos SMA10/SMA50 | Quadro na Visão geral com os cruzamentos ascendentes e descendentes das últimas 5 sessões |
 | Validar agora | Arranque imediato do motor de recolha (unit `.path` do systemd) e botão para forçar a validação |
 | Coluna Volume | Volume da última sessão em Acompanhar |
 | Gestão de utilizadores | Página para administradores: criar, redefinir palavra-passe, remover |
@@ -100,7 +101,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 
 | Componente | Ferramenta | Testes |
 |---|---|---|
-| API | Vitest contra a base `stocks_test` | 54 |
+| API | Vitest contra a base `stocks_test` | 55 |
 | Motor de recolha | pytest, fornecedor simulado | 21 |
 | Motor de alertas | pytest, mailer simulado | 18 |
 | Frontend (cálculos) | `node --test` | 11 |
