@@ -257,7 +257,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Escolha do instrumento entre os que têm ISIN-MIC (também por `?instrumento=` no URL, a partir de Acompanhar ou da página do instrumento).
 - Cabeçalho com símbolo, ISIN-MIC, carimbo «Actualizado na Euronext» com o atraso de 15 min, hora do pedido e «a actualizar…».
 - Estatísticas: melhor compra (verde), melhor venda (vermelho), spread com % do mid, mid e desequilíbrio com texto (pressão compradora/vendedora/equilibrado).
-- Tabela lado a lado (# · Qtd compra · Compra │ Venda · Qtd venda · #) com totais; casas decimais do preço = máximo observado (mín. 2).
+- Tabela lado a lado (# · Qtd compra · Compra │ Venda · Qtd venda · #); casas decimais do preço = máximo observado (mín. 2). A linha dos totais tem um separador espesso por cima e fundo verde do lado das compras («Total compra») e vermelho do lado das vendas («Total venda»), com texto branco a negrito (cores do HeatMap, contraste ≥ 4,98:1, iguais nos dois temas).
 - Gráfico de profundidade cumulativa em degrau, compras à esquerda e vendas à direita do mid, com linha do mid e resumo textual.
 - Interruptor «Actualizar a cada 30 s» (ligado por omissão); com o separador em segundo plano não há pedidos; em caso de erro mantêm-se os dados anteriores com aviso; livro cruzado e livro vazio com mensagem própria.
 - Mostrar sempre as duas horas: a do carimbo da Euronext (com o atraso de 15 min) e a do pedido, para o utilizador perceber que o livro pode não mudar entre actualizações.

@@ -262,6 +262,11 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 @media (max-width: 767px) { .cx-name { max-width: 6.5rem; } }
 .isin-mic { font-variant-numeric: tabular-nums; font-size: 0.8125rem; letter-spacing: 0.01em; color: var(--accent); white-space: nowrap; }
 .orderbook-table .ob-sep { border-left: 2px solid var(--border); padding-left: 0.75rem; }
+/* Linha dos totais: separador forte e fundo verde (compra) / vermelho (venda), texto branco (contraste ≥ 4,98:1). */
+.orderbook-table tr.ob-total td { border-top: 3px solid var(--text); border-bottom: 0; color: #fff; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.orderbook-table td.ob-total-bid { background: var(--heat-up); }
+.orderbook-table td.ob-total-ask { background: var(--heat-down); }
+.orderbook-table tr.ob-total td.ob-sep { border-left: 2px solid var(--surface); }
 .momentum-bar { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; }
 .momentum-bar span { display: block; min-width: 4px; }
 .heatmap-box { height: min(640px, 70vh); min-height: 360px; }

@@ -54,13 +54,13 @@ function BookTable({ book, stats, places }) {
           })}
         </tbody>
         <tfoot>
-          <tr>
-            <td className="r">{stats.bidOrders ?? ''}</td>
-            <td className="r">{qty.format(stats.bidVolume)}</td>
-            <td className="r muted small">Total</td>
-            <td className="ob-sep muted small">Total</td>
-            <td className="r">{qty.format(stats.askVolume)}</td>
-            <td className="r">{stats.askOrders ?? ''}</td>
+          <tr className="ob-total">
+            <td className="r ob-total-bid">{stats.bidOrders ?? ''}</td>
+            <td className="r ob-total-bid">{qty.format(stats.bidVolume)}</td>
+            <td className="r ob-total-bid">Total compra</td>
+            <td className="ob-sep ob-total-ask">Total venda</td>
+            <td className="r ob-total-ask">{qty.format(stats.askVolume)}</td>
+            <td className="r ob-total-ask">{stats.askOrders ?? ''}</td>
           </tr>
         </tfoot>
       </table>
