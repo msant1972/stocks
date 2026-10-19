@@ -8,7 +8,7 @@ A aplicação permite acompanhar acções, consultar o histórico diário com in
 
 A negociação é exclusivamente simulada. Não há operações com dinheiro real, integração com corretoras nem execução de ordens em bolsa.
 
-Este documento descreve a arquitectura implementada. As decisões que lhe deram origem estão em [Análise e decisões](analise_e_decisoes.md); a execução, em [Plano de implementação](plano_implementacao.md); a interface, no [Guia de estilos](guia_estilos.md); a operação do servidor, em [deploy/README.md](../../deploy/README.md).
+Este documento descreve a arquitectura implementada. O módulo de livro de ofertas segue a [especificação euronext-orderbook](orderbook-spec.md). As decisões que lhe deram origem estão em [Análise e decisões](analise_e_decisoes.md); a execução, em [Plano de implementação](plano_implementacao.md); a interface, no [Guia de estilos](guia_estilos.md); a operação do servidor, em [deploy/README.md](../../deploy/README.md).
 
 ## 2. Requisitos e parâmetros funcionais
 
@@ -90,7 +90,8 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 |---|---|
 | Entrar | Login por email e palavra-passe |
 | Visão geral | Valor da carteira, saldo e resultado; momento do mercado (distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos); cruzamentos da SMA10 com a SMA50 nas últimas 5 sessões, ascendentes e descendentes |
-| Acompanhar | Catálogo partilhado e lista do utilizador (último fecho, volume, variação, sessão), adicionar símbolos ou importar Excel/CSV com pré-visualização, botão «Validar agora» |
+| Acompanhar | Catálogo partilhado e lista do utilizador (último fecho e sessão, volume, variação, ISIN-MIC com edição directa), adicionar símbolos ou importar Excel/CSV (colunas `ticker` e `isin_mic`) com pré-visualização, botão «Validar agora» |
+| Orderbook | Livro de ofertas Euronext (atraso 15 min) dos instrumentos com ISIN-MIC: melhor compra/venda, spread, mid, desequilíbrio, tabela com nº de ordens e totais, gráfico de profundidade cumulativa, actualização a cada 30 s |
 | Instrumento | Último fecho e variação, gráfico diário (1M a 2A) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, aplicar estratégia |
 | HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5, 15 ou 30 sessões |
 | Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |
@@ -118,6 +119,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Sessão | `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PUT /me/password` |
 | Instrumentos | `GET /instruments`, `GET /instruments/{id}`, `POST /instruments`, `POST /instruments/import/preview`, `GET /instruments/import/template`, `POST /instruments/fetch` |
 | Histórico | `GET /instruments/{id}/quotes` (cotações e indicadores) |
+| ISIN-MIC e livro de ofertas | `PUT /instruments/{id}/isin-mic`, `GET /instruments?withIsinMic=true`, `GET /instruments/{id}/orderbook` |
 | Lista | `GET /watchlist`, `POST /watchlist/items`, `DELETE /watchlist/items/{id}` |
 | Carteira e operações | `GET /portfolio`, `GET /portfolio/positions`, `GET /simulated-trades/preview`, `POST /simulated-trades`, `GET /simulated-trades` |
 | Alertas | `GET/POST /alerts`, `PATCH/DELETE /alerts/{id}`, `GET /alerts/events` |
@@ -155,7 +157,7 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 
 | Tabela | Conteúdo |
 |---|---|
-| `instruments` | Catálogo global: símbolo Yahoo (único), mercado, moeda, nome, estado (`pending`/`active`/`invalid`) e motivo, primeira e última sessão |
+| `instruments` | Catálogo global: símbolo Yahoo (único), mercado, moeda, nome, ISIN e MIC Euronext (opcionais), estado (`pending`/`active`/`invalid`) e motivo, primeira e última sessão |
 | `daily_quotes` | Uma linha por (instrumento, sessão): abertura, máximo, mínimo, fecho, fecho ajustado, volume, origem, e os indicadores `ema9`, `sma10`, `sma50`, `sma125`, `sma200` |
 | `fetch_jobs` | Fila de recolha: tipo (inicial ou incremental), estado, tentativas, próxima tentativa, último erro |
 | `job_runs` | Execuções da recolha diária e dos alertas, para diagnóstico |
@@ -216,6 +218,18 @@ Após cada recolha diária, para cada utilizador:
 - **Email de teste:** `python -m alerts test --to …`, chamado pela API em Definições, usa exactamente o mesmo código de envio.
 
 Os alertas apenas notificam; nunca desencadeiam operações.
+
+### 4.6. Livro de ofertas (euronext-orderbook)
+
+Biblioteca em `api/src/orderbook/` que implementa a [especificação](orderbook-spec.md) v0.1, usada pela API e por um CLI (`npm run orderbook -- <ISIN> <MIC>`).
+
+- **Fonte:** `GET https://live.euronext.com/{lang}/ajax/getOrderBookCanvas/{ISIN}-{MIC}`, endpoint público e não documentado, com 15 minutos de atraso. O pedido é sempre feito pelo servidor.
+- **Identificação:** ISIN validado com o dígito de controlo (Luhn) e MIC com 4 caracteres, antes de qualquer pedido. Guardados em `instruments.isin`/`mic`; o MIC é sugerido a partir da bolsa (Lisbon → XLIS, Paris → XPAR, Amsterdam → XAMS, Brussels → XBRU, Milan → MTAA, Irish → XMSM, Oslo → XOSL). XETRA, Madrid, Helsínquia e Viena não são Euronext e não têm livro.
+- **Parsing:** `chart_data` dá preço e quantidade (positiva = venda, negativa = compra); a tabela HTML é lida com `node-html-parser` para o nº de ordens por (lado, preço), o carimbo «Updated» (hora do mercado, convertida para UTC) e os totais. Preços como decimais exactos (BigInt, 8 casas) e devolvidos como string.
+- **Robustez:** níveis malformados descartados com aviso; totais divergentes e ordens não associáveis geram avisos, não erros; livro vazio não é erro; resposta cifrada (`ct`/`iv`/`s`) → `EncryptedResponseError`; HTML ou 404 → `InstrumentNotFoundError`; 429, 5xx e falhas de rede com 2 novas tentativas (1 s, 2 s ± 25%) → `UpstreamError`.
+- **Cortesia:** cache em memória de 30 s por instrumento, partilhada pelo processo, e pedidos simultâneos ao mesmo instrumento partilham um só pedido HTTP; a página actualiza a cada 30 s.
+- **Configuração:** `EURONEXT_BASE_URL`, `EURONEXT_LANG`, `EURONEXT_TIMEOUT_MS`, `EURONEXT_USER_AGENT`.
+- **Decisões face à especificação:** o CLI aceita também `--layout ladder`; o fuso de Dublin aplica-se a `XDUB` e a `XMSM` (o MIC da Euronext Dublin). Continua em aberto (especificação §13) se o carimbo vem na hora do mercado ou na de Paris.
 
 ## 5. Fluxos de funcionamento
 
@@ -290,7 +304,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é feita por snapshots EBS do volume, geridos na AWS |
 
-Testes automáticos em cada componente: API com Vitest contra uma BD de testes (58), motor de recolha (21) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
+Testes automáticos em cada componente: API com Vitest contra uma BD de testes (81, incluindo 19 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (21) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e snapshots EBS do volume (cópia fora do servidor, geridos na AWS), com restauro testado pelo administrador.
@@ -324,6 +338,7 @@ Riscos aceites ou pendentes:
 | Retenção de operações e auditoria | Sem eliminação; definir se for necessário |
 | Ambiente de testes separado | Hoje partilha o servidor de produção |
 | Execução da estratégia | Ao fecho do próprio dia do sinal (optimista); a execução ao fecho do dia seguinte seria mais realista |
+| Livro de ofertas | Endpoint interno da Euronext, sem garantia de estabilidade; dados sujeitos aos termos de uso da Euronext (a página mostra sempre a fonte e o atraso) |
 | Alerta operacional | Falhas da recolha ou dos alertas só ficam em `job_runs` e no `journalctl`; não há notificação ao administrador |
 
 ## 10. Base documental

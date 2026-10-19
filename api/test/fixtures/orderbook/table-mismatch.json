@@ -1,0 +1,17 @@
+{
+ "chart_data": [
+  {
+   "price": "7.20",
+   "qtt": "300"
+  },
+  {
+   "price": "7.10",
+   "qtt": "200"
+  },
+  {
+   "price": "7.00",
+   "qtt": "-400"
+  }
+ ],
+ "table": "<div id=\"AwlOrderBookCanvas\"><span> Updated 19/10/2026 - 16:40 </span><table id=\"AwlOrderBookTableCanvas\"><tbody><tr><td>5</td><td>400</td><td>7.00</td><td>7.10</td><td>200</td><td>2</td></tr></tbody></table><div class=\"totalbar col\"><div class=\"totalbar__left\">400</div><div class=\"totalbar__right\">999</div></div><div class=\"totalbar__bottom col\"><div class=\"text-l\">5</div><div class=\"text-c\">Total</div><div class=\"text-r\">2</div></div></div>"
+}

@@ -120,7 +120,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Barra superior com pesquisa, estado dos dados e menu do utilizador.
 - Área principal com largura confortável e limite proposto de 1440 px.
 - Conteúdo em grelha de 12 colunas.
-- Menu lateral: Visão geral, Acompanhar, HeatMap, Carteira, Operações, Sinais, Alertas, Utilizadores (só administradores) e Definições.
+- Menu lateral: Visão geral, Acompanhar, Orderbook, HeatMap, Carteira, Operações, Sinais, Alertas, Utilizadores (só administradores) e Definições.
 
 ### Tablet — de 768 a 1199 px
 
@@ -173,7 +173,7 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 ### 5.3. Acompanhamento e detalhe de instrumento
 
 - Pesquisa por designação, ticker e mercado; catálogo partilhado sempre visível.
-- Tabela com instrumento, estado, último fecho, volume da sessão, variação e data da sessão.
+- Tabela com instrumento, estado, último fecho (com a data da sessão), volume da sessão, variação e ISIN-MIC. O ISIN-MIC é uma ligação para o Orderbook e tem edição directa («Definir»/«Editar»), com o MIC sugerido pela bolsa e validação do formato; os instrumentos fora da Euronext mostram «não Euronext».
 - Botão «Validar agora (N)» com o número de instrumentos por validar; desactivado com «Nada por validar». Enquanto houver pendentes, a lista actualiza-se sozinha.
 - Acções «Adicionar instrumento» (símbolo Yahoo, ex.: `GALP.LS`) e «Importar Excel», com modelo descarregável e pré-visualização das linhas válidas, duplicadas e com erro antes de gravar.
 - Estados do instrumento: «A validar», «Activo» e «Inválido» (com o motivo, ex.: «Não está cotado em EUR»).
@@ -252,7 +252,18 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Período em menu (1 dia, 5 dias por omissão, 15 dias, 30 dias) e filtro «Todos / A minha lista», guardados no URL.
 - Legenda com contagens por cor, texto «Top 20 de N instrumentos» e vista em tabela.
 
-### 5.10. Sinais
+### 5.10. Orderbook
+
+- Escolha do instrumento entre os que têm ISIN-MIC (também por `?instrumento=` no URL, a partir de Acompanhar ou da página do instrumento).
+- Cabeçalho com símbolo, ISIN-MIC, carimbo «Actualizado na Euronext» com o atraso de 15 min, hora do pedido e «a actualizar…».
+- Estatísticas: melhor compra (verde), melhor venda (vermelho), spread com % do mid, mid e desequilíbrio com texto (pressão compradora/vendedora/equilibrado).
+- Tabela lado a lado (# · Qtd compra · Compra │ Venda · Qtd venda · #) com totais; casas decimais do preço = máximo observado (mín. 2).
+- Gráfico de profundidade cumulativa em degrau, compras à esquerda e vendas à direita do mid, com linha do mid e resumo textual.
+- Interruptor «Actualizar a cada 30 s»; em caso de erro mantêm-se os dados anteriores com aviso; livro cruzado e livro vazio com mensagem própria.
+- «Fonte: Euronext, atraso 15 min» e ligação para os termos de uso sempre visíveis.
+- Em telemóvel, o acesso é feito por um botão em Acompanhar e na página do instrumento.
+
+### 5.11. Sinais
 
 - Lista dos sinais da estratégia (compra C, reforço R, venda V, com etiqueta de cor e letra) em todos os instrumentos, ordenados do mais recente.
 - Filtro por tipo com contagens e período (última sessão a últimas 10 sessões), guardados no URL.
@@ -260,7 +271,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - «Comprar» abre a operação com a quantidade que cabe em 15 000 € ao último fecho; «Vender» abre-a com todas as unidades em carteira. A quantidade continua editável e o modal mostra uma nota com a origem do valor.
 - Aviso com as regras e a indicação de que são resultados de uma simulação, não recomendações.
 
-### 5.11. Utilizadores
+### 5.12. Utilizadores
 
 Só para administradores (o menu não aparece aos restantes):
 
@@ -510,6 +521,7 @@ src/
     trades/
     alerts/
     heatmap/
+    orderbook/
     signals/
     users/
     settings/

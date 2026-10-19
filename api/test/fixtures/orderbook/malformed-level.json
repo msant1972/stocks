@@ -1,0 +1,32 @@
+{
+ "chart_data": [
+  {
+   "price": "abc",
+   "qtt": "10"
+  },
+  {
+   "price": "0",
+   "qtt": "-5"
+  },
+  {
+   "price": "5.00",
+   "qtt": "xx"
+  },
+  {
+   "price": "5.10",
+   "qtt": "100"
+  },
+  {
+   "price": "4.90",
+   "qtt": "-70"
+  },
+  {
+   "price": "4.80",
+   "qtt": "0"
+  }
+ ],
+ "table": "<div id=\"AwlOrderBookCanvas\"><span> Updated 19/10/2026 - 16:40 </span><table id=\"AwlOrderBookTableCanvas\"><tbody><tr><td>2</td><td>70</td><td>4.90</td><td>5.10</td><td>100</td><td>3</td></tr></tbody></table><div class=\"totalbar col\"><div class=\"totalbar__left\">70</div><div class=\"totalbar__right\">100</div></div><div class=\"totalbar__bottom col\"><div class=\"text-l\">2</div><div class=\"text-c\">Total</div><div class=\"text-r\">3</div></div></div>",
+ "extra_field": {
+  "ignored": true
+ }
+}

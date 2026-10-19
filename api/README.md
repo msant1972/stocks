@@ -35,6 +35,19 @@ npm run dev                                                      # API em http:/
 
 Outros comandos: `set-password`, `set-email` (com `--new-email`), `disable-user` e `enable-user`, todos com `--email`.
 
+## Livro de ofertas (CLI)
+
+Módulo `src/orderbook/`, segundo [docs/arquitectura/orderbook-spec.md](../docs/arquitectura/orderbook-spec.md):
+
+```bash
+npm run orderbook -- PTFCP0AM0008 XLIS                 # tabela lado a lado
+npm run orderbook -- PTFCP0AM0008 XLIS --layout ladder --levels 5
+npm run orderbook -- PTFCP0AM0008 XLIS --json          # { book, stats }, preços como string
+npm run orderbook -- PTFCP0AM0008 XLIS --watch 60      # actualiza a cada 60 s (mínimo 30)
+```
+
+Códigos de saída: 0 OK, 2 argumentos inválidos, 3 sem dados ou não encontrado, 4 rede/HTTP, 5 formato inesperado. Configuração: `EURONEXT_BASE_URL`, `EURONEXT_LANG`, `EURONEXT_TIMEOUT_MS`, `EURONEXT_USER_AGENT`; `NO_COLOR` desliga as cores. Teste de contrato com rede: `EURONEXT_CONTRACT=1 npx vitest run test/orderbook.contract.test.js`.
+
 ## Regras implementadas
 
 - **Sessões:** cookie `HttpOnly` e `SameSite=Strict`. Na BD guarda-se só o SHA-256 do token. As palavras-passe usam scrypt com os parâmetros da OWASP. Alterar a palavra-passe ou desactivar a conta termina todas as sessões.

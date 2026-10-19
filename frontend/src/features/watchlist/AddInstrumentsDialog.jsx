@@ -24,11 +24,11 @@ export default function AddInstrumentsDialog({ open, onClose, onDone }) {
   }
   function close() { reset(); onClose(); }
 
-  async function save(symbols) {
+  async function save(symbols, isinMics) {
     setBusy(true);
     setError(null);
     try {
-      const { results } = await api.post('/instruments', { symbols, addToWatchlist: true });
+      const { results } = await api.post('/instruments', { symbols, addToWatchlist: true, ...(isinMics ? { isinMics } : {}) });
       qc.invalidateQueries({ queryKey: keys.watchlist });
       qc.invalidateQueries({ queryKey: ['instruments'] });
       qc.invalidateQueries({ queryKey: keys.status });
@@ -64,7 +64,9 @@ export default function AddInstrumentsDialog({ open, onClose, onDone }) {
   }
 
   const manualSymbols = text.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
-  const importable = preview?.rows.filter((r) => r.status === 'new' || r.status === 'exists').map((r) => r.symbol) ?? [];
+  const importableRows = preview?.rows.filter((r) => r.status === 'new' || r.status === 'exists') ?? [];
+  const importable = importableRows.map((r) => r.symbol);
+  const importIsinMics = Object.fromEntries(importableRows.filter((r) => r.isinMic).map((r) => [r.symbol, r.isinMic]));
 
   return (
     <Dialog open={open} onClose={close} title="Adicionar instrumentos">
@@ -78,7 +80,7 @@ export default function AddInstrumentsDialog({ open, onClose, onDone }) {
       ) : (
         <>
           <p className="small muted">
-            Ficheiro .xlsx ou .csv com uma coluna <strong>ticker</strong> (até 1000 linhas). Nome, mercado e moeda vêm do fornecedor.
+            Ficheiro .xlsx ou .csv com uma coluna <strong>ticker</strong> e, opcionalmente, <strong>isin_mic</strong> (ex.: PTGAL0AM0009-XLIS, também aplicado a instrumentos já existentes). Até 1000 linhas. Nome, mercado e moeda vêm do fornecedor.
           </p>
           <div className="row">
             <label className="button">
@@ -97,12 +99,13 @@ export default function AddInstrumentsDialog({ open, onClose, onDone }) {
               <div className="table-wrap" tabIndex={0} style={{ maxHeight: 260, overflowY: 'auto' }}>
                 <table className="data">
                   <caption className="visually-hidden">Pré-visualização da importação</caption>
-                  <thead><tr><th scope="col">Linha</th><th scope="col">Símbolo</th><th scope="col">Estado</th></tr></thead>
+                  <thead><tr><th scope="col">Linha</th><th scope="col">Símbolo</th><th scope="col">ISIN-MIC</th><th scope="col">Estado</th></tr></thead>
                   <tbody>
                     {preview.rows.map((r) => (
                       <tr key={r.line}>
                         <td className="num">{r.line}</td>
                         <td>{r.symbol || '—'}</td>
+                        <td className="small num">{r.isinMic ?? '—'}</td>
                         <td><span className={`badge ${STATUS_CLASS[r.status]}`}>{STATUS_LABEL[r.status]}</span> <span className="small muted">{r.message}</span></td>
                       </tr>
                     ))}
@@ -122,7 +125,7 @@ export default function AddInstrumentsDialog({ open, onClose, onDone }) {
             Adicionar {manualSymbols.length > 1 ? `${manualSymbols.length} símbolos` : ''}
           </Button>
         ) : (
-          <Button variant="primary" busy={busy} disabled={!importable.length} onClick={() => save(importable)}>
+          <Button variant="primary" busy={busy} disabled={!importable.length} onClick={() => save(importable, Object.keys(importIsinMics).length ? importIsinMics : undefined)}>
             Importar {importable.length || ''} {importable.length === 1 ? 'símbolo' : 'símbolos'}
           </Button>
         )}

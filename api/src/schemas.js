@@ -40,6 +40,8 @@ export const InstrumentSummary = z.object({
   firstSession: IsoDate.nullable(),
   lastSession: IsoDate.nullable(),
   inWatchlist: z.boolean(),
+  isinMic: z.string().nullable().describe('ISIN-MIC Euronext, ex.: PTFCP0AM0008-XLIS (livro de ofertas)'),
+  suggestedMic: z.string().nullable().describe('MIC Euronext deduzido da bolsa, se aplicável'),
   latest: LatestQuote.nullable(),
 });
 

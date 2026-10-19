@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import { useParams } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
@@ -71,6 +71,7 @@ export default function InstrumentPage() {
             title="Simular no histórico a estratégia de momento SMA10/SMA200">
             {strategy ? 'Ocultar estratégia' : 'Aplicar estratégia'}
           </Button>
+          {i.isinMic && <Link className="button" to={`/orderbook?instrumento=${i.id}`}>Livro de ofertas</Link>}
           <Button variant="primary" onClick={() => setTrading(true)} disabled={!tradable}>Simular operação</Button>
         </div>
       </div>

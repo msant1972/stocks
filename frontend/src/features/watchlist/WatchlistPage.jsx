@@ -11,6 +11,62 @@ import { Button } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
 import AddInstrumentsDialog from './AddInstrumentsDialog.jsx';
 
+const ISIN_MIC_RE = /^[A-Z]{2}[A-Z0-9]{9}[0-9]-[A-Z0-9]{4}$/;
+
+/** ISIN-MIC do instrumento, com edição directa (usado pelo módulo Orderbook). */
+function IsinMicCell({ item }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const start = () => {
+    setValue(item.isinMic ?? (item.suggestedMic ? `-${item.suggestedMic}` : ''));
+    setError(null);
+    setEditing(true);
+  };
+  async function save(next) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.put(`/instruments/${item.id}/isin-mic`, { isinMic: next || null });
+      await Promise.all([qc.invalidateQueries({ queryKey: ['instruments'] }), qc.invalidateQueries({ queryKey: keys.watchlist })]);
+      setEditing(false);
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (!editing) {
+    return (
+      <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
+        {item.isinMic
+          ? <Link to={`/orderbook?instrumento=${item.id}`} className="isin-mic" title="Ver o livro de ofertas">{item.isinMic}</Link>
+          : <span className="small muted">{item.suggestedMic ? 'por definir' : 'não Euronext'}</span>}
+        <Button size="small" variant="ghost" onClick={start}>
+          {item.isinMic ? 'Editar' : 'Definir'}<span className="visually-hidden"> ISIN-MIC de {item.symbol}</span>
+        </Button>
+      </div>
+    );
+  }
+  const normalised = value.trim().toUpperCase();
+  const formatOk = normalised === '' || ISIN_MIC_RE.test(normalised);
+  return (
+    <form className="stack" style={{ gap: 4, minWidth: '15rem' }} onSubmit={(e) => { e.preventDefault(); if (formatOk) save(normalised); }}>
+      <label className="visually-hidden" htmlFor={`isin-${item.id}`}>ISIN-MIC de {item.symbol}</label>
+      <input id={`isin-${item.id}`} className="input num" style={{ minHeight: '2.25rem', padding: '0.25rem 0.5rem', fontSize: '0.875rem' }}
+        value={value} onChange={(e) => setValue(e.target.value)} placeholder={`ISIN-${item.suggestedMic ?? 'MIC'}`} autoFocus
+        aria-invalid={!formatOk || undefined} spellCheck={false} autoComplete="off" />
+      {(!formatOk || error) && <span className="field-error">{error ?? 'Formato: ISIN (12) - MIC (4), ex.: PTFCP0AM0008-XLIS'}</span>}
+      <div className="row" style={{ gap: 4 }}>
+        <Button type="submit" size="small" variant="primary" busy={busy} disabled={!formatOk}>Guardar</Button>
+        <Button size="small" variant="ghost" onClick={() => setEditing(false)}>Cancelar</Button>
+      </div>
+    </form>
+  );
+}
+
 function InstrumentTable({ items, action }) {
   return (
     <div className="table-wrap" tabIndex={0} aria-label="Tabela de instrumentos">
@@ -22,7 +78,7 @@ function InstrumentTable({ items, action }) {
             <th scope="col" className="r">Último fecho</th>
             <th scope="col" className="r">Volume</th>
             <th scope="col" className="r">Variação</th>
-            <th scope="col">Sessão</th>
+            <th scope="col">ISIN-MIC</th>
             <th scope="col"><span className="visually-hidden">Acções</span></th>
           </tr>
         </thead>
@@ -34,10 +90,13 @@ function InstrumentTable({ items, action }) {
                 <div className="small muted">{[i.name, i.exchange].filter(Boolean).join(' · ') || (i.status === 'invalid' ? i.statusReason : 'A validar no fornecedor')}</div>
               </td>
               <td><InstrumentStatus status={i.status} /></td>
-              <td className="r">{i.latest ? f.price(i.latest.close, i.currency) : '—'}</td>
+              <td className="r">
+                {i.latest ? f.price(i.latest.close, i.currency) : '—'}
+                {i.latest && <div className="small muted" style={{ whiteSpace: 'nowrap' }}>{f.date(i.latest.date)}</div>}
+              </td>
               <td className="r">{f.quantity(i.latest?.volume)}</td>
               <td className="r">{i.latest ? <PriceChange value={i.latest.changePct} /> : '—'}</td>
-              <td className="small muted" style={{ whiteSpace: 'nowrap' }}>{i.latest ? f.date(i.latest.date) : '—'}</td>
+              <td><IsinMicCell item={i} /></td>
               <td className="r">{action(i)}</td>
             </tr>
           ))}
@@ -112,6 +171,7 @@ export default function WatchlistPage() {
           >
             {forcing ? 'A pedir…' : pending > 0 ? `Validar agora (${pending})` : 'Nada por validar'}
           </Button>
+          <Link className="button mobile-only-inline" to="/orderbook">Orderbook</Link>
           <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" size={18} />Adicionar instrumentos</Button>
         </div>
       </div>

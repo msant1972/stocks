@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { AppError, notFound } from '../errors.js';
 import { Decimal, ErrorBody, Id, InstrumentStatus, InstrumentSummary, IsoDate, NullableDecimal } from '../schemas.js';
-import { addSymbols, importTemplate, previewImport, readSymbolFile, requestPendingFetch, triggerFetcher } from '../services/instruments.js';
+import { addSymbols, importTemplate, previewImport, readSymbolFile, requestPendingFetch, setIsinMic, triggerFetcher } from '../services/instruments.js';
+import {
+  computeStats, EncryptedResponseError, fetchOrderBook, InstrumentNotFoundError, SOURCE_NOTE, suggestMic, toJson,
+  UnexpectedFormatError, UpstreamError,
+} from '../orderbook/index.js';
 import { latestQuotes } from '../services/quotes.js';
 
 export function mapInstrument(r, quotes) {
@@ -10,12 +14,15 @@ export function mapInstrument(r, quotes) {
     id, symbol: r.symbol, name: r.name, exchange: r.exchange, currency: r.currency,
     status: r.status, statusReason: r.status_reason,
     firstSession: r.first_session, lastSession: r.last_session,
-    inWatchlist: Boolean(r.in_watchlist), latest: quotes.get(id) ?? null,
+    inWatchlist: Boolean(r.in_watchlist),
+    isinMic: r.isin && r.mic ? `${r.isin}-${r.mic}` : null,
+    suggestedMic: suggestMic(r.exchange),
+    latest: quotes.get(id) ?? null,
   };
 }
 
 export const INSTRUMENT_SELECT = `
-  SELECT i.id, i.symbol, i.name, i.exchange, i.currency, i.status, i.status_reason, i.first_session, i.last_session,
+  SELECT i.id, i.symbol, i.name, i.exchange, i.currency, i.status, i.status_reason, i.first_session, i.last_session, i.isin, i.mic,
          EXISTS (SELECT 1 FROM watchlist_items w WHERE w.instrument_id = i.id AND w.user_id = ?) AS in_watchlist
     FROM instruments i`;
 
@@ -36,13 +43,14 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       querystring: z.object({
         q: z.string().max(64).optional().describe('Texto no símbolo ou na designação'),
         status: InstrumentStatus.optional(),
-        limit: z.coerce.number().int().min(1).max(200).default(50),
+        withIsinMic: z.enum(['true', 'false']).optional().describe('Só instrumentos com ISIN-MIC (livro de ofertas)'),
+        limit: z.coerce.number().int().min(1).max(500).default(50),
         offset: z.coerce.number().int().min(0).default(0),
       }),
       response: { 200: z.object({ items: z.array(InstrumentSummary), total: z.number() }) },
     },
   }, async (req) => {
-    const { q, status, limit, offset } = req.query;
+    const { q, status, withIsinMic, limit, offset } = req.query;
     const where = ['1 = 1'];
     const args = [];
     if (q) {
@@ -51,6 +59,7 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       args.push(like, like);
     }
     if (status) { where.push('i.status = ?'); args.push(status); }
+    if (withIsinMic === 'true') where.push('i.isin IS NOT NULL AND i.mic IS NOT NULL');
     const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM instruments i WHERE ${where.join(' AND ')}`, args);
     const [rows] = await pool.query(
       `${INSTRUMENT_SELECT} WHERE ${where.join(' AND ')} ORDER BY i.symbol LIMIT ? OFFSET ?`,
@@ -67,6 +76,7 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       body: z.object({
         symbols: z.array(z.string().max(64)).min(1).max(1000),
         addToWatchlist: z.boolean().default(true),
+        isinMics: z.record(z.string(), z.string().max(32)).optional().describe('ISIN-MIC por símbolo, ex.: { "GALP.LS": "PTGAL0AM0009-XLIS" }'),
       }),
       response: {
         200: z.object({
@@ -78,7 +88,7 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       },
     },
   }, async (req) => {
-    const results = await addSymbols(pool, req.user.id, req.body.symbols, req.body.addToWatchlist);
+    const results = await addSymbols(pool, req.user.id, req.body.symbols, req.body.addToWatchlist, req.body.isinMics);
     if (results.some((r) => r.result === 'created')) await triggerFetcher(cfg, req.log);
     return { results };
   });
@@ -108,7 +118,7 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       response: {
         200: z.object({
           rows: z.array(z.object({
-            line: z.number(), symbol: z.string(),
+            line: z.number(), symbol: z.string(), isinMic: z.string().nullable(),
             status: z.enum(['new', 'exists', 'duplicate', 'error']), message: z.string(),
           })),
           summary: z.object({ new: z.number(), exists: z.number(), duplicate: z.number(), error: z.number() }),
@@ -162,6 +172,64 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       ...mapInstrument(r, quotes),
       sessions: Number(sessions),
       fetch: job ? { status: job.status, kind: job.kind, lastError: job.last_error, finishedAt: job.finished_at?.toISOString() ?? null } : null,
+    };
+  });
+
+  app.put('/instruments/:id/isin-mic', {
+    config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Instrumentos'], summary: 'Definir ou apagar o ISIN-MIC de um instrumento do catálogo',
+      params: z.object({ id: Id }),
+      body: z.object({ isinMic: z.string().max(32).nullable().describe('ex.: PTFCP0AM0008-XLIS; null ou vazio apaga') }),
+      response: { 200: z.object({ isinMic: z.string().nullable() }), 400: ErrorBody, 404: ErrorBody },
+    },
+  }, async (req) => ({ isinMic: await setIsinMic(pool, req.user.id, req.params.id, req.body.isinMic?.trim() || null) }));
+
+  const ObLevel = z.object({ side: z.enum(['bid', 'ask']), price: Decimal, quantity: z.number(), orders: z.number().nullable() });
+  app.get('/instruments/:id/orderbook', {
+    schema: {
+      tags: ['Livro de ofertas'], summary: 'Livro de ofertas Euronext do instrumento (atraso 15 min)',
+      description: 'Obtido de live.euronext.com pelo módulo euronext-orderbook (docs/arquitectura/orderbook-spec.md), '
+        + 'com cache de 30 s por instrumento. Requer ISIN-MIC no catálogo. spreadPct e imbalance são frações.',
+      params: z.object({ id: Id }),
+      response: {
+        200: z.object({
+          instrument: z.object({ id: z.number(), symbol: z.string(), name: z.string().nullable(), isinMic: z.string() }),
+          book: z.object({
+            isin: z.string(), mic: z.string(), bids: z.array(ObLevel), asks: z.array(ObLevel),
+            updatedAt: z.string().nullable(), fetchedAt: z.string(), delayMinutes: z.number(), source: z.string(),
+          }),
+          stats: z.object({
+            bestBid: NullableDecimal, bestAsk: NullableDecimal, spread: NullableDecimal, spreadPct: z.number().nullable(),
+            mid: NullableDecimal, bidVolume: z.number(), askVolume: z.number(), bidNotional: Decimal, askNotional: Decimal,
+            imbalance: z.number().nullable(), bidOrders: z.number().nullable(), askOrders: z.number().nullable(), crossed: z.boolean(),
+          }),
+          sourceNote: z.string(),
+        }),
+        404: ErrorBody, 409: ErrorBody, 502: ErrorBody,
+      },
+    },
+  }, async (req) => {
+    const [[inst]] = await pool.query('SELECT id, symbol, name, isin, mic FROM instruments WHERE id = ?', [req.params.id]);
+    if (!inst) throw notFound('Instrumento');
+    if (!inst.isin || !inst.mic) {
+      throw new AppError(409, 'NO_ISIN_MIC', 'o instrumento não tem ISIN-MIC; defina-o no catálogo, em Acompanhar');
+    }
+    let book;
+    try {
+      book = await fetchOrderBook(inst.isin, inst.mic, { logger: req.log });
+    } catch (err) {
+      if (err instanceof InstrumentNotFoundError) throw new AppError(404, 'ORDERBOOK_NOT_FOUND', 'a Euronext não tem livro de ofertas para este ISIN-MIC');
+      if (err instanceof UpstreamError) throw new AppError(502, 'ORDERBOOK_UPSTREAM', `a Euronext não respondeu: ${err.message}`);
+      if (err instanceof UnexpectedFormatError || err instanceof EncryptedResponseError) {
+        throw new AppError(502, 'ORDERBOOK_FORMAT', 'a resposta da Euronext veio num formato inesperado');
+      }
+      throw err;
+    }
+    return {
+      instrument: { id: Number(inst.id), symbol: inst.symbol, name: inst.name, isinMic: `${inst.isin}-${inst.mic}` },
+      ...toJson(book, computeStats(book)),
+      sourceNote: SOURCE_NOTE,
     };
   });
 

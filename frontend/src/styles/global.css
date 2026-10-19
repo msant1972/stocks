@@ -82,6 +82,9 @@ img, svg { display: block; }
 
 .mobile-nav { display: none; }
 .meta-end { text-align: right; }
+/* Atalhos só em telemóvel, onde a navegação inferior não tem todas as entradas. */
+.button.mobile-only-inline { display: none; }
+@media (max-width: 767px) { .button.mobile-only-inline { display: inline-flex; } }
 /* Especificidade acima de .button, que define display. */
 .topbar-right .mobile-only { display: none; }
 @media (max-width: 767px) { .topbar-right .mobile-only { display: inline-flex; } }
@@ -257,6 +260,8 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .chart-box-small { height: 170px; }
 .cx-name { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 767px) { .cx-name { max-width: 6.5rem; } }
+.isin-mic { font-variant-numeric: tabular-nums; font-size: 0.8125rem; letter-spacing: 0.01em; color: var(--accent); white-space: nowrap; }
+.orderbook-table .ob-sep { border-left: 2px solid var(--border); padding-left: 0.75rem; }
 .momentum-bar { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; }
 .momentum-bar span { display: block; min-width: 4px; }
 .heatmap-box { height: min(640px, 70vh); min-height: 360px; }

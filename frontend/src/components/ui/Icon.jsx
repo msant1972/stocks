@@ -20,6 +20,7 @@ const PATHS = {
   trend: 'M4 17l6-6 4 4 6-7',
   users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0M16 3.5a4 4 0 0 1 0 7.5M18 14a6 6 0 0 1 4 6',
   signals: 'M4 18l4-5 3 3 5-7 4 4M16 9h4v4',
+  orderbook: 'M4 6h7M4 10h5M4 14h8M4 18h4M13 6h7M15 10h5M12 14h8M16 18h4',
   heatmap: 'M3 4h10v9H3V4Zm12 0h6v5h-6V4Zm0 7h6v9h-6v-9ZM3 15h10v5H3v-5Z',
 };
 

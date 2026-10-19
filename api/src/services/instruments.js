@@ -1,7 +1,8 @@
 import fs from 'node:fs/promises';
 import ExcelJS from 'exceljs';
 import { audit, withTransaction } from '../db.js';
-import { AppError } from '../errors.js';
+import { AppError, notFound } from '../errors.js';
+import { parseIsinMic } from '../orderbook/instrument.js';
 
 // As mesmas regras do motor de recolha (engines/fetcher/fetcher/validation.py): aqui só se valida o
 // formato do símbolo Yahoo; existência e moeda EUR são confirmadas pelo motor, de forma assíncrona.
@@ -14,8 +15,10 @@ export const symbolError = (symbol) => (SYMBOL_RE.test(symbol) ? null : 'símbol
 /**
  * Adiciona símbolos ao catálogo global. Um símbolo novo fica em 'pending' e gera um pedido de carga
  * inicial em fetch_jobs. Opcionalmente associa todos (novos e existentes) à lista do utilizador.
+ * isinMics: { SÍMBOLO: "ISIN-MIC" } opcional, aplicado a novos e existentes (ex.: importação de Excel).
  */
-export async function addSymbols(pool, userId, rawSymbols, addToWatchlist) {
+export async function addSymbols(pool, userId, rawSymbols, addToWatchlist, isinMics = {}) {
+  const isinMicBySymbol = new Map(Object.entries(isinMics).map(([k, v]) => [normaliseSymbol(k), v]));
   const results = [];
   const seen = new Set();
   await withTransaction(pool, async (conn) => {
@@ -39,15 +42,40 @@ export async function addSymbols(pool, userId, rawSymbols, addToWatchlist) {
       if (addToWatchlist && row.status !== 'invalid') {
         await conn.query('INSERT IGNORE INTO watchlist_items (user_id, instrument_id) VALUES (?, ?)', [userId, id]);
       }
+      let note = '';
+      if (isinMicBySymbol.has(symbol)) {
+        const parsed = parseIsinMic(isinMicBySymbol.get(symbol));
+        if (parsed) {
+          await conn.query('UPDATE instruments SET isin = ?, mic = ? WHERE id = ?', [parsed.isin, parsed.mic, id]);
+          await audit(conn, userId, 'instrument.isin_mic', 'instrument', id, { symbol, isinMic: `${parsed.isin}-${parsed.mic}` });
+          note = '; ISIN-MIC actualizado';
+        } else {
+          note = '; ISIN-MIC inválido ignorado';
+        }
+      }
       results.push({
         symbol,
         result: created ? 'created' : 'exists',
-        message: created ? 'adicionado; a validar no fornecedor' : row.status === 'invalid' ? 'já existe e é inválido' : 'já existe no catálogo',
+        message: (created ? 'adicionado; a validar no fornecedor' : row.status === 'invalid' ? 'já existe e é inválido' : 'já existe no catálogo') + note,
         instrumentId: id,
       });
     }
   });
   return results;
+}
+
+/** Define ou apaga (value vazio/null) o ISIN-MIC de um instrumento do catálogo. */
+export async function setIsinMic(pool, userId, instrumentId, value) {
+  const parsed = value ? parseIsinMic(value) : null;
+  if (value && !parsed) {
+    throw new AppError(400, 'INVALID_ISIN_MIC', 'ISIN-MIC inválido: use ISIN-MIC, ex.: PTFCP0AM0008-XLIS (ISIN com dígito de controlo válido)');
+  }
+  await withTransaction(pool, async (conn) => {
+    const [res] = await conn.query('UPDATE instruments SET isin = ?, mic = ? WHERE id = ?', [parsed?.isin ?? null, parsed?.mic ?? null, instrumentId]);
+    if (res.affectedRows === 0) throw notFound('Instrumento');
+    await audit(conn, userId, 'instrument.isin_mic', 'instrument', instrumentId, { isinMic: parsed ? `${parsed.isin}-${parsed.mic}` : null });
+  });
+  return parsed ? `${parsed.isin}-${parsed.mic}` : null;
 }
 
 /**
@@ -93,7 +121,7 @@ export async function triggerFetcher(cfg, log) {
   }
 }
 
-/** Lê a coluna de símbolos de um .xlsx ou .csv. Devolve [{ line, raw }]. */
+/** Lê as colunas ticker e isin_mic (opcional) de um .xlsx ou .csv. Devolve [{ line, raw, isinMic }]. */
 export async function readSymbolFile(filename, buffer) {
   const lower = filename.toLowerCase();
   let rows;
@@ -122,12 +150,13 @@ export async function readSymbolFile(filename, buffer) {
   // A coluna "ticker" é obrigatória; sem cabeçalho reconhecido, usa-se a primeira coluna.
   const header = rows[0].cells.map((c) => c.toLowerCase());
   let col = header.findIndex((c) => c === 'ticker' || c === 'símbolo' || c === 'simbolo' || c === 'symbol');
-  if (col >= 0) rows = rows.slice(1);
-  else col = 0;
+  const isinCol = header.findIndex((c) => ['isin_mic', 'isin-mic', 'isinmic', 'isin mic'].includes(c));
+  if (col >= 0 || isinCol >= 0) rows = rows.slice(1);
+  if (col < 0) col = 0;
   if (rows.length > MAX_IMPORT_ROWS) {
     throw new AppError(400, 'TOO_MANY_ROWS', `o ficheiro tem mais de ${MAX_IMPORT_ROWS} linhas`);
   }
-  return rows.map((r) => ({ line: r.line, raw: r.cells[col] ?? '' }));
+  return rows.map((r) => ({ line: r.line, raw: r.cells[col] ?? '', isinMic: isinCol >= 0 ? (r.cells[isinCol] ?? '').trim() : '' }));
 }
 
 function cellText(v) {
@@ -149,33 +178,38 @@ export async function previewImport(pool, rows) {
   const out = rows.map((r, i) => {
     const symbol = symbols[i];
     const err = symbolError(symbol);
-    if (err) return { line: r.line, symbol, status: 'error', message: err };
-    if (seen.has(symbol)) return { line: r.line, symbol, status: 'duplicate', message: 'repetido no ficheiro' };
+    if (err) return { line: r.line, symbol, isinMic: null, status: 'error', message: err };
+    // ISIN-MIC opcional: se vier preenchido tem de ser válido (formato e dígito de controlo).
+    const parsed = r.isinMic ? parseIsinMic(r.isinMic) : null;
+    if (r.isinMic && !parsed) return { line: r.line, symbol, isinMic: null, status: 'error', message: `ISIN-MIC inválido: ${r.isinMic}` };
+    const isinMic = parsed ? `${parsed.isin}-${parsed.mic}` : null;
+    if (seen.has(symbol)) return { line: r.line, symbol, isinMic, status: 'duplicate', message: 'repetido no ficheiro' };
     seen.add(symbol);
     const ex = existing.get(symbol);
     if (ex) {
       return {
-        line: r.line, symbol, status: 'exists',
-        message: ex.status === 'invalid' ? 'já existe no catálogo e é inválido' : 'já existe no catálogo',
+        line: r.line, symbol, isinMic, status: 'exists',
+        message: (ex.status === 'invalid' ? 'já existe no catálogo e é inválido' : 'já existe no catálogo') + (isinMic ? '; o ISIN-MIC será actualizado' : ''),
       };
     }
-    return { line: r.line, symbol, status: 'new', message: 'será adicionado e validado no fornecedor' };
+    return { line: r.line, symbol, isinMic, status: 'new', message: 'será adicionado e validado no fornecedor' };
   });
   const count = (s) => out.filter((r) => r.status === s).length;
   return { rows: out, summary: { new: count('new'), exists: count('exists'), duplicate: count('duplicate'), error: count('error') } };
 }
 
-/** Modelo .xlsx para importação. Só a coluna ticker é lida; o resto vem do fornecedor. */
+/** Modelo .xlsx para importação. Lê-se a coluna ticker e, opcionalmente, isin_mic; o resto vem do fornecedor. */
 export async function importTemplate() {
   const wb = new ExcelJS.Workbook();
   const ws = wb.addWorksheet('Instrumentos');
   ws.columns = [
     { header: 'ticker', key: 'ticker', width: 16 },
+    { header: 'isin_mic', key: 'isin_mic', width: 22 },
     { header: 'nome', key: 'nome', width: 32 },
     { header: 'notas', key: 'notas', width: 48 },
   ];
   ws.getRow(1).font = { bold: true };
-  ws.addRow({ ticker: 'GALP.LS', nome: 'Galp Energia', notas: 'Símbolo Yahoo, com o sufixo do mercado' });
-  ws.addRow({ ticker: 'SIE.DE', nome: 'Siemens', notas: 'Só são aceites instrumentos cotados em EUR' });
+  ws.addRow({ ticker: 'GALP.LS', isin_mic: 'PTGAL0AM0009-XLIS', nome: 'Galp Energia', notas: 'Símbolo Yahoo, com o sufixo do mercado; isin_mic opcional (livro de ofertas Euronext)' });
+  ws.addRow({ ticker: 'SIE.DE', isin_mic: '', nome: 'Siemens', notas: 'Só são aceites instrumentos cotados em EUR; XETRA não é Euronext, sem isin_mic' });
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

@@ -69,6 +69,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Momento do mercado | Quadro na Visão geral com a distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos |
 | Cruzamentos SMA10/SMA50 | Quadro na Visão geral com os cruzamentos ascendentes e descendentes das últimas 5 sessões |
 | Sinais | Página com os sinais da estratégia em todos os instrumentos (cálculo partilhado em `shared/`) e botões Comprar/Vender |
+| Orderbook | Campo ISIN-MIC no catálogo e livro de ofertas Euronext segundo a [especificação](orderbook-spec.md): biblioteca, CLI, API e página com gráfico de profundidade |
 | Validar agora | Arranque imediato do motor de recolha (unit `.path` do systemd) e botão para forçar a validação |
 | Coluna Volume | Volume da última sessão em Acompanhar |
 | Gestão de utilizadores | Página para administradores: criar, redefinir palavra-passe, remover |
@@ -98,12 +99,13 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US16 | Gestão de utilizadores | — | Feito |
 | US17 | Configuração SMTP na interface | — | Feito |
 | US18 | Sinais da estratégia em todos os instrumentos | — | Feito |
+| US19 | ISIN-MIC no catálogo e módulo Orderbook | — | Feito; ISIN-MIC por preencher nos instrumentos Euronext |
 
 ## 6. Testes
 
 | Componente | Ferramenta | Testes |
 |---|---|---|
-| API | Vitest contra a base `stocks_test` | 58 |
+| API | Vitest contra a base `stocks_test` | 81 (+1 de contrato com rede, opcional) |
 | Motor de recolha | pytest, fornecedor simulado | 21 |
 | Motor de alertas | pytest, mailer simulado | 18 |
 | Frontend (cálculos) | `node --test` | 11 |

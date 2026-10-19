@@ -9,6 +9,7 @@ import Icon from '../ui/Icon.jsx';
 const NAV = [
   { to: '/', label: 'Visão geral', icon: 'overview', end: true },
   { to: '/acompanhar', label: 'Acompanhar', icon: 'watch' },
+  { to: '/orderbook', label: 'Orderbook', icon: 'orderbook' },
   { to: '/heatmap', label: 'HeatMap', icon: 'heatmap' },
   { to: '/carteira', label: 'Carteira', icon: 'portfolio' },
   { to: '/operacoes', label: 'Operações', icon: 'trades' },

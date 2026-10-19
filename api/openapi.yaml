@@ -231,10 +231,19 @@ paths:
           name: status
           required: false
         - schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+          in: query
+          name: withIsinMic
+          required: false
+          description: Só instrumentos com ISIN-MIC (livro de ofertas)
+        - schema:
             default: 50
             type: integer
             minimum: 1
-            maximum: 200
+            maximum: 500
           in: query
           name: limit
           required: false
@@ -293,6 +302,14 @@ paths:
                           description: Data AAAA-MM-DD
                         inWatchlist:
                           type: boolean
+                        isinMic:
+                          nullable: true
+                          description: "ISIN-MIC Euronext, ex.: PTFCP0AM0008-XLIS (livro de ofertas)"
+                          type: string
+                        suggestedMic:
+                          nullable: true
+                          description: MIC Euronext deduzido da bolsa, se aplicável
+                          type: string
                         latest:
                           nullable: true
                           type: object
@@ -340,6 +357,8 @@ paths:
                         - firstSession
                         - lastSession
                         - inWatchlist
+                        - isinMic
+                        - suggestedMic
                         - latest
                       additionalProperties: false
                   total:
@@ -369,6 +388,12 @@ paths:
                 addToWatchlist:
                   default: true
                   type: boolean
+                isinMics:
+                  description: 'ISIN-MIC por símbolo, ex.: { "GALP.LS": "PTGAL0AM0009-XLIS" }'
+                  type: object
+                  additionalProperties:
+                    type: string
+                    maxLength: 32
               required:
                 - symbols
       responses:
@@ -468,6 +493,9 @@ paths:
                           type: number
                         symbol:
                           type: string
+                        isinMic:
+                          nullable: true
+                          type: string
                         status:
                           type: string
                           enum:
@@ -480,6 +508,7 @@ paths:
                       required:
                         - line
                         - symbol
+                        - isinMic
                         - status
                         - message
                       additionalProperties: false
@@ -590,6 +619,14 @@ paths:
                     description: Data AAAA-MM-DD
                   inWatchlist:
                     type: boolean
+                  isinMic:
+                    nullable: true
+                    description: "ISIN-MIC Euronext, ex.: PTFCP0AM0008-XLIS (livro de ofertas)"
+                    type: string
+                  suggestedMic:
+                    nullable: true
+                    description: MIC Euronext deduzido da bolsa, se aplicável
+                    type: string
                   latest:
                     nullable: true
                     type: object
@@ -667,11 +704,349 @@ paths:
                   - firstSession
                   - lastSession
                   - inWatchlist
+                  - isinMic
+                  - suggestedMic
                   - latest
                   - sessions
                   - fetch
                 additionalProperties: false
         "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/instruments/{id}/isin-mic:
+    put:
+      summary: Definir ou apagar o ISIN-MIC de um instrumento do catálogo
+      tags:
+        - Instrumentos
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                isinMic:
+                  nullable: true
+                  description: "ex.: PTFCP0AM0008-XLIS; null ou vazio apaga"
+                  type: string
+                  maxLength: 32
+              required:
+                - isinMic
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  isinMic:
+                    nullable: true
+                    type: string
+                required:
+                  - isinMic
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/instruments/{id}/orderbook:
+    get:
+      summary: Livro de ofertas Euronext do instrumento (atraso 15 min)
+      tags:
+        - Livro de ofertas
+      description: Obtido de live.euronext.com pelo módulo euronext-orderbook
+        (docs/arquitectura/orderbook-spec.md), com cache de 30 s por
+        instrumento. Requer ISIN-MIC no catálogo. spreadPct e imbalance são
+        frações.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  instrument:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      symbol:
+                        type: string
+                      name:
+                        nullable: true
+                        type: string
+                      isinMic:
+                        type: string
+                    required:
+                      - id
+                      - symbol
+                      - name
+                      - isinMic
+                    additionalProperties: false
+                  book:
+                    type: object
+                    properties:
+                      isin:
+                        type: string
+                      mic:
+                        type: string
+                      bids:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            side:
+                              type: string
+                              enum:
+                                - bid
+                                - ask
+                            price:
+                              type: string
+                              description: 'Valor decimal em texto, ex.: "1234.50"'
+                            quantity:
+                              type: number
+                            orders:
+                              nullable: true
+                              type: number
+                          required:
+                            - side
+                            - price
+                            - quantity
+                            - orders
+                          additionalProperties: false
+                      asks:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            side:
+                              type: string
+                              enum:
+                                - bid
+                                - ask
+                            price:
+                              type: string
+                              description: 'Valor decimal em texto, ex.: "1234.50"'
+                            quantity:
+                              type: number
+                            orders:
+                              nullable: true
+                              type: number
+                          required:
+                            - side
+                            - price
+                            - quantity
+                            - orders
+                          additionalProperties: false
+                      updatedAt:
+                        nullable: true
+                        type: string
+                      fetchedAt:
+                        type: string
+                      delayMinutes:
+                        type: number
+                      source:
+                        type: string
+                    required:
+                      - isin
+                      - mic
+                      - bids
+                      - asks
+                      - updatedAt
+                      - fetchedAt
+                      - delayMinutes
+                      - source
+                    additionalProperties: false
+                  stats:
+                    type: object
+                    properties:
+                      bestBid:
+                        nullable: true
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      bestAsk:
+                        nullable: true
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      spread:
+                        nullable: true
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      spreadPct:
+                        nullable: true
+                        type: number
+                      mid:
+                        nullable: true
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      bidVolume:
+                        type: number
+                      askVolume:
+                        type: number
+                      bidNotional:
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      askNotional:
+                        type: string
+                        description: 'Valor decimal em texto, ex.: "1234.50"'
+                      imbalance:
+                        nullable: true
+                        type: number
+                      bidOrders:
+                        nullable: true
+                        type: number
+                      askOrders:
+                        nullable: true
+                        type: number
+                      crossed:
+                        type: boolean
+                    required:
+                      - bestBid
+                      - bestAsk
+                      - spread
+                      - spreadPct
+                      - mid
+                      - bidVolume
+                      - askVolume
+                      - bidNotional
+                      - askNotional
+                      - imbalance
+                      - bidOrders
+                      - askOrders
+                      - crossed
+                    additionalProperties: false
+                  sourceNote:
+                    type: string
+                required:
+                  - instrument
+                  - book
+                  - stats
+                  - sourceNote
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "502":
           description: Default Response
           content:
             application/json:
@@ -900,6 +1275,14 @@ paths:
                           description: Data AAAA-MM-DD
                         inWatchlist:
                           type: boolean
+                        isinMic:
+                          nullable: true
+                          description: "ISIN-MIC Euronext, ex.: PTFCP0AM0008-XLIS (livro de ofertas)"
+                          type: string
+                        suggestedMic:
+                          nullable: true
+                          description: MIC Euronext deduzido da bolsa, se aplicável
+                          type: string
                         latest:
                           nullable: true
                           type: object
@@ -947,6 +1330,8 @@ paths:
                         - firstSession
                         - lastSession
                         - inWatchlist
+                        - isinMic
+                        - suggestedMic
                         - latest
                       additionalProperties: false
                 required:
