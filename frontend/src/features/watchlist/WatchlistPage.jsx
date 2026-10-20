@@ -38,12 +38,14 @@ function IsinMicCell({ item }) {
       setBusy(false);
     }
   }
+  // Fora da Euronext não há livro de ofertas: a célula fica vazia, sem «Definir».
+  if (!editing && !item.isinMic && !item.suggestedMic) return null;
   if (!editing) {
     return (
       <div className="row" style={{ gap: 4, flexWrap: 'nowrap' }}>
         {item.isinMic
           ? <Link to={`/orderbook?instrumento=${item.id}`} className="isin-mic" title="Ver o livro de ofertas">{item.isinMic}</Link>
-          : <span className="small muted">{item.suggestedMic ? 'por definir' : 'não Euronext'}</span>}
+          : <span className="small muted">por definir</span>}
         {item.isinMic ? (
           <Button size="small" variant="ghost" className="icon-button" onClick={start} title="Editar ISIN-MIC">
             <Icon name="edit" size={18} /><span className="visually-hidden">Editar ISIN-MIC de {item.symbol}</span>
