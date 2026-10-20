@@ -75,7 +75,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Gestão de utilizadores | Página para administradores: criar, redefinir palavra-passe, remover |
 | Configuração SMTP | Em Definições, com palavra-passe cifrada na BD e email de teste pelo motor de alertas |
 | Capital de 1 M€ | Valor por omissão das contas novas |
-| Histórico de 3 anos | Carga inicial passou de dois para três anos, para a SMA200 estar completa; comando `backfill` para os instrumentos existentes |
+| Histórico de 3 anos | Carga inicial passou de dois para três anos, para a SMA200 estar completa; comando `backfill` para os instrumentos existentes (executado a 20 out. 2026: 288 de 295 com três anos; os restantes 7 cotam há menos tempo) |
 | Autenticação em dois passos | TOTP obrigatório para todos, configurado no primeiro login (QR code), códigos de recuperação, reposição pelo administrador ou pelo CLI `reset-mfa` |
 
 ## 5. Backlog

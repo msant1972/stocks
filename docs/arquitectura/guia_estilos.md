@@ -195,7 +195,7 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 - «Aplicar estratégia» mostra a simulação no histórico: marcadores C (compra), R (reforço) e V (venda) com letra, e um painel com o resultado, as operações, os reforços, os sinais ignorados e a comparação com comprar e manter. Indicar sempre que é uma simulação e que não altera a carteira.
 - Disponibilizar resumo textual e acesso aos dados do gráfico em tabela, incluindo os indicadores e o momento visíveis.
 
-Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Não animar pontos como se fossem actualizados em tempo real. Se a cobertura for inferior a dois anos, indicar o período efectivamente disponível.
+Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Não animar pontos como se fossem actualizados em tempo real. Se a cobertura for inferior a três anos (a carga inicial), indicar o período efectivamente disponível e que a SMA200 e o momento podem não cobrir todo o gráfico.
 
 ### 5.4. Carteira virtual
 

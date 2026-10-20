@@ -177,14 +177,14 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 
 Remover um utilizador apaga em cascata as sessões, os códigos de recuperação, a carteira, as operações, as posições, a lista, os alertas e os envios; a auditoria mantém-se.
 
-As cotações não são apagadas: 295 instrumentos com três anos ocupam cerca de 22 MB e crescem cerca de 7,5 MB por ano.
+As cotações não são apagadas: 295 instrumentos com três anos são cerca de 224 000 sessões, que ocupam cerca de 51 MB com os indicadores e os índices (medido a 20 out. 2026), e crescem cerca de 75 000 sessões (≈ 17 MB) por ano.
 
 ### 4.4. Motor de recolha de cotações
 
 Comandos `python -m fetcher add | run | update | status | indicators`. O yfinance fica isolado em `provider.py`, atrás da interface `QuoteProvider`.
 
 1. **Validação assíncrona:** um símbolo novo fica `pending` com um pedido `initial`. O motor confirma no fornecedor que existe e que a moeda é EUR, preenche nome e mercado e passa-o a `active`, ou a `invalid` com o motivo.
-2. **Carga inicial:** três anos de sessões diárias (`STOCKS_HISTORY_YEARS`, 3 por omissão). A SMA200 só tem valor a partir da 200.ª sessão (cerca de 10 meses), por isso com três anos os dois anos mostrados nos gráficos e usados na estratégia têm sempre as médias completas. Depois de aumentar o valor, `python -m fetcher backfill` volta a pedir a carga dos instrumentos activos com menos histórico; as sessões existentes são actualizadas, sem duplicados.
+2. **Carga inicial:** três anos de sessões diárias (`STOCKS_HISTORY_YEARS`, 3 por omissão). A SMA200 só tem valor a partir da 200.ª sessão (cerca de 10 meses), por isso com três anos os dois anos mostrados nos gráficos e usados na estratégia têm sempre as médias completas. Depois de aumentar o valor, `python -m fetcher backfill` volta a pedir a carga dos instrumentos activos com menos histórico; as sessões existentes são actualizadas, sem duplicados. Executado em produção a 20 out. 2026: 288 dos 295 instrumentos activos passaram a começar a 20 out. 2023, sem sessões sem SMA200 nos dois anos mostrados; os outros 7 (SYENS.BR, R3NK.DE, CVC.AS, PUIG.MC, AMV0.DE, MICC.AS, CSG.AS) foram admitidos à cotação depois disso, e a página do instrumento avisa que a cobertura é inferior a três anos.
 3. **Actualização diária:** um pedido `incremental` por instrumento activo, relendo os últimos 7 dias para apanhar correcções do fornecedor.
 4. **Gravação idempotente:** `INSERT … ON DUPLICATE KEY UPDATE` sobre a chave (instrumento, sessão).
 5. **Validação dos dados:** sessões com preços não positivos ou incoerentes são descartadas, não corrigidas.
