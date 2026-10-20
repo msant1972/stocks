@@ -75,6 +75,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Gestão de utilizadores | Página para administradores: criar, redefinir palavra-passe, remover |
 | Configuração SMTP | Em Definições, com palavra-passe cifrada na BD e email de teste pelo motor de alertas |
 | Capital de 1 M€ | Valor por omissão das contas novas |
+| Autenticação em dois passos | TOTP obrigatório para todos, configurado no primeiro login (QR code), códigos de recuperação, reposição pelo administrador ou pelo CLI `reset-mfa` |
 
 ## 5. Backlog
 
@@ -105,7 +106,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 
 | Componente | Ferramenta | Testes |
 |---|---|---|
-| API | Vitest contra a base `stocks_test` | 81 (+1 de contrato com rede, opcional) |
+| API | Vitest contra a base `stocks_test` | 91 (+1 de contrato com rede, opcional) |
 | Motor de recolha | pytest, fornecedor simulado | 21 |
 | Motor de alertas | pytest, mailer simulado | 18 |
 | Frontend (cálculos) | `node --test` | 11 |

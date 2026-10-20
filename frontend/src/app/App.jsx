@@ -22,7 +22,8 @@ function RequireSession({ children }) {
   if (me.isPending) {
     return <div className="login-wrap" role="status"><span className="muted">A carregar…</span></div>;
   }
-  if (me.isError) return <Navigate to="/entrar" replace state={{ from: location.pathname }} />;
+  // Sem sessão, ou com a autenticação em dois passos por concluir: o ecrã de entrada trata do passo em falta.
+  if (me.isError || !me.data || me.data.mfa.pending) return <Navigate to="/entrar" replace state={{ from: location.pathname }} />;
   return children;
 }
 

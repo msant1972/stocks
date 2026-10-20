@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
 import { createUser } from '../src/services/users.js';
 import { decryptSecret, encryptSecret } from '../src/secrets.js';
-import { api, FAST_HASH, hasTestDb, login, makeUser, PASSWORD, setup, testConfig } from './helpers.js';
+import { api, enableMfa, FAST_HASH, hasTestDb, login, makeUser, PASSWORD, setup, testConfig } from './helpers.js';
 
 const KEY = Buffer.alloc(32, 7);
 
@@ -22,7 +22,7 @@ describe.skipIf(!hasTestDb)('configuração SMTP', () => {
   beforeAll(async () => {
     ctx = await setup();
     app = await buildApp({ pool: ctx.pool, cfg: { ...testConfig(), secretKey: KEY }, logger: false });
-    await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true, initialCapital: '1' }, FAST_HASH);
+    await enableMfa(ctx.pool, await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true, initialCapital: '1' }, FAST_HASH));
     await makeUser(ctx.pool, 'ana@exemplo.pt');
     admin = api(app, await login(app, 'admin@exemplo.pt'));
   });
@@ -75,7 +75,7 @@ describe.skipIf(!hasTestDb)('configuração SMTP', () => {
 
   it('sem chave de cifra recusa guardar palavra-passe', async () => {
     const noKey = await buildApp({ pool: ctx.pool, cfg: { ...testConfig(), secretKey: null }, logger: false });
-    const a = api(noKey, await login(noKey, 'admin@exemplo.pt'));
+    const a = api(noKey, await login(app, 'admin@exemplo.pt')); // a sessão é a mesma; o 2.º passo precisa da chave
     expect((await a.put('/admin/smtp', { ...body, password: 'x' })).json().error.code).toBe('NO_SECRET_KEY');
     expect((await a.post('/admin/smtp/test')).statusCode).toBe(501);
     await noKey.close();

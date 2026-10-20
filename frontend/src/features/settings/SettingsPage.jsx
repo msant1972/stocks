@@ -7,6 +7,7 @@ import { useMe, useStatus } from '../../lib/queries.js';
 import { useReducedTransparency, useTheme } from '../../lib/theme.js';
 import { Button, Field, Notice, Segmented, Switch } from '../../components/ui/controls.jsx';
 import SmtpCard from './SmtpCard.jsx';
+import MfaCard from './MfaCard.jsx';
 
 function PasswordForm() {
   const qc = useQueryClient();
@@ -83,7 +84,7 @@ export default function SettingsPage() {
           <section className="card spread" aria-labelledby="admin-title">
             <div>
               <h2 id="admin-title" className="card-title">Utilizadores</h2>
-              <p className="small muted">Adicionar e remover contas e redefinir palavras-passe.</p>
+              <p className="small muted">Adicionar e remover contas, redefinir palavras-passe e repor a autenticação em dois passos.</p>
             </div>
             <Link className="button" to="/utilizadores">Gerir utilizadores</Link>
           </section>
@@ -135,6 +136,8 @@ export default function SettingsPage() {
           <h2 id="pw-title" className="card-title" style={{ marginBottom: '1rem' }}>Palavra-passe</h2>
           <PasswordForm />
         </section>
+
+        <MfaCard />
 
         <LogoutCard />
       </div>

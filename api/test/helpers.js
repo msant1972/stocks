@@ -5,6 +5,8 @@ import { buildApp } from '../src/app.js';
 import { loadConfig } from '../src/config.js';
 import { createPool } from '../src/db.js';
 import { createUser } from '../src/services/users.js';
+import { encryptSecret } from '../src/secrets.js';
+import { totp } from '../src/auth/totp.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const envFile = path.join(root, '.env');
@@ -15,6 +17,9 @@ export const hasTestDb = Boolean(process.env.STOCKS_TEST_DB_PASSWORD);
 // Parâmetros de scrypt baixos, só para os testes correrem depressa.
 export const FAST_HASH = { N: 1024, r: 8, p: 1, maxmem: 32 * 1024 * 1024 };
 export const PASSWORD = 'palavra-passe-de-teste';
+// Chave de cifra e segredo TOTP fixos, só para testes.
+export const TEST_SECRET_KEY = Buffer.alloc(32, 7);
+export const TOTP_SECRET = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 
 export function testConfig(overrides = {}) {
   return {
@@ -27,6 +32,7 @@ export function testConfig(overrides = {}) {
       STOCKS_PUBLIC_ORIGIN: '',
       STOCKS_LOGIN_MAX_ATTEMPTS: '1000',
     }),
+    secretKey: TEST_SECRET_KEY,
     ...overrides,
   };
 }
@@ -50,24 +56,59 @@ export async function resetDb(pool) {
   }
 }
 
+let testPool = null; // usado por login() para permitir vários logins seguidos com o mesmo código
+
 export async function setup() {
   const cfg = testConfig();
   const pool = createPool(cfg.db);
   await resetDb(pool);
   const app = await buildApp({ pool, cfg, logger: false });
+  testPool = pool;
   return { app, pool, cfg };
 }
 
-export async function makeUser(pool, email, capital = '10000.00') {
+/** Utilizador com o 2.º factor já activo (segredo TOTP_SECRET), salvo se mfa = false. */
+export async function makeUser(pool, email, capital = '10000.00', { mfa = true } = {}) {
   const id = await createUser(pool, { email, name: email.split('@')[0], password: PASSWORD, initialCapital: capital }, FAST_HASH);
+  if (mfa) await enableMfa(pool, id);
   return id;
 }
 
-export async function login(app, email, password = PASSWORD) {
+/** Activa o 2.º factor directamente na BD, com o segredo TOTP_SECRET. */
+export async function enableMfa(pool, userId) {
+  await pool.query('UPDATE users SET totp_secret_enc = ?, totp_enabled_at = NOW(3) WHERE id = ?', [encryptSecret(TEST_SECRET_KEY, TOTP_SECRET), userId]);
+}
+
+const sessionCookie = (res) => `stocks_session=${res.cookies.find((x) => x.name === 'stocks_session').value}`;
+
+/** Só o 1.º passo (palavra-passe): devolve o cookie da sessão restrita e a resposta. */
+export async function loginPassword(app, email, password = PASSWORD) {
   const res = await app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password } });
   if (res.statusCode !== 200) throw new Error(`login falhou: ${res.statusCode} ${res.body}`);
-  const c = res.cookies.find((x) => x.name === 'stocks_session');
-  return `stocks_session=${c.value}`;
+  return { cookie: sessionCookie(res), body: res.json() };
+}
+
+/**
+ * Login completo. Com o 2.º factor activo, envia o código TOTP; sem ele, percorre a configuração
+ * (setup + enable), trocando o segredo gerado por TOTP_SECRET para os logins seguintes.
+ * Cada código só é aceite uma vez, por isso, entre logins do mesmo utilizador, limpa-se o último passo usado.
+ */
+export async function login(app, email, password = PASSWORD) {
+  const { cookie, body } = await loginPassword(app, email, password);
+  const headers = { cookie };
+  const normalised = email.trim().toLowerCase();
+  let res;
+  if (body.mfa.pending === 'setup') {
+    const setupRes = await app.inject({ method: 'POST', url: '/api/v1/auth/mfa/setup', headers });
+    if (setupRes.statusCode !== 200) throw new Error(`setup falhou: ${setupRes.statusCode} ${setupRes.body}`);
+    await testPool.query('UPDATE users SET totp_pending_enc = ? WHERE email = ?', [encryptSecret(TEST_SECRET_KEY, TOTP_SECRET), normalised]);
+    res = await app.inject({ method: 'POST', url: '/api/v1/auth/mfa/enable', headers, payload: { code: totp(TOTP_SECRET) } });
+  } else {
+    await testPool.query('UPDATE users SET totp_last_step = NULL WHERE email = ?', [normalised]);
+    res = await app.inject({ method: 'POST', url: '/api/v1/auth/mfa/verify', headers, payload: { code: totp(TOTP_SECRET) } });
+  }
+  if (res.statusCode !== 200) throw new Error(`2.º passo falhou: ${res.statusCode} ${res.body}`);
+  return sessionCookie(res);
 }
 
 /** Últimos n dias úteis até hoje (UTC), do mais antigo para o mais recente. */

@@ -24,6 +24,7 @@ A configuração vem de variáveis de ambiente. Em desenvolvimento, as scripts `
 | `STOCKS_SESSION_DAYS` | `7` | Validade da sessão, renovada com o uso |
 | `STOCKS_LOGIN_MAX_ATTEMPTS` | `10` | Tentativas de login por IP em 15 minutos |
 | `STOCKS_FRONTEND_DIST` | — | Pasta do frontend compilado; se definida, a API serve-o |
+| `STOCKS_SECRET_KEY` | ficheiro `/etc/stocks/secret.key` | Chave AES-256 (32 bytes em base64) que cifra a palavra-passe SMTP e os segredos TOTP; obrigatória para a autenticação em dois passos |
 
 ## Utilização
 
@@ -33,7 +34,7 @@ npm run cli -- list-users
 npm run dev                                                      # API em http://127.0.0.1:3000
 ```
 
-Outros comandos: `set-password`, `set-email` (com `--new-email`), `disable-user` e `enable-user`, todos com `--email`.
+Outros comandos: `set-password`, `set-email` (com `--new-email`), `disable-user`, `enable-user` e `reset-mfa` (desliga o 2.º factor, que é configurado de novo no próximo login), todos com `--email`.
 
 ## Livro de ofertas (CLI)
 
@@ -51,6 +52,7 @@ Códigos de saída: 0 OK, 2 argumentos inválidos, 3 sem dados ou não encontrad
 ## Regras implementadas
 
 - **Sessões:** cookie `HttpOnly` e `SameSite=Strict`. Na BD guarda-se só o SHA-256 do token. As palavras-passe usam scrypt com os parâmetros da OWASP. Alterar a palavra-passe ou desactivar a conta termina todas as sessões.
+- **Autenticação em dois passos (obrigatória):** o login cria uma sessão restrita de 15 minutos (`mfa_verify` ou `mfa_setup`), que só chega às rotas com `config: { mfa: 'allow' }`; as outras respondem `401 MFA_REQUIRED`, ou `403 MFA_SETUP_REQUIRED` numa sessão completa de uma conta sem 2.º factor. TOTP em `src/auth/totp.js` (RFC 6238, sem dependências); segredo cifrado com a chave de `STOCKS_SECRET_KEY`/`/etc/stocks/secret.key`; códigos de uso único; 10 códigos de recuperação (SHA-256); 5 códigos errados terminam a sessão restrita. Nos testes, `login()` completa o 2.º passo com um segredo fixo.
 - **Catálogo:** os símbolos novos ficam no estado `pending` e geram um pedido em `fetch_jobs`. O motor de recolha confirma que o símbolo existe e que a moeda é EUR. A importação aceita `.xlsx` ou `.csv` (até 1 MB e 1000 linhas). Lê a coluna `ticker` e mostra uma pré-visualização antes de gravar.
 - **Simulação:**
   - o preço é o último fecho não ajustado;

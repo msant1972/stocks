@@ -101,6 +101,7 @@ export async function buildApp({ pool, cfg, logger = true }) {
 
   await app.register(async (api) => {
     api.decorateRequest('user', null);
+    api.decorateRequest('mfa', null);
 
     api.addHook('onRequest', async (req, reply) => {
       // Defesa adicional contra CSRF, além do cookie SameSite=Strict: a origem tem de ser a da aplicação.
@@ -110,12 +111,19 @@ export async function buildApp({ pool, cfg, logger = true }) {
       const token = req.cookies[SESSION_COOKIE];
       const user = await resolveSession(pool, token, cfg.sessionDays);
       if (user) {
-        const { renewed, ...rest } = user;
+        const { renewed, stage, mfaEnabled, ...rest } = user;
         req.user = rest;
+        req.mfa = { stage, enabled: mfaEnabled };
         if (renewed) reply.setCookie(SESSION_COOKIE, token, cookieOptions);
-      } else if (!req.routeOptions.config?.public) {
-        throw new AppError(401, 'UNAUTHENTICATED', 'sessão inexistente ou expirada');
       }
+      const config = req.routeOptions.config ?? {};
+      if (config.public) return;
+      if (!user) throw new AppError(401, 'UNAUTHENTICATED', 'sessão inexistente ou expirada');
+      // Autenticação em dois passos obrigatória: até o código ser confirmado (ou o 2.º factor
+      // configurado), a sessão só chega às rotas marcadas com config.mfa = 'allow'.
+      if (config.mfa === 'allow') return;
+      if (req.mfa.stage !== 'full') throw new AppError(401, 'MFA_REQUIRED', 'falta confirmar o código de autenticação');
+      if (!req.mfa.enabled) throw new AppError(403, 'MFA_SETUP_REQUIRED', 'configure a autenticação em dois passos');
     });
 
     const opts = { pool, cfg, cookieOptions };

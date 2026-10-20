@@ -63,6 +63,14 @@ Criar a primeira conta:
 sudo -u stocks bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/api && node src/cli.js create-user --email miguel@graus.pt --name "Miguel" --admin'
 ```
 
+No primeiro login é pedido que configure a autenticação em dois passos (obrigatória). Se um administrador perder o telemóvel e os códigos de recuperação, e não houver outro administrador para a repor na página Utilizadores:
+
+```bash
+sudo -u stocks bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/api && node src/cli.js reset-mfa --email miguel@graus.pt'
+```
+
+Os segredos TOTP são cifrados com `/etc/stocks/secret.key`: perder ou substituir esta chave invalida o 2.º factor de todos (repor com `reset-mfa`). Os snapshots EBS incluem-na.
+
 Carregar a lista inicial de instrumentos:
 
 ```bash

@@ -17,6 +17,7 @@ Este documento descreve a arquitectura implementada. O módulo de livro de ofert
 | Modalidade | Simulação e acompanhamento |
 | Operações reais | Fora do âmbito |
 | Utilizadores | Grupo privado; contas criadas por administradores (página Utilizadores ou CLI); sem registo público |
+| Autenticação | Palavra-passe e código TOTP de uma aplicação de autenticação (obrigatório para todos; configurado no primeiro login) |
 | Mercados e moeda | Instrumentos cotados em EUR (Euronext, Xetra, Madrid, Milão, Helsínquia, Viena, entre outros), verificado pela moeda devolvida pelo fornecedor; carteira em EUR |
 | Fonte de dados | Yahoo Finance via yfinance, versão fixada, atrás de um adaptador substituível |
 | Catálogo | Global e partilhado; preenchido à mão ou por importação de Excel/CSV; cada utilizador escolhe os instrumentos que acompanha |
@@ -98,8 +99,9 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Operações | Histórico filtrável por tipo, instrumento e datas |
 | Sinais | Compras, reforços e vendas da estratégia aplicada virtualmente a todos os instrumentos, nas últimas 1 a 10 sessões, com filtro por tipo e botões Comprar e Vender (operação na carteira virtual) |
 | Alertas | Regras com pré-visualização em linguagem natural, activação e eventos com o estado do envio |
-| Utilizadores | Só administradores: listar, adicionar, redefinir palavra-passe e remover contas |
-| Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, terminar sessão; para administradores, configuração SMTP com email de teste |
+| Entrar | Palavra-passe e, a seguir, código de 6 dígitos ou código de recuperação; no primeiro login, configuração do 2.º factor com QR code, chave manual e 10 códigos de recuperação |
+| Utilizadores | Só administradores: listar (com o estado do 2.º factor), adicionar, redefinir palavra-passe, repor o 2.º factor e remover contas |
+| Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, autenticação em dois passos (códigos de recuperação, trocar de aplicação), terminar sessão; para administradores, configuração SMTP com email de teste |
 
 Regras da interface:
 - Os valores monetários chegam como strings decimais e só passam a número para apresentação. Formatação pt-PT («12 345,67 €», «16 out. 2026»).
@@ -117,6 +119,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Área | Rotas |
 |---|---|
 | Sessão | `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PUT /me/password` |
+| 2.º factor | `POST /auth/mfa/verify`, `POST /auth/mfa/setup`, `POST /auth/mfa/enable`, `GET /me/mfa`, `POST /me/mfa/recovery-codes`, `POST /me/mfa/reset`, `DELETE /admin/users/{id}/mfa` |
 | Instrumentos | `GET /instruments`, `GET /instruments/{id}`, `POST /instruments`, `POST /instruments/import/preview`, `GET /instruments/import/template`, `POST /instruments/fetch` |
 | Histórico | `GET /instruments/{id}/quotes` (cotações e indicadores) |
 | ISIN-MIC e livro de ofertas | `PUT /instruments/{id}/isin-mic`, `GET /instruments?withIsinMic=true`, `GET /instruments/{id}/orderbook` |
@@ -161,7 +164,8 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 | `daily_quotes` | Uma linha por (instrumento, sessão): abertura, máximo, mínimo, fecho, fecho ajustado, volume, origem, e os indicadores `ema9`, `sma10`, `sma50`, `sma125`, `sma200` |
 | `fetch_jobs` | Fila de recolha: tipo (inicial ou incremental), estado, tentativas, próxima tentativa, último erro |
 | `job_runs` | Execuções da recolha diária e dos alertas, para diagnóstico |
-| `users`, `sessions` | Contas (hash scrypt, perfil de administrador, desactivação) e sessões (só o SHA-256 do token) |
+| `users`, `sessions` | Contas (hash scrypt, perfil de administrador, desactivação, segredo TOTP cifrado e último passo aceite) e sessões (só o SHA-256 do token; fase `mfa_setup`, `mfa_verify` ou `full`; códigos errados) |
+| `user_recovery_codes` | Códigos de recuperação do 2.º factor (só o SHA-256), cada um de uso único |
 | `watchlist_items` | Uma lista por utilizador sobre o catálogo |
 | `portfolios`, `cash_movements` | Carteira em EUR com capital inicial e saldo; movimentos de saldo |
 | `simulated_trades` | Operações com preço, montante, data da cotação, resultado realizado e chave de idempotência (única por carteira) |
@@ -171,7 +175,7 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 | `smtp_settings` | Configuração SMTP global (servidor, porta, segurança, utilizador, palavra-passe cifrada, remetente) |
 | `audit_log` | Acções relevantes, sem palavras-passe, tokens ou credenciais |
 
-Remover um utilizador apaga em cascata as sessões, a carteira, as operações, as posições, a lista, os alertas e os envios; a auditoria mantém-se.
+Remover um utilizador apaga em cascata as sessões, os códigos de recuperação, a carteira, as operações, as posições, a lista, os alertas e os envios; a auditoria mantém-se.
 
 As cotações não são apagadas: 295 instrumentos com dois anos ocupam cerca de 15 MB e crescem cerca de 7,5 MB por ano.
 
@@ -279,7 +283,18 @@ A página **Sinais** aplica a mesma estratégia, no servidor, a todos os instrum
 
 ### 5.6. Gestão de utilizadores
 
-Um administrador cria contas (com carteira e capital inicial), redefine palavras-passe (o que termina as sessões do utilizador) e remove contas com todos os dados. Não pode remover a própria conta, e a aplicação nunca fica sem administradores activos. Tudo fica na auditoria. O CLI `api/src/cli.js` faz o mesmo a partir do servidor.
+Um administrador cria contas (com carteira e capital inicial), redefine palavras-passe (o que termina as sessões do utilizador), repõe a autenticação em dois passos de quem perdeu o telemóvel e os códigos de recuperação, e remove contas com todos os dados. Não pode remover a própria conta, e a aplicação nunca fica sem administradores activos. Tudo fica na auditoria. O CLI `api/src/cli.js` faz o mesmo a partir do servidor; `reset-mfa` é também o recurso de um administrador sem acesso ao 2.º factor.
+
+### 5.7. Entrada com autenticação em dois passos
+
+O 2.º factor é obrigatório: TOTP (RFC 6238; HMAC-SHA1, 6 dígitos, passos de 30 s, tolerância de ±1 passo), compatível com Google Authenticator, Microsoft Authenticator, 1Password, Bitwarden e semelhantes.
+
+1. `POST /auth/login` verifica a palavra-passe e cria uma sessão **restrita** de 15 minutos, sem renovação. A resposta indica o passo em falta (`mfa.pending`).
+2. Com o 2.º factor activo (`verify`), o utilizador introduz o código da aplicação ou um código de recuperação em `POST /auth/mfa/verify`.
+3. Sem ele (`setup`: contas novas, contas anteriores à funcionalidade ou 2.º factor reposto), `POST /auth/mfa/setup` gera um segredo pendente e o QR code (`otpauth://`, emissor «Stocks»), e `POST /auth/mfa/enable` activa-o com o primeiro código. São mostrados 10 códigos de recuperação uma única vez, e as outras sessões do utilizador terminam.
+4. Em ambos os casos a sessão restrita é substituída por uma completa, com token novo.
+
+Enquanto a sessão não é completa, só `/me`, `/auth/logout` e `/auth/mfa/*` respondem; as restantes rotas devolvem `401 MFA_REQUIRED`. Uma sessão completa de uma conta sem 2.º factor (sessões abertas antes da migração) recebe `403 MFA_SETUP_REQUIRED` e é levada à configuração. Em Definições, o utilizador vê os códigos de recuperação por usar, gera novos (pede um código) e troca de aplicação (pede palavra-passe e código, termina as sessões e mostra um QR code novo).
 
 ## 6. Segurança
 
@@ -287,6 +302,13 @@ Um administrador cria contas (com carteira e capital inicial), redefine palavras
 - Cookie de sessão `HttpOnly`, `Secure` e `SameSite=Strict`; na BD guarda-se só o SHA-256 do token; renovação com o uso.
 - Defesa adicional contra CSRF: pedidos de escrita com `Origin` diferente de `https://stocks.graus.pt` são recusados; a API não aceita `text/plain`.
 - Palavras-passe com scrypt (N = 2^17, r = 8, p = 1), mínimo de 8 caracteres; login com limite de 10 tentativas por IP em 15 minutos e tempo de resposta igual para emails inexistentes.
+- Autenticação em dois passos obrigatória (secção 5.7):
+  - segredo TOTP cifrado com AES-256-GCM e a chave de `/etc/stocks/secret.key`; sem a chave, a configuração responde `503 NO_SECRET_KEY` em vez de guardar o segredo em claro;
+  - cada código só é aceite uma vez (último passo guardado, actualização condicional contra pedidos simultâneos);
+  - 5 códigos errados terminam a sessão restrita; limite adicional de 20 pedidos por IP em 15 minutos nas rotas do 2.º factor;
+  - códigos de recuperação guardados só como SHA-256;
+  - o token de sessão muda ao passar a sessão completa;
+  - risco aceite: quem conheça a palavra-passe de uma conta que ainda não configurou o 2.º factor pode configurá-lo primeiro; o administrador repõe-no e redefine a palavra-passe.
 - Autorização por recurso: cada utilizador só vê a sua carteira, lista, operações e alertas; a administração exige perfil de administrador.
 - Content-Security-Policy sem scripts inline além do script de tema, permitido pelo seu hash.
 - Serviços systemd com utilizador próprio (`stocks`), sistema de ficheiros só de leitura e escrita apenas onde é necessária (`/var/lib/stocks`, `/var/backups/stocks`).
@@ -306,7 +328,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é feita por snapshots EBS do volume, geridos na AWS |
 
-Testes automáticos em cada componente: API com Vitest contra uma BD de testes (81, incluindo 19 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (21) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
+Testes automáticos em cada componente: API com Vitest contra uma BD de testes (91, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 19 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (21) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e snapshots EBS do volume (cópia fora do servidor, geridos na AWS), com restauro testado pelo administrador.
@@ -328,6 +350,7 @@ Riscos aceites ou pendentes:
 | Cada utilizador recebe no máximo um email de alertas por hora | Cumprido (testado); SMTP da OVH configurado |
 | O mesmo evento não gera notificações repetidas | Cumprido (testado) |
 | As falhas de recolha e de envio são registadas | Cumprido |
+| O acesso exige palavra-passe e código TOTP | Cumprido (testado) |
 
 ## 9. Decisões ainda em aberto
 

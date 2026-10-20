@@ -16,9 +16,12 @@ components:
 paths:
   /api/v1/auth/login:
     post:
-      summary: Iniciar sessão
+      summary: "Iniciar sessão (1.º passo: palavra-passe)"
       tags:
         - Sessão
+      description: 'Cria uma sessão restrita de 15 minutos. O passo seguinte é
+        indicado em mfa.pending: "verify" (POST /auth/mfa/verify) ou "setup"
+        (POST /auth/mfa/setup e /auth/mfa/enable).'
       requestBody:
         required: true
         content:
@@ -60,10 +63,383 @@ paths:
                       - name
                       - isAdmin
                     additionalProperties: false
+                  mfa:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      pending:
+                        nullable: true
+                        type: string
+                        enum:
+                          - verify
+                          - setup
+                    required:
+                      - enabled
+                      - pending
+                    additionalProperties: false
                 required:
                   - user
+                  - mfa
                 additionalProperties: false
         "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/auth/mfa/verify:
+    post:
+      summary: "Iniciar sessão (2.º passo: código da aplicação ou de recuperação)"
+      tags:
+        - Sessão
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 20
+              required:
+                - code
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      email:
+                        type: string
+                      name:
+                        type: string
+                      isAdmin:
+                        type: boolean
+                    required:
+                      - id
+                      - email
+                      - name
+                      - isAdmin
+                    additionalProperties: false
+                  mfa:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      pending:
+                        nullable: true
+                        type: string
+                        enum:
+                          - verify
+                          - setup
+                    required:
+                      - enabled
+                      - pending
+                    additionalProperties: false
+                  recoveryCodesLeft:
+                    nullable: true
+                    type: number
+                required:
+                  - user
+                  - mfa
+                  - recoveryCodesLeft
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/auth/mfa/setup:
+    post:
+      summary: Gerar o segredo TOTP e o QR code (ainda por confirmar)
+      tags:
+        - Sessão
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  secret:
+                    type: string
+                  otpauthUri:
+                    type: string
+                  qrCode:
+                    type: string
+                required:
+                  - secret
+                  - otpauthUri
+                  - qrCode
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "503":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/auth/mfa/enable:
+    post:
+      summary: Confirmar o 1.º código e activar o 2.º factor
+      tags:
+        - Sessão
+      description: Devolve 10 códigos de recuperação, mostrados só desta vez. Termina
+        as outras sessões do utilizador.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 20
+              required:
+                - code
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      email:
+                        type: string
+                      name:
+                        type: string
+                      isAdmin:
+                        type: boolean
+                    required:
+                      - id
+                      - email
+                      - name
+                      - isAdmin
+                    additionalProperties: false
+                  mfa:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      pending:
+                        nullable: true
+                        type: string
+                        enum:
+                          - verify
+                          - setup
+                    required:
+                      - enabled
+                      - pending
+                    additionalProperties: false
+                  recoveryCodes:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - user
+                  - mfa
+                  - recoveryCodes
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "503":
           description: Default Response
           content:
             application/json:
@@ -102,7 +478,7 @@ paths:
                   - null
   /api/v1/me:
     get:
-      summary: Utilizador autenticado
+      summary: Utilizador autenticado e estado do 2.º factor
       tags:
         - Sessão
       responses:
@@ -130,8 +506,239 @@ paths:
                       - name
                       - isAdmin
                     additionalProperties: false
+                  mfa:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      pending:
+                        nullable: true
+                        type: string
+                        enum:
+                          - verify
+                          - setup
+                    required:
+                      - enabled
+                      - pending
+                    additionalProperties: false
                 required:
                   - user
+                  - mfa
+                additionalProperties: false
+  /api/v1/me/mfa:
+    get:
+      summary: Autenticação em dois passos da conta
+      tags:
+        - Sessão
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  enabledAt:
+                    nullable: true
+                    type: string
+                  recoveryCodesLeft:
+                    type: number
+                required:
+                  - enabled
+                  - enabledAt
+                  - recoveryCodesLeft
+                additionalProperties: false
+  /api/v1/me/mfa/recovery-codes:
+    post:
+      summary: Gerar códigos de recuperação novos (invalida os anteriores)
+      tags:
+        - Sessão
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 20
+              required:
+                - code
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recoveryCodes:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - recoveryCodes
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/me/mfa/reset:
+    post:
+      summary: Trocar de aplicação de autenticação
+      tags:
+        - Sessão
+      description: Pede a palavra-passe e um código. Desliga o 2.º factor, termina
+        todas as sessões e devolve uma sessão restrita para o configurar de
+        novo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+                  maxLength: 200
+                code:
+                  type: string
+                  minLength: 6
+                  maxLength: 20
+              required:
+                - password
+                - code
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      email:
+                        type: string
+                      name:
+                        type: string
+                      isAdmin:
+                        type: boolean
+                    required:
+                      - id
+                      - email
+                      - name
+                      - isAdmin
+                    additionalProperties: false
+                  mfa:
+                    type: object
+                    properties:
+                      enabled:
+                        type: boolean
+                      pending:
+                        nullable: true
+                        type: string
+                        enum:
+                          - verify
+                          - setup
+                    required:
+                      - enabled
+                      - pending
+                    additionalProperties: false
+                required:
+                  - user
+                  - mfa
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
                 additionalProperties: false
   /api/v1/me/password:
     put:
@@ -2829,6 +3436,8 @@ paths:
                         lastSeenAt:
                           nullable: true
                           type: string
+                        mfaEnabled:
+                          type: boolean
                       required:
                         - id
                         - email
@@ -2837,6 +3446,7 @@ paths:
                         - disabled
                         - createdAt
                         - lastSeenAt
+                        - mfaEnabled
                       additionalProperties: false
                 required:
                   - items
@@ -2994,6 +3604,98 @@ paths:
                   maxLength: 200
               required:
                 - password
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/admin/users/{id}/mfa:
+    delete:
+      summary: Repor a autenticação em dois passos (termina as sessões do utilizador)
+      tags:
+        - Administração
+      description: "Para quem perdeu o telemóvel e os códigos de recuperação: no
+        próximo login configura-a de novo."
       parameters:
         - schema:
             type: integer

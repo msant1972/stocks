@@ -7,6 +7,7 @@
  *   npm run cli -- disable-user --email ana@exemplo.pt
  *   npm run cli -- enable-user --email ana@exemplo.pt
  *   npm run cli -- list-users
+ *   npm run cli -- reset-mfa --email ana@exemplo.pt   (2.º factor perdido: configura-o de novo no próximo login)
  *
  * A palavra-passe é pedida no terminal sem eco, ou lida de STOCKS_NEW_PASSWORD (para automatização).
  */
@@ -16,6 +17,7 @@ import { loadConfig } from './config.js';
 import { audit, createPool, withTransaction } from './db.js';
 import { destroyUserSessions } from './auth/sessions.js';
 import { createUser, normaliseEmail, passwordError, setPassword } from './services/users.js';
+import { resetMfa } from './services/mfa.js';
 
 function askHidden(prompt) {
   return new Promise((resolve) => {
@@ -98,15 +100,24 @@ async function main() {
         console.log(disable ? 'utilizador desactivado' : 'utilizador reactivado');
         break;
       }
+      case 'reset-mfa': {
+        const id = await findUser(pool, values.email ?? '');
+        await withTransaction(pool, async (conn) => {
+          await resetMfa(conn, id);
+          await audit(conn, null, 'user.mfa_reset', 'user', id);
+        });
+        console.log('autenticação em dois passos reposta; será configurada de novo no próximo login');
+        break;
+      }
       case 'list-users': {
-        const [rows] = await pool.query('SELECT id, email, name, is_admin, disabled_at FROM users ORDER BY id');
+        const [rows] = await pool.query('SELECT id, email, name, is_admin, disabled_at, totp_enabled_at FROM users ORDER BY id');
         for (const u of rows) {
-          console.log(`${u.id}\t${u.email}\t${u.name}${u.is_admin ? '\t[admin]' : ''}${u.disabled_at ? '\t[desactivado]' : ''}`);
+          console.log(`${u.id}\t${u.email}\t${u.name}${u.is_admin ? '\t[admin]' : ''}${u.totp_enabled_at ? '\t[2FA]' : ''}${u.disabled_at ? '\t[desactivado]' : ''}`);
         }
         break;
       }
       default:
-        throw new Error('comando desconhecido; use create-user, set-password, set-email, disable-user, enable-user ou list-users');
+        throw new Error('comando desconhecido; use create-user, set-password, set-email, disable-user, enable-user, reset-mfa ou list-users');
     }
   } finally {
     await pool.end();

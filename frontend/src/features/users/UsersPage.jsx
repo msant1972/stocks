@@ -175,12 +175,54 @@ function DeleteUserDialog({ user, onClose, onDone }) {
   );
 }
 
+function ResetMfaDialog({ user, onClose, onDone }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  function close() { setError(null); setBusy(false); onClose(); }
+
+  async function reset() {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.del(`/admin/users/${user.id}/mfa`);
+      qc.invalidateQueries({ queryKey: ['admin-users'] });
+      onDone(`Autenticação em dois passos de ${user.email} reposta`);
+      close();
+    } catch (err) {
+      setError(errorMessage(err));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={user != null} onClose={close} title="Repor autenticação em dois passos?">
+      {user && (
+        <>
+          <p><strong>{user.name}</strong> <span className="muted">· {user.email}</span></p>
+          <p className="small muted" style={{ margin: '0.75rem 0' }}>
+            Use só quando o utilizador perdeu o acesso à aplicação de autenticação e aos códigos de recuperação. As sessões abertas
+            são terminadas e, no próximo login, terá de ler um QR code novo. Confirme a identidade do utilizador antes de repor.
+          </p>
+          {error && <Notice tone="error">{error}</Notice>}
+          <div className="modal-actions">
+            <Button onClick={close}>Cancelar</Button>
+            <Button variant="danger" busy={busy} onClick={reset}>Repor</Button>
+          </div>
+        </>
+      )}
+    </Dialog>
+  );
+}
+
 export default function UsersPage() {
   const { data: me } = useMe();
   const toast = useToast();
   const [adding, setAdding] = useState(false);
   const [resetting, setResetting] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [resettingMfa, setResettingMfa] = useState(null);
   const users = useQuery({ queryKey: ['admin-users'], queryFn: () => api.get('/admin/users'), enabled: !!me?.user.isAdmin });
 
   if (me && !me.user.isAdmin) return <Navigate to="/" replace />;
@@ -207,6 +249,7 @@ export default function UsersPage() {
                 <tr>
                   <th scope="col">Utilizador</th>
                   <th scope="col">Perfil</th>
+                  <th scope="col">2 passos</th>
                   <th scope="col">Criado em</th>
                   <th scope="col">Última sessão</th>
                   <th scope="col"><span className="visually-hidden">Acções</span></th>
@@ -227,12 +270,21 @@ export default function UsersPage() {
                           {u.disabled && <span className="badge badge-warning">Desactivado</span>}
                         </div>
                       </td>
+                      <td>
+                        {u.mfaEnabled
+                          ? <span className="badge badge-positive">Activa</span>
+                          : <span className="badge" title="Será pedida no próximo login">Por configurar</span>}
+                      </td>
                       <td className="small" style={{ whiteSpace: 'nowrap' }}>{f.dateTime(u.createdAt)}</td>
                       <td className="small muted" style={{ whiteSpace: 'nowrap' }}>{u.lastSeenAt ? f.dateTime(u.lastSeenAt) : 'Nunca'}</td>
                       <td className="r" style={{ whiteSpace: 'nowrap' }}>
                         <Button size="small" variant="ghost" disabled={self} onClick={() => setResetting(u)}
                           title={self ? 'Altere a sua palavra-passe em Definições' : undefined}>
                           Redefinir palavra-passe<span className="visually-hidden"> de {u.email}</span>
+                        </Button>
+                        <Button size="small" variant="ghost" disabled={self || !u.mfaEnabled} onClick={() => setResettingMfa(u)}
+                          title={self ? 'Troque de aplicação em Definições' : undefined}>
+                          Repor 2 passos<span className="visually-hidden"> de {u.email}</span>
                         </Button>
                         <Button size="small" variant="danger" className="button-ghost" disabled={self} onClick={() => setDeleting(u)}
                           title={self ? 'Não pode remover a sua própria conta' : undefined}>
@@ -250,6 +302,7 @@ export default function UsersPage() {
 
       <CreateUserDialog open={adding} onClose={() => setAdding(false)} onDone={toast} />
       <ResetPasswordDialog user={resetting} onClose={() => setResetting(null)} onDone={toast} />
+      <ResetMfaDialog user={resettingMfa} onClose={() => setResettingMfa(null)} onDone={toast} />
       <DeleteUserDialog user={deleting} onClose={() => setDeleting(null)} onDone={toast} />
     </>
   );

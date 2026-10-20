@@ -153,6 +153,14 @@ Apresentar um formulário simples, centrado numa superfície limpa, com identifi
 - Erros junto aos campos e resumo acessível quando necessário.
 - Não incluir registo público ou recuperação de conta como funcionalidades existentes sem implementação aprovada.
 
+Autenticação em dois passos (obrigatória):
+
+- Um passo por ecrã, no mesmo cartão do login: palavra-passe; depois código ou configuração.
+- Código: campo único de 6 dígitos (`inputMode="numeric"`, `autocomplete="one-time-code"`), centrado e espaçado; ajuda «O código muda a cada 30 segundos»; «Verificar» desactivado até haver 6 dígitos; em caso de erro, mensagem e campo limpo.
+- Alternativas sempre visíveis: «Usar um código de recuperação» (formato `xxxxx-xxxxx`) e «Cancelar», que termina a sessão restrita e volta ao login. Indicar que, sem aplicação nem códigos, se pede ao administrador.
+- Configuração em três passos numerados: instalar uma aplicação (exemplos), ler o QR code (fundo branco também no tema escuro), introduzir o código. «Não consegue ler o QR code?» revela a chave em grupos de 4 caracteres, seleccionável.
+- Códigos de recuperação: lista numerada em duas colunas, «Copiar» e «Descarregar .txt», aviso para os guardar fora do telemóvel e «Continuar» só depois de marcar «Guardei os códigos de recuperação». Nunca voltam a ser mostrados.
+
 ### 5.2. Visão geral
 
 Hierarquia implementada:
@@ -241,6 +249,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Preferências de apresentação e informação de conta efectivamente suportadas.
 - Explicação das regras da simulação e das limitações dos dados.
 - Estado ou data de actualização dos dados, quando disponível.
+- «Autenticação em dois passos»: estado «Activa» e data, códigos de recuperação por usar (aviso a partir de 3 ou menos), «Gerar novos códigos de recuperação» e «Trocar de aplicação»; ambos pedem um código (com alternativa «Usar um código de recuperação»), e trocar de aplicação pede também a palavra-passe e explica que as sessões terminam.
 - Para administradores, atalho para Utilizadores; para todos, «Terminar sessão» (necessário em telemóvel, onde não há barra lateral).
 - Para administradores, «Envio de email (SMTP)»: servidor, segurança (STARTTLS, SSL/TLS, sem cifra, com a porta ajustada à escolha), porta, utilizador, «Palavra-passe SMTP» (nunca mostrada; «Definida. Deixe vazio para manter.»), remetente, e os botões «Guardar», «Enviar email de teste» e «Remover palavra-passe». Indicar quem fez a última alteração e que, sem configuração, os alertas não enviam emails.
 
@@ -276,11 +285,12 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 
 Só para administradores (o menu não aparece aos restantes):
 
-- Tabela com nome, email, perfil, data de criação e última sessão; a própria conta identificada com «(você)».
+- Tabela com nome, email, perfil, estado do 2.º factor («Activa» ou «Por configurar»), data de criação e última sessão; a própria conta identificada com «(você)».
 - «Adicionar utilizador» com email, nome, palavra-passe visível com botão «Gerar», capital inicial (1 000 000 EUR por omissão) e opção de administrador.
 - «Redefinir palavra-passe» explica que as sessões do utilizador são terminadas.
+- «Repor 2 passos» (só com o 2.º factor activo) explica que é para quem perdeu a aplicação e os códigos, que as sessões terminam e que se deve confirmar a identidade do utilizador antes.
 - «Remover» pede para escrever o email do utilizador e avisa que todos os dados são apagados.
-- A própria conta não pode ser removida nem redefinida aqui (usar Definições).
+- A própria conta não pode ser removida, redefinida nem ter o 2.º factor reposto aqui (usar Definições).
 
 Não introduzir ecrãs para funcionalidades futuras como se estivessem operacionais.
 

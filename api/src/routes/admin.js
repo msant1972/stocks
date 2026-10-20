@@ -6,12 +6,13 @@ import { AppError, notFound } from '../errors.js';
 import { ErrorBody, Id } from '../schemas.js';
 import { createUser, normaliseEmail, setPassword } from '../services/users.js';
 import { encryptSecret } from '../secrets.js';
+import { resetMfa } from '../services/mfa.js';
 
 const run = promisify(execFile);
 
 const AdminUser = z.object({
   id: z.number(), email: z.string(), name: z.string(), isAdmin: z.boolean(), disabled: z.boolean(),
-  createdAt: z.string(), lastSeenAt: z.string().nullable(),
+  createdAt: z.string(), lastSeenAt: z.string().nullable(), mfaEnabled: z.boolean(),
 });
 
 const Password = z.string().min(1).max(200);
@@ -29,7 +30,7 @@ export default async function adminRoutes(app, { pool, cfg }) {
     },
   }, async () => {
     const [rows] = await pool.query(
-      `SELECT u.id, u.email, u.name, u.is_admin, u.disabled_at, u.created_at,
+      `SELECT u.id, u.email, u.name, u.is_admin, u.disabled_at, u.created_at, u.totp_enabled_at,
               (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS last_seen_at
          FROM users u ORDER BY u.id`,
     );
@@ -37,6 +38,7 @@ export default async function adminRoutes(app, { pool, cfg }) {
       items: rows.map((u) => ({
         id: Number(u.id), email: u.email, name: u.name, isAdmin: Boolean(u.is_admin), disabled: u.disabled_at != null,
         createdAt: u.created_at.toISOString(), lastSeenAt: u.last_seen_at?.toISOString() ?? null,
+        mfaEnabled: u.totp_enabled_at != null,
       })),
     };
   });
@@ -79,6 +81,27 @@ export default async function adminRoutes(app, { pool, cfg }) {
     if (!u) throw notFound('Utilizador');
     await setPassword(pool, id, req.body.password);
     await audit(pool, req.user.id, 'admin.user_password_reset', 'user', id);
+    return reply.code(204).send(null);
+  });
+
+  app.delete('/admin/users/:id/mfa', {
+    schema: {
+      tags: ['Administração'], summary: 'Repor a autenticação em dois passos (termina as sessões do utilizador)',
+      description: 'Para quem perdeu o telemóvel e os códigos de recuperação: no próximo login configura-a de novo.',
+      params: z.object({ id: Id }),
+      response: { 204: z.null(), 400: ErrorBody, 403: ErrorBody, 404: ErrorBody },
+    },
+  }, async (req, reply) => {
+    const { id } = req.params;
+    if (id === req.user.id) {
+      throw new AppError(400, 'USE_SETTINGS', 'para a sua própria conta, troque de aplicação em Definições');
+    }
+    await withTransaction(pool, async (conn) => {
+      const [[u]] = await conn.query('SELECT id FROM users WHERE id = ? FOR UPDATE', [id]);
+      if (!u) throw notFound('Utilizador');
+      await resetMfa(conn, id);
+      await audit(conn, req.user.id, 'admin.user_mfa_reset', 'user', id);
+    });
     return reply.code(204).send(null);
   });
 
