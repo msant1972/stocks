@@ -285,12 +285,12 @@ export default function WatchlistPage() {
           <p className="page-sub">A sua lista de instrumentos e o catálogo partilhado. Cotações diárias, não em tempo real; mid e desequilíbrio do livro Euronext com 15 minutos de atraso.</p>
         </div>
         <div className="row">
-          <Button
-            onClick={forceFetch} busy={forcing} disabled={pending === 0}
-            title={pending > 0 ? 'Pedir já ao Yahoo Finance os dados dos instrumentos «A validar»' : 'Todos os instrumentos do catálogo estão validados'}
-          >
-            {forcing ? 'A pedir…' : pending > 0 ? `Validar agora (${pending})` : 'Nada por validar'}
-          </Button>
+          {/* Só aparece quando há instrumentos «A validar». */}
+          {pending > 0 && (
+            <Button onClick={forceFetch} busy={forcing} title="Pedir já ao Yahoo Finance os dados dos instrumentos «A validar»">
+              {forcing ? 'A pedir…' : `Validar agora (${pending})`}
+            </Button>
+          )}
           <Button className="button-toggle" onClick={toggleCatalog} aria-expanded={showCatalog} aria-controls="catalog-section"
             title={showCatalog ? 'Esconder o catálogo partilhado' : 'Mostrar o catálogo partilhado'}>
             <Icon name="search" size={18} />Catálogo

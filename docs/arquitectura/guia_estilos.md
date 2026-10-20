@@ -187,7 +187,7 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 - Cabeçalhos ordenáveis (Instrumento, Volume, Variação, Desequilíbrio): botão no cabeçalho com seta (▲/▼ na coluna activa, ↕ nas outras) e `aria-sort`; clicar na mesma coluna inverte o sentido; instrumento começa A→Z e as restantes do maior para o menor; sem valor ficam sempre no fim. No catálogo a ordenação fica no endereço (`?ordem=volume&sentido=desc`). Ordenado por desequilíbrio, uma nota explica que só os instrumentos mostrados entram na ordenação. Em «A minha lista» a ordenação é feita no browser sobre todos os instrumentos e fica guardada no browser.
 - A variação mostra só o valor com sinal e a cor (verde a subir, vermelho a descer), sem as palavras «Subida»/«Descida».
 - Remover da lista é um ícone de caixote do lixo; «Acompanhar» mantém-se em texto. Os botões só com ícone têm `title` e nome acessível completo (ex.: «Remover GALP.LS da lista»), e os rótulos ocultos ficam contidos no `.table-wrap` (`position: relative`) para não alargarem a página em telemóvel.
-- Botão «Validar agora (N)» com o número de instrumentos por validar; desactivado com «Nada por validar». Enquanto houver pendentes, a lista actualiza-se sozinha.
+- Botão «Validar agora (N)» com o número de instrumentos por validar, só visível quando há pendentes. Enquanto houver pendentes, a lista actualiza-se sozinha.
 - Acções «Adicionar instrumento» (símbolo Yahoo, ex.: `GALP.LS`) e «Importar Excel», com modelo descarregável e pré-visualização das linhas válidas, duplicadas e com erro antes de gravar.
 - Estados do instrumento: «A validar», «Activo» e «Inválido» (com o motivo, ex.: «Não está cotado em EUR»).
 - Ticker em destaque, com nome, mercado e moeda próximos.
