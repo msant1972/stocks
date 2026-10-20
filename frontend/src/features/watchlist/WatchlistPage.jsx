@@ -101,6 +101,11 @@ function BookCells({ item, summary }) {
   );
 }
 
+const CATALOG_KEY = 'stocks.catalogo';
+const LIST_SORT_KEY = 'stocks.ordemLista';
+const readStored = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
+const store = (key, value) => { try { localStorage.setItem(key, value); } catch { /* sem armazenamento: só nesta sessão */ } };
+
 const SORT_DEFAULT_DIR = { symbol: 'asc', volume: 'desc', change: 'desc', imbalance: 'desc' };
 const SERVER_SORTS = ['symbol', 'volume', 'change'];
 
@@ -208,8 +213,25 @@ export default function WatchlistPage() {
     return next;
   }, { replace: true });
   const serverSort = SERVER_SORTS.includes(catalogSort.key) ? { sort: catalogSort.key, dir: catalogSort.dir } : undefined;
-  const search = useInstrumentSearch(q, serverSort);
-  const [listSort, setListSort] = useState({ key: 'symbol', dir: 'asc' });
+  // Catálogo visível: a última escolha do utilizador; sem escolha, só quando a lista está vazia.
+  // Uma pesquisa (ex.: vinda da barra de topo) mostra-o sempre.
+  const [catalogChoice, setCatalogChoice] = useState(() => readStored(CATALOG_KEY));
+  const listEmpty = watchlist.data?.items.length === 0;
+  const showCatalog = Boolean(q) || (catalogChoice ? catalogChoice === 'on' : listEmpty);
+  const toggleCatalog = () => {
+    const next = showCatalog ? 'off' : 'on';
+    setCatalogChoice(next);
+    store(CATALOG_KEY, next);
+    if (next === 'off' && q) setParams((p) => { const n = new URLSearchParams(p); n.delete('q'); return n; }, { replace: true });
+  };
+  const search = useInstrumentSearch(q, serverSort, showCatalog);
+  const [listSort, setListSortState] = useState(() => {
+    try {
+      const saved = JSON.parse(readStored(LIST_SORT_KEY));
+      return SORT_DEFAULT_DIR[saved?.key] && ['asc', 'desc'].includes(saved.dir) ? saved : { key: 'symbol', dir: 'asc' };
+    } catch { return { key: 'symbol', dir: 'asc' }; }
+  });
+  const setListSort = (s) => { setListSortState(s); store(LIST_SORT_KEY, JSON.stringify(s)); };
   const status = useStatus();
   const pending = status.data?.instruments.pending ?? 0;
   const [forcing, setForcing] = useState(false);
@@ -269,6 +291,10 @@ export default function WatchlistPage() {
           >
             {forcing ? 'A pedir…' : pending > 0 ? `Validar agora (${pending})` : 'Nada por validar'}
           </Button>
+          <Button className="button-toggle" onClick={toggleCatalog} aria-expanded={showCatalog} aria-controls="catalog-section"
+            title={showCatalog ? 'Esconder o catálogo partilhado' : 'Mostrar o catálogo partilhado'}>
+            <Icon name="search" size={18} />Catálogo
+          </Button>
           <Link className="button mobile-only-inline" to="/orderbook">Orderbook</Link>
           <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" size={18} />Adicionar instrumentos</Button>
         </div>
@@ -280,7 +306,7 @@ export default function WatchlistPage() {
       )}
 
       <div className="stack">
-        <section className="card" aria-labelledby="search-title">
+        {showCatalog && <section className="card" id="catalog-section" aria-labelledby="search-title">
           <div className="card-head">
             <h2 id="search-title" className="card-title">Catálogo partilhado</h2>
             {search.data && <span className="small muted">{search.data.total} {search.data.total === 1 ? 'instrumento' : 'instrumentos'}</span>}
@@ -309,7 +335,7 @@ export default function WatchlistPage() {
                   ? `Ordenados por desequilíbrio os ${search.data.items.length} instrumentos mostrados (o livro é pedido à Euronext só para estes). Pesquise para restringir a lista.`
                   : null} />
             )}
-        </section>
+        </section>}
 
         <section className="card" aria-labelledby="mine-title">
           <div className="card-head">
@@ -318,7 +344,9 @@ export default function WatchlistPage() {
           </div>
           {watchlist.isPending ? <Loading /> : watchlist.error ? <ErrorState error={watchlist.error} onRetry={watchlist.refetch} /> :
             watchlist.data.items.length === 0 ? (
-              <EmptyState title="A lista está vazia" action={<Button onClick={() => setAdding(true)}>Adicionar instrumentos</Button>}>
+              <EmptyState title="A lista está vazia" action={showCatalog
+                ? <Button onClick={() => setAdding(true)}>Adicionar instrumentos</Button>
+                : <Button onClick={toggleCatalog}>Mostrar o catálogo</Button>}>
                 Pesquise no catálogo ou adicione símbolos novos, à mão ou por Excel.
               </EmptyState>
             ) : <InstrumentTable items={watchlist.data.items} action={action} sort={listSort} onSort={setListSort} />}
