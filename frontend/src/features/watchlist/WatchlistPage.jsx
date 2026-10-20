@@ -44,9 +44,15 @@ function IsinMicCell({ item }) {
         {item.isinMic
           ? <Link to={`/orderbook?instrumento=${item.id}`} className="isin-mic" title="Ver o livro de ofertas">{item.isinMic}</Link>
           : <span className="small muted">{item.suggestedMic ? 'por definir' : 'não Euronext'}</span>}
-        <Button size="small" variant="ghost" onClick={start}>
-          {item.isinMic ? 'Editar' : 'Definir'}<span className="visually-hidden"> ISIN-MIC de {item.symbol}</span>
-        </Button>
+        {item.isinMic ? (
+          <Button size="small" variant="ghost" className="icon-button" onClick={start} title="Editar ISIN-MIC">
+            <Icon name="edit" size={18} /><span className="visually-hidden">Editar ISIN-MIC de {item.symbol}</span>
+          </Button>
+        ) : (
+          <Button size="small" variant="ghost" onClick={start}>
+            Definir<span className="visually-hidden"> ISIN-MIC de {item.symbol}</span>
+          </Button>
+        )}
       </div>
     );
   }
@@ -95,7 +101,7 @@ function InstrumentTable({ items, action }) {
                 {i.latest && <div className="small muted" style={{ whiteSpace: 'nowrap' }}>{f.date(i.latest.date)}</div>}
               </td>
               <td className="r">{f.quantity(i.latest?.volume)}</td>
-              <td className="r">{i.latest ? <PriceChange value={i.latest.changePct} /> : '—'}</td>
+              <td className="r">{i.latest ? <PriceChange value={i.latest.changePct} showLabel={false} /> : '—'}</td>
               <td><IsinMicCell item={i} /></td>
               <td className="r">{action(i)}</td>
             </tr>
@@ -151,11 +157,15 @@ export default function WatchlistPage() {
     }
   }
 
-  const action = (i) => (
-    <Button size="small" variant="ghost" busy={pendingId === i.id} onClick={() => toggle(i)} disabled={i.status === 'invalid' && !i.inWatchlist}>
-      {i.inWatchlist ? 'Remover' : 'Acompanhar'}<span className="visually-hidden"> {i.symbol}</span>
+  const action = (i) => (i.inWatchlist ? (
+    <Button size="small" variant="ghost" className="icon-button" busy={pendingId === i.id} onClick={() => toggle(i)} title="Remover da lista">
+      <Icon name="trash" size={18} /><span className="visually-hidden">Remover {i.symbol} da lista</span>
     </Button>
-  );
+  ) : (
+    <Button size="small" variant="ghost" busy={pendingId === i.id} onClick={() => toggle(i)} disabled={i.status === 'invalid'}>
+      Acompanhar<span className="visually-hidden"> {i.symbol}</span>
+    </Button>
+  ));
 
   return (
     <>

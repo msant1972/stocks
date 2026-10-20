@@ -181,7 +181,9 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 ### 5.3. Acompanhamento e detalhe de instrumento
 
 - Pesquisa por designação, ticker e mercado; catálogo partilhado sempre visível.
-- Tabela com instrumento, estado, último fecho (com a data da sessão), volume da sessão, variação e ISIN-MIC. O ISIN-MIC é uma ligação para o Orderbook e tem edição directa («Definir»/«Editar»), com o MIC sugerido pela bolsa e validação do formato; os instrumentos fora da Euronext mostram «não Euronext».
+- Tabela com instrumento, estado, último fecho (com a data da sessão), volume da sessão, variação e ISIN-MIC. O ISIN-MIC é uma ligação para o Orderbook e tem edição directa («Definir», ou o ícone de lápis quando já existe), com o MIC sugerido pela bolsa e validação do formato; os instrumentos fora da Euronext mostram «não Euronext».
+- A variação mostra só o valor com sinal e a cor (verde a subir, vermelho a descer), sem as palavras «Subida»/«Descida».
+- Remover da lista é um ícone de caixote do lixo; «Acompanhar» mantém-se em texto. Os botões só com ícone têm `title` e nome acessível completo (ex.: «Remover GALP.LS da lista»), e os rótulos ocultos ficam contidos no `.table-wrap` (`position: relative`) para não alargarem a página em telemóvel.
 - Botão «Validar agora (N)» com o número de instrumentos por validar; desactivado com «Nada por validar». Enquanto houver pendentes, a lista actualiza-se sozinha.
 - Acções «Adicionar instrumento» (símbolo Yahoo, ex.: `GALP.LS`) e «Importar Excel», com modelo descarregável e pré-visualização das linhas válidas, duplicadas e com erro antes de gravar.
 - Estados do instrumento: «A validar», «Activo» e «Inválido» (com o motivo, ex.: «Não está cotado em EUR»).

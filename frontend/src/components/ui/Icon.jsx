@@ -16,6 +16,7 @@ const PATHS = {
   warning: 'M12 3 2 20h20L12 3Zm0 6v5m0 3v.01',
   logout: 'M15 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3M10 16l-4-4 4-4M6 12h10',
   trash: 'M5 7h14M10 7V5h4v2m-7 0 1 12h8l1-12',
+  edit: 'M4 20h4L19 9l-4-4L4 16v4Zm9-13 4 4',
   chevron: 'M9 6l6 6-6 6',
   trend: 'M4 17l6-6 4 4 6-7',
   users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 9a7 7 0 0 1 14 0M16 3.5a4 4 0 0 1 0 7.5M18 14a6 6 0 0 1 4 6',

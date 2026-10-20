@@ -216,7 +216,7 @@ img, svg { display: block; }
 .switch input:focus-visible + .switch-track { outline: 3px solid var(--focus); outline-offset: 3px; }
 
 /* Tabelas: região de scroll própria em ecrãs pequenos. */
-.table-wrap { overflow-x: auto; margin: 0 -0.25rem; }
+.table-wrap { position: relative; overflow-x: auto; margin: 0 -0.25rem; } /* relative: os rótulos .visually-hidden (absolutos) ficam dentro do scroll e não alargam a página */
 .table-wrap:focus-visible { outline-offset: 0; }
 table.data { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
 table.data th { text-align: left; font-weight: 500; color: var(--text-secondary); font-size: 0.8125rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
