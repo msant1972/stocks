@@ -146,7 +146,7 @@ interface OrderBookStats {
 
 1. `chart_data` é a **fonte principal** de preço e quantidade.
 2. Para cada elemento: `q = parseDecimal(qtt)`; ignorar `q == 0`; `side = q > 0 ? "ask" : "bid"`; `quantity = |q|`.
-3. `price` e `qtt` com `.` decimal, sem separador de milhares — usar parsing **independente da cultura** (invariant).
+3. `price` e `qtt` com `.` decimal — usar parsing **independente da cultura** (invariant). A partir de 1000 vêm com `,` de milhares (ex.: `"1,475.00"`, ASML, observado a 20/10/2026), tal como os preços da tabela HTML: aceitar só grupos de milhares bem formados (`^\d{1,3}(,\d{3})+(\.\d+)?$`) e recusar o resto (ex.: `"1,5"`).
 4. Ordenar: `bids` por preço desc., `asks` por preço asc.
 5. Nº de ordens: ler `table` com um parser de HTML (não regex), e associar por **(lado, preço)** — coluna 0 ↔ preço da coluna 2 (bid), coluna 5 ↔ preço da coluna 3 (ask). Se a associação falhar, `orders = null` e emitir aviso, sem falhar.
 6. Validação cruzada: se `table` tiver totais, comparar com `Σ quantity` de cada lado; divergência → aviso (`OrderBookInconsistencyWarning`), não erro.

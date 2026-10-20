@@ -101,13 +101,13 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US16 | Gestão de utilizadores | — | Feito |
 | US17 | Configuração SMTP na interface | — | Feito |
 | US18 | Sinais da estratégia em todos os instrumentos | — | Feito |
-| US19 | ISIN-MIC no catálogo e módulo Orderbook | — | Feito; ISIN-MIC por preencher nos instrumentos Euronext |
+| US19 | ISIN-MIC no catálogo e módulo Orderbook | — | Feito; ISIN-MIC preenchido a 20 out. 2026 a partir de `ISIN.xlsx` em 162 dos 171 instrumentos Euronext (faltam 9 que não constam do ficheiro) |
 
 ## 6. Testes
 
 | Componente | Ferramenta | Testes |
 |---|---|---|
-| API | Vitest contra a base `stocks_test` | 91 (+1 de contrato com rede, opcional) |
+| API | Vitest contra a base `stocks_test` | 93 (+1 de contrato com rede, opcional) |
 | Motor de recolha | pytest, fornecedor simulado | 22 |
 | Motor de alertas | pytest, mailer simulado | 18 |
 | Frontend (cálculos) | `node --test` | 11 |

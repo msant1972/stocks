@@ -6,6 +6,16 @@ import { formatDecimal, parseDecimal } from './decimal.js';
 export const DELAY_MINUTES = 15;
 const UPDATED_RE = /Updated\s*(\d{2})\/(\d{2})\/(\d{4})\s*-\s*(\d{2}):(\d{2})/;
 
+/**
+ * Número de um preço ou quantidade da Euronext: "." decimal e, a partir de 1000, "," de milhares (ex.: "1,475.00", observado
+ * em 20 out. 2026 para a ASML). Só se aceitam grupos de milhares bem formados; "1,5" continua inválido.
+ */
+const THOUSANDS_RE = /^[+-]?\d{1,3}(,\d{3})+(\.\d+)?$/;
+export const parseEuronextNumber = (value) => {
+  const t = String(value ?? '').trim();
+  return parseDecimal(THOUSANDS_RE.test(t) ? t.replaceAll(',', '') : t);
+};
+
 const intOrNull = (text) => {
   const t = String(text ?? '').replace(/[,\s ]/g, '');
   return /^\d+$/.test(t) ? Number(t) : null;
@@ -23,8 +33,8 @@ function readTable(html) {
     const td = tr.querySelectorAll('td').map((c) => c.textContent.trim());
     if (td.length < 6) continue;
     out.rows += 1;
-    const bidPrice = parseDecimal(td[2]);
-    const askPrice = parseDecimal(td[3]);
+    const bidPrice = parseEuronextNumber(td[2]);
+    const askPrice = parseEuronextNumber(td[3]);
     if (bidPrice != null && intOrNull(td[0]) != null) out.orders.set(`bid|${bidPrice}`, intOrNull(td[0]));
     if (askPrice != null && intOrNull(td[5]) != null) out.orders.set(`ask|${askPrice}`, intOrNull(td[5]));
   }
@@ -52,8 +62,8 @@ export function parseOrderBook(json, { isin, mic, url, fetchedAt = new Date(), w
   const bids = [];
   const asks = [];
   for (const [i, item] of (Array.isArray(json.chart_data) ? json.chart_data : []).entries()) {
-    const price = parseDecimal(item?.price);
-    const q = parseDecimal(item?.qtt);
+    const price = parseEuronextNumber(item?.price);
+    const q = parseEuronextNumber(item?.qtt);
     if (price == null || q == null || price <= 0n) {
       warn(WARNING.MALFORMED_LEVEL, `nível ${i} descartado: preço ou quantidade inválidos`, { item });
       continue;

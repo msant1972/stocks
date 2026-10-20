@@ -50,6 +50,21 @@ describe('ISIN e MIC', () => {
 });
 
 describe('parsing e estatísticas', () => {
+  it('preços acima de 1000 com separador de milhares (NL0010273215-XAMS, 20/10/2026)', () => {
+    const { book, stats, warnings } = parse('nl0010273215-xams.json', 'XAMS');
+    expect(warnings).toEqual([]);
+    expect([book.bids.length, book.asks.length]).toEqual([10, 10]);
+    expect(stats).toMatchObject({ bestBid: '1455', bestAsk: '1460', bidVolume: 450, askVolume: 347, crossed: false });
+  });
+
+  it('só aceita grupos de milhares bem formados', () => {
+    const json = { chart_data: [{ price: '1,5', qtt: '10' }, { price: '12,34.5', qtt: '-1' }, { price: '2,000.5', qtt: '-1,200' }], table: '' };
+    const warnings = [];
+    const book = parseOrderBook(json, { ...ctx, warn: (code) => warnings.push(code) });
+    expect(warnings.filter((w) => w === WARNING.MALFORMED_LEVEL)).toHaveLength(2);
+    expect(book.bids).toEqual([{ side: 'bid', price: '2000.5', quantity: 1200, orders: null }]);
+  });
+
   it('resposta real de 19/10/2026 16:40 (PTFCP0AM0008-XLIS)', () => {
     const { book, stats, warnings } = parse('ptfcp0am0008-xlis.json');
     expect(warnings).toEqual([]);
