@@ -101,26 +101,72 @@ function BookCells({ item, summary }) {
   );
 }
 
-function InstrumentTable({ items, action }) {
-  const summary = useOrderbookSummary(items);
+const SORT_DEFAULT_DIR = { symbol: 'asc', volume: 'desc', change: 'desc', imbalance: 'desc' };
+const SERVER_SORTS = ['symbol', 'volume', 'change'];
+
+/** Próxima ordenação ao clicar num cabeçalho: a mesma coluna inverte, outra começa no sentido habitual. */
+const nextSort = (sort, key) => (sort.key === key
+  ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
+  : { key, dir: SORT_DEFAULT_DIR[key] });
+
+/** Ordena localmente; os instrumentos sem valor ficam sempre no fim. */
+function sortItems(items, { key, dir }, summary) {
+  const value = {
+    symbol: (i) => i.symbol,
+    volume: (i) => i.latest?.volume ?? null,
+    change: (i) => (i.latest?.changePct == null ? null : Number(i.latest.changePct)),
+    imbalance: (i) => summary.byId.get(i.id)?.imbalance ?? null,
+  }[key];
+  const sign = dir === 'asc' ? 1 : -1;
+  return [...items].sort((a, b) => {
+    const va = value(a);
+    const vb = value(b);
+    if (va == null || vb == null) return (va == null) - (vb == null) || a.symbol.localeCompare(b.symbol);
+    const c = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
+    return c * sign || a.symbol.localeCompare(b.symbol);
+  });
+}
+
+function SortHeader({ label, sortKey, sort, onSort, align, title }) {
+  const active = sort.key === sortKey;
+  const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
   return (
+    <th scope="col" className={align === 'r' ? 'r' : undefined} aria-sort={ariaSort} title={title}>
+      <button type="button" className={`sort-button${active ? ' active' : ''}`} onClick={() => onSort(nextSort(sort, sortKey))}>
+        {label}
+        <span className="sort-arrow" aria-hidden="true">{active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}</span>
+      </button>
+    </th>
+  );
+}
+
+/**
+ * clientKeys: colunas ordenadas aqui, sobre as linhas recebidas (as restantes já vêm ordenadas do servidor).
+ */
+function InstrumentTable({ items, action, sort, onSort, clientKeys = Object.keys(SORT_DEFAULT_DIR), note }) {
+  const summary = useOrderbookSummary(items);
+  const rows = clientKeys.includes(sort.key) ? sortItems(items, sort, summary) : items;
+  const header = (label, key, extra) => <SortHeader label={label} sortKey={key} sort={sort} onSort={onSort} {...extra} />;
+  return (
+    <>
+    {note && sort.key === 'imbalance' && <p className="small muted" style={{ marginBottom: '0.5rem' }}>{note}</p>}
     <div className="table-wrap" tabIndex={0} aria-label="Tabela de instrumentos">
       <table className="data">
         <thead>
           <tr>
-            <th scope="col">Instrumento</th>
+            {header('Instrumento', 'symbol')}
             <th scope="col">Estado</th>
             <th scope="col" className="r">Último fecho</th>
-            <th scope="col" className="r">Volume</th>
-            <th scope="col" className="r">Variação</th>
+            {header('Volume', 'volume', { align: 'r' })}
+            {header('Variação', 'change', { align: 'r' })}
             <th scope="col" className="r" title="Ponto médio entre a melhor compra e a melhor venda no livro Euronext (atraso 15 min)">Mid</th>
-            <th scope="col" className="r" title="(compras − vendas) / total das quantidades no livro: positivo = pressão compradora">Desequilíbrio</th>
+            {header('Desequilíbrio', 'imbalance', { align: 'r', title: '(compras − vendas) / total das quantidades no livro: positivo = pressão compradora' })}
             <th scope="col">ISIN-MIC</th>
             <th scope="col"><span className="visually-hidden">Acções</span></th>
           </tr>
         </thead>
         <tbody>
-          {items.map((i) => (
+          {rows.map((i) => (
             <tr key={i.id}>
               <td>
                 <Link to={`/instrumentos/${i.id}`} className="row-link">{i.symbol}</Link>
@@ -141,6 +187,7 @@ function InstrumentTable({ items, action }) {
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
@@ -153,7 +200,16 @@ export default function WatchlistPage() {
   const toast = useToast();
   const qc = useQueryClient();
   const watchlist = useWatchlist();
-  const search = useInstrumentSearch(q);
+  const catalogSort = { key: params.get('ordem') ?? 'symbol', dir: params.get('sentido') ?? SORT_DEFAULT_DIR[params.get('ordem') ?? 'symbol'] };
+  if (!SORT_DEFAULT_DIR[catalogSort.key]) catalogSort.key = 'symbol';
+  const setCatalogSort = (s) => setParams((p) => {
+    const next = new URLSearchParams(p);
+    if (s.key === 'symbol' && s.dir === 'asc') { next.delete('ordem'); next.delete('sentido'); } else { next.set('ordem', s.key); next.set('sentido', s.dir); }
+    return next;
+  }, { replace: true });
+  const serverSort = SERVER_SORTS.includes(catalogSort.key) ? { sort: catalogSort.key, dir: catalogSort.dir } : undefined;
+  const search = useInstrumentSearch(q, serverSort);
+  const [listSort, setListSort] = useState({ key: 'symbol', dir: 'asc' });
   const status = useStatus();
   const pending = status.data?.instruments.pending ?? 0;
   const [forcing, setForcing] = useState(false);
@@ -232,7 +288,11 @@ export default function WatchlistPage() {
           <form role="search" onSubmit={(e) => e.preventDefault()} style={{ marginBottom: '1rem' }}>
             <label htmlFor="catalog-q" className="visually-hidden">Designação ou símbolo</label>
             <input id="catalog-q" className="input" type="search" placeholder="Designação ou símbolo (ex.: Galp, SIE.DE)"
-              value={q} onChange={(e) => setParams(e.target.value ? { q: e.target.value } : {}, { replace: true })} />
+              value={q} onChange={(e) => setParams((p) => {
+                const next = new URLSearchParams(p);
+                if (e.target.value) next.set('q', e.target.value); else next.delete('q');
+                return next;
+              }, { replace: true })} />
           </form>
           {actionError && <ErrorState error={{ message: actionError }} />}
           {search.isPending ? <Loading /> : search.error ? <ErrorState error={search.error} onRetry={search.refetch} /> :
@@ -243,7 +303,12 @@ export default function WatchlistPage() {
               >
                 {q ? 'Se o símbolo ainda não está no catálogo, pode adicioná-lo.' : 'Adicione os primeiros símbolos, à mão ou por Excel.'}
               </EmptyState>
-            ) : <InstrumentTable items={search.data.items} action={action} />}
+            ) : (
+              <InstrumentTable items={search.data.items} action={action} sort={catalogSort} onSort={setCatalogSort} clientKeys={['imbalance']}
+                note={search.data.total > search.data.items.length
+                  ? `Ordenados por desequilíbrio os ${search.data.items.length} instrumentos mostrados (o livro é pedido à Euronext só para estes). Pesquise para restringir a lista.`
+                  : null} />
+            )}
         </section>
 
         <section className="card" aria-labelledby="mine-title">
@@ -256,7 +321,7 @@ export default function WatchlistPage() {
               <EmptyState title="A lista está vazia" action={<Button onClick={() => setAdding(true)}>Adicionar instrumentos</Button>}>
                 Pesquise no catálogo ou adicione símbolos novos, à mão ou por Excel.
               </EmptyState>
-            ) : <InstrumentTable items={watchlist.data.items} action={action} />}
+            ) : <InstrumentTable items={watchlist.data.items} action={action} sort={listSort} onSort={setListSort} />}
         </section>
       </div>
 

@@ -862,6 +862,27 @@ paths:
           in: query
           name: offset
           required: false
+        - schema:
+            default: symbol
+            type: string
+            enum:
+              - symbol
+              - volume
+              - change
+          in: query
+          name: sort
+          required: false
+          description: symbol, volume ou change (variação da última sessão); sem valor
+            ficam no fim
+        - schema:
+            type: string
+            enum:
+              - asc
+              - desc
+          in: query
+          name: dir
+          required: false
+          description: por omissão asc para symbol e desc para os restantes
       responses:
         "200":
           description: Default Response

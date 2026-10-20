@@ -12,7 +12,7 @@ export const keys = {
   alertEvents: ['alerts', 'events'],
   instrument: (id) => ['instrument', Number(id)],
   quotes: (id) => ['quotes', Number(id)],
-  search: (q) => ['instruments', q],
+  search: (q, sort, dir) => ['instruments', q, sort, dir],
 };
 
 export const useMe = () => useQuery({ queryKey: keys.me, queryFn: () => api.get('/me'), retry: false, staleTime: Infinity });
@@ -67,10 +67,11 @@ export function useQuotes(id, enabled) {
   return useQuery({ queryKey: keys.quotes(id), queryFn: () => api.get(`/instruments/${id}/quotes`), enabled });
 }
 
-export function useInstrumentSearch(q, enabled = true) {
+/** Catálogo (50 primeiros). sort 'symbol', 'volume' ou 'change' ordena o catálogo inteiro no servidor. */
+export function useInstrumentSearch(q, { sort = 'symbol', dir = 'asc' } = {}, enabled = true) {
   return useQuery({
-    queryKey: keys.search(q),
-    queryFn: () => api.get(`/instruments?limit=50${q ? `&q=${encodeURIComponent(q)}` : ''}`),
+    queryKey: keys.search(q, sort, dir),
+    queryFn: () => api.get(`/instruments?limit=50&sort=${sort}&dir=${dir}${q ? `&q=${encodeURIComponent(q)}` : ''}`),
     enabled,
     placeholderData: (prev) => prev,
     refetchInterval: (q) => (hasPending(q) ? POLL_PENDING_MS : false),

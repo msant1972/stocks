@@ -102,6 +102,23 @@ describe.skipIf(!hasTestDb)('catálogo, histórico e watchlist', () => {
     expect((await ana.get('/instruments/abc')).statusCode).toBe(400);
   });
 
+  it('ordena o catálogo inteiro por símbolo, volume e variação, com os sem valor no fim', async () => {
+    const a = await makeInstrument(ctx.pool, 'ORDA.LS', { closes: ['10.00', '11.00'] }); // +10%
+    const b = await makeInstrument(ctx.pool, 'ORDB.LS', { closes: ['10.00', '9.00'] }); // −10%
+    const c = await makeInstrument(ctx.pool, 'ORDC.LS', { closes: ['10.00', '10.20'] }); // +2%
+    await makeInstrument(ctx.pool, 'ORDD.LS', { closes: [] }); // sem cotações
+    await ctx.pool.query('UPDATE daily_quotes SET volume = CASE instrument_id WHEN ? THEN 500 WHEN ? THEN 9000 ELSE 2000 END WHERE instrument_id IN (?, ?, ?)', [a, b, a, b, c]);
+    const order = async (qs) => (await ana.get(`/instruments?q=ORD&${qs}`)).json().items.map((i) => i.symbol);
+    expect(await order('')).toEqual(['ORDA.LS', 'ORDB.LS', 'ORDC.LS', 'ORDD.LS']);
+    expect(await order('sort=symbol&dir=desc')).toEqual(['ORDD.LS', 'ORDC.LS', 'ORDB.LS', 'ORDA.LS']);
+    expect(await order('sort=volume')).toEqual(['ORDB.LS', 'ORDC.LS', 'ORDA.LS', 'ORDD.LS']);
+    expect(await order('sort=volume&dir=asc')).toEqual(['ORDA.LS', 'ORDC.LS', 'ORDB.LS', 'ORDD.LS']);
+    expect(await order('sort=change')).toEqual(['ORDA.LS', 'ORDC.LS', 'ORDB.LS', 'ORDD.LS']);
+    expect(await order('sort=change&dir=asc')).toEqual(['ORDB.LS', 'ORDC.LS', 'ORDA.LS', 'ORDD.LS']);
+    expect(await order('sort=change&limit=1')).toEqual(['ORDA.LS']); // a ordenação vem antes do limite
+    expect((await ana.get('/instruments?sort=nome')).statusCode).toBe(400);
+  });
+
   it('a lista de acompanhamento é privada de cada utilizador', async () => {
     const id = await makeInstrument(ctx.pool, 'BCP.LS');
     expect((await ana.post('/watchlist/items', { instrumentId: id })).statusCode).toBe(204);

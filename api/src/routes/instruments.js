@@ -46,11 +46,15 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
         withIsinMic: z.enum(['true', 'false']).optional().describe('Só instrumentos com ISIN-MIC (livro de ofertas)'),
         limit: z.coerce.number().int().min(1).max(500).default(50),
         offset: z.coerce.number().int().min(0).default(0),
+        sort: z.enum(['symbol', 'volume', 'change']).default('symbol')
+          .describe('symbol, volume ou change (variação da última sessão); sem valor ficam no fim'),
+        dir: z.enum(['asc', 'desc']).optional().describe('por omissão asc para symbol e desc para os restantes'),
       }),
       response: { 200: z.object({ items: z.array(InstrumentSummary), total: z.number() }) },
     },
   }, async (req) => {
-    const { q, status, withIsinMic, limit, offset } = req.query;
+    const { q, status, withIsinMic, limit, offset, sort } = req.query;
+    const dir = (req.query.dir ?? (sort === 'symbol' ? 'asc' : 'desc')).toUpperCase();
     const where = ['1 = 1'];
     const args = [];
     if (q) {
@@ -61,8 +65,14 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     if (status) { where.push('i.status = ?'); args.push(status); }
     if (withIsinMic === 'true') where.push('i.isin IS NOT NULL AND i.mic IS NOT NULL');
     const [[{ total }]] = await pool.query(`SELECT COUNT(*) AS total FROM instruments i WHERE ${where.join(' AND ')}`, args);
+    // Ordenação sobre todo o catálogo (não só a página): última sessão e a anterior de cada instrumento.
+    const QUOTE_JOINS = ` LEFT JOIN daily_quotes lq ON lq.instrument_id = i.id AND lq.session_date = i.last_session
+      LEFT JOIN daily_quotes pq ON pq.instrument_id = i.id AND pq.session_date =
+        (SELECT MAX(p.session_date) FROM daily_quotes p WHERE p.instrument_id = i.id AND p.session_date < i.last_session)`;
+    const expr = { symbol: 'i.symbol', volume: 'lq.volume', change: 'lq.close / NULLIF(pq.close, 0)' }[sort];
     const [rows] = await pool.query(
-      `${INSTRUMENT_SELECT} WHERE ${where.join(' AND ')} ORDER BY i.symbol LIMIT ? OFFSET ?`,
+      `${INSTRUMENT_SELECT}${sort === 'symbol' ? '' : QUOTE_JOINS} WHERE ${where.join(' AND ')}
+        ORDER BY (${expr}) IS NULL, ${expr} ${dir}, i.symbol LIMIT ? OFFSET ?`,
       [req.user.id, ...args, limit, offset],
     );
     const quotes = await latestQuotes(pool, rows.map((r) => r.id));

@@ -75,6 +75,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Gestão de utilizadores | Página para administradores: criar, redefinir palavra-passe, remover |
 | Configuração SMTP | Em Definições, com palavra-passe cifrada na BD e email de teste pelo motor de alertas |
 | Capital de 1 M€ | Valor por omissão das contas novas |
+| Ordenação em Acompanhar | Instrumento, volume e variação ordenam o catálogo inteiro no servidor; desequilíbrio ordena os instrumentos mostrados (o livro só é pedido para esses); a lista do utilizador ordena-se no browser |
 | Mid e desequilíbrio em Acompanhar | Colunas com o resumo do livro Euronext de cada instrumento com ISIN-MIC, num só pedido à API (máx. 4 pedidos simultâneos à Euronext, cache de 30 s) |
 | Histórico de 3 anos | Carga inicial passou de dois para três anos, para a SMA200 estar completa; comando `backfill` para os instrumentos existentes (executado a 20 out. 2026: 288 de 295 com três anos; os restantes 7 cotam há menos tempo) |
 | Autenticação em dois passos | TOTP obrigatório para todos, configurado no primeiro login (QR code), códigos de recuperação, reposição pelo administrador ou pelo CLI `reset-mfa` |
@@ -108,7 +109,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 
 | Componente | Ferramenta | Testes |
 |---|---|---|
-| API | Vitest contra a base `stocks_test` | 94 (+1 de contrato com rede, opcional) |
+| API | Vitest contra a base `stocks_test` | 95 (+1 de contrato com rede, opcional) |
 | Motor de recolha | pytest, fornecedor simulado | 22 |
 | Motor de alertas | pytest, mailer simulado | 18 |
 | Frontend (cálculos) | `node --test` | 11 |
