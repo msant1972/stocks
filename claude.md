@@ -1,6 +1,6 @@
 # Stocks — Plataforma de Simulação e Acompanhamento de Acções
 
-Aplicação para acompanhar acções da Euronext (EUR), consultar o histórico diário dos últimos dois anos, gerir uma carteira virtual com operações simuladas e receber alertas por email.
+Aplicação para acompanhar acções da Euronext (EUR), consultar o histórico diário (três anos guardados, dois mostrados), gerir uma carteira virtual com operações simuladas e receber alertas por email.
 
 A negociação é exclusivamente simulada: não há operações com dinheiro real nem integração com corretoras.
 

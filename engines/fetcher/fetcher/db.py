@@ -215,6 +215,25 @@ def enqueue_incremental(conn) -> int:
     return n
 
 
+def enqueue_backfill(conn, start: date) -> int:
+    """Pede de novo a carga inicial dos instrumentos activos cujo histórico começa depois de start
+    (ex.: depois de aumentar STOCKS_HISTORY_YEARS). As sessões existentes são actualizadas, não duplicadas."""
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO fetch_jobs (instrument_id, kind)
+            SELECT i.id, 'initial' FROM instruments i
+             WHERE i.status = 'active' AND (i.first_session IS NULL OR i.first_session > %s)
+               AND NOT EXISTS (SELECT 1 FROM fetch_jobs j
+                                WHERE j.instrument_id = i.id AND j.status IN ('queued','running'))
+            """,
+            (start,),
+        )
+        n = cur.rowcount
+    conn.commit()
+    return n
+
+
 def instrument_overview(conn) -> list[dict]:
     with conn.cursor() as cur:
         cur.execute(

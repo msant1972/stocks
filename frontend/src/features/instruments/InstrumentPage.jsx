@@ -46,10 +46,10 @@ export default function InstrumentPage() {
   }
 
   const tradable = i.status === 'active' && i.currency === 'EUR' && i.latest;
-  // A carga inicial começa dois anos antes do dia da recolha: tolera-se uma semana de diferença.
+  // A carga inicial começa três anos antes do dia da recolha: tolera-se uma semana de diferença.
   const coverageLimit = i.lastSession && (() => {
     const [y, m, d] = i.lastSession.split('-').map(Number);
-    return new Date(Date.UTC(y - 2, m - 1, d + 7)).toISOString().slice(0, 10);
+    return new Date(Date.UTC(y - 3, m - 1, d + 7)).toISOString().slice(0, 10);
   })();
 
   return (
@@ -80,7 +80,7 @@ export default function InstrumentPage() {
         {error && <Notice tone="error">{error}</Notice>}
         {i.status === 'pending' && (
           <Notice>
-            A validar no fornecedor de dados: confirma-se que o símbolo existe e está cotado em EUR, e carregam-se até dois anos de histórico diário.
+            A validar no fornecedor de dados: confirma-se que o símbolo existe e está cotado em EUR, e carregam-se até três anos de histórico diário.
             Esta página actualiza-se sozinha.
             {i.fetch?.lastError && <> Última tentativa: {i.fetch.lastError}.</>}
           </Notice>
@@ -105,7 +105,7 @@ export default function InstrumentPage() {
             </div>
             {coverageLimit && i.firstSession > coverageLimit && (
               <p className="small warning-text" style={{ marginTop: 12 }}>
-                Cobertura inferior a dois anos: o fornecedor só tem dados desde {f.date(i.firstSession)}.
+                Cobertura inferior a três anos: o fornecedor só tem dados desde {f.date(i.firstSession)}, por isso a SMA200 e o momento podem não cobrir todo o gráfico.
               </p>
             )}
             {i.currency && i.currency !== 'EUR' && (

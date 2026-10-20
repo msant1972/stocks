@@ -22,7 +22,7 @@ Este documento descreve a arquitectura implementada. O módulo de livro de ofert
 | Fonte de dados | Yahoo Finance via yfinance, versão fixada, atrás de um adaptador substituível |
 | Catálogo | Global e partilhado; preenchido à mão ou por importação de Excel/CSV; cada utilizador escolhe os instrumentos que acompanha |
 | Granularidade | Diária: um registo por sessão de bolsa |
-| Histórico | Carga inicial de dois anos; actualização diária; as cotações nunca são apagadas |
+| Histórico | Carga inicial de três anos (para a SMA200 estar completa nos dois anos mostrados); actualização diária; as cotações nunca são apagadas |
 | Indicadores | EMA9, SMA10, SMA50, SMA125 e SMA200 por sessão, guardados na BD; momento SMA10/SMA200 e SMA8/SMA125 |
 | Recolha diária | Dias úteis às 19h00 de Lisboa, depois do fecho das bolsas europeias (17h30 CET) |
 | Alertas | Email; um resumo por utilizador após cada recolha diária, nunca mais do que um email por hora |
@@ -177,14 +177,14 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 
 Remover um utilizador apaga em cascata as sessões, os códigos de recuperação, a carteira, as operações, as posições, a lista, os alertas e os envios; a auditoria mantém-se.
 
-As cotações não são apagadas: 295 instrumentos com dois anos ocupam cerca de 15 MB e crescem cerca de 7,5 MB por ano.
+As cotações não são apagadas: 295 instrumentos com três anos ocupam cerca de 22 MB e crescem cerca de 7,5 MB por ano.
 
 ### 4.4. Motor de recolha de cotações
 
 Comandos `python -m fetcher add | run | update | status | indicators`. O yfinance fica isolado em `provider.py`, atrás da interface `QuoteProvider`.
 
 1. **Validação assíncrona:** um símbolo novo fica `pending` com um pedido `initial`. O motor confirma no fornecedor que existe e que a moeda é EUR, preenche nome e mercado e passa-o a `active`, ou a `invalid` com o motivo.
-2. **Carga inicial:** dois anos de sessões diárias (`STOCKS_HISTORY_YEARS`).
+2. **Carga inicial:** três anos de sessões diárias (`STOCKS_HISTORY_YEARS`, 3 por omissão). A SMA200 só tem valor a partir da 200.ª sessão (cerca de 10 meses), por isso com três anos os dois anos mostrados nos gráficos e usados na estratégia têm sempre as médias completas. Depois de aumentar o valor, `python -m fetcher backfill` volta a pedir a carga dos instrumentos activos com menos histórico; as sessões existentes são actualizadas, sem duplicados.
 3. **Actualização diária:** um pedido `incremental` por instrumento activo, relendo os últimos 7 dias para apanhar correcções do fornecedor.
 4. **Gravação idempotente:** `INSERT … ON DUPLICATE KEY UPDATE` sobre a chave (instrumento, sessão).
 5. **Validação dos dados:** sessões com preços não positivos ou incoerentes são descartadas, não corrigidas.
@@ -244,7 +244,7 @@ Biblioteca em `api/src/orderbook/` que implementa a [especificação](orderbook-
 1. O utilizador introduz símbolos ou importa um ficheiro; a importação mostra antes uma pré-visualização (novos, existentes, repetidos, com erro).
 2. A API grava os símbolos novos como `pending`, cria os pedidos `initial`, associa-os à lista do utilizador e escreve em `/var/lib/stocks/fetch-request`.
 3. A unit `stocks-fetcher-run.path` arranca o motor de imediato; o timer de 5 minutos é a rede de segurança.
-4. O motor valida, carrega dois anos e calcula os indicadores; a interface vê o estado passar a «Activo» ou «Inválido».
+4. O motor valida, carrega três anos e calcula os indicadores; a interface vê o estado passar a «Activo» ou «Inválido».
 5. «Validar agora» volta a pôr na fila, sem espera, os pendentes (incluindo os que falharam) e sinaliza o motor.
 
 ### 5.2. Actualização diária e alertas
@@ -255,7 +255,7 @@ Biblioteca em `api/src/orderbook/` que implementa a [especificação](orderbook-
 
 ### 5.3. Consulta do histórico
 
-A API devolve, por omissão, os últimos dois anos de sessões, com os indicadores já calculados. A interface recorta o período escolhido, desenha o fecho ajustado e os indicadores pedidos, e calcula o momento (SMA10/SMA200 − 1 e SMA8/SMA125 − 1) sobre o histórico completo carregado.
+A API devolve, por omissão, os últimos dois anos de sessões, com os indicadores já calculados sobre os três anos guardados. A interface recorta o período escolhido, desenha o fecho ajustado e os indicadores pedidos, e calcula o momento (SMA10/SMA200 − 1 e SMA8/SMA125 − 1) sobre o histórico completo carregado.
 
 ### 5.4. Estratégia de momento (simulação no histórico)
 
@@ -328,7 +328,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é feita por snapshots EBS do volume, geridos na AWS |
 
-Testes automáticos em cada componente: API com Vitest contra uma BD de testes (91, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 19 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (21) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
+Testes automáticos em cada componente: API com Vitest contra uma BD de testes (91, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 19 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e snapshots EBS do volume (cópia fora do servidor, geridos na AWS), com restauro testado pelo administrador.
@@ -340,7 +340,7 @@ Riscos aceites ou pendentes:
 | Critério | Estado |
 |---|---|
 | A aplicação não envia ordens para corretoras | Cumprido |
-| Ao adicionar um instrumento, carrega até dois anos de histórico diário | Cumprido |
+| Ao adicionar um instrumento, carrega até três anos de histórico diário | Cumprido |
 | Instrumentos inexistentes ou não cotados em EUR ficam inválidos, com o motivo | Cumprido |
 | Repetir uma recolha não cria cotações duplicadas | Cumprido (testado) |
 | A interface identifica a data de referência dos preços | Cumprido |

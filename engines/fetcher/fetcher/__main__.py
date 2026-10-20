@@ -6,8 +6,10 @@
   python -m fetcher update                    pede a actualização diária e processa
   python -m fetcher status                    cobertura e estado de cada instrumento
   python -m fetcher indicators                recalcula EMA9 e SMA10/50/125/200 de todos os activos
+  python -m fetcher backfill                  completa o histórico dos activos até STOCKS_HISTORY_YEARS e processa
 """
 import argparse
+from datetime import date, timedelta
 import logging
 import sys
 
@@ -66,6 +68,7 @@ def main(argv=None) -> int:
     sub.add_parser("update", help="pedir actualização diária dos instrumentos activos e processar")
     sub.add_parser("status", help="mostrar cobertura e estado")
     sub.add_parser("indicators", help="recalcular os indicadores técnicos de todos os instrumentos activos")
+    sub.add_parser("backfill", help="completar o histórico dos instrumentos activos até STOCKS_HISTORY_YEARS")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
@@ -79,6 +82,13 @@ def main(argv=None) -> int:
             return cmd_status(conn, args)
         if args.command == "indicators":
             print(f"indicadores recalculados para {db.recompute_all_indicators(conn)} instrumentos")
+            return 0
+        if args.command == "backfill":
+            # Tolera-se uma semana: a carga começa num dia de calendário, que pode não ser dia de sessão.
+            start = db.history_start(date.today(), settings.history_years) + timedelta(days=7)
+            requested = db.enqueue_backfill(conn, start)
+            n = run_pending(conn, YFinanceProvider(), settings)
+            print(f"{requested} instrumentos com histórico a completar ({settings.history_years} anos), {n} pedidos processados")
             return 0
         if args.command == "update":
             run_id = db.start_run(conn, "fetch_update")

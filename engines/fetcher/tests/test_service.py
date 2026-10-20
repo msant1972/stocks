@@ -1,4 +1,5 @@
 import threading
+from dataclasses import replace
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -27,19 +28,40 @@ def instrument(conn, symbol):
     return row
 
 
-def test_initial_load_covers_two_years_of_weekdays(conn, settings):
+def test_initial_load_covers_three_years_of_weekdays(conn, settings):
     provider = FakeProvider()
     db.add_instrument(conn, "ASML.AS")
     assert run_pending(conn, provider, settings, TODAY) == 1
 
     row = instrument(conn, "ASML.AS")
     assert row["status"] == "active" and row["currency"] == "EUR"
-    assert row["first_session"] >= date(2024, 10, 16)
+    assert row["first_session"] >= date(2023, 10, 16)
+    assert row["first_session"] <= date(2023, 10, 20)
     assert row["last_session"] == TODAY
     sessions = count(conn, "SELECT COUNT(*) FROM daily_quotes")
-    assert 500 <= sessions <= 525
+    assert 775 <= sessions <= 790
     # Fins-de-semana não são inventados.
     assert count(conn, "SELECT COUNT(*) FROM daily_quotes WHERE DAYOFWEEK(session_date) IN (1, 7)") == 0
+    # Os dois anos mostrados nos gráficos já têm SMA200.
+    assert count(conn, "SELECT COUNT(*) FROM daily_quotes WHERE session_date >= '2024-10-16' AND sma200 IS NULL") == 0
+
+
+def test_backfill_extends_history_without_duplicates(conn, settings):
+    provider = FakeProvider()
+    db.add_instrument(conn, "SAP.DE")
+    run_pending(conn, provider, replace(settings, history_years=2), TODAY)
+    assert instrument(conn, "SAP.DE")["first_session"] >= date(2024, 10, 16)
+
+    start = db.history_start(TODAY, 3) + timedelta(days=7)
+    assert db.enqueue_backfill(conn, start) == 1
+    assert db.enqueue_backfill(conn, start) == 0  # já há um pedido pendente
+    run_pending(conn, provider, settings, TODAY)
+    row = instrument(conn, "SAP.DE")
+    assert row["status"] == "active" and row["first_session"] <= date(2023, 10, 20)
+    assert count(conn, "SELECT COUNT(*) FROM daily_quotes") == count(conn, "SELECT COUNT(DISTINCT session_date) FROM daily_quotes")
+    assert count(conn, "SELECT COUNT(*) FROM daily_quotes WHERE session_date >= '2024-10-16' AND sma200 IS NULL") == 0
+    # Com o histórico completo, nada mais a pedir.
+    assert db.enqueue_backfill(conn, start) == 0
 
 
 def test_adding_twice_and_refetching_never_duplicates(conn, settings):

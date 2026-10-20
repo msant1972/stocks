@@ -19,7 +19,7 @@ Os três pendentes da versão 1 foram fechados pelo administrador a 18 out. 2026
 ### 2.1. Requisitos (todos cumpridos)
 
 - Negociação exclusivamente simulada e acompanhamento de acções; sem operações reais nem corretoras.
-- Histórico de dois anos por instrumento, com granularidade diária.
+- Histórico de três anos por instrumento (dois mostrados nos gráficos), com granularidade diária.
 - Alertas por email com no máximo uma notificação por hora, cumprido com um resumo por utilizador após cada recolha diária e um intervalo mínimo de 60 minutos.
 - Cinco módulos: interface React, API Node.js, MariaDB, motor de recolha Python e motor de alertas Python.
 
@@ -75,6 +75,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Gestão de utilizadores | Página para administradores: criar, redefinir palavra-passe, remover |
 | Configuração SMTP | Em Definições, com palavra-passe cifrada na BD e email de teste pelo motor de alertas |
 | Capital de 1 M€ | Valor por omissão das contas novas |
+| Histórico de 3 anos | Carga inicial passou de dois para três anos, para a SMA200 estar completa; comando `backfill` para os instrumentos existentes |
 | Autenticação em dois passos | TOTP obrigatório para todos, configurado no primeiro login (QR code), códigos de recuperação, reposição pelo administrador ou pelo CLI `reset-mfa` |
 
 ## 5. Backlog
@@ -107,7 +108,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Componente | Ferramenta | Testes |
 |---|---|---|
 | API | Vitest contra a base `stocks_test` | 91 (+1 de contrato com rede, opcional) |
-| Motor de recolha | pytest, fornecedor simulado | 21 |
+| Motor de recolha | pytest, fornecedor simulado | 22 |
 | Motor de alertas | pytest, mailer simulado | 18 |
 | Frontend (cálculos) | `node --test` | 11 |
 

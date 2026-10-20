@@ -4,13 +4,13 @@ Recolhe cotações diárias através do yfinance e grava-as no MariaDB. Esta é 
 
 ## O que faz
 
-- **Carga inicial:** quando um símbolo é adicionado, fica no estado `pending` e é criado um pedido em `fetch_jobs`. O motor consulta o fornecedor e grava os últimos dois anos de sessões. Depois marca o instrumento como `active`, ou como `invalid` se a moeda não for EUR ou se o símbolo não existir.
+- **Carga inicial:** quando um símbolo é adicionado, fica no estado `pending` e é criado um pedido em `fetch_jobs`. O motor consulta o fornecedor e grava os últimos três anos de sessões (`STOCKS_HISTORY_YEARS`), para a SMA200 estar completa nos dois anos mostrados. Depois marca o instrumento como `active`, ou como `invalid` se a moeda não for EUR ou se o símbolo não existir.
 - **Actualização diária:** `update` pede uma recolha para cada instrumento activo. Cada recolha volta a ler os últimos 7 dias, para apanhar correcções do fornecedor.
 - **Sem duplicações:** a chave primária é (instrumento, data de sessão) e a gravação usa `INSERT ... ON DUPLICATE KEY UPDATE`.
 - **Falhas:** as falhas de rede e de limite de pedidos voltam à fila com espera progressiva (2, 4, 8... minutos), até 5 tentativas. Uma falha num instrumento não interrompe os restantes. Uma falha de rede nunca invalida um instrumento.
 - **Vários processos:** os pedidos são reservados com `SELECT ... FOR UPDATE SKIP LOCKED`, e o mesmo instrumento nunca é recolhido por dois processos ao mesmo tempo.
 - **Preços:** `close` é o fecho não ajustado, usado nas operações simuladas. `adj_close` é o fecho ajustado, usado nos gráficos.
-- **Retenção:** não se apaga nada. Os dois anos definem apenas a profundidade da carga inicial.
+- **Retenção:** não se apaga nada. Os três anos definem apenas a profundidade da carga inicial.
 
 O yfinance fica isolado em `fetcher/provider.py`, atrás da interface `QuoteProvider`, para poder ser substituído por outro fornecedor.
 
@@ -41,6 +41,8 @@ python -m fetcher add ASML.AS SIE.DE                          # símbolos avulso
 python -m fetcher run                                         # processa os pedidos pendentes
 python -m fetcher update                                      # actualização diária
 python -m fetcher status                                      # cobertura e estado de cada instrumento
+python -m fetcher indicators                                  # recalcula EMA9 e SMA10/50/125/200
+python -m fetcher backfill                                    # completa o histórico dos activos até STOCKS_HISTORY_YEARS
 ```
 
 ## Agendamento proposto (systemd)
