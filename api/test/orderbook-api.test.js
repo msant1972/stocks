@@ -75,8 +75,13 @@ describe.skipIf(!hasTestDb)('ISIN-MIC no catálogo e livro de ofertas na API', (
       if (String(url).includes('XL0A')) return new Response('<html>não encontrado</html>', { status: 200, headers: { 'content-type': 'text/html' } });
       return new Response(FIXTURE, { status: 200 });
     });
-    const res = await ana.get(`/instruments/orderbook-summary?ids=${[id, ...others, semIsin].join(',')}`);
+    // Dois lotes em simultâneo (como faz o browser com listas grandes): o limite de 4 é global.
+    const [res, res2] = await Promise.all([
+      ana.get(`/instruments/orderbook-summary?ids=${[id, ...others, semIsin].join(',')}`),
+      ana.get(`/instruments/orderbook-summary?ids=${others.join(',')}`),
+    ]);
     expect(res.statusCode).toBe(200);
+    expect(res2.json().items).toHaveLength(6);
     const items = res.json().items;
     expect(items).toHaveLength(7); // SAP.DE não tem ISIN-MIC
     expect(items.find((i) => i.id === id)).toMatchObject({ mid: '2.68', crossed: false, updatedAt: '2026-10-19T15:40:00.000Z', error: null });

@@ -57,6 +57,14 @@ describe('parsing e estatísticas', () => {
     expect(stats).toMatchObject({ bestBid: '1455', bestAsk: '1460', bidVolume: 450, askVolume: 347, crossed: false });
   });
 
+  it('ignora sem aviso as ordens ao mercado («MKT», sem preço)', () => {
+    const json = { chart_data: [{ price: '125.30', qtt: '500' }, { price: 'MKT', qtt: '20' }, { price: '122.90', qtt: '-502' }], table: '' };
+    const warnings = [];
+    const book = parseOrderBook(json, { ...ctx, warn: (code) => warnings.push(code) });
+    expect(warnings).not.toContain(WARNING.MALFORMED_LEVEL);
+    expect([book.bids.length, book.asks.length]).toEqual([1, 1]);
+  });
+
   it('só aceita grupos de milhares bem formados', () => {
     const json = { chart_data: [{ price: '1,5', qtt: '10' }, { price: '12,34.5', qtt: '-1' }, { price: '2,000.5', qtt: '-1,200' }], table: '' };
     const warnings = [];

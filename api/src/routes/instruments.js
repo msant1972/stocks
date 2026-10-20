@@ -195,9 +195,22 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     },
   }, async (req) => ({ isinMic: await setIsinMic(pool, req.user.id, req.params.id, req.body.isinMic?.trim() || null) }));
 
-  // Resumo do livro (mid e desequilíbrio) para as listas. No máximo 4 pedidos simultâneos à Euronext e a
+  // Resumo do livro (mid e desequilíbrio) para as listas, pedido pelo browser em lotes de 50. O limite de
+  // 4 pedidos simultâneos à Euronext é global (partilhado por todos os lotes e utilizadores), e usa-se a
   // mesma cache de 30 s por instrumento do livro completo; os instrumentos sem ISIN-MIC são ignorados.
   const SUMMARY_CONCURRENCY = 4;
+  let active = 0;
+  const waiting = [];
+  const withSlot = async (fn) => {
+    if (active >= SUMMARY_CONCURRENCY) await new Promise((resolve) => waiting.push(resolve));
+    active++;
+    try {
+      return await fn();
+    } finally {
+      active--;
+      waiting.shift()?.();
+    }
+  };
   app.get('/instruments/orderbook-summary', {
     schema: {
       tags: ['Livro de ofertas'], summary: 'Mid e desequilíbrio do livro de vários instrumentos (atraso 15 min)',
@@ -217,25 +230,18 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     const ids = [...new Set(req.query.ids.split(',').map(Number))];
     if (ids.length > 50) throw new AppError(400, 'TOO_MANY_IDS', 'no máximo 50 instrumentos por pedido');
     const [rows] = await pool.query('SELECT id, isin, mic FROM instruments WHERE id IN (?) AND isin IS NOT NULL AND mic IS NOT NULL', [ids]);
-    const items = new Array(rows.length);
-    let next = 0;
-    const worker = async () => {
-      while (next < rows.length) {
-        const k = next++;
-        const r = rows[k];
-        const item = { id: Number(r.id), mid: null, imbalance: null, crossed: false, updatedAt: null, error: null };
-        try {
-          const book = await fetchOrderBook(r.isin, r.mic, { logger: req.log });
-          const stats = computeStats(book);
-          Object.assign(item, { mid: stats.mid, imbalance: stats.imbalance, crossed: stats.crossed, updatedAt: book.updatedAt?.toISOString() ?? null });
-        } catch (err) {
-          item.error = err instanceof InstrumentNotFoundError ? 'NOT_FOUND' : err instanceof UpstreamError ? 'UPSTREAM' : 'FORMAT';
-          if (item.error === 'FORMAT') req.log.warn({ err, isin: r.isin, mic: r.mic }, 'orderbook: resumo falhou');
-        }
-        items[k] = item;
+    const items = await Promise.all(rows.map((r) => withSlot(async () => {
+      const item = { id: Number(r.id), mid: null, imbalance: null, crossed: false, updatedAt: null, error: null };
+      try {
+        const book = await fetchOrderBook(r.isin, r.mic, { logger: req.log });
+        const stats = computeStats(book);
+        Object.assign(item, { mid: stats.mid, imbalance: stats.imbalance, crossed: stats.crossed, updatedAt: book.updatedAt?.toISOString() ?? null });
+      } catch (err) {
+        item.error = err instanceof InstrumentNotFoundError ? 'NOT_FOUND' : err instanceof UpstreamError ? 'UPSTREAM' : 'FORMAT';
+        if (item.error === 'FORMAT') req.log.warn({ err, isin: r.isin, mic: r.mic }, 'orderbook: resumo falhou');
       }
-    };
-    await Promise.all(Array.from({ length: Math.min(SUMMARY_CONCURRENCY, rows.length) }, worker));
+      return item;
+    })));
     return { items };
   });
 

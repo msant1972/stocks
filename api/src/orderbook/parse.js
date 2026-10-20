@@ -62,6 +62,8 @@ export function parseOrderBook(json, { isin, mic, url, fetchedAt = new Date(), w
   const bids = [];
   const asks = [];
   for (const [i, item] of (Array.isArray(json.chart_data) ? json.chart_data : []).entries()) {
+    // «MKT»: ordens ao mercado, sem preço; não entram nos níveis (esperado, sem aviso).
+    if (String(item?.price ?? '').trim().toUpperCase() === 'MKT') continue;
     const price = parseEuronextNumber(item?.price);
     const q = parseEuronextNumber(item?.qtt);
     if (price == null || q == null || price <= 0n) {

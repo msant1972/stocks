@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { api } from './api.js';
 
 // Os dados mudam no máximo uma vez por dia: nada de polling frequente.
@@ -47,20 +47,25 @@ export function useInstrument(id) {
 }
 
 /**
- * Mid e desequilíbrio do livro Euronext dos instrumentos com ISIN-MIC. Pedido uma vez por lista (a API
- * limita os pedidos à Euronext e guarda-os 30 s); sem actualização automática.
+ * Mid e desequilíbrio do livro Euronext dos instrumentos com ISIN-MIC, em lotes de 50 (o máximo da API).
+ * A API limita a 4 os pedidos simultâneos à Euronext e guarda cada livro 30 s; sem actualização automática.
+ * Os valores aparecem à medida que cada lote chega.
  */
+const SUMMARY_BATCH = 50;
 export function useOrderbookSummary(items) {
-  const ids = (items ?? []).filter((i) => i.isinMic).map((i) => i.id).sort((a, b) => a - b).slice(0, 50);
-  const q = useQuery({
-    queryKey: ['orderbook-summary', ids.join(',')],
-    queryFn: () => api.get(`/instruments/orderbook-summary?ids=${ids.join(',')}`),
-    enabled: ids.length > 0,
-    staleTime: 60_000,
-    retry: false,
+  const ids = (items ?? []).filter((i) => i.isinMic).map((i) => i.id).sort((a, b) => a - b);
+  const batches = [];
+  for (let k = 0; k < ids.length; k += SUMMARY_BATCH) batches.push(ids.slice(k, k + SUMMARY_BATCH).join(','));
+  const results = useQueries({
+    queries: batches.map((batch) => ({
+      queryKey: ['orderbook-summary', batch],
+      queryFn: () => api.get(`/instruments/orderbook-summary?ids=${batch}`),
+      staleTime: 60_000,
+      retry: false,
+    })),
   });
-  const byId = new Map((q.data?.items ?? []).map((i) => [i.id, i]));
-  return { byId, isLoading: q.isFetching && !q.data, isError: q.isError };
+  const byId = new Map(results.flatMap((r) => r.data?.items ?? []).map((i) => [i.id, i]));
+  return { byId, isLoading: results.some((r) => r.isFetching && !r.data), isError: results.some((r) => r.isError) };
 }
 
 export function useQuotes(id, enabled) {
