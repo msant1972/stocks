@@ -264,7 +264,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Mapa de calor (treemap) dos 20 instrumentos com maior valor negociado no período, do catálogo ou da lista do utilizador.
 - Tamanho de cada quadrado: valor negociado (preço × volume); cor: verde acima de +1%, cinzento entre −1% e +1%, vermelho abaixo de −1%.
 - Cada quadrado mostra o símbolo e a variação; o texto encolhe ou desaparece nos quadrados pequenos. Tooltip com nome, variação, valor negociado, último fecho e datas; clique abre o instrumento.
-- Período em menu (1 dia, 5 dias por omissão, 15 dias, 30 dias) e filtro «Todos / A minha lista», guardados no URL.
+- Período em menu (1 dia, 5 dias por omissão, 10 dias, 20 dias) e filtro «Todos / A minha lista», guardados no URL.
 - Legenda com contagens por cor, texto «Top 20 de N instrumentos» e vista em tabela.
 
 ### 5.10. Orderbook

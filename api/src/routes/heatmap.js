@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { IsoDate } from '../schemas.js';
 
-export const HEATMAP_PERIODS = [1, 5, 15, 30];
+export const HEATMAP_PERIODS = [1, 5, 10, 20];
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
 
@@ -34,7 +34,7 @@ async function computeHeatmap(pool, period) {
       GROUP BY r.instrument_id, i.symbol, i.name, i.exchange
      HAVING adj_first IS NOT NULL AND adj_first > 0 AND traded > 0
       ORDER BY traded DESC`,
-    // Janela em dias de calendário com folga para fins-de-semana e feriados (30 sessões ≈ 45 dias).
+    // Janela em dias de calendário com folga para fins-de-semana e feriados (20 sessões → 42 dias).
     [Math.ceil(period * 1.6) + 10, period, period, period, period],
   );
   return rows.map((r) => ({
@@ -51,7 +51,7 @@ export default async function heatmapRoutes(app, { pool }) {
     schema: {
       tags: ['Mapa de calor'], summary: 'Variação e valor negociado por instrumento no período',
       querystring: z.object({
-        period: z.coerce.number().int().refine((p) => HEATMAP_PERIODS.includes(p), 'período deve ser 1, 5, 15 ou 30').default(5),
+        period: z.coerce.number().int().refine((p) => HEATMAP_PERIODS.includes(p), 'período deve ser 1, 5, 10 ou 20').default(5),
         scope: z.enum(['all', 'watchlist']).default('all'),
         limit: z.coerce.number().int().min(1).max(500).default(20).describe('Só os N instrumentos com maior valor negociado'),
       }),

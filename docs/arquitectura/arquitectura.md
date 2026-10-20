@@ -94,7 +94,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Acompanhar | Lista do utilizador e, com o botão «Catálogo», o catálogo partilhado (último fecho e sessão, volume, variação, mid e desequilíbrio do livro Euronext com o botão «Mostrar OB», ISIN-MIC com edição directa; ordenação por instrumento, volume, variação e desequilíbrio), adicionar símbolos ou importar Excel/CSV (colunas `ticker` e `isin_mic`) com pré-visualização, botão «Validar agora» |
 | Orderbook | Livro de ofertas Euronext (atraso 15 min) dos instrumentos com ISIN-MIC: melhor compra/venda, spread, mid, desequilíbrio, tabela com nº de ordens e totais, gráfico de profundidade cumulativa, actualização a cada 30 s |
 | Instrumento | Último fecho e variação, gráfico diário (1M a 2A) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, aplicar estratégia |
-| HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5, 15 ou 30 sessões |
+| HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5, 10 ou 20 sessões |
 | Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |
 | Operações | Histórico filtrável por tipo, instrumento e datas |
 | Sinais | Compras, reforços e vendas da estratégia aplicada virtualmente a todos os instrumentos, nas últimas 1 a 10 sessões, com filtro por tipo e botões Comprar e Vender (operação na carteira virtual) |
@@ -148,7 +148,7 @@ Erros no formato comum `{ "error": { "code", "message", "details" } }`, com cód
 
 #### Mapa de calor
 
-Por instrumento activo e para N ∈ {1, 5, 15, 30} sessões:
+Por instrumento activo e para N ∈ {1, 5, 10, 20} sessões:
 - variação = fecho ajustado da última sessão ÷ fecho ajustado N sessões antes − 1;
 - valor negociado = Σ fecho × volume das N sessões.
 

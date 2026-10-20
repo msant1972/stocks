@@ -13,8 +13,8 @@ const TOP = 20;
 const PERIODS = [
   { value: '1', label: '1 dia' },
   { value: '5', label: '5 dias' },
-  { value: '15', label: '15 dias' },
-  { value: '30', label: '30 dias' },
+  { value: '10', label: '10 dias' },
+  { value: '20', label: '20 dias' },
 ];
 
 // Classes de cor: subida > +1%, descida < −1%, neutro entre os dois.

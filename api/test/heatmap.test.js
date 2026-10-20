@@ -47,6 +47,7 @@ describe.skipIf(!hasTestDb)('mapa de calor', () => {
 
   it('recusa períodos não suportados', async () => {
     expect((await ana.get('/heatmap?period=7')).statusCode).toBe(400);
-    expect((await ana.get('/heatmap?period=15')).statusCode).toBe(200);
+    expect((await ana.get('/heatmap?period=15')).statusCode).toBe(400);
+    expect((await ana.get('/heatmap?period=20')).statusCode).toBe(200);
   });
 });
