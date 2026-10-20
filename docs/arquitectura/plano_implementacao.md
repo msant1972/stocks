@@ -76,7 +76,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Configuração SMTP | Em Definições, com palavra-passe cifrada na BD e email de teste pelo motor de alertas |
 | Capital de 1 M€ | Valor por omissão das contas novas |
 | Ordenação em Acompanhar | Instrumento, volume e variação ordenam o catálogo inteiro no servidor; desequilíbrio ordena os instrumentos mostrados (o livro só é pedido para esses); a lista do utilizador ordena-se no browser |
-| Mid e desequilíbrio em Acompanhar | Colunas com o resumo do livro Euronext de cada instrumento com ISIN-MIC, em lotes de 50 para toda a lista (máx. 4 pedidos simultâneos à Euronext, limite global; cache de 30 s) |
+| Mid e desequilíbrio em Acompanhar | Botão «Mostrar OB» (desligado ao abrir); colunas com o resumo do livro Euronext de cada instrumento com ISIN-MIC, em lotes de 50 para toda a lista (máx. 4 pedidos simultâneos à Euronext, limite global; cache de 30 s) |
 | Histórico de 3 anos | Carga inicial passou de dois para três anos, para a SMA200 estar completa; comando `backfill` para os instrumentos existentes (executado a 20 out. 2026: 288 de 295 com três anos; os restantes 7 cotam há menos tempo) |
 | Autenticação em dois passos | TOTP obrigatório para todos, configurado no primeiro login (QR code), códigos de recuperação, reposição pelo administrador ou pelo CLI `reset-mfa` |
 

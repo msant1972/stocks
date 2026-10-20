@@ -52,8 +52,8 @@ export function useInstrument(id) {
  * Os valores aparecem à medida que cada lote chega.
  */
 const SUMMARY_BATCH = 50;
-export function useOrderbookSummary(items) {
-  const ids = (items ?? []).filter((i) => i.isinMic).map((i) => i.id).sort((a, b) => a - b);
+export function useOrderbookSummary(items, enabled = true) {
+  const ids = (enabled ? items ?? [] : []).filter((i) => i.isinMic).map((i) => i.id).sort((a, b) => a - b);
   const batches = [];
   for (let k = 0; k < ids.length; k += SUMMARY_BATCH) batches.push(ids.slice(k, k + SUMMARY_BATCH).join(','));
   const results = useQueries({

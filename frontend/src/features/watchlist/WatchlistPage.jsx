@@ -150,8 +150,10 @@ function SortHeader({ label, sortKey, sort, onSort, align, title }) {
 /**
  * clientKeys: colunas ordenadas aqui, sobre as linhas recebidas (as restantes já vêm ordenadas do servidor).
  */
-function InstrumentTable({ items, action, sort, onSort, clientKeys = Object.keys(SORT_DEFAULT_DIR), note }) {
-  const summary = useOrderbookSummary(items);
+function InstrumentTable({ items, action, sort: requested, onSort, clientKeys = Object.keys(SORT_DEFAULT_DIR), note, showBook }) {
+  // Sem as colunas do livro, não há pedidos à Euronext nem ordenação por desequilíbrio.
+  const summary = useOrderbookSummary(items, showBook);
+  const sort = !showBook && requested.key === 'imbalance' ? { key: 'symbol', dir: 'asc' } : requested;
   const rows = clientKeys.includes(sort.key) ? sortItems(items, sort, summary) : items;
   const header = (label, key, extra) => <SortHeader label={label} sortKey={key} sort={sort} onSort={onSort} {...extra} />;
   return (
@@ -166,8 +168,8 @@ function InstrumentTable({ items, action, sort, onSort, clientKeys = Object.keys
             <th scope="col" className="r">Último fecho</th>
             {header('Volume', 'volume', { align: 'r' })}
             {header('Variação', 'change', { align: 'r' })}
-            <th scope="col" className="r" title="Ponto médio entre a melhor compra e a melhor venda no livro Euronext (atraso 15 min)">Mid</th>
-            {header('Desequilíbrio', 'imbalance', { align: 'r', title: '(compras − vendas) / total das quantidades no livro: positivo = pressão compradora' })}
+            {showBook && <th scope="col" className="r" title="Ponto médio entre a melhor compra e a melhor venda no livro Euronext (atraso 15 min)">Mid</th>}
+            {showBook && header('Desequilíbrio', 'imbalance', { align: 'r', title: '(compras − vendas) / total das quantidades no livro: positivo = pressão compradora' })}
             <th scope="col">ISIN-MIC</th>
             <th scope="col"><span className="visually-hidden">Acções</span></th>
           </tr>
@@ -186,7 +188,7 @@ function InstrumentTable({ items, action, sort, onSort, clientKeys = Object.keys
               </td>
               <td className="r">{f.quantity(i.latest?.volume)}</td>
               <td className="r">{i.latest ? <PriceChange value={i.latest.changePct} showLabel={false} /> : '—'}</td>
-              <BookCells item={i} summary={summary} />
+              {showBook && <BookCells item={i} summary={summary} />}
               <td><IsinMicCell item={i} /></td>
               <td className="r">{action(i)}</td>
             </tr>
@@ -227,6 +229,9 @@ export default function WatchlistPage() {
     if (next === 'off' && q) setParams((p) => { const n = new URLSearchParams(p); n.delete('q'); return n; }, { replace: true });
   };
   const search = useInstrumentSearch(q, serverSort, showCatalog);
+  // Colunas do livro de ofertas (Mid, Desequilíbrio): desligadas ao abrir a página, para só se fazerem
+  // pedidos à Euronext quando o utilizador os quer ver.
+  const [showBook, setShowBook] = useState(false);
   const [listSort, setListSortState] = useState(() => {
     try {
       const saved = JSON.parse(readStored(LIST_SORT_KEY));
@@ -284,7 +289,7 @@ export default function WatchlistPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Acompanhar</h1>
-          <p className="page-sub">A sua lista de instrumentos e o catálogo partilhado. Cotações diárias, não em tempo real; mid e desequilíbrio do livro Euronext com 15 minutos de atraso.</p>
+          <p className="page-sub">A sua lista de instrumentos e o catálogo partilhado. Cotações diárias, não em tempo real. «Mostrar OB» acrescenta o mid e o desequilíbrio do livro Euronext (atraso de 15 minutos).</p>
         </div>
         <div className="row">
           {/* Só aparece quando há instrumentos «A validar». */}
@@ -293,6 +298,10 @@ export default function WatchlistPage() {
               {forcing ? 'A pedir…' : `Validar agora (${pending})`}
             </Button>
           )}
+          <Button className="button-toggle" onClick={() => setShowBook((v) => !v)} aria-pressed={showBook}
+            title={showBook ? 'Esconder o mid e o desequilíbrio do livro de ofertas' : 'Mostrar o mid e o desequilíbrio do livro de ofertas (pedido à Euronext, atraso 15 min)'}>
+            <Icon name="orderbook" size={18} />Mostrar OB
+          </Button>
           <Button className="button-toggle" onClick={toggleCatalog} aria-expanded={showCatalog} aria-controls="catalog-section"
             title={showCatalog ? 'Esconder o catálogo partilhado' : 'Mostrar o catálogo partilhado'}>
             <Icon name="search" size={18} />Catálogo
@@ -332,7 +341,7 @@ export default function WatchlistPage() {
                 {q ? 'Se o símbolo ainda não está no catálogo, pode adicioná-lo.' : 'Adicione os primeiros símbolos, à mão ou por Excel.'}
               </EmptyState>
             ) : (
-              <InstrumentTable items={search.data.items} action={action} sort={catalogSort} onSort={setCatalogSort} clientKeys={['imbalance']}
+              <InstrumentTable items={search.data.items} action={action} sort={catalogSort} onSort={setCatalogSort} clientKeys={['imbalance']} showBook={showBook}
                 note={search.data.total > search.data.items.length
                   ? `Ordenados por desequilíbrio os ${search.data.items.length} instrumentos mostrados (o livro é pedido à Euronext só para estes). Pesquise para restringir a lista.`
                   : null} />
@@ -351,7 +360,7 @@ export default function WatchlistPage() {
                 : <Button onClick={toggleCatalog}>Mostrar o catálogo</Button>}>
                 Pesquise no catálogo ou adicione símbolos novos, à mão ou por Excel.
               </EmptyState>
-            ) : <InstrumentTable items={watchlist.data.items} action={action} sort={listSort} onSort={setListSort} />}
+            ) : <InstrumentTable items={watchlist.data.items} action={action} sort={listSort} onSort={setListSort} showBook={showBook} />}
         </section>
       </div>
 
