@@ -57,6 +57,37 @@ describe.skipIf(!hasTestDb)('ISIN-MIC no catálogo e livro de ofertas na API', (
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
+  it('resumo de vários livros (mid e desequilíbrio) para as listas, com no máximo 4 pedidos simultâneos', async () => {
+    await ana.put(`/instruments/${id}/isin-mic`, { isinMic: 'PTFCP0AM0008-XLIS' });
+    const others = [];
+    for (let k = 0; k < 6; k++) {
+      const oid = await makeInstrument(ctx.pool, `X${k}.LS`);
+      await ctx.pool.query("UPDATE instruments SET isin = 'PTGAL0AM0009', mic = ? WHERE id = ?", [`XL${k}A`, oid]);
+      others.push(oid);
+    }
+    const semIsin = await makeInstrument(ctx.pool, 'SAP.DE');
+    let active = 0;
+    let peak = 0;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      active++; peak = Math.max(peak, active);
+      await new Promise((r) => setTimeout(r, 20));
+      active--;
+      if (String(url).includes('XL0A')) return new Response('<html>não encontrado</html>', { status: 200, headers: { 'content-type': 'text/html' } });
+      return new Response(FIXTURE, { status: 200 });
+    });
+    const res = await ana.get(`/instruments/orderbook-summary?ids=${[id, ...others, semIsin].join(',')}`);
+    expect(res.statusCode).toBe(200);
+    const items = res.json().items;
+    expect(items).toHaveLength(7); // SAP.DE não tem ISIN-MIC
+    expect(items.find((i) => i.id === id)).toMatchObject({ mid: '2.68', crossed: false, updatedAt: '2026-10-19T15:40:00.000Z', error: null });
+    expect(items.find((i) => i.id === id).imbalance).toBeCloseTo(-0.83, 2);
+    expect(items.find((i) => i.id === others[0])).toMatchObject({ mid: null, error: 'NOT_FOUND' });
+    expect(peak).toBeLessThanOrEqual(4);
+    const many = Array.from({ length: 51 }, (_, k) => k + 1).join(',');
+    expect((await ana.get(`/instruments/orderbook-summary?ids=${many}`)).json().error.code).toBe('TOO_MANY_IDS');
+    expect((await ana.get('/instruments/orderbook-summary?ids=a,b')).statusCode).toBe(400);
+  });
+
   it('erros: sem ISIN-MIC, instrumento inexistente na Euronext e falha da Euronext', async () => {
     const other = await makeInstrument(ctx.pool, 'SEM.LS');
     expect((await ana.get(`/instruments/${other}/orderbook`)).json().error.code).toBe('NO_ISIN_MIC');

@@ -46,6 +46,23 @@ export function useInstrument(id) {
   });
 }
 
+/**
+ * Mid e desequilíbrio do livro Euronext dos instrumentos com ISIN-MIC. Pedido uma vez por lista (a API
+ * limita os pedidos à Euronext e guarda-os 30 s); sem actualização automática.
+ */
+export function useOrderbookSummary(items) {
+  const ids = (items ?? []).filter((i) => i.isinMic).map((i) => i.id).sort((a, b) => a - b).slice(0, 50);
+  const q = useQuery({
+    queryKey: ['orderbook-summary', ids.join(',')],
+    queryFn: () => api.get(`/instruments/orderbook-summary?ids=${ids.join(',')}`),
+    enabled: ids.length > 0,
+    staleTime: 60_000,
+    retry: false,
+  });
+  const byId = new Map((q.data?.items ?? []).map((i) => [i.id, i]));
+  return { byId, isLoading: q.isFetching && !q.data, isError: q.isError };
+}
+
 export function useQuotes(id, enabled) {
   return useQuery({ queryKey: keys.quotes(id), queryFn: () => api.get(`/instruments/${id}/quotes`), enabled });
 }

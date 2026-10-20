@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useInstrumentSearch, useStatus, useWatchlist } from '../../lib/queries.js';
+import { keys, useInstrumentSearch, useOrderbookSummary, useStatus, useWatchlist } from '../../lib/queries.js';
 import { InstrumentStatus, PriceChange } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
@@ -73,7 +73,36 @@ function IsinMicCell({ item }) {
   );
 }
 
+const IMBALANCE_HINT = (v) => (v > 0.1 ? 'pressão compradora' : v < -0.1 ? 'pressão vendedora' : 'equilibrado');
+
+/** Mid e desequilíbrio do livro Euronext (atraso 15 min), como no Orderbook. */
+function BookCells({ item, summary }) {
+  if (!item.isinMic) return <><td className="r muted">—</td><td className="r muted">—</td></>;
+  const s = summary.byId.get(item.id);
+  if (!s) {
+    const label = summary.isLoading ? <span className="muted" aria-label="A carregar">…</span> : <span className="muted">—</span>;
+    return <><td className="r">{label}</td><td className="r">{label}</td></>;
+  }
+  if (s.error || s.mid == null) {
+    const why = s.error === 'NOT_FOUND' ? 'Sem livro na Euronext para este ISIN-MIC'
+      : s.error ? 'A Euronext não respondeu' : 'Livro sem ofertas dos dois lados';
+    return <><td className="r muted" title={why}>—</td><td className="r muted" title={why}>{s.imbalance == null ? '—' : f.number(s.imbalance).replace('-', '−')}</td></>;
+  }
+  const tone = s.imbalance > 0.1 ? 'positive' : s.imbalance < -0.1 ? 'negative' : '';
+  return (
+    <>
+      <td className="r num" title={s.crossed ? 'Livro cruzado (provável leilão)' : undefined}>
+        <Link to={`/orderbook?instrumento=${item.id}`} className="row-link" style={{ fontWeight: 400 }}>{f.price(s.mid, item.currency)}</Link>
+      </td>
+      <td className={`r num ${tone}`} title={IMBALANCE_HINT(s.imbalance)}>
+        {f.number(s.imbalance).replace('-', '−')}<span className="visually-hidden">, {IMBALANCE_HINT(s.imbalance)}</span>
+      </td>
+    </>
+  );
+}
+
 function InstrumentTable({ items, action }) {
+  const summary = useOrderbookSummary(items);
   return (
     <div className="table-wrap" tabIndex={0} aria-label="Tabela de instrumentos">
       <table className="data">
@@ -84,6 +113,8 @@ function InstrumentTable({ items, action }) {
             <th scope="col" className="r">Último fecho</th>
             <th scope="col" className="r">Volume</th>
             <th scope="col" className="r">Variação</th>
+            <th scope="col" className="r" title="Ponto médio entre a melhor compra e a melhor venda no livro Euronext (atraso 15 min)">Mid</th>
+            <th scope="col" className="r" title="(compras − vendas) / total das quantidades no livro: positivo = pressão compradora">Desequilíbrio</th>
             <th scope="col">ISIN-MIC</th>
             <th scope="col"><span className="visually-hidden">Acções</span></th>
           </tr>
@@ -102,6 +133,7 @@ function InstrumentTable({ items, action }) {
               </td>
               <td className="r">{f.quantity(i.latest?.volume)}</td>
               <td className="r">{i.latest ? <PriceChange value={i.latest.changePct} showLabel={false} /> : '—'}</td>
+              <BookCells item={i} summary={summary} />
               <td><IsinMicCell item={i} /></td>
               <td className="r">{action(i)}</td>
             </tr>
@@ -172,7 +204,7 @@ export default function WatchlistPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Acompanhar</h1>
-          <p className="page-sub">A sua lista de instrumentos e o catálogo partilhado. Cotações diárias, não em tempo real.</p>
+          <p className="page-sub">A sua lista de instrumentos e o catálogo partilhado. Cotações diárias, não em tempo real; mid e desequilíbrio do livro Euronext com 15 minutos de atraso.</p>
         </div>
         <div className="row">
           <Button

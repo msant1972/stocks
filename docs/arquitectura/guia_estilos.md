@@ -182,6 +182,7 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 
 - Pesquisa por designação, ticker e mercado; catálogo partilhado sempre visível.
 - Tabela com instrumento, estado, último fecho (com a data da sessão), volume da sessão, variação e ISIN-MIC. O ISIN-MIC é uma ligação para o Orderbook e tem edição directa («Definir», ou o ícone de lápis quando já existe), com o MIC sugerido pela bolsa e validação do formato; os instrumentos fora da Euronext mostram «não Euronext».
+- Colunas «Mid» e «Desequilíbrio» do livro Euronext (atraso 15 min), com o significado no `title` do cabeçalho: o mid é uma ligação para o Orderbook; o desequilíbrio usa verde acima de +0,1 e vermelho abaixo de −0,1, com «pressão compradora/vendedora/equilibrado» no `title` e para leitores de ecrã. «…» enquanto carrega; «—» sem ISIN-MIC ou quando o livro falha (motivo no `title`).
 - A variação mostra só o valor com sinal e a cor (verde a subir, vermelho a descer), sem as palavras «Subida»/«Descida».
 - Remover da lista é um ícone de caixote do lixo; «Acompanhar» mantém-se em texto. Os botões só com ícone têm `title` e nome acessível completo (ex.: «Remover GALP.LS da lista»), e os rótulos ocultos ficam contidos no `.table-wrap` (`position: relative`) para não alargarem a página em telemóvel.
 - Botão «Validar agora (N)» com o número de instrumentos por validar; desactivado com «Nada por validar». Enquanto houver pendentes, a lista actualiza-se sozinha.

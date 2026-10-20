@@ -185,6 +185,50 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     },
   }, async (req) => ({ isinMic: await setIsinMic(pool, req.user.id, req.params.id, req.body.isinMic?.trim() || null) }));
 
+  // Resumo do livro (mid e desequilíbrio) para as listas. No máximo 4 pedidos simultâneos à Euronext e a
+  // mesma cache de 30 s por instrumento do livro completo; os instrumentos sem ISIN-MIC são ignorados.
+  const SUMMARY_CONCURRENCY = 4;
+  app.get('/instruments/orderbook-summary', {
+    schema: {
+      tags: ['Livro de ofertas'], summary: 'Mid e desequilíbrio do livro de vários instrumentos (atraso 15 min)',
+      description: 'ids separados por vírgulas (até 50). error: NOT_FOUND, UPSTREAM ou FORMAT quando o livro não pôde ser obtido.',
+      querystring: z.object({ ids: z.string().regex(/^\d+(,\d+)*$/).max(600) }),
+      response: {
+        200: z.object({
+          items: z.array(z.object({
+            id: z.number(), mid: NullableDecimal, imbalance: z.number().nullable(), crossed: z.boolean(),
+            updatedAt: z.string().nullable(), error: z.enum(['NOT_FOUND', 'UPSTREAM', 'FORMAT']).nullable(),
+          })),
+        }),
+        400: ErrorBody,
+      },
+    },
+  }, async (req) => {
+    const ids = [...new Set(req.query.ids.split(',').map(Number))];
+    if (ids.length > 50) throw new AppError(400, 'TOO_MANY_IDS', 'no máximo 50 instrumentos por pedido');
+    const [rows] = await pool.query('SELECT id, isin, mic FROM instruments WHERE id IN (?) AND isin IS NOT NULL AND mic IS NOT NULL', [ids]);
+    const items = new Array(rows.length);
+    let next = 0;
+    const worker = async () => {
+      while (next < rows.length) {
+        const k = next++;
+        const r = rows[k];
+        const item = { id: Number(r.id), mid: null, imbalance: null, crossed: false, updatedAt: null, error: null };
+        try {
+          const book = await fetchOrderBook(r.isin, r.mic, { logger: req.log });
+          const stats = computeStats(book);
+          Object.assign(item, { mid: stats.mid, imbalance: stats.imbalance, crossed: stats.crossed, updatedAt: book.updatedAt?.toISOString() ?? null });
+        } catch (err) {
+          item.error = err instanceof InstrumentNotFoundError ? 'NOT_FOUND' : err instanceof UpstreamError ? 'UPSTREAM' : 'FORMAT';
+          if (item.error === 'FORMAT') req.log.warn({ err, isin: r.isin, mic: r.mic }, 'orderbook: resumo falhou');
+        }
+        items[k] = item;
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(SUMMARY_CONCURRENCY, rows.length) }, worker));
+    return { items };
+  });
+
   const ObLevel = z.object({ side: z.enum(['bid', 'ask']), price: Decimal, quantity: z.number(), orders: z.number().nullable() });
   app.get('/instruments/:id/orderbook', {
     schema: {

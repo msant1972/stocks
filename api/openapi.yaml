@@ -1425,6 +1425,88 @@ paths:
                 required:
                   - error
                 additionalProperties: false
+  /api/v1/instruments/orderbook-summary:
+    get:
+      summary: Mid e desequilíbrio do livro de vários instrumentos (atraso 15 min)
+      tags:
+        - Livro de ofertas
+      description: "ids separados por vírgulas (até 50). error: NOT_FOUND, UPSTREAM ou
+        FORMAT quando o livro não pôde ser obtido."
+      parameters:
+        - schema:
+            type: string
+            maxLength: 600
+            pattern: ^\d+(,\d+)*$
+          in: query
+          name: ids
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                        mid:
+                          nullable: true
+                          type: string
+                          description: 'Valor decimal em texto, ex.: "1234.50"'
+                        imbalance:
+                          nullable: true
+                          type: number
+                        crossed:
+                          type: boolean
+                        updatedAt:
+                          nullable: true
+                          type: string
+                        error:
+                          nullable: true
+                          type: string
+                          enum:
+                            - NOT_FOUND
+                            - UPSTREAM
+                            - FORMAT
+                      required:
+                        - id
+                        - mid
+                        - imbalance
+                        - crossed
+                        - updatedAt
+                        - error
+                      additionalProperties: false
+                required:
+                  - items
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
   /api/v1/instruments/{id}/orderbook:
     get:
       summary: Livro de ofertas Euronext do instrumento (atraso 15 min)
