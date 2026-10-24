@@ -264,7 +264,7 @@ A API devolve, por omissão, os últimos dois anos de sessões, com os indicador
 
 As estratégias estão num registo partilhado (`shared/strategies/index.js`): cada uma tem um id, um nome, as regras em texto, o orçamento por compra e uma função `run(quotes)` que devolve sempre o mesmo formato (operações, posição aberta, sinais para o gráfico e resumo). O menu «Estratégia» da página do instrumento (Nenhuma ou uma estratégia; `?estrategia=<id>` no endereço), a página BackTest (`GET /backtest?strategy=<id>`) e `GET /strategies` usam esse registo. Uma estratégia registada como não disponível aparece nos menus como «em preparação» e é recusada pela API.
 
-- **B-Opus:** registada como «em preparação»; as regras serão definidas numa próxima fase. Para a activar basta criar `shared/strategies/b-opus.js` com a função `run` e marcá-la como disponível no registo; os menus, o gráfico, o painel e o BackTest passam a mostrá-la sem outras alterações.
+- **B-Opus:** registada como «em preparação». A especificação (estratégia de carteira de tendência e momentum, STOXX600 em EUR) está em [B-Opus.md](B-Opus.md); a implementação é uma próxima fase. Para a activar basta criar `shared/strategies/b-opus.js` com a função `run` e marcá-la como disponível no registo; os menus, o gráfico, o painel e o BackTest passam a mostrá-la sem outras alterações.
 - **A-Momentum** (`shared/strategies/a-momentum.js`), corrida no browser sobre o histórico carregado, sem alterar a carteira:
 
 - estado de cada sessão = cor do momento (SMA10/SMA200 «a subir» ou «a descer»);
@@ -390,4 +390,4 @@ Riscos aceites ou pendentes:
 
 ## 10. Base documental
 
-Documento elaborado a partir do diagrama original, dos requisitos e das decisões de 18 out. 2026, e actualizado para a implementação publicada. O código de referência é o do ramo `main`; o contrato da API está em [api/openapi.yaml](../../api/openapi.yaml). Os próximos passos estão na secção 8 do [plano de implementação](plano_implementacao.md).
+Documento elaborado a partir do diagrama original, dos requisitos e das decisões de 18 out. 2026, e actualizado para a implementação publicada. O código de referência é o do ramo `main`; o contrato da API está em [api/openapi.yaml](../../api/openapi.yaml). Os próximos passos estão na secção 8 do [plano de implementação](plano_implementacao.md). Especificações: [livro de ofertas](orderbook-spec.md) e [estratégia B-Opus](B-Opus.md).
