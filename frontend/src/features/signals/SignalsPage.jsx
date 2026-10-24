@@ -51,7 +51,7 @@ export default function SignalsPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Sinais</h1>
-          <p className="page-sub">Compras{strategyId === 'a-momentum' ? ', reforços' : ''} e vendas da estratégia {strategy.name} aplicada virtualmente a todos os instrumentos.</p>
+          <p className="page-sub">Compras, reforços e vendas da estratégia {strategy.name} aplicada virtualmente a todos os instrumentos.</p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <Link className="button mobile-only-inline" to="/backtest">BackTest</Link>
@@ -60,7 +60,7 @@ export default function SignalsPage() {
             options={[
               { value: 'all', label: `Todos${q.data ? ` (${all.length})` : ''}` },
               { value: 'buy', label: `Compra${q.data ? ` (${count('buy')})` : ''}` },
-              ...(strategyId === 'a-momentum' ? [{ value: 'add', label: `Reforço${q.data ? ` (${count('add')})` : ''}` }] : []),
+              { value: 'add', label: `Reforço${q.data ? ` (${count('add')})` : ''}` },
               { value: 'sell', label: `Venda${q.data ? ` (${count('sell')})` : ''}` },
             ]} />
           <div style={{ minWidth: '9rem' }}>

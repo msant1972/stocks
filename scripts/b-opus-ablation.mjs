@@ -10,7 +10,7 @@
 import { createPool } from '../api/src/db.js';
 import { loadConfig } from '../api/src/config.js';
 import { yearsBefore } from '../api/src/routes/instruments.js';
-import { backtest, DEFAULT_OPTIONS } from '../shared/strategies/b-opus.js';
+import { backtest, DEFAULT_OPTIONS, ORIGINAL_OPTIONS } from '../shared/strategies/b-opus.js';
 
 const cfg = loadConfig();
 const pool = createPool(cfg.db);
@@ -70,9 +70,11 @@ const lines = [
   '|---|---|---|---|---|---|---|---|',
 ];
 const variants = [
-  ['—', 'full (por omissão)', {}],
-  ['remover', 'no_trend_strength', { trendStrength: 'none' }],
-  ['substituir', 'adx_instead_of_er', { trendStrength: 'adx' }],
+  ['—', 'full (por omissão, versão B)', {}],
+  ['referência', 'original (especificação: ER, stop 3 × ATR, sem reforços)', ORIGINAL_OPTIONS],
+  ['remover', 'no_adds', { addOnGain: 0 }],
+  ['adicionar', 'with_er', { trendStrength: 'er' }],
+  ['substituir', 'adx', { trendStrength: 'adx' }],
   ['remover', 'no_time_stop', { useTimeStop: false }],
   ['adicionar', 'with_volume_confirmation', { volumeConfirmation: true }],
   ['adicionar', 'with_pullback_entry', { pullbackEntry: true }],
@@ -88,8 +90,8 @@ for (const [type, id, options] of variants) {
 lines.push('', '## Sensibilidade (um parâmetro de cada vez)', '', header, sep);
 const ranges = {
   smaTrendFast: [40, 60], smaTrendSlow: [150, 250], m1Fast: [5, 20], m1Slow: [100, 150], m2Lookback: [126, 189],
-  m2Skip: [0, 10], atrN: [14, 30], stopMult: [2.5, 3.5, 4.0], erThreshold: [0.20, 0.30], timeStopSessions: [10, 40],
-  cooldownSessions: [5, 20], gapProtectAtr: [0.5, 2.0],
+  m2Skip: [0, 10], atrN: [14, 30], stopMult: [3.0, 5.0, 6.0], erThreshold: [0.20, 0.30], timeStopSessions: [10, 40],
+  cooldownSessions: [5, 20], gapProtectAtr: [0.5, 2.0], addOnGain: [0.05, 0.15, 0.2], maxAdds: [2, 0],
 };
 lines.push(row('por omissão', full));
 for (const [key, values] of Object.entries(ranges)) {

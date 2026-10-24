@@ -4505,16 +4505,17 @@ paths:
         b-opus (B-Opus: Na última sessão de cada semana, sem posição, compra
         15 000 € na abertura seguinte quando o fecho e a SMA50 estão acima da
         SMA200, o M1 ((SMA10 − SMA125) / ATR22) e o M2 (momentum de 12 meses sem
-        o último, dividido pela volatilidade) são positivos, o Efficiency Ratio
-        de 60 sessões é pelo menos 0.25, o valor negociado médio de 50 sessões é
-        pelo menos 5 000 000 € e não houve um stop nas últimas 10 sessões; não
-        compra se a abertura subir mais de 1 ATR face ao fecho. Vende tudo se o
-        preço tocar o stop chandelier (máximo desde a compra − 3 × ATR22, que só
+        o último, dividido pela volatilidade) são positivos, o valor negociado
+        médio de 50 sessões é pelo menos 5 000 000 € e não houve um stop nas
+        últimas 10 sessões; não compra se a abertura subir mais de 1 ATR face ao
+        fecho. Reforça com mais 15 000 € na abertura seguinte sempre que o fecho
+        sobe mais de 10% face ao último lote (até 5 reforços). Vende tudo se o
+        preço tocar o stop chandelier (máximo desde a compra − 4 × ATR22, que só
         sobe), ou, na revisão semanal, por falta de liquidez, quebra de
         tendência, perda de momento ou ao fim de 20 sessões sem ganhar 1 ATR
-        (venda na abertura seguinte). Uma posição de cada vez, sem reforços nem
-        comissões; indicadores sobre preços ajustados, execução a preços reais.)
-        Simulação; não são recomendações."
+        (venda na abertura seguinte). Uma posição de cada vez, sem comissões;
+        indicadores sobre preços ajustados, execução a preços reais.) Simulação;
+        não são recomendações."
       parameters:
         - schema:
             default: 5
@@ -4675,16 +4676,17 @@ paths:
         posição, compra 15 000 € na abertura seguinte quando o fecho e a SMA50
         estão acima da SMA200, o M1 ((SMA10 − SMA125) / ATR22) e o M2 (momentum
         de 12 meses sem o último, dividido pela volatilidade) são positivos, o
-        Efficiency Ratio de 60 sessões é pelo menos 0.25, o valor negociado
-        médio de 50 sessões é pelo menos 5 000 000 € e não houve um stop nas
-        últimas 10 sessões; não compra se a abertura subir mais de 1 ATR face ao
-        fecho. Vende tudo se o preço tocar o stop chandelier (máximo desde a
-        compra − 3 × ATR22, que só sobe), ou, na revisão semanal, por falta de
-        liquidez, quebra de tendência, perda de momento ou ao fim de 20 sessões
-        sem ganhar 1 ATR (venda na abertura seguinte). Uma posição de cada vez,
-        sem reforços nem comissões; indicadores sobre preços ajustados, execução
-        a preços reais.) Posições abertas avaliadas ao último fecho. Simulação
-        no histórico; não altera a carteira nem é recomendação."
+        valor negociado médio de 50 sessões é pelo menos 5 000 000 € e não houve
+        um stop nas últimas 10 sessões; não compra se a abertura subir mais de 1
+        ATR face ao fecho. Reforça com mais 15 000 € na abertura seguinte sempre
+        que o fecho sobe mais de 10% face ao último lote (até 5 reforços). Vende
+        tudo se o preço tocar o stop chandelier (máximo desde a compra − 4 ×
+        ATR22, que só sobe), ou, na revisão semanal, por falta de liquidez,
+        quebra de tendência, perda de momento ou ao fim de 20 sessões sem ganhar
+        1 ATR (venda na abertura seguinte). Uma posição de cada vez, sem
+        comissões; indicadores sobre preços ajustados, execução a preços reais.)
+        Posições abertas avaliadas ao último fecho. Simulação no histórico; não
+        altera a carteira nem é recomendação."
       parameters:
         - schema:
             default: all

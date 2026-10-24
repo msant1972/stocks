@@ -51,16 +51,18 @@ export const STRATEGIES = [
     name: 'B-Opus',
     available: true,
     budget: bOpus.DEFAULT_OPTIONS.budget,
-    summary: 'Tendência e momentum ajustado ao risco, decisão semanal, stop chandelier de 3 × ATR',
+    summary: 'Tendência e momentum ajustado ao risco, decisão semanal, reforços a +10%, stop chandelier de 4 × ATR',
     rules: `Na última sessão de cada semana, sem posição, compra ${eur(bOpus.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho `
       + 'e a SMA50 estão acima da SMA200, o M1 ((SMA10 − SMA125) / ATR22) e o M2 (momentum de 12 meses sem o último, '
-      + `dividido pela volatilidade) são positivos, o Efficiency Ratio de 60 sessões é pelo menos ${bOpus.DEFAULT_OPTIONS.erThreshold}, `
-      + `o valor negociado médio de 50 sessões é pelo menos ${eur(bOpus.DEFAULT_OPTIONS.minTradedValue)} e não houve um stop nas `
-      + `últimas ${bOpus.DEFAULT_OPTIONS.cooldownSessions} sessões; não compra se a abertura subir mais de 1 ATR face ao fecho. `
+      + `dividido pela volatilidade) são positivos, o valor negociado médio de 50 sessões é pelo menos `
+      + `${eur(bOpus.DEFAULT_OPTIONS.minTradedValue)} e não houve um stop nas últimas ${bOpus.DEFAULT_OPTIONS.cooldownSessions} sessões; `
+      + 'não compra se a abertura subir mais de 1 ATR face ao fecho. '
+      + `Reforça com mais ${eur(bOpus.DEFAULT_OPTIONS.budget)} na abertura seguinte sempre que o fecho sobe mais de `
+      + `${bOpus.DEFAULT_OPTIONS.addOnGain * 100}% face ao último lote (até ${bOpus.DEFAULT_OPTIONS.maxAdds} reforços). `
       + `Vende tudo se o preço tocar o stop chandelier (máximo desde a compra − ${bOpus.DEFAULT_OPTIONS.stopMult} × ATR22, que só sobe), `
       + 'ou, na revisão semanal, por falta de liquidez, quebra de tendência, perda de momento ou ao fim de '
       + `${bOpus.DEFAULT_OPTIONS.timeStopSessions} sessões sem ganhar 1 ATR (venda na abertura seguinte). `
-      + 'Uma posição de cada vez, sem reforços nem comissões; indicadores sobre preços ajustados, execução a preços reais.',
+      + 'Uma posição de cada vez, sem comissões; indicadores sobre preços ajustados, execução a preços reais.',
     windowYears: 2,
     warmupYears: 1,
     reasonLabels: {

@@ -1,6 +1,6 @@
 # B-Opus — Estratégia de tendência e momentum por instrumento
 
-> **Implementada a 24 out. 2026** em `shared/strategies/b-opus.js`; resultados da ablação e da sensibilidade em [b-opus-ablacao.md](b-opus-ablacao.md).
+> **Implementada a 24 out. 2026** em `shared/strategies/b-opus.js`, na **versão B** (secção 15: sem filtro do Efficiency Ratio, stop de 4 × ATR e reforços a +10%, depois da análise de todos os instrumentos); resultados da ablação e da sensibilidade em [b-opus-ablacao.md](b-opus-ablacao.md).
 >
 > Especificação de implementação da estratégia B-Opus na aplicação Stocks. A B-Opus é uma estratégia **por instrumento**, como a A-Momentum, com regras e indicadores diferentes: cada instrumento é simulado isoladamente, com os seus próprios dados, no mesmo ambiente (registo `shared/strategies/`, API, BackTest, página do instrumento e Sinais), com o mesmo orçamento por compra e sem comissões. Os valores e regras aqui definidos são vinculativos. Descrição metodológica para estudo e simulação; não constitui recomendação de investimento.
 
@@ -23,10 +23,10 @@
 
 Em cada instrumento, a B-Opus compra quando a acção está numa tendência de alta limpa e com momentum ajustado ao risco, e protege a posição com um stop de volatilidade que só sobe.
 
-- **Entrada (revisão semanal):** fecho > SMA200 e SMA50 > SMA200; M1 > 0 (SMA10/SMA125 normalizado pelo ATR) e M2 > 0 (momentum 12-1 ajustado à volatilidade); tendência limpa (Efficiency Ratio ≥ 0,25); liquidez mínima; sem arrefecimento após um stop recente.
+- **Entrada (revisão semanal):** fecho > SMA200 e SMA50 > SMA200; M1 > 0 (SMA10/SMA125 normalizado pelo ATR) e M2 > 0 (momentum 12-1 ajustado à volatilidade); liquidez mínima; sem arrefecimento após um stop recente. O filtro de tendência limpa (Efficiency Ratio ≥ 0,25) fica disponível como opção, desligado na versão B.
 - **Execução:** decisão no fecho da última sessão da semana, compra na abertura da sessão seguinte, com protecção contra gaps.
-- **Posição:** 15 000 € por compra (quantidade inteira), uma posição de cada vez, sem reforços.
-- **Saídas:** stop chandelier diário (máximo desde a entrada − 3 × ATR, só sobe); saídas semanais por quebra de tendência, perda de momentum, falta de liquidez ou stop temporal. Venda da posição inteira.
+- **Posição:** 15 000 € por compra (quantidade inteira), uma posição de cada vez; reforço de mais 15 000 € na abertura seguinte sempre que o fecho sobe mais de 10% face ao último lote, até 5 reforços.
+- **Saídas:** stop chandelier diário (máximo desde a entrada − 4 × ATR, só sobe), sobre a posição inteira; saídas semanais por quebra de tendência, perda de momentum, falta de liquidez ou stop temporal. Venda da posição inteira.
 - **Sem comissões**, como a A-Momentum.
 
 Diferenças em relação à A-Momentum:
@@ -36,8 +36,8 @@ Diferenças em relação à A-Momentum:
 | Sinal de entrada | Padrão descer-subir-subir do SMA10/SMA200, com o preço acima da SMA200 | Tendência (SMA50 e SMA200), M1 e M2 positivos, Efficiency Ratio, liquidez |
 | Frequência | Diária | Semanal (entradas e saídas planeadas); stops diários |
 | Execução | Fecho da sessão do sinal | Abertura da sessão seguinte |
-| Posição | 15 000 € e reforços de 15 000 € a cada +10% | 15 000 €, sem reforços |
-| Saída | Padrão subir-descer-descer com SMA8/SMA125 < 1%; protecção de 15% dos reforços | Stop chandelier (3 × ATR), quebra de tendência, perda de momentum, stop temporal |
+| Posição | 15 000 € e reforços de 15 000 € a cada +10%, sem limite | 15 000 € e reforços de 15 000 € a cada +10%, até 5 |
+| Saída | Padrão subir-descer-descer com SMA8/SMA125 < 1%; protecção de 15% dos reforços | Stop chandelier (4 × ATR), quebra de tendência, perda de momentum, stop temporal |
 | Custos | Sem comissões | Sem comissões |
 
 ```mermaid
@@ -199,7 +199,7 @@ Avaliada em cada dia de revisão t, só quando não há posição aberta nem com
 2. **liquidez:** `VMN50(t) ≥ minTradedValue`;
 3. **tendência:** `C > SMA200` e `SMA50 > SMA200`;
 4. **momentum:** `M1 > 0` e `M2 > 0`;
-5. **força de tendência** (`trendStrength`): `'er'` → `ER60 ≥ erThreshold (0.25)`; `'adx'` → `ADX14 ≥ adxThreshold (20)`; `'none'` → sem filtro;
+5. **força de tendência** (`trendStrength`, por omissão `'none'` → sem filtro): `'er'` → `ER60 ≥ erThreshold (0.25)`; `'adx'` → `ADX14 ≥ adxThreshold (20)`;
 6. **arrefecimento:** se a última posição saiu por stop na sessão e, só volta a ser elegível quando o número de sessões do instrumento depois de e até t, inclusive, for pelo menos `cooldownSessions = 10`;
 7. **variante** `volumeConfirmation: true`: `CMF20 > 0`;
 8. **variante** `overextensionBlock: true`: `M1 ≤ P90(M1)`.
@@ -214,8 +214,9 @@ Se o instrumento for elegível no dia de revisão t, planeia-se uma compra para 
 
 - **Quantidade:** `floor(budget / preço de execução real)`, com `budget = 15 000 €` (o mesmo da A-Momentum). Se for 0, a compra é cancelada.
 - **Protecção contra gaps:** a compra é cancelada se `O_{t+1} > C_t + gapProtectAtr × ATR_t` (`gapProtectAtr = 1.0`). O instrumento pode voltar a ser elegível na revisão seguinte.
-- **Stop inicial:** `stop_0 = preço de execução − stopMult × ATR_t` (`stopMult = 3.0`), em preços ajustados, com o ATR do dia de revisão. O stop está activo desde a sessão da compra.
-- **Uma posição de cada vez, sem reforços.**
+- **Stop inicial:** `stop_0 = preço de execução − stopMult × ATR_t` (`stopMult = 4.0`), em preços ajustados, com o ATR do dia de revisão. O stop está activo desde a sessão da compra.
+- **Uma posição de cada vez.**
+- **Reforços** (`addOnGain = 0.10`, `maxAdds = 5`): no fecho de cada sessão com posição, se o fecho real for mais de 10% superior ao preço do último lote e a posição tiver menos de 5 reforços, compra mais `floor(budget / abertura real)` na abertura seguinte (salvo se a posição tiver sido vendida nessa abertura). O stop e o máximo desde a entrada não mudam: o chandelier protege a posição inteira. `addOnGain = 0` desliga os reforços; `maxAdds = 0` não limita o número.
 
 **Variante `pullbackEntry: true`:** em vez de compra na abertura, ordem limite a `C_t − pullbackAtr × ATR_t` (`pullbackAtr = 1.0`), válida durante `pullbackWindow = 5` sessões. É executada na primeira sessão em que `L ≤ limite`, ao preço `min(O, limite)`. Não executada → cancelada. Sem protecção contra gaps nesta variante.
 
@@ -309,7 +310,11 @@ Todas as regras opcionais são controladas por opções (secção 13), como as o
 
 | Opção | Por omissão | Efeito |
 |---|---|---|
-| `trendStrength` | `'er'` | `'er'`, `'adx'` ou `'none'` |
+| `trendStrength` | `'none'` | `'none'`, `'er'` ou `'adx'` |
+| `addOnGain` | `0.10` | Reforço a cada subida de mais de 10% face ao último lote; `0` desliga |
+| `maxAdds` | `5` | Máximo de reforços por posição; `0` sem limite |
+| `entryReview` | `'weekly'` | `'daily'` permite entradas em qualquer sessão (as saídas continuam semanais) |
+| `stopFrom` | `'high'` | `'close'` calcula o chandelier a partir do maior fecho |
 | `useTimeStop` | `true` | Stop temporal |
 | `volumeConfirmation` | `false` | Exige CMF20 > 0 na entrada |
 | `overextensionBlock` | `false` | Bloqueia entradas com M1 > P90 |
@@ -364,12 +369,12 @@ Em `shared/strategies/index.js`, a entrada da B-Opus passa a `available: true`, 
 ```js
 {
   trades: [{ buyDate, sellDate, quantity, cost, avgPrice, lots: [{ date, price, quantity, cost }],
-             reinforcements: 0, sellPrice, proceeds, pnl, pnlPct, reason,
+             reinforcements, sellPrice, proceeds, pnl, pnlPct, reason,
              initialStop, partialSales }],
-  open: null | { buyDate, quantity, cost, avgPrice, lots, reinforcements: 0, lastDate, lastPrice, value, pnl, pnlPct, stop },
+  open: null | { buyDate, quantity, cost, avgPrice, lots, reinforcements, lastDate, lastPrice, value, pnl, pnlPct, stop },
   signals: [{ date, side: 'buy' | 'sell', reason }],
   firstDate,
-  summary: { closed, wins, reinforcements: 0, peakCost, realized, unrealized, total, totalPct, buyHold },
+  summary: { closed, wins, reinforcements, peakCost, realized, unrealized, total, totalPct, buyHold },
   // campos próprios da B-Opus:
   blocked: { liquidity, trend, momentum, trendStrength, cooldown, volume, overextension },
   gapCancels, exitReasons: { stop, trend_break, momentum_loss, liquidity, time_stop },
@@ -412,18 +417,26 @@ export const DEFAULT_OPTIONS = {
 
   // elegibilidade
   minTradedValue: 5000000,
-  trendStrength: 'er', erThreshold: 0.25, adxThreshold: 20, cooldownSessions: 10,
+  trendStrength: 'none', erThreshold: 0.25, adxThreshold: 20, cooldownSessions: 10,
   volumeConfirmation: false, overextensionBlock: false,
 
   // entradas
   gapProtectAtr: 1.0, pullbackEntry: false, pullbackAtr: 1.0, pullbackWindow: 5,
 
   // saídas
-  stopMult: 3.0, useTimeStop: true, timeStopSessions: 20, timeStopAtr: 1.0, partialTakeProfit: false,
+  stopMult: 4.0, useTimeStop: true, timeStopSessions: 20, timeStopAtr: 1.0, partialTakeProfit: false,
 
   // calendário
   review: 'weekly',            // 'weekly' | 'biweekly' | 'monthly'
+  entryReview: 'weekly',       // 'weekly' | 'daily'
+  stopFrom: 'high',            // 'high' | 'close'
+
+  // reforços
+  addOnGain: 0.10, maxAdds: 5,
 };
+
+// Regras da especificação original, para comparação:
+export const ORIGINAL_OPTIONS = { trendStrength: 'er', stopMult: 3.0, addOnGain: 0, maxAdds: 0 };
 ```
 
 As opções são validadas ao correr (tipos, gamas, chaves desconhecidas → erro). O resultado inclui `options`, com as opções efectivas.
@@ -439,7 +452,9 @@ Gamas para a análise de sensibilidade (secção 11.2):
 | `m2Lookback` | 252 | 126, 189, 252 |
 | `m2Skip` | 21 | 0, 10, 21 |
 | `atrN` | 22 | 14, 22, 30 |
-| `stopMult` | 3.0 | 2.5, 3.0, 3.5, 4.0 |
+| `stopMult` | 4.0 | 3.0, 4.0, 5.0, 6.0 |
+| `addOnGain` | 0.10 | 0.05, 0.10, 0.15, 0.20 |
+| `maxAdds` | 5 | 0, 2, 5 |
 | `erThreshold` | 0.25 | 0.20, 0.25, 0.30 |
 | `timeStopSessions` | 20 | 10, 20, 40 |
 | `cooldownSessions` | 10 | 5, 10, 20 |
@@ -460,3 +475,24 @@ Valores de `m2Lookback` ou `smaTrendSlow` acima do por omissão alongam o aqueci
 6. Os Sinais mostram as compras e vendas recentes da B-Opus com o motivo.
 7. O script da secção 11.2 corre e o resultado (ablação e sensibilidade) está registado na documentação.
 8. A documentação (arquitectura, guia de estilos, plano e OpenAPI) está actualizada e o código está publicado em produção.
+
+---
+
+## 15. Versão B (24 out. 2026)
+
+Com as regras originais (filtro do Efficiency Ratio, stop de 3 × ATR, sem reforços), a B-Opus somou +126 k€ nos 296 instrumentos, contra +2 130 k€ da A-Momentum. A análise de todas as operações mostrou que o resultado baixo não vinha de más operações (rendimento de 15,9% ao ano sobre o capital usado, contra 11,2% da A-Momentum) mas de quase nunca estar investida (9% do tempo):
+
+- o filtro do Efficiency Ratio bloqueava a maior parte das entradas boas (24 922 revisões semanais bloqueadas): tendências fortes têm muitas vezes um percurso irregular a 60 sessões, e os outros filtros (SMA50/SMA200, M1, M2) já confirmam a tendência;
+- o stop de 3 × ATR era apertado: duração mediana de 12 sessões, 347 de 810 stops em 10 sessões ou menos, em 56% dos stops o preço estava mais alto 20 sessões depois, e 281 recompras a preço mais alto;
+- sem reforços, os ganhos nas tendências fortes ficavam limitados a uma compra (acções que mais do que duplicaram: 2 k€ captados em média, contra 26 k€ de comprar e manter).
+
+Comparação (296 instrumentos, 2 anos; cada ano medido em separado, o segundo a começar sem posição):
+
+| Configuração | Soma | Com ganho / perda | 10 piores | Maior perda | % ao ano sobre o capital | Ano 1 | Ano 2 |
+|---|---|---|---|---|---|---|---|
+| Regras originais | +126 k€ | 125 / 122 | −36 k€ | −7 k€ | 15,9% | +99 k€ | +22 k€ |
+| Sem ER + stop de 4 × ATR | +496 k€ | 160 / 124 | −54 k€ | −8 k€ | 16,5% | +207 k€ | +272 k€ |
+| **Versão B: sem ER + stop de 4 × ATR + reforços a +10% (até 5)** | **+841 k€** | 135 / 149 | −60 k€ | −8 k€ | **18,8%** | +267 k€ | +512 k€ |
+
+A versão B foi escolhida pelo utilizador: o maior resultado e o melhor rendimento do capital, com a perda máxima por instrumento em 8 k€; em troca, há mais instrumentos com pequenas perdas. As regras originais continuam disponíveis em `ORIGINAL_OPTIONS`. A ablação e a sensibilidade da versão B estão em [b-opus-ablacao.md](b-opus-ablacao.md). Resultados de dois anos: a separação por ano ajuda, mas não substitui uma validação com mais dados.
+

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  atrWilder, backtest, efficiencyRatio, isoWeekKey, m2Series, prepare, resolveOptions, reviewFlags,
+  atrWilder, backtest, DEFAULT_OPTIONS, efficiencyRatio, isoWeekKey, m2Series, ORIGINAL_OPTIONS, prepare, resolveOptions, reviewFlags,
 } from '../../shared/strategies/b-opus.js';
 
 /** Dias úteis consecutivos a partir de 2023-01-02 (segunda-feira). */
@@ -35,7 +35,7 @@ test('ajustamento: OHLC multiplicados por adjClose/close; execução e resultado
   const r = backtest(q);
   const t = r.trades[0] ?? r.open;
   const buyBar = q.find((x) => x.date === t.buyDate);
-  assert.ok(Math.abs(t.avgPrice - buyBar.open) < 1e-9); // preço real da abertura, não o ajustado
+  assert.ok(Math.abs(t.lots[0].price - buyBar.open) < 1e-9); // preço real da abertura, não o ajustado
   assert.equal(t.quantity, Math.floor(15000 / buyBar.open));
 });
 
@@ -170,4 +170,53 @@ test('opções: desconhecidas ou inválidas dão erro; variantes correm', () => 
     const r = backtest(q, o);
     assert.equal(typeof r.summary.total, 'number', JSON.stringify(o));
   }
+});
+
+test('versão B: sem filtro ER, stop de 4 × ATR e reforços a +10% até 5', () => {
+  assert.deepEqual(
+    [DEFAULT_OPTIONS.trendStrength, DEFAULT_OPTIONS.stopMult, DEFAULT_OPTIONS.addOnGain, DEFAULT_OPTIONS.maxAdds],
+    ['none', 4, 0.1, 5],
+  );
+  // Subida forte e regular: reforça na abertura seguinte a cada fecho mais de 10% acima do último lote.
+  const q = uptrend(330).map((x, i) => {
+    if (i < 255) return x;
+    const c = x.close * 1.012 ** (i - 255);
+    return { ...x, open: c, close: c, adjClose: c, high: c * 1.005, low: c * 0.995 };
+  });
+  const r = backtest(q);
+  const pos = r.open ?? r.trades[0];
+  assert.ok(pos.lots.length > 1, 'reforçou');
+  assert.ok(pos.lots.length <= 6, 'no máximo 5 reforços');
+  for (let k = 1; k < pos.lots.length; k++) {
+    const lot = pos.lots[k];
+    const idx = q.findIndex((x) => x.date === lot.date);
+    assert.ok(q[idx - 1].close > pos.lots[k - 1].price * 1.1, 'o fecho anterior passou +10% do último lote');
+    assert.ok(Math.abs(lot.price - q[idx].open) < 1e-9, 'executado na abertura');
+    assert.equal(lot.quantity, Math.floor(15000 / q[idx].open));
+  }
+  assert.equal(r.summary.reinforcements, pos.lots.length - 1);
+  assert.equal(r.signals.filter((x) => x.side === 'add').length, pos.lots.length - 1);
+  assert.equal(pos.cost, Math.round(pos.lots.reduce((s, l) => s + l.cost, 0) * 100) / 100);
+  // Uma queda forte vende a posição inteira (todos os lotes) pelo stop.
+  const crash = q.map((x) => ({ ...x }));
+  crash[325] = { ...crash[325], low: crash[325].close * 0.5 };
+  const t = backtest(crash.slice(0, 327)).trades.at(-1);
+  assert.equal(t.reason, 'stop');
+  assert.equal(t.quantity, t.lots.reduce((s, l) => s + l.quantity, 0));
+  // Sem reforços (addOnGain 0) só há um lote.
+  assert.equal((backtest(q, { addOnGain: 0 }).open ?? backtest(q, { addOnGain: 0 }).trades[0]).lots.length, 1);
+  assert.equal(backtest(q, { maxAdds: 1 }).summary.reinforcements <= 1, true);
+});
+
+test('regras originais (ORIGINAL_OPTIONS), entradas diárias e stop a partir do maior fecho continuam disponíveis', () => {
+  const q = uptrend(420).map((x, i) => (i % 29 === 0 ? { ...x, low: x.close * 0.93 } : x));
+  const original = backtest(q, ORIGINAL_OPTIONS);
+  assert.equal(original.options.trendStrength, 'er');
+  assert.equal(original.summary.reinforcements, 0);
+  // Entradas diárias: a primeira compra não espera pela revisão semanal (pode seguir-se a qualquer sessão).
+  const daily = backtest(q, { entryReview: 'daily' });
+  const weekly = backtest(q);
+  assert.ok(daily.signals[0].date <= weekly.signals[0].date);
+  const fromClose = backtest(q, { stopFrom: 'close' });
+  assert.equal(typeof fromClose.summary.total, 'number');
 });

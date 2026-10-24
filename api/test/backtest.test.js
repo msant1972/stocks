@@ -78,7 +78,7 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
       const last = quotes.at(-1).date;
       const expected = bOpus(quotes, { from: yearsAgo(last, 2) }).summary;
       const row = body.items.find((i) => i.instrumentId === id);
-      expect(row).toMatchObject({ closed: expected.closed, wins: expected.wins, total: expected.total, reinforcements: 0 });
+      expect(row).toMatchObject({ closed: expected.closed, wins: expected.wins, total: expected.total, reinforcements: expected.reinforcements });
       expect(row.fromDate >= yearsAgo(last, 2)).toBe(true);
       traded += row.closed;
     }

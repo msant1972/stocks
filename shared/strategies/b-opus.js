@@ -3,10 +3,14 @@
  *
  * Em cada revisão semanal, sem posição, compra 15 000 € na abertura seguinte quando a acção está em tendência
  * de alta (fecho e SMA50 acima da SMA200), com momentum positivo (M1 = (SMA10 − SMA125) / ATR22 e
- * M2 = momentum 12-1 / volatilidade), tendência limpa (Efficiency Ratio de 60 sessões ≥ 0,25), liquidez
- * mínima e sem arrefecimento após um stop. Sai por stop chandelier diário (máximo desde a entrada − 3 × ATR,
- * só sobe) ou, na revisão semanal, por falta de liquidez, quebra de tendência, perda de momentum ou stop
- * temporal (venda na abertura seguinte). Uma posição de cada vez, sem reforços nem comissões.
+ * M2 = momentum 12-1 / volatilidade), liquidez mínima e sem arrefecimento após um stop. Reforça com mais
+ * 15 000 € na abertura seguinte sempre que o fecho sobe mais de 10% face ao último lote (até 5 reforços).
+ * Sai por stop chandelier diário (máximo desde a entrada − 4 × ATR, só sobe) ou, na revisão semanal, por falta
+ * de liquidez, quebra de tendência, perda de momentum ou stop temporal (venda na abertura seguinte).
+ * Uma posição de cada vez, sem comissões.
+ *
+ * Versão B (24 out. 2026): sem o filtro do Efficiency Ratio, stop de 4 × ATR (era 3) e reforços, depois da
+ * análise de todos os instrumentos (docs/arquitectura/B-Opus.md, secção 15).
  *
  * Indicadores e decisões sobre a série ajustada (OHLC × adjClose/close); execução e resultados em preços
  * reais, como a A-Momentum. Sem lookahead: a decisão no fecho de t usa só dados até t.
@@ -19,14 +23,21 @@ export const DEFAULT_OPTIONS = {
   m2Lookback: 252, m2Skip: 21, erWindow: 60, adxN: 14, cmfN: 20,
   p90Window: 504, p90MinObs: 252, minHistory: 253,
   minTradedValue: 5000000,
-  trendStrength: 'er', erThreshold: 0.25, adxThreshold: 20, cooldownSessions: 10,
+  trendStrength: 'none', erThreshold: 0.25, adxThreshold: 20, cooldownSessions: 10,
   volumeConfirmation: false, overextensionBlock: false,
   gapProtectAtr: 1.0, pullbackEntry: false, pullbackAtr: 1.0, pullbackWindow: 5,
-  stopMult: 3.0, useTimeStop: true, timeStopSessions: 20, timeStopAtr: 1.0, partialTakeProfit: false,
+  stopMult: 4.0, useTimeStop: true, timeStopSessions: 20, timeStopAtr: 1.0, partialTakeProfit: false,
   review: 'weekly',
+  entryReview: 'weekly',       // 'weekly' (só nas revisões) | 'daily' (entradas em qualquer sessão; saídas semanais)
+  stopFrom: 'high',            // chandelier a partir do máximo ('high') ou do maior fecho ('close')
+  addOnGain: 0.10,             // reforço de mais `budget` quando o fecho sobe mais do que isto face ao último lote (0 = sem reforços)
+  maxAdds: 5,                  // máximo de reforços por posição (0 = sem limite)
 };
 
-const ENUMS = { trendStrength: ['er', 'adx', 'none'], review: ['weekly', 'biweekly', 'monthly'] };
+/** Regras da especificação original (Efficiency Ratio, stop de 3 × ATR, sem reforços), para comparação. */
+export const ORIGINAL_OPTIONS = { trendStrength: 'er', stopMult: 3.0, addOnGain: 0, maxAdds: 0 };
+
+const ENUMS = { trendStrength: ['er', 'adx', 'none'], review: ['weekly', 'biweekly', 'monthly'], entryReview: ['weekly', 'daily'], stopFrom: ['high', 'close'] };
 
 /** Valida e completa as opções (chaves desconhecidas, tipos e gamas → erro). */
 export function resolveOptions(options = {}) {
@@ -286,10 +297,11 @@ export function backtest(quotes, options = {}) {
     const proceeds = round2(pos.quantity * price);
     const partial = pos.partialSales.reduce((s, p) => s + p.proceeds, 0);
     const total = round2(proceeds + partial);
+    const bought = pos.lots.reduce((s, l) => s + l.quantity, 0);
     trades.push({
-      buyDate: pos.buyDate, sellDate: bars[i].date, quantity: pos.initialQuantity, cost: pos.cost,
-      avgPrice: pos.entryPrice, lots: [{ date: pos.buyDate, price: pos.entryPrice, quantity: pos.initialQuantity, cost: pos.cost }],
-      reinforcements: 0, sellPrice: price, proceeds: total, reason,
+      buyDate: pos.buyDate, sellDate: bars[i].date, quantity: bought, cost: pos.cost,
+      avgPrice: pos.cost / bought, lots: pos.lots,
+      reinforcements: pos.lots.length - 1, sellPrice: price, proceeds: total, reason,
       initialStop: real(pos.initialStop, pos.entryIdx), partialSales: pos.partialSales,
       pnl: round2(total - pos.cost), pnlPct: (total / pos.cost - 1) * 100,
     });
@@ -309,12 +321,15 @@ export function backtest(quotes, options = {}) {
       buyDate: bars[i].date, entryIdx: i, entryAdj: adjPrice, entryPrice: price, quantity, initialQuantity: quantity, cost,
       atrEntry, initialStop: adjPrice - o.stopMult * atrEntry, stop: adjPrice - o.stopMult * atrEntry,
       highestHigh: adjPrice, highestClose: -Infinity, partialDone: false, partialSales: [],
+      lots: [{ date: bars[i].date, price, quantity, cost }],
     };
     peakCost = Math.max(peakCost, cost);
     signals.push({ date: bars[i].date, side: 'buy', price });
     return true;
   };
 
+  let pendingAdd = false;
+  let adds = 0;
   for (let i = 0; i < bars.length; i++) {
     const b = bars[i];
 
@@ -335,6 +350,21 @@ export function backtest(quotes, options = {}) {
         closePos(i, b.O, pendingSell.reason);
       }
     }
+    if (pos && pendingAdd) {
+      // Reforço (opção addOnGain): mais um orçamento na abertura, sem mexer no stop.
+      const price = real(b.O, i);
+      const quantity = Math.floor(o.budget / price);
+      if (quantity > 0) {
+        const cost = round2(quantity * price);
+        pos.lots.push({ date: b.date, price, quantity, cost });
+        pos.quantity += quantity;
+        pos.cost = round2(pos.cost + cost);
+        peakCost = Math.max(peakCost, pos.cost);
+        adds += 1;
+        signals.push({ date: b.date, side: 'add', price });
+      }
+    }
+    pendingAdd = false;
     if (!pos && pendingBuy && !pendingBuy.limit) {
       const pb = pendingBuy;
       pendingBuy = null;
@@ -354,9 +384,12 @@ export function backtest(quotes, options = {}) {
     if (pos) {
       pos.highestHigh = Math.max(pos.highestHigh, b.H);
       pos.highestClose = Math.max(pos.highestClose, b.C);
-      if (ind.atr[i] != null) pos.stop = Math.max(pos.stop, pos.highestHigh - o.stopMult * ind.atr[i]);
+      const ref = o.stopFrom === 'close' ? pos.highestClose : pos.highestHigh;
+      if (ind.atr[i] != null) pos.stop = Math.max(pos.stop, ref - o.stopMult * ind.atr[i]);
+      if (o.addOnGain > 0 && !pendingSell && (o.maxAdds === 0 || pos.lots.length - 1 < o.maxAdds)
+        && b.closeRaw > pos.lots.at(-1).price * (1 + o.addOnGain)) pendingAdd = true;
     }
-    if (!review[i]) continue;
+    if (!review[i] && !(o.entryReview === 'daily' && !pos)) continue;
 
     const C = b.C;
     const { smaFast, smaSlow, m1, m2, er, vmn, atr } = ind;
@@ -401,9 +434,9 @@ export function backtest(quotes, options = {}) {
     const partial = pos.partialSales.reduce((s, p) => s + p.proceeds, 0);
     const value = round2(pos.quantity * lastPrice + partial);
     open = {
-      buyDate: pos.buyDate, quantity: pos.quantity, cost: pos.cost, avgPrice: pos.entryPrice,
-      lots: [{ date: pos.buyDate, price: pos.entryPrice, quantity: pos.initialQuantity, cost: pos.cost }],
-      reinforcements: 0, lastDate: bars[lastIdx].date, lastPrice, value,
+      buyDate: pos.buyDate, quantity: pos.quantity, cost: pos.cost,
+      avgPrice: pos.cost / pos.lots.reduce((q, l) => q + l.quantity, 0), lots: pos.lots,
+      reinforcements: pos.lots.length - 1, lastDate: bars[lastIdx].date, lastPrice, value,
       pnl: round2(value - pos.cost), pnlPct: (value / pos.cost - 1) * 100,
       stop: real(pos.stop, lastIdx), initialStop: real(pos.initialStop, pos.entryIdx), partialSales: pos.partialSales,
     };
@@ -430,7 +463,7 @@ export function backtest(quotes, options = {}) {
     summary: {
       closed: trades.length,
       wins: trades.filter((t) => t.pnl > 0).length,
-      reinforcements: 0,
+      reinforcements: adds,
       peakCost: round2(peakCost),
       realized,
       unrealized: open?.pnl ?? 0,

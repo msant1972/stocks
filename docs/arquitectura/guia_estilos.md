@@ -281,7 +281,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 
 ### 5.11. Sinais
 
-- Menu «Estratégia» (A-Momentum por omissão, B-Opus; `?estrategia=`). Lista dos sinais da estratégia (compra C, reforço R só na A-Momentum, venda V com o motivo, com etiqueta de cor e letra) em todos os instrumentos, ordenados do mais recente.
+- Menu «Estratégia» (A-Momentum por omissão, B-Opus; `?estrategia=`). Lista dos sinais da estratégia (compra C, reforço R, venda V com o motivo, com etiqueta de cor e letra) em todos os instrumentos, ordenados do mais recente.
 - Filtro por tipo com contagens e período (última sessão a últimas 10 sessões), guardados no URL.
 - Cada linha: sessão («há N sessões»), sinal, instrumento, preço do sinal, variação desde o sinal (com o último fecho), SMA10/SMA200 actual e botões «Comprar» e «Vender»; «Vender» desactivado quando o instrumento não está na carteira.
 - «Comprar» abre a operação com a quantidade que cabe em 15 000 € ao último fecho; «Vender» abre-a com todas as unidades em carteira. A quantidade continua editável e o modal mostra uma nota com a origem do valor.
