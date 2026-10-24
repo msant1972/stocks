@@ -61,11 +61,13 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
     expect(body.items.find((i) => i.symbol === 'CURTO.LS')).toMatchObject({ closed: 0, total: 0, fromDate: null, buyHoldPnl: null });
   });
 
-  it('lista as estratégias e recusa ids desconhecidos', async () => {
+  it('lista as estratégias e recusa ids desconhecidos ou em preparação', async () => {
     const list = (await ana.get('/strategies')).json();
     expect(list.defaultId).toBe('a-momentum');
-    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', true]]);
+    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', true], ['c-ai', 'C-AI', false]]);
     expect((await ana.get('/backtest?strategy=c-x')).statusCode).toBe(400);
+    expect((await ana.get('/backtest?strategy=c-ai')).statusCode).toBe(400);
+    expect((await ana.get('/signals?strategy=c-ai')).statusCode).toBe(400);
   });
 
   it('B-Opus: coincide com a página do instrumento (3 anos de histórico, actua nos últimos 2)', async () => {

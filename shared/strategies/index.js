@@ -71,6 +71,18 @@ export const STRATEGIES = [
     },
     run: (quotes, { from } = {}) => bOpus.backtest(quotes, { from }),
   },
+  {
+    id: 'c-ai',
+    name: 'C-AI',
+    available: false, // regras a definir; aparece nos menus como «em preparação» e a API recusa-a
+    budget: null,
+    summary: 'Em preparação',
+    rules: 'Estratégia em preparação.',
+    windowYears: 2,
+    warmupYears: 0,
+    reasonLabels: {},
+    run: null,
+  },
 ];
 
 export const DEFAULT_STRATEGY_ID = 'a-momentum';
