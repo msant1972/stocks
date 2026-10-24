@@ -122,13 +122,14 @@ export default function SettingsPage() {
             <dl className="summary-box" style={{ maxWidth: '32rem' }}>
               <dt>Última sessão recolhida</dt><dd>{f.date(status.latestSession)}</dd>
               <dt>Última actualização diária</dt><dd>{status.lastFetchRun ? f.dateTime(status.lastFetchRun.finishedAt ?? status.lastFetchRun.startedAt) : '—'}</dd>
+              <dt>Última actualização durante a sessão</dt><dd>{status.lastIntradayRun ? f.dateTime(status.lastIntradayRun.finishedAt ?? status.lastIntradayRun.startedAt) : '—'}</dd>
               <dt>Instrumentos activos</dt><dd>{status.instruments.active}</dd>
               <dt>A validar</dt><dd>{status.instruments.pending}</dd>
               <dt>Inválidos</dt><dd>{status.instruments.invalid}</dd>
             </dl>
           ) : <p className="small muted">A carregar…</p>}
           <p className="small muted" style={{ marginTop: '0.75rem' }}>
-            Fonte: Yahoo Finance, recolhido diariamente nos dias úteis às 19h00 (Lisboa). Os dados podem ter atrasos ou falhas do fornecedor.
+            Fonte: Yahoo Finance. Nos dias úteis, actualizado de hora a hora entre as 08h00 e as 17h00 (Lisboa), com a sessão em curso provisória e cerca de 15 minutos de atraso, e às 19h00 com os fechos definitivos, seguidos dos alertas. Os dados podem ter atrasos ou falhas do fornecedor.
           </p>
         </section>
 

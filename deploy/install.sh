@@ -74,7 +74,7 @@ DATABASE_URL="mysql://${STOCKS_DB_USER}:${STOCKS_DB_PASSWORD}@${STOCKS_DB_HOST}:
 step "Serviços systemd"
 install -m 644 "$APP"/deploy/systemd/*.service "$APP"/deploy/systemd/*.timer "$APP"/deploy/systemd/*.path /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now stocks-fetcher-run.timer stocks-fetcher-run.path stocks-daily.timer stocks-backup.timer
+systemctl enable --now stocks-fetcher-run.timer stocks-fetcher-run.path stocks-daily.timer stocks-intraday.timer stocks-backup.timer
 systemctl enable stocks-api.service
 systemctl restart stocks-api.service
 

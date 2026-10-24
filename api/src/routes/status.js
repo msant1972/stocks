@@ -13,6 +13,7 @@ export default async function statusRoutes(app, { pool }) {
           instruments: z.object({ pending: z.number(), active: z.number(), invalid: z.number() }),
           failedJobs: z.number(),
           lastFetchRun: Run,
+          lastIntradayRun: Run.describe('Última actualização durante a sessão (dias úteis, 08:00–17:00 de Lisboa)'),
           lastAlertsRun: Run,
         }),
       },
@@ -33,7 +34,7 @@ export default async function statusRoutes(app, { pool }) {
     };
     return {
       latestSession: latest, instruments, failedJobs: Number(failed),
-      lastFetchRun: await lastRun('fetch_update'), lastAlertsRun: await lastRun('alerts'),
+      lastFetchRun: await lastRun('fetch_update'), lastIntradayRun: await lastRun('fetch_intraday'), lastAlertsRun: await lastRun('alerts'),
     };
   });
 }

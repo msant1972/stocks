@@ -76,6 +76,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Configuração SMTP | Em Definições, com palavra-passe cifrada na BD e email de teste pelo motor de alertas |
 | Capital de 1 M€ | Valor por omissão das contas novas |
 | A-Momentum: filtro e protecção | Só compra com o preço acima da SMA200; com reforços, vende se o fecho cair mais de 15% abaixo do último reforço. Perdas dos 10 piores de −172 k€ para −48 k€; soma dos resultados de +4,8 M€ para +2,1 M€ |
+| Actualização horária | Recolha de hora a hora entre as 08h00 e as 17h00 de Lisboa nos dias úteis (sessão em curso, provisória), mantendo a recolha das 19h00 com os fechos definitivos e os alertas; indicação «sessão em curso» na interface |
 | Promessas | Lista dos instrumentos com sinais de continuarem ou passarem a ganhadores nos 12 meses seguintes, com a regra validada em 5 janelas do passado ([promessas.md](promessas.md)) |
 | WinnersLoosers | Página com os instrumentos em que as três estratégias ganham e em que as três perdem (24 out. 2026: 102 e 80), a partir dos resultados do BackTest |
 | Estratégia C-AI | Especificada a partir da análise de todos os instrumentos ([C-AI.md](C-AI.md)) e implementada: entrada acima da SMA200 com M2 > 0, stop chandelier de 5 × ATR, reforços a +10% só com M2 > 2 (até 5); +1 491 k€, 182 com ganho e 106 com perda |

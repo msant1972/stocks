@@ -4,6 +4,7 @@
   python -m fetcher add --file lista.txt      um símbolo por linha (# para comentários)
   python -m fetcher run                       processa os pedidos pendentes
   python -m fetcher update                    pede a actualização diária e processa
+  python -m fetcher update --intraday         igual, durante a sessão (registada como fetch_intraday)
   python -m fetcher status                    cobertura e estado de cada instrumento
   python -m fetcher indicators                recalcula EMA9 e SMA10/50/125/200 de todos os activos
   python -m fetcher backfill                  completa o histórico dos activos até STOCKS_HISTORY_YEARS e processa
@@ -65,7 +66,9 @@ def main(argv=None) -> int:
     p_add.add_argument("symbols", nargs="*")
     p_add.add_argument("--file")
     sub.add_parser("run", help="processar pedidos pendentes")
-    sub.add_parser("update", help="pedir actualização diária dos instrumentos activos e processar")
+    p_update = sub.add_parser("update", help="pedir actualização dos instrumentos activos e processar")
+    p_update.add_argument("--intraday", action="store_true",
+                          help="actualização durante a sessão (registada à parte da recolha diária)")
     sub.add_parser("status", help="mostrar cobertura e estado")
     sub.add_parser("indicators", help="recalcular os indicadores técnicos de todos os instrumentos activos")
     sub.add_parser("backfill", help="completar o histórico dos instrumentos activos até STOCKS_HISTORY_YEARS")
@@ -91,7 +94,8 @@ def main(argv=None) -> int:
             print(f"{requested} instrumentos com histórico a completar ({settings.history_years} anos), {n} pedidos processados")
             return 0
         if args.command == "update":
-            run_id = db.start_run(conn, "fetch_update")
+            # Durante a sessão a última vela é provisória; a recolha das 19:00 grava o fecho definitivo.
+            run_id = db.start_run(conn, "fetch_intraday" if args.intraday else "fetch_update")
             try:
                 requested = db.enqueue_incremental(conn)
                 n = run_pending(conn, YFinanceProvider(), settings)

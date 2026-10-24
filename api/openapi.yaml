@@ -3379,6 +3379,32 @@ paths:
                       - finishedAt
                       - detail
                     additionalProperties: false
+                  lastIntradayRun:
+                    nullable: true
+                    description: Última actualização durante a sessão (dias úteis, 08:00–17:00 de
+                      Lisboa)
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum:
+                          - running
+                          - done
+                          - failed
+                      startedAt:
+                        type: string
+                      finishedAt:
+                        nullable: true
+                        type: string
+                      detail:
+                        nullable: true
+                        type: string
+                    required:
+                      - status
+                      - startedAt
+                      - finishedAt
+                      - detail
+                    additionalProperties: false
                   lastAlertsRun:
                     nullable: true
                     type: object
@@ -3408,6 +3434,7 @@ paths:
                   - instruments
                   - failedJobs
                   - lastFetchRun
+                  - lastIntradayRun
                   - lastAlertsRun
                 additionalProperties: false
   /api/v1/heatmap:

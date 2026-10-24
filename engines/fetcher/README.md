@@ -39,7 +39,8 @@ Configuração por variáveis de ambiente: `STOCKS_DB_HOST`, `STOCKS_DB_PORT`, `
 python -m fetcher add --file seeds/instrumentos_iniciais.txt   # lista inicial (41 símbolos)
 python -m fetcher add ASML.AS SIE.DE                          # símbolos avulsos
 python -m fetcher run                                         # processa os pedidos pendentes
-python -m fetcher update                                      # actualização diária
+python -m fetcher update                                      # actualização diária (fechos definitivos)
+python -m fetcher update --intraday                           # actualização durante a sessão (provisória)
 python -m fetcher status                                      # cobertura e estado de cada instrumento
 python -m fetcher indicators                                  # recalcula EMA9 e SMA10/50/125/200
 python -m fetcher backfill                                    # completa o histórico dos activos até STOCKS_HISTORY_YEARS
@@ -48,7 +49,8 @@ python -m fetcher backfill                                    # completa o hist�
 ## Agendamento proposto (systemd)
 
 - `stocks-fetcher-run.timer`: corre `python -m fetcher run` a cada 5 minutos, para processar as cargas iniciais pedidas pela aplicação.
-- `stocks-fetcher-update.timer`: corre `python -m fetcher update` de segunda a sexta às 19:00, hora de Lisboa, depois do fecho das bolsas europeias (17:30 CET).
+- `stocks-intraday.timer`: corre `python -m fetcher update --intraday` de segunda a sexta, de hora a hora das 08:00 às 17:00 de Lisboa, durante as sessões; a vela do próprio dia é provisória.
+- `stocks-daily.timer`: corre `python -m fetcher update` (e depois os alertas) de segunda a sexta às 19:00 de Lisboa, depois do fecho das bolsas europeias (17:30 CET), gravando os fechos definitivos.
 
 ## Testes
 

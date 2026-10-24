@@ -166,3 +166,20 @@ def test_regista_execucao_da_actualizacao(conn):
         cur.execute("SELECT status, detail, finished_at FROM job_runs WHERE id = %s", (run_id,))
         row = cur.fetchone()
     assert row["status"] == "done" and row["finished_at"] is not None
+
+
+def test_actualizacao_horaria_e_registada_a_parte(conn, monkeypatch):
+    """`update --intraday` corre como a diária mas fica registada como fetch_intraday."""
+    from fetcher import __main__ as cli
+    from .conftest import FakeProvider, _settings
+
+    monkeypatch.setattr(cli, "load_settings", _settings)
+    monkeypatch.setattr(cli, "YFinanceProvider", FakeProvider)
+    db.add_instrument(conn, "ASML.AS")
+    assert cli.main(["update"]) == 0
+    assert cli.main(["update", "--intraday"]) == 0
+    with conn.cursor() as cur:
+        cur.execute("SELECT kind, status FROM job_runs ORDER BY id")
+        rows = cur.fetchall()
+    conn.commit()
+    assert [(r["kind"], r["status"]) for r in rows] == [("fetch_update", "done"), ("fetch_intraday", "done")]

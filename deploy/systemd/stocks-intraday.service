@@ -1,0 +1,17 @@
+[Unit]
+Description=Stocks — actualização horária das cotações durante a sessão (sem alertas)
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=stocks
+Group=stocks
+EnvironmentFile=/etc/stocks/stocks.env
+WorkingDirectory=/opt/stocks/engines/fetcher
+ExecStart=/opt/stocks/engines/fetcher/.venv/bin/python -m fetcher update --intraday
+TimeoutStartSec=50min
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

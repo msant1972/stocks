@@ -201,7 +201,7 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 - Menu «Estratégia» (Nenhuma por omissão, A-Momentum, B-Opus, C-AI; uma estratégia em preparação aparece desactivada com «(em preparação)»). Com a B-Opus, a página carrega 3 anos de cotações (aquecimento) e mostra também a linha tracejada do stop da posição aberta; as vendas mostram o motivo (stop, tendência, momento, liquidez, tempo) e, sem compras, o painel lista os critérios que as impediram. Escolher uma estratégia mostra a simulação no histórico, com o nome da estratégia no título do painel: marcadores C (compra), R (reforço) e V (venda) com letra, e um painel com o resultado, as operações, os reforços, os sinais ignorados e a comparação com comprar e manter. Indicar sempre que é uma simulação e que não altera a carteira.
 - Disponibilizar resumo textual e acesso aos dados do gráfico em tabela, incluindo os indicadores e o momento visíveis.
 
-Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Não animar pontos como se fossem actualizados em tempo real. Se a cobertura for inferior a três anos (a carga inicial), indicar o período efectivamente disponível e que a SMA200 e o momento podem não cobrir todo o gráfico.
+Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, o indicador de dados no topo mostra «Dados de <data> · sessão em curso, <hora>» (com o aviso de valores provisórios e atraso no `title`); depois das 19h00 volta a «Dados de <data>». Não animar pontos como se fossem actualizados em tempo real. Se a cobertura for inferior a três anos (a carga inicial), indicar o período efectivamente disponível e que a SMA200 e o momento podem não cobrir todo o gráfico.
 
 ### 5.4. Carteira virtual
 

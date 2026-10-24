@@ -75,5 +75,10 @@ describe.skipIf(!hasTestDb)('regras de alerta', () => {
     const res = await ana.get('/status');
     expect(res.statusCode).toBe(200);
     expect(res.json().instruments.active).toBe(1);
+    // A recolha horária (durante a sessão) aparece à parte da diária.
+    await ctx.pool.query("INSERT INTO job_runs (kind, status, started_at, finished_at, detail) VALUES ('fetch_update', 'done', NOW(3) - INTERVAL 2 HOUR, NOW(3) - INTERVAL 2 HOUR, 'diária'), ('fetch_intraday', 'done', NOW(3), NOW(3), 'horária')");
+    const st = (await ana.get('/status')).json();
+    expect(st.lastFetchRun.detail).toBe('diária');
+    expect(st.lastIntradayRun.detail).toBe('horária');
   });
 });

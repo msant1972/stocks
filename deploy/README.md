@@ -16,7 +16,8 @@ systemd timers ─▶ motor de recolha (cargas iniciais a cada 5 min; actualiza�
 | `stocks-api.service` | sempre | API e frontend |
 | `stocks-fetcher-run.path` | quando a aplicação pede | Arranca o motor de imediato ao adicionar símbolos ou em «Validar agora» (a API escreve em `/var/lib/stocks/fetch-request`) |
 | `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança: processa os pedidos que ficarem na fila |
-| `stocks-daily.timer` | dias úteis, 19:00 de Lisboa | Actualização das cotações e, a seguir, alertas ([bin/daily.sh](bin/daily.sh)) |
+| `stocks-intraday.timer` | dias úteis, de hora a hora das 08:00 às 17:00 de Lisboa | Actualização das cotações durante a sessão, sem alertas (`fetcher update --intraday`) |
+| `stocks-daily.timer` | dias úteis, 19:00 de Lisboa | Actualização com os fechos definitivos e, a seguir, alertas ([bin/daily.sh](bin/daily.sh)) |
 | `stocks-backup.timer` | diariamente, 03:30 UTC | `mariadb-dump` para `/var/backups/stocks`, guardado durante 14 dias |
 
 Os serviços correm com o utilizador de sistema `stocks`, com o sistema de ficheiros só de leitura (`ProtectSystem=strict`). A configuração e os segredos ficam em `/etc/stocks/stocks.env` (`root:stocks`, modo 640). A chave que cifra os segredos guardados na BD (palavra-passe SMTP) fica em `/etc/stocks/secret.key`, criada pelo `install.sh` e nunca substituída: perdê-la obriga a voltar a introduzir a palavra-passe SMTP.

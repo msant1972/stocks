@@ -28,10 +28,16 @@ function DataStatus() {
   if (!data?.latestSession) return null;
   const age = f.daysSince(data.latestSession);
   const stale = age > 4;
+  // Sessão em curso: a última recolha foi a horária (depois da diária) e já trouxe a sessão de hoje.
+  const intraday = data.lastIntradayRun;
+  const daily = data.lastFetchRun;
+  const live = intraday?.finishedAt && (!daily || intraday.startedAt > daily.startedAt) && age === 0;
+  const time = live ? new Date(intraday.finishedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : null;
   return (
-    <span className={`badge ${stale ? 'badge-warning' : ''}`} title="Data da última sessão recolhida">
+    <span className={`badge ${stale ? 'badge-warning' : ''}`}
+      title={live ? 'Sessão em curso: valores provisórios, com cerca de 15 minutos de atraso; o fecho definitivo é gravado às 19h00' : 'Data da última sessão recolhida'}>
       {stale && <Icon name="warning" size={14} />}
-      Dados de {f.date(data.latestSession)}
+      Dados de {f.date(data.latestSession)}{live && ` · sessão em curso, ${time}`}
     </span>
   );
 }

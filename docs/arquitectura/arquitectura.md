@@ -24,7 +24,7 @@ Este documento descreve a arquitectura implementada. O módulo de livro de ofert
 | Granularidade | Diária: um registo por sessão de bolsa |
 | Histórico | Carga inicial de três anos (para a SMA200 estar completa nos dois anos mostrados); actualização diária; as cotações nunca são apagadas |
 | Indicadores | EMA9, SMA10, SMA50, SMA125 e SMA200 por sessão, guardados na BD; momento SMA10/SMA200 e SMA8/SMA125 |
-| Recolha diária | Dias úteis às 19h00 de Lisboa, depois do fecho das bolsas europeias (17h30 CET) |
+| Recolha | Nos dias úteis, de hora a hora entre as 08h00 e as 17h00 de Lisboa (sessão em curso, valores provisórios com cerca de 15 min de atraso do Yahoo) e às 19h00, depois do fecho das bolsas europeias (17h30 CET), com os fechos definitivos |
 | Alertas | Email; um resumo por utilizador após cada recolha diária, nunca mais do que um email por hora |
 | Simulação | Último fecho diário não ajustado; sem comissões; quantidades inteiras; sem posições curtas; custo médio ponderado |
 | Capital virtual | 1 000 000 EUR por omissão nas contas novas (configurável por conta); sem reposição |
@@ -64,7 +64,7 @@ flowchart LR
         API <-->|SQL| DB
         API -->|escreve sinal| SIG
         SIG -->|stocks-fetcher-run.path| SYSD
-        SYSD -->|5 min / sinal / 19h00| FETCH
+        SYSD -->|5 min / sinal / 08h–17h / 19h00| FETCH
         SYSD -->|após a recolha diária| ALERT
         FETCH -->|cotações e indicadores| DB
         ALERT <-->|regras, eventos, envios, SMTP| DB
@@ -187,11 +187,11 @@ As cotações não são apagadas: 295 instrumentos com três anos são cerca de 
 
 ### 4.4. Motor de recolha de cotações
 
-Comandos `python -m fetcher add | run | update | status | indicators`. O yfinance fica isolado em `provider.py`, atrás da interface `QuoteProvider`.
+Comandos `python -m fetcher add | run | update [--intraday] | status | indicators | backfill`. O yfinance fica isolado em `provider.py`, atrás da interface `QuoteProvider`.
 
 1. **Validação assíncrona:** um símbolo novo fica `pending` com um pedido `initial`. O motor confirma no fornecedor que existe e que a moeda é EUR, preenche nome e mercado e passa-o a `active`, ou a `invalid` com o motivo.
 2. **Carga inicial:** três anos de sessões diárias (`STOCKS_HISTORY_YEARS`, 3 por omissão). A SMA200 só tem valor a partir da 200.ª sessão (cerca de 10 meses), por isso com três anos os dois anos mostrados nos gráficos e usados na estratégia têm sempre as médias completas. Depois de aumentar o valor, `python -m fetcher backfill` volta a pedir a carga dos instrumentos activos com menos histórico; as sessões existentes são actualizadas, sem duplicados. Executado em produção a 20 out. 2026: 288 dos 295 instrumentos activos passaram a começar a 20 out. 2023, sem sessões sem SMA200 nos dois anos mostrados; os outros 7 (SYENS.BR, R3NK.DE, CVC.AS, PUIG.MC, AMV0.DE, MICC.AS, CSG.AS) foram admitidos à cotação depois disso, e a página do instrumento avisa que a cobertura é inferior a três anos.
-3. **Actualização diária:** um pedido `incremental` por instrumento activo, relendo os últimos 7 dias para apanhar correcções do fornecedor.
+3. **Actualização:** um pedido `incremental` por instrumento activo, relendo os últimos 7 dias para apanhar correcções do fornecedor. Corre de hora a hora durante a sessão (`update --intraday`, registada em `job_runs` como `fetch_intraday`), em que a vela do próprio dia é provisória (o «fecho» é o último preço, com o atraso do Yahoo, e o volume é parcial), e às 19h00 (`update`, `fetch_update`), que grava o fecho definitivo por cima.
 4. **Gravação idempotente:** `INSERT … ON DUPLICATE KEY UPDATE` sobre a chave (instrumento, sessão).
 5. **Validação dos dados:** sessões com preços não positivos ou incoerentes são descartadas, não corrigidas.
 6. **Indicadores:** depois de cada recolha, a série completa do instrumento é recalculada sobre o fecho ajustado, porque os ajustes do fornecedor alteram os fechos do passado. SMA de N sessões; EMA9 iniciada com a SMA das primeiras 9 sessões e α = 0,2. Os valores ficam `NULL` enquanto não houver sessões suficientes.
@@ -254,8 +254,9 @@ Biblioteca em `api/src/orderbook/` que implementa a [especificação](orderbook-
 4. O motor valida, carrega três anos e calcula os indicadores; a interface vê o estado passar a «Activo» ou «Inválido».
 5. «Validar agora» volta a pôr na fila, sem espera, os pendentes (incluindo os que falharam) e sinaliza o motor.
 
-### 5.2. Actualização diária e alertas
+### 5.2. Actualizações e alertas
 
+0. `stocks-intraday.timer` (dias úteis, de hora a hora das 08h00 às 17h00 de Lisboa) executa `fetcher update --intraday`: actualiza as cotações, incluindo a sessão em curso (provisória), e recalcula os indicadores, sem alertas. A interface indica «sessão em curso» com a hora da última actualização, e as estratégias, o BackTest, os Sinais e as Promessas passam a usar a vela provisória (cache de 10 minutos).
 1. `stocks-daily.timer` (dias úteis, 19h00 de Lisboa) executa `deploy/bin/daily.sh`.
 2. O motor de recolha pede a actualização de todos os activos, processa-os, recalcula os indicadores e regista a execução em `job_runs`.
 3. Mesmo que a recolha tenha falhas, o motor de alertas corre a seguir (`--dry-run-if-unconfigured`): avalia cada regra uma vez por sessão, regista os eventos e envia um resumo por utilizador, ou só mostra os resumos no registo se não houver SMTP configurado.
@@ -354,7 +355,8 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-api.service` | sempre | API e frontend |
 | `stocks-fetcher-run.path` | quando a API escreve o sinal | Arranca o motor de recolha de imediato |
 | `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança para a fila de recolha |
-| `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
+| `stocks-intraday.timer` | dias úteis, de hora a hora das 08h00 às 17h00 de Lisboa | Actualização das cotações durante a sessão (provisória), sem alertas |
+| `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária com os fechos definitivos, seguida dos alertas |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é feita por snapshots EBS do volume, geridos na AWS |
 
 Testes automáticos em cada componente: API com Vitest contra uma BD de testes (103, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (33: 11 da B-Opus, 5 da C-AI e 3 das Promessas). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.

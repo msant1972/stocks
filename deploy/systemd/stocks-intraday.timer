@@ -1,0 +1,9 @@
+[Unit]
+Description=Stocks — de hora a hora entre as 08:00 e as 17:00 de Lisboa, nos dias úteis (sessões em curso)
+
+[Timer]
+OnCalendar=Mon..Fri 08..17:00 Europe/Lisbon
+# Sem Persistent: uma recolha perdida durante a sessão não deve correr fora de horas.
+
+[Install]
+WantedBy=timers.target

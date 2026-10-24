@@ -22,7 +22,8 @@ const hasPending = (q) => q.state.data?.items?.some((i) => i.status === 'pending
 
 export const useStatus = () => useQuery({
   queryKey: keys.status, queryFn: () => api.get('/status'), staleTime: 5 * 60_000,
-  refetchInterval: (q) => (q.state.data?.instruments.pending > 0 ? POLL_PENDING_MS : false),
+  // Com instrumentos por validar, a cada 5 s; senão, a cada 15 min (recolhas horárias durante a sessão).
+  refetchInterval: (q) => (q.state.data?.instruments.pending > 0 ? POLL_PENDING_MS : 15 * 60_000),
 });
 export const useWatchlist = () => useQuery({
   queryKey: keys.watchlist, queryFn: () => api.get('/watchlist'),
