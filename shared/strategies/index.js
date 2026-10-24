@@ -28,10 +28,12 @@ export const STRATEGIES = [
     name: 'A-Momentum',
     available: true,
     budget: aMomentum.STRATEGY_BUDGET,
-    summary: 'Momento do SMA10/SMA200 com reforços a cada +10%',
-    rules: `Compra ${eur(aMomentum.STRATEGY_BUDGET)} quando o SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a subir»; `
+    summary: 'Momento do SMA10/SMA200 em tendência de subida, com reforços a cada +10% e protecção de 15%',
+    rules: `Compra ${eur(aMomentum.STRATEGY_BUDGET)} quando o SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a subir», `
+      + 'só com o preço acima da sua média de 200 sessões (não compra acções em queda); '
       + `reforça com mais ${eur(aMomentum.STRATEGY_BUDGET)} sempre que o fecho sobe mais de ${aMomentum.REINFORCE_GAIN}% face à compra mais recente; `
-      + `vende tudo após uma «a subir» seguida de duas «a descer», mas só com o SMA8/SMA125 abaixo de ${aMomentum.SELL_MAX_WAVE125}%. `
+      + `vende tudo após uma «a subir» seguida de duas «a descer», mas só com o SMA8/SMA125 abaixo de ${aMomentum.SELL_MAX_WAVE125}%, `
+      + `ou, com a posição reforçada, quando o fecho cai mais de ${aMomentum.STOP_BELOW_LAST_ADD}% abaixo do preço do último reforço. `
       + `Sinais ignorados com o SMA10/SMA200 entre −${aMomentum.NEUTRAL_BAND}% e +${aMomentum.NEUTRAL_BAND}%. `
       + 'Executa ao fecho da sessão do sinal, uma posição de cada vez, sem comissões.',
     run: (quotes, { mom } = {}) => aMomentum.backtest(quotes, mom ?? momentum(quotes)),

@@ -1,8 +1,13 @@
 /**
  * A-Momentum — estratégia de momento sobre o SMA10/SMA200 (área do gráfico de momento), simulada no histórico:
- *   compra 15 000 € quando as três últimas sessões foram «a descer», «a subir», «a subir»;
+ *   compra 15 000 € quando as três últimas sessões foram «a descer», «a subir», «a subir» e o fecho ajustado
+ *   está acima da SMA200 (filtro de tendência: não compra acções em queda);
  *   vende tudo quando foram «a subir», «a descer», «a descer» e o SMA8/SMA125 está abaixo de 1%;
- *   reforça com mais 15 000 € sempre que o fecho ultrapassa em mais de 10% o preço da compra mais recente.
+ *   reforça com mais 15 000 € sempre que o fecho ultrapassa em mais de 10% o preço da compra mais recente;
+ *   com a posição reforçada, vende tudo se o fecho cair mais de 15% abaixo do preço do último reforço
+ *   (protecção dos reforços: não devolver o ganho todo quando a acção sobe e depois cai).
+ * Filtro e protecção acrescentados a 24 out. 2026 depois da análise do BackTest: perdas dos 10 piores de
+ * −172 k€ para −48 k€, com menos lucro nas tendências fortes (ver docs/arquitectura/arquitectura.md §5.4).
  * Sem compras nem vendas quando, na sessão do sinal, o SMA10/SMA200 está entre −1% e +1% (inclusive).
  * Execução ao fecho real (não ajustado) da sessão em que o padrão se completa; uma posição de
  * cada vez; quantidades inteiras; sem comissões. Não altera a carteira virtual.
@@ -15,6 +20,8 @@ export const NEUTRAL_BAND = 1;
 export const SELL_MAX_WAVE125 = 1;
 /** Compra de reforço (mais um orçamento) quando o fecho sobe mais do que isto desde a última compra, em %. */
 export const REINFORCE_GAIN = 10;
+/** Protecção dos reforços: queda máxima, em %, abaixo do preço do último reforço. */
+export const STOP_BELOW_LAST_ADD = 15;
 
 const BUY = [false, true, true];
 const SELL = [true, false, false];
@@ -34,7 +41,30 @@ const matches = (states, i, pattern) => i >= 2 && pattern.every((p, k) => states
  * quotes: sessões em ordem cronológica, com date e close (fecho real); mom: saída de momentum().
  * Devolve { trades, open, summary, firstDate, signals, skipped, sellsHeld }.
  */
-export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
+/**
+ * Opções, para comparar variantes (DEFAULT_OPTIONS são as regras em vigor):
+ *   trendFilter: condição para a compra inicial — 'none'; 'above' (fecho ajustado acima da SMA200);
+ *                'rising' (SMA200 acima da de trendLookback sessões antes); 'either' (uma das duas);
+ *   stopPct:     numa posição com reforços, vende tudo quando o fecho cai mais do que isto (%) abaixo do
+ *                preço do último reforço; null desliga;
+ *   stopFrom:    'lastAdd' (preço do último reforço) ou 'peak' (fecho mais alto desde o último reforço);
+ *   maxAdds:     máximo de reforços por posição; null sem limite.
+ */
+export const DEFAULT_OPTIONS = { trendFilter: 'above', trendLookback: 20, stopPct: STOP_BELOW_LAST_ADD, stopFrom: 'lastAdd', maxAdds: null };
+/** As regras antes do filtro e da protecção (para comparação). */
+export const ORIGINAL_OPTIONS = { trendFilter: 'none', stopPct: null };
+
+export function backtest(quotes, mom, budget = STRATEGY_BUDGET, options = {}) {
+  const opt = { ...DEFAULT_OPTIONS, ...options };
+  const adj = (i) => Number(quotes[i].adjClose ?? quotes[i].close);
+  const sma200 = (i) => (quotes[i]?.sma200 == null ? null : Number(quotes[i].sma200));
+  const trendOk = (i) => {
+    if (opt.trendFilter === 'none') return true;
+    const above = sma200(i) != null && adj(i) > sma200(i);
+    const prev = sma200(i - opt.trendLookback);
+    const rising = sma200(i) != null && prev != null && sma200(i) > prev;
+    return opt.trendFilter === 'above' ? above : opt.trendFilter === 'rising' ? rising : above || rising;
+  };
   const states = sessionStates(mom);
   const trades = [];
   const signals = []; // { date, side: 'buy' | 'add' | 'sell' } para os marcadores do gráfico
@@ -42,6 +72,8 @@ export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
   let skipped = 0;    // sinais na zona neutra do SMA10/SMA200
   let sellsHeld = 0;  // padrões de venda não executados por o SMA8/SMA125 estar em 1% ou mais
   let peakCost = 0;   // capital máximo investido em simultâneo
+  let trendBlocked = 0; // compras não feitas pelo filtro de tendência
+  let stops = 0;        // vendas pela protecção dos reforços
 
   const addLot = (i, price) => {
     const quantity = Math.floor(budget / price);
@@ -62,7 +94,29 @@ export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
     if (!open) {
       if (!matches(states, i, BUY)) continue;
       if (neutral) { skipped += 1; continue; }
+      if (!trendOk(i)) { trendBlocked += 1; continue; }
       if (addLot(i, price)) signals.push({ date: quotes[i].date, side: 'buy' });
+      continue;
+    }
+
+    const close = (reason) => {
+      const proceeds = round2(open.quantity * price);
+      trades.push({
+        ...open, avgPrice: open.cost / open.quantity, reinforcements: open.lots.length - 1,
+        sellDate: quotes[i].date, sellPrice: price, proceeds, reason,
+        pnl: round2(proceeds - open.cost), pnlPct: (proceeds / open.cost - 1) * 100,
+      });
+      signals.push({ date: quotes[i].date, side: 'sell', reason });
+      open = null;
+    };
+
+    // Protecção dos reforços: com a posição reforçada, uma queda de stopPct abaixo do último reforço
+    // fecha tudo (sem esperar pelo padrão de venda, que só chega depois de uma descida grande).
+    if (open.lots.length > 1) open.peakSinceAdd = Math.max(open.peakSinceAdd ?? 0, price);
+    const stopRef = opt.stopFrom === 'peak' ? open.peakSinceAdd : open.lots.at(-1).price;
+    if (opt.stopPct != null && open.lots.length > 1 && price < stopRef * (1 - opt.stopPct / 100)) {
+      stops += 1;
+      close('stop');
       continue;
     }
 
@@ -72,14 +126,7 @@ export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
       } else if (!(mom[i].wave125 != null && mom[i].wave125 < SELL_MAX_WAVE125)) {
         sellsHeld += 1;
       } else {
-        const proceeds = round2(open.quantity * price);
-        trades.push({
-          ...open, avgPrice: open.cost / open.quantity, reinforcements: open.lots.length - 1,
-          sellDate: quotes[i].date, sellPrice: price, proceeds,
-          pnl: round2(proceeds - open.cost), pnlPct: (proceeds / open.cost - 1) * 100,
-        });
-        signals.push({ date: quotes[i].date, side: 'sell' });
-        open = null;
+        close('signal');
         continue;
       }
     }
@@ -90,7 +137,9 @@ export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
     // que um ganho de exactamente 10% não «ultrapasse» por erro de vírgula flutuante.
     const lastLotCents = Math.round(open.lots.at(-1).price * 100);
     const priceCents = Math.round(price * 100);
-    if (priceCents * 100 > lastLotCents * (100 + REINFORCE_GAIN) && addLot(i, price)) {
+    const canAdd = opt.maxAdds == null || open.lots.length - 1 < opt.maxAdds;
+    if (canAdd && priceCents * 100 > lastLotCents * (100 + REINFORCE_GAIN) && addLot(i, price)) {
+      open.peakSinceAdd = price;
       signals.push({ date: quotes[i].date, side: 'add' });
     }
   }
@@ -121,7 +170,7 @@ export function backtest(quotes, mom, budget = STRATEGY_BUDGET) {
   const realized = round2(trades.reduce((sum, t) => sum + t.pnl, 0));
   const total = round2(realized + (open?.pnl ?? 0));
   return {
-    trades, open, signals, skipped, sellsHeld,
+    trades, open, signals, skipped, sellsHeld, trendBlocked, stops,
     firstDate: startIdx >= 0 ? quotes[startIdx].date : null,
     summary: {
       closed: trades.length,

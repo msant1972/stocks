@@ -3,10 +3,11 @@ import { test } from 'node:test';
 import { backtest, sessionStates } from '../src/lib/strategy.js';
 
 // Sessões com SMA10/SMA200 sempre definida (5%, fora da zona neutra) e SMA8/SMA125 a 0% (permite vender),
-// salvo indicação em waves/waves125. As duas primeiras sessões nunca têm estado conhecido.
-function fixture(states, prices, waves = {}, waves125 = {}) {
+// salvo indicação em waves/waves125. As duas primeiras sessões nunca têm estado conhecido. A SMA200 fica
+// abaixo do preço (o filtro de tendência deixa comprar), salvo indicação em sma200.
+function fixture(states, prices, waves = {}, waves125 = {}, sma200 = {}) {
   const mom = states.map((s, i) => ({ wave: waves[i] ?? 5, wave125: waves125[i] ?? 0, rising: s === true }));
-  const quotes = prices.map((p, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, close: String(p) }));
+  const quotes = prices.map((p, i) => ({ date: `2026-01-${String(i + 1).padStart(2, '0')}`, close: String(p), sma200: String(sma200[i] ?? 1) }));
   return { mom, quotes };
 }
 
@@ -104,4 +105,36 @@ test('registo de estratégias: A-Momentum disponível e igual ao backtest; B-Opu
     return { date: `2025-${String(1 + Math.floor(k / 28) % 12).padStart(2, '0')}-${String(1 + (k % 28)).padStart(2, '0')}`, close, adjClose: close, sma10: close, sma125: 50, sma200: 50 };
   });
   assert.deepEqual(getStrategy('a-momentum').run(quotes), backtest(quotes, momentum(quotes)));
+});
+
+test('filtro de tendência: não compra com o preço abaixo da SMA200 (e compra quando volta a estar acima)', async () => {
+  const { ORIGINAL_OPTIONS } = await import('../src/lib/strategy.js');
+  //            0     1     2      3     4     5      6     7
+  const s = [null, null, false, true, true, false, true, true];
+  const p = [10, 10, 10, 10, 10, 10, 10, 10];
+  const { quotes, mom } = fixture(s, p, {}, {}, { 4: 12, 7: 9 }); // sessão 4: SMA200 acima do preço
+  const r = backtest(quotes, mom);
+  assert.deepEqual(r.signals.map((x) => [x.date, x.side]), [['2026-01-08', 'buy']]);
+  assert.equal(r.trendBlocked, 1);
+  // Sem o filtro (regras originais) comprava logo na sessão 4.
+  assert.equal(backtest(quotes, mom, 15000, ORIGINAL_OPTIONS).signals[0].date, '2026-01-05');
+});
+
+test('protecção dos reforços: vende tudo com o fecho mais de 15% abaixo do último reforço', async () => {
+  const { ORIGINAL_OPTIONS } = await import('../src/lib/strategy.js');
+  //            0     1     2      3     4     5      6      7     8
+  const s = [null, null, false, true, true, true, true, true, true];
+  // compra a 10 (4), reforça a 11,01 (5); 9,36 é exactamente −15% de 11,01 (não vende); 9,35 vende.
+  const p = [10, 10, 10, 10, 10, 11.01, 9.36, 9.35, 9.4];
+  const { quotes, mom } = fixture(s, p);
+  const r = backtest(quotes, mom);
+  assert.equal(r.trades.length, 1);
+  assert.deepEqual([r.trades[0].sellDate, r.trades[0].reason, r.trades[0].reinforcements], ['2026-01-08', 'stop', 1]);
+  assert.equal(r.stops, 1);
+  assert.equal(r.open, null);
+  // Sem reforços a protecção não se aplica: a mesma queda depois de uma só compra mantém a posição.
+  const single = fixture(s, [10, 10, 10, 10, 10, 10.5, 8, 7.5, 7.4]);
+  assert.equal(backtest(single.quotes, single.mom).trades.length, 0);
+  // Regras originais: sem protecção, a posição reforçada continua aberta.
+  assert.equal(backtest(quotes, mom, 15000, ORIGINAL_OPTIONS).trades.length, 0);
 });

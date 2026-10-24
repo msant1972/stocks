@@ -268,15 +268,29 @@ As estratégias estão num registo partilhado (`shared/strategies/index.js`): ca
 - **A-Momentum** (`shared/strategies/a-momentum.js`), corrida no browser sobre o histórico carregado, sem alterar a carteira:
 
 - estado de cada sessão = cor do momento (SMA10/SMA200 «a subir» ou «a descer»);
-- compra 15 000 € (quantidade inteira) quando as três últimas sessões foram descer, subir, subir;
+- compra 15 000 € (quantidade inteira) quando as três últimas sessões foram descer, subir, subir **e o fecho ajustado está acima da SMA200** (filtro de tendência: não compra acções em queda);
 - vende tudo quando foram subir, descer, descer e o SMA8/SMA125 está abaixo de 1% nessa sessão (caso contrário mantém a posição);
+- **protecção dos reforços:** com a posição reforçada, vende tudo quando o fecho cai mais de 15% abaixo do preço do último reforço (sem esperar pelo padrão de venda);
 - ignora os sinais quando, na sessão do sinal, o SMA10/SMA200 está entre −1% e +1% (inclusive);
 - reforça com mais 15 000 € sempre que o fecho sobe mais de 10% face ao preço da compra mais recente (o seguinte exige outros +10%); numa sessão com venda executada não há reforço;
 - executa ao fecho real do dia do sinal, uma posição de cada vez, sem comissões; uma posição aberta no fim é valorizada ao último fecho;
 - o resultado em % é calculado sobre o capital máximo investido em simultâneo;
 - compara com comprar e manter 15 000 € desde a primeira sessão com estado conhecido.
 
-O gráfico marca as compras (C), os reforços (R) e as vendas (V); um painel mostra o resultado, as operações, os sinais ignorados e as vendas não executadas pela condição do SMA8/SMA125.
+O gráfico marca as compras (C), os reforços (R) e as vendas (V); um painel mostra o resultado, as operações (com «protecção» nas vendas pelo limite de 15%), os sinais ignorados, as compras bloqueadas pelo filtro e as vendas não executadas pela condição do SMA8/SMA125.
+
+**Filtro e protecção (24 out. 2026).** Acrescentados depois de a análise do BackTest mostrar que as maiores perdas vinham de acções em queda com sinais falsos repetidos e de posições muito reforçadas vendidas tarde. Comparação sobre os 296 instrumentos, últimos 2 anos:
+
+| | Antes | Com filtro e protecção |
+|---|---|---|
+| Soma dos resultados | +4 817 k€ | +2 130 k€ |
+| Instrumentos com ganho / perda | 178 / 117 | 142 / 153 |
+| Os 10 piores de antes | −172 k€ | −48 k€ |
+| Maior perda num instrumento | −26 k€ | −13 k€ |
+| Os 10 melhores de antes | +1 914 k€ | +516 k€ |
+| Operações fechadas | 1 812 | 694 |
+
+As perdas ficam muito menores, mas o lucro nas tendências fortes também: as pausas de 15–25% dentro dessas tendências accionam a protecção, e o filtro bloqueia compras feitas no início de uma recuperação (ABVX.PA, o melhor resultado antes, com +519 k€, passa a −13 k€ por a compra a 6 € ter ficado abaixo da SMA200). As regras anteriores continuam disponíveis no código (`ORIGINAL_OPTIONS`) para comparação, assim como outras variantes testadas (SMA200 a subir, stop móvel, limite de reforços).
 
 A página **Sinais** aplica a mesma estratégia, no servidor, a todos os instrumentos activos com todo o histórico (para reconstruir a posição virtual de cada um) e lista os sinais das últimas N sessões. Os botões Comprar e Vender abrem uma operação simulada normal na carteira do utilizador, já com a quantidade preenchida (a que cabe em 15 000 € ao último fecho, ou todas as unidades em carteira); os sinais nunca executam operações sozinhos.
 
@@ -336,7 +350,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é feita por snapshots EBS do volume, geridos na AWS |
 
-Testes automáticos em cada componente: API com Vitest contra uma BD de testes (99, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (12). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
+Testes automáticos em cada componente: API com Vitest contra uma BD de testes (99, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (14). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e snapshots EBS do volume (cópia fora do servidor, geridos na AWS), com restauro testado pelo administrador.

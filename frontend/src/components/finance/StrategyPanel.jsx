@@ -12,11 +12,13 @@ function Reinforcements({ lots }) {
 
 /** Resultado da simulação de uma estratégia do registo no histórico (não altera a carteira). */
 export default function StrategyPanel({ strategy, result, currency = 'EUR', symbol }) {
-  const { trades, open, summary, firstDate, skipped, sellsHeld } = result;
+  const { trades, open, summary, firstDate, skipped, sellsHeld, trendBlocked, stops } = result;
   const bh = summary.buyHold;
   const notes = [
     sellsHeld > 0 && `${sellsHeld} ${sellsHeld === 1 ? 'venda não executada' : 'vendas não executadas'} pela condição do SMA8/SMA125`,
     skipped > 0 && `${skipped} ${skipped === 1 ? 'sinal ignorado' : 'sinais ignorados'} na zona neutra`,
+    trendBlocked > 0 && `${trendBlocked} ${trendBlocked === 1 ? 'compra não feita' : 'compras não feitas'} com o preço abaixo da SMA200`,
+    stops > 0 && `${stops} ${stops === 1 ? 'venda' : 'vendas'} pela protecção dos reforços`,
   ].filter(Boolean);
   return (
     <section className="stack" style={{ gap: '1rem' }} aria-labelledby="strategy-title">
@@ -74,7 +76,10 @@ export default function StrategyPanel({ strategy, result, currency = 'EUR', symb
                   <td className="r">{f.price(t.avgPrice, currency)}</td>
                   <td className="r">{f.quantity(t.quantity)}</td>
                   <td className="r">{f.money(t.cost, currency)}</td>
-                  <td style={{ whiteSpace: 'nowrap' }}>{f.date(t.sellDate)}</td>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    {f.date(t.sellDate)}
+                    {t.reason === 'stop' && <div className="small muted" title="Queda acima do limite face ao último reforço">protecção</div>}
+                  </td>
                   <td className="r">{f.price(t.sellPrice, currency)}</td>
                   <td className="r"><PnL value={t.pnl} currency={currency} /><div className="small muted">{f.pct(t.pnlPct.toFixed(2))}</div></td>
                 </tr>

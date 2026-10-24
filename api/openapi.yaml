@@ -4628,13 +4628,15 @@ paths:
         - Estratégia
       description: "Estratégias disponíveis: a-momentum (A-Momentum: Compra 15 000 €
         quando o SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a
-        subir»; reforça com mais 15 000 € sempre que o fecho sobe mais de 10%
-        face à compra mais recente; vende tudo após uma «a subir» seguida de
-        duas «a descer», mas só com o SMA8/SMA125 abaixo de 1%. Sinais ignorados
-        com o SMA10/SMA200 entre −1% e +1%. Executa ao fecho da sessão do sinal,
-        uma posição de cada vez, sem comissões.) Posições abertas avaliadas ao
-        último fecho. Simulação no histórico; não altera a carteira nem é
-        recomendação."
+        subir», só com o preço acima da sua média de 200 sessões (não compra
+        acções em queda); reforça com mais 15 000 € sempre que o fecho sobe mais
+        de 10% face à compra mais recente; vende tudo após uma «a subir» seguida
+        de duas «a descer», mas só com o SMA8/SMA125 abaixo de 1%, ou, com a
+        posição reforçada, quando o fecho cai mais de 15% abaixo do preço do
+        último reforço. Sinais ignorados com o SMA10/SMA200 entre −1% e +1%.
+        Executa ao fecho da sessão do sinal, uma posição de cada vez, sem
+        comissões.) Posições abertas avaliadas ao último fecho. Simulação no
+        histórico; não altera a carteira nem é recomendação."
       parameters:
         - schema:
             default: all

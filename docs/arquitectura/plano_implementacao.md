@@ -75,6 +75,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Gestão de utilizadores | Página para administradores: criar, redefinir palavra-passe, remover |
 | Configuração SMTP | Em Definições, com palavra-passe cifrada na BD e email de teste pelo motor de alertas |
 | Capital de 1 M€ | Valor por omissão das contas novas |
+| A-Momentum: filtro e protecção | Só compra com o preço acima da SMA200; com reforços, vende se o fecho cair mais de 15% abaixo do último reforço. Perdas dos 10 piores de −172 k€ para −48 k€; soma dos resultados de +4,8 M€ para +2,1 M€ |
 | Registo de estratégias | A estratégia passa a chamar-se A-Momentum; menu «Estratégia» (Nenhuma, A-Momentum) no instrumento e no BackTest; B-Opus registada como «em preparação» |
 | BackTest | Página com o resultado da estratégia de momento em cada instrumento nos últimos 2 anos (os mesmos valores do «Aplicar estratégia»), resumo de ganhos/perdas, comparação com comprar e manter e ordenação |
 | Ordenação em Acompanhar | Instrumento, volume e variação ordenam o catálogo inteiro no servidor; desequilíbrio ordena os instrumentos mostrados (o livro só é pedido para esses); a lista do utilizador ordena-se no browser |
@@ -114,7 +115,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | API | Vitest contra a base `stocks_test` | 99 (+1 de contrato com rede, opcional) |
 | Motor de recolha | pytest, fornecedor simulado | 22 |
 | Motor de alertas | pytest, mailer simulado | 18 |
-| Frontend (cálculos) | `node --test` | 12 |
+| Frontend (cálculos) | `node --test` | 14 |
 
 O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pull request, com MariaDB 10.11, e verifica que o contrato OpenAPI está actualizado. Os testes nunca contactam o Yahoo nem enviam emails. Cada funcionalidade de interface foi também verificada no browser (Chromium headless) em desktop e telemóvel, com uma cópia dos dados reais na base de testes.
 
