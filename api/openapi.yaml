@@ -4968,6 +4968,9 @@ paths:
                             - gain
                             - loss
                             - mixed
+                        inWatchlist:
+                          type: boolean
+                          description: Está na lista de acompanhamento do utilizador
                       required:
                         - instrumentId
                         - symbol
@@ -4977,6 +4980,7 @@ paths:
                         - total
                         - buyHoldPct
                         - group
+                        - inWatchlist
                       additionalProperties: false
                 required:
                   - strategies

@@ -117,6 +117,7 @@ export default async function backtestRoutes(app, { pool }) {
             results: z.record(z.string(), Money2).describe('Resultado de cada estratégia, por id'),
             total: Money2, buyHoldPct: z.number().nullable().describe('Comprar e manter no mesmo período, em %'),
             group: z.enum(['gain', 'loss', 'mixed']),
+            inWatchlist: z.boolean().describe('Está na lista de acompanhamento do utilizador'),
           })),
         }),
       },
@@ -138,7 +139,9 @@ export default async function backtestRoutes(app, { pool }) {
       const group = values.every((v) => v > 0) ? 'gain' : values.every((v) => v < 0) ? 'loss' : 'mixed';
       return { ...r, total: Math.round(values.reduce((a, b) => a + b, 0) * 100) / 100, group };
     });
-    if (req.query.scope === 'watchlist') items = await onlyWatchlist(req.user.id, items);
+    const mine = await watchlistIds(req.user.id);
+    items = items.map((i) => ({ ...i, inWatchlist: mine.has(i.instrumentId) }));
+    if (req.query.scope === 'watchlist') items = items.filter((i) => i.inWatchlist);
     items.sort((a, b) => b.total - a.total);
     const count = (g) => items.filter((i) => i.group === g).length;
     const oldest = Math.min(...entries.map(([, e]) => e.at));
@@ -236,9 +239,13 @@ export default async function backtestRoutes(app, { pool }) {
   }
   const results = async (strategy) => (await ensure([strategy]))[0];
 
-  async function onlyWatchlist(userId, items) {
+  async function watchlistIds(userId) {
     const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [userId]);
-    const ids = new Set(w.map((x) => Number(x.instrument_id)));
+    return new Set(w.map((x) => Number(x.instrument_id)));
+  }
+
+  async function onlyWatchlist(userId, items) {
+    const ids = await watchlistIds(userId);
     return items.filter((i) => ids.has(i.instrumentId));
   }
 }

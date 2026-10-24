@@ -301,6 +301,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Filtro «Todos / A minha lista» (no endereço, `?lista=1`) e pesquisa por símbolo ou designação, aplicada às duas tabelas.
 - Duas tabelas, «Ganham com todas as estratégias» (ponto verde, ordenada do maior para o menor total) e «Perdem com todas as estratégias» (ponto vermelho, do maior prejuízo para o menor), ordenáveis por qualquer coluna: instrumento, total, uma coluna por estratégia disponível e comprar e manter.
 - O símbolo abre o instrumento; o resultado de cada estratégia abre o gráfico com essa estratégia aplicada. Em telemóvel, acesso pelo botão «WinnersLoosers» no BackTest.
+- Coluna «Minha lista» com um botão de ícone por linha: «+» adiciona à lista de acompanhamento; o caixote do lixo (vermelho) remove; nome acessível com o símbolo e mensagem de confirmação. No cabeçalho de cada tabela, um botão em massa: «Adicionar à lista (N)» com os ganhadores que ainda não estão na lista e «Remover da lista (N)» com os perdedores que ainda estão; ambos pedem confirmação num diálogo com os símbolos e avisam que posições, operações e alertas não mudam. Os pedidos são feitos um a um; o ecrã, Acompanhar e Promessas actualizam-se logo.
 
 ### 5.11c. Promessas
 

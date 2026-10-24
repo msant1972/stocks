@@ -236,6 +236,8 @@ table.data th.r { text-align: right; }
 .wl-dot { display: inline-block; width: 0.625rem; height: 0.625rem; border-radius: 50%; margin-right: 0.5rem; vertical-align: middle; }
 .wl-dot.gain { background: var(--positive); }
 .wl-dot.loss { background: var(--negative); }
+.wl-watch { color: var(--accent); }
+.wl-watch.in { color: var(--negative); }
 .wl-cell { color: inherit; text-decoration: none; }
 .wl-cell:hover { text-decoration: underline; }
 .sort-arrow { font-size: 0.6875rem; opacity: 0.55; }

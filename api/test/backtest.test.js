@@ -125,6 +125,9 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
     expect((await ana.get('/winners-losers?scope=watchlist')).json().items.map((i) => i.symbol)).toEqual(
       wl.items.filter((i) => i.symbol === 'ONDA.LS').map((i) => i.symbol),
     );
+    // Cada linha indica se está na lista do utilizador (ONDA.LS está; os outros não).
+    expect(wl.items.filter((i) => i.inWatchlist).map((i) => i.symbol)).toEqual(wl.items.filter((i) => i.symbol === 'ONDA.LS').map((i) => i.symbol));
+    expect(wl.items.every((i) => typeof i.inWatchlist === 'boolean')).toBe(true);
   });
 
   it('Promessas: só elegíveis (tendência intacta), ordenados pela pontuação, com a validação histórica', async () => {
