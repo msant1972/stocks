@@ -164,11 +164,11 @@ Concluído a 18 out. 2026 (SMTP, carteira a 1 M€, cópia externa e restauro). 
 
 ### P2 — evolução funcional (a decidir com o responsável funcional)
 
-9. Estratégias: comissões opcionais no BackTest, execução ao fecho do dia seguinte na A-Momentum (mais realista) e parâmetros configuráveis na interface.
-10. Histórico: períodos «5A» e «Tudo» no gráfico à medida que o histórico cresce.
-11. Simulação: comissões opcionais e tratamento de desdobramentos nas posições.
-12. Logótipos ou categorias por sector no HeatMap, se houver fonte com direitos de uso.
-13. Promessas: revalidar a regra (e os valores da tabela de validação, hoje fixos na API) à medida que o histórico cresce; acompanhar o desempenho das listas publicadas.
+10. Estratégias: comissões opcionais no BackTest, execução ao fecho do dia seguinte na A-Momentum (mais realista) e parâmetros configuráveis na interface.
+11. Histórico: períodos «5A» e «Tudo» no gráfico à medida que o histórico cresce.
+12. Simulação: comissões opcionais e tratamento de desdobramentos nas posições.
+13. Logótipos ou categorias por sector no HeatMap, se houver fonte com direitos de uso.
+14. Promessas: revalidar a regra (e os valores da tabela de validação, hoje fixos na API) à medida que o histórico cresce; acompanhar o desempenho das listas publicadas.
 
 ## 9. Publicação e rollback
 
