@@ -2,7 +2,7 @@
 
 > Especificação da estratégia C-AI para a aplicação Stocks, elaborada a partir da análise de todos os instrumentos do catálogo (24 out. 2026). A C-AI é uma estratégia **por instrumento**, como a A-Momentum e a B-Opus: cada instrumento é simulado isoladamente, com os seus próprios dados, no mesmo ambiente (registo `shared/strategies/`, API, BackTest, página do instrumento e Sinais), com o mesmo orçamento por compra e sem comissões. Os valores e regras aqui definidos são vinculativos. Descrição metodológica para estudo e simulação; não constitui recomendação de investimento.
 >
-> Estado: **por implementar**. A C-AI já está registada como «em preparação» (`shared/strategies/index.js`).
+> Estado: **implementada a 24 out. 2026** em `shared/strategies/c-ai.js` (+1 491 k€, 182 instrumentos com ganho e 106 com perda, sobre os dados de produção).
 
 ---
 

@@ -4514,8 +4514,17 @@ paths:
         sobe), ou, na revisão semanal, por falta de liquidez, quebra de
         tendência, perda de momento ou ao fim de 20 sessões sem ganhar 1 ATR
         (venda na abertura seguinte). Uma posição de cada vez, sem comissões;
-        indicadores sobre preços ajustados, execução a preços reais.) Simulação;
-        não são recomendações."
+        indicadores sobre preços ajustados, execução a preços reais.) c-ai
+        (C-AI: Sem posição, compra 15 000 € na abertura seguinte quando o fecho
+        está acima da SMA200 e o M2 (momentum de 12 meses sem o último, dividido
+        pela volatilidade) é positivo. Vende tudo só quando o preço toca o stop
+        chandelier (máximo desde a compra − 5 × ATR22, que só sobe), verificado
+        todos os dias. Reforça com mais 15 000 € na abertura seguinte quando o
+        fecho sobe mais de 10% face ao último lote e o M2 é superior a 2, até 5
+        reforços. Volta a comprar logo que as condições se verifiquem depois de
+        um stop. Uma posição de cada vez, sem comissões; indicadores sobre
+        preços ajustados, execução a preços reais.) Simulação; não são
+        recomendações."
       parameters:
         - schema:
             default: 5
@@ -4531,6 +4540,7 @@ paths:
             enum:
               - a-momentum
               - b-opus
+              - c-ai
           in: query
           name: strategy
           required: false
@@ -4685,8 +4695,17 @@ paths:
         quebra de tendência, perda de momento ou ao fim de 20 sessões sem ganhar
         1 ATR (venda na abertura seguinte). Uma posição de cada vez, sem
         comissões; indicadores sobre preços ajustados, execução a preços reais.)
-        Posições abertas avaliadas ao último fecho. Simulação no histórico; não
-        altera a carteira nem é recomendação."
+        c-ai (C-AI: Sem posição, compra 15 000 € na abertura seguinte quando o
+        fecho está acima da SMA200 e o M2 (momentum de 12 meses sem o último,
+        dividido pela volatilidade) é positivo. Vende tudo só quando o preço
+        toca o stop chandelier (máximo desde a compra − 5 × ATR22, que só sobe),
+        verificado todos os dias. Reforça com mais 15 000 € na abertura seguinte
+        quando o fecho sobe mais de 10% face ao último lote e o M2 é superior a
+        2, até 5 reforços. Volta a comprar logo que as condições se verifiquem
+        depois de um stop. Uma posição de cada vez, sem comissões; indicadores
+        sobre preços ajustados, execução a preços reais.) Posições abertas
+        avaliadas ao último fecho. Simulação no histórico; não altera a carteira
+        nem é recomendação."
       parameters:
         - schema:
             default: all
@@ -4703,6 +4722,7 @@ paths:
             enum:
               - a-momentum
               - b-opus
+              - c-ai
           in: query
           name: strategy
           required: false

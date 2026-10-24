@@ -24,6 +24,7 @@
 import { momentum } from '../momentum.js';
 import * as aMomentum from './a-momentum.js';
 import * as bOpus from './b-opus.js';
+import * as cAi from './c-ai.js';
 
 const eur = (v) => `${v.toLocaleString('pt-PT')} €`;
 
@@ -74,14 +75,20 @@ export const STRATEGIES = [
   {
     id: 'c-ai',
     name: 'C-AI',
-    available: false, // regras a definir; aparece nos menus como «em preparação» e a API recusa-a
-    budget: null,
-    summary: 'Em preparação',
-    rules: 'Estratégia em preparação.',
+    available: true,
+    budget: cAi.DEFAULT_OPTIONS.budget,
+    summary: 'Tendência (SMA200) com momentum positivo, stop chandelier de 5 × ATR e reforços só com momentum forte',
+    rules: `Sem posição, compra ${eur(cAi.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho está acima da SMA200 e o M2 `
+      + '(momentum de 12 meses sem o último, dividido pela volatilidade) é positivo. Vende tudo só quando o preço toca o stop '
+      + `chandelier (máximo desde a compra − ${cAi.DEFAULT_OPTIONS.stopMult} × ATR22, que só sobe), verificado todos os dias. `
+      + `Reforça com mais ${eur(cAi.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho sobe mais de `
+      + `${cAi.DEFAULT_OPTIONS.addOnGain * 100}% face ao último lote e o M2 é superior a ${cAi.DEFAULT_OPTIONS.addMinM2}, `
+      + `até ${cAi.DEFAULT_OPTIONS.maxAdds} reforços. Volta a comprar logo que as condições se verifiquem depois de um stop. `
+      + 'Uma posição de cada vez, sem comissões; indicadores sobre preços ajustados, execução a preços reais.',
     windowYears: 2,
-    warmupYears: 0,
-    reasonLabels: {},
-    run: null,
+    warmupYears: 1,
+    reasonLabels: { stop: 'stop' },
+    run: (quotes, { from } = {}) => cAi.backtest(quotes, { from }),
   },
 ];
 
