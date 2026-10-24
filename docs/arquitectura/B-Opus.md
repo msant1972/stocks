@@ -1,8 +1,6 @@
 # B-Opus — Estratégia de tendência e momentum por instrumento
 
-> Especificação de implementação da estratégia B-Opus na aplicação Stocks. A B-Opus é uma estratégia **por instrumento**, como a A-Momentum: cada instrumento é simulado isoladamente, com os seus próprios dados, e usa o mesmo ambiente (registo `shared/strategies/`, API, BackTest, página do instrumento e Sinais). Os valores e regras aqui definidos são vinculativos. Descrição metodológica para estudo e simulação; não constitui recomendação de investimento.
->
-> Versão adaptada (24 out. 2026) a partir da especificação original «Estratégia de tendência e momentum». As diferenças face ao original estão na secção 15.
+> Especificação de implementação da estratégia B-Opus na aplicação Stocks. A B-Opus é uma estratégia **por instrumento**, como a A-Momentum, com regras e indicadores diferentes: cada instrumento é simulado isoladamente, com os seus próprios dados, no mesmo ambiente (registo `shared/strategies/`, API, BackTest, página do instrumento e Sinais), com o mesmo orçamento por compra e sem comissões. Os valores e regras aqui definidos são vinculativos. Descrição metodológica para estudo e simulação; não constitui recomendação de investimento.
 
 ---
 
@@ -10,12 +8,12 @@
 
 1. Lê este documento inteiro antes de escrever código.
 2. A B-Opus é um módulo JavaScript puro, sem dependências, em `shared/strategies/b-opus.js`, registado em `shared/strategies/index.js` exactamente como a A-Momentum: `run(quotes, options)` devolve o resultado no formato comum do registo (secção 12). É o mesmo código que corre no browser (página do instrumento) e no servidor (BackTest e Sinais): não pode haver lógica de decisão duplicada.
-3. Cada simulação usa **apenas os dados do próprio instrumento**. Não há capital partilhado entre instrumentos, ranking entre instrumentos nem índice de mercado.
+3. Cada simulação usa **apenas os dados do próprio instrumento**, como a A-Momentum.
 4. Ordem de implementação: preparação dos dados → indicadores (com testes) → simulação (com testes) → registo e dados de entrada na API → interface → documentação.
 5. Sem *lookahead*: uma decisão tomada no fecho da sessão t usa apenas dados até ao fecho de t, inclusive.
 6. Resultados determinísticos: a estratégia não usa aleatoriedade.
 7. Para e pergunta ao utilizador quando encontrares uma contradição ou ambiguidade nesta especificação. Nunca inventes dados.
-8. A tarefa está concluída quando todos os critérios da secção 16 forem cumpridos.
+8. A tarefa está concluída quando todos os critérios da secção 14 forem cumpridos.
 
 ---
 
@@ -450,39 +448,7 @@ Valores de `m2Lookback` ou `smaTrendSlow` acima do por omissão alongam o aqueci
 
 ---
 
-## 14. Fora do âmbito
-
-Não fazem parte da B-Opus, por exigirem uma carteira com vários instrumentos ou dados que a aplicação não tem:
-
-- regime de mercado por índice de referência (a base não tem índices, e a B-Opus usa só os dados do instrumento);
-- ranking entre instrumentos e número máximo de posições;
-- capital partilhado, risco por posição em % do capital, limites de exposição, de setor e de risco aberto, alvo de volatilidade da carteira;
-- custos de transacção, juros e impostos (a simulação da aplicação não os tem);
-- filtro de datas de resultados (a base não tem essas datas).
-
----
-
-## 15. Diferenças face à especificação original
-
-| Original | B-Opus nesta aplicação | Motivo |
-|---|---|---|
-| Carteira de até 10 acções escolhidas por ranking entre instrumentos | Simulação por instrumento, uma posição de cada vez | A B-Opus é uma estratégia por instrumento, como a A-Momentum |
-| Pontuação S (z-scores de M1 e M2 entre instrumentos) e saída por ranking (`rank_exit`) | M1 > 0 e M2 > 0 como condições de entrada; sem ranking | Os z-scores exigem comparar instrumentos |
-| Regime de mercado (índice acima da SMA200) e redução em risk-off | Removido | Exige um índice de mercado; a tendência do próprio instrumento (SMA50/SMA200) mantém-se |
-| Capital de 100 000, risco de 0,5% por posição, peso máximo, exposição bruta, risco aberto, setor, alvo de volatilidade | 15 000 € por compra, sem limites de carteira | Igual à A-Momentum; sem carteira não há limites de carteira |
-| Custos de 0,15% por execução, juro da liquidez, impostos | Sem custos, juros nem impostos | Igual à A-Momentum e ao resto da simulação |
-| `universe_exit` (sair do universo) | `liquidity` (liquidez abaixo do limiar) | Sem universo, fica só o critério de liquidez do próprio instrumento |
-| Filtro de resultados, setores, universo point-in-time, deslistados | Removidos | A base não tem esses dados |
-| Ferramenta Python, YAML, Parquet, relatórios em ficheiros, CLI `trendmom`, ficheiros de estado | Módulo JavaScript no registo; resultados no BackTest, na página do instrumento e nos Sinais | É o ambiente da A-Momentum |
-| Vários mercados, calendário de mercado | Sessões do próprio instrumento | Simulação por instrumento |
-| 15 anos de dados, calibração, walk-forward, Deflated Sharpe, Monte Carlo, regra de suspensão | Janela de 2 anos (como a A-Momentum), comparação, ablação e sensibilidade por script, testes | Há três anos de histórico (dois após o aquecimento) |
-| Bases de comparação do índice | Comparação com comprar e manter (por instrumento) e com a A-Momentum | Sem índice e sem carteira |
-| Execução e stops em preços ajustados | Decisões em preços ajustados; execução e resultados em preços reais | Igual à A-Momentum (resultado em preços reais) |
-| Referências às secções 19 e 21 | Secção 8 (sequência e sinais) e secção 16 (critérios) | O documento original não incluía essas secções |
-
----
-
-## 16. Critérios de aceitação
+## 14. Critérios de aceitação
 
 1. `shared/strategies/b-opus.js` implementa as secções 3 a 9 com as opções da secção 13, sem dependências e sem aleatoriedade, e `run` devolve o formato comum (secção 12.1).
 2. A B-Opus está registada com `available: true` e aparece activa no menu «Estratégia» da página do instrumento, do BackTest e dos Sinais; a A-Momentum continua a dar exactamente os mesmos resultados.
