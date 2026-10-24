@@ -4,7 +4,6 @@ import { IsoDate } from '../schemas.js';
 import { yearsBefore } from './instruments.js';
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
-const YEARS = 2;
 
 const Money = z.number().describe('EUR, 2 casas');
 const Row = z.object({
@@ -21,34 +20,39 @@ const Row = z.object({
 
 /**
  * Aplica uma estratégia do registo (shared/strategies/, a mesma escolhida na página do instrumento) a cada
- * instrumento activo, sobre os mesmos dados que essa página carrega: os últimos 2 anos até à última sessão
- * do instrumento. Por isso os valores coincidem com os do gráfico.
+ * instrumento activo, sobre os mesmos dados que essa página carrega: os últimos windowYears anos até à última
+ * sessão do instrumento, mais os warmupYears de aquecimento que a estratégia pedir (a estratégia só actua a
+ * partir do início da janela). Por isso os valores coincidem com os do gráfico.
  */
 async function computeAll(pool, strategy) {
+  const histYears = strategy.windowYears + strategy.warmupYears;
   const [rows] = await pool.query(
-    `SELECT q.instrument_id, i.symbol, i.name, i.exchange, i.last_session, q.session_date AS date, q.close,
-            q.adj_close AS adjClose, q.sma10, q.sma125, q.sma200
+    `SELECT q.instrument_id, i.symbol, i.name, i.exchange, i.last_session, q.session_date AS date,
+            q.open, q.high, q.low, q.close, q.adj_close AS adjClose, q.volume, q.sma10, q.sma125, q.sma200
        FROM daily_quotes q JOIN instruments i ON i.id = q.instrument_id
-      WHERE i.status = 'active' AND q.session_date >= i.last_session - INTERVAL ${YEARS} YEAR - INTERVAL 1 DAY
+      WHERE i.status = 'active' AND q.session_date >= i.last_session - INTERVAL ${histYears} YEAR - INTERVAL 1 DAY
       ORDER BY q.instrument_id, q.session_date`,
   );
   const byInstrument = new Map();
   for (const r of rows) {
     const id = Number(r.instrument_id);
     if (!byInstrument.has(id)) {
-      byInstrument.set(id, { id, symbol: r.symbol, name: r.name, exchange: r.exchange, from: yearsBefore(r.last_session, YEARS), quotes: [] });
+      byInstrument.set(id, {
+        id, symbol: r.symbol, name: r.name, exchange: r.exchange, quotes: [],
+        histFrom: yearsBefore(r.last_session, histYears), from: yearsBefore(r.last_session, strategy.windowYears),
+      });
     }
     const inst = byInstrument.get(id);
-    if (r.date >= inst.from) inst.quotes.push(r); // a mesma janela que GET /instruments/{id}/quotes
+    if (r.date >= inst.histFrom) inst.quotes.push(r); // a mesma janela que GET /instruments/{id}/quotes?from=
   }
   const items = [];
   for (const inst of byInstrument.values()) {
     if (!inst.quotes.length) continue;
-    const r = strategy.run(inst.quotes);
+    const r = strategy.run(inst.quotes, { from: inst.from });
     const s = r.summary;
     items.push({
       instrumentId: inst.id, symbol: inst.symbol, name: inst.name, exchange: inst.exchange,
-      fromDate: r.firstDate, toDate: inst.quotes.at(-1).date, sessions: inst.quotes.length,
+      fromDate: r.firstDate, toDate: inst.quotes.at(-1).date, sessions: inst.quotes.filter((q) => q.date >= inst.from).length,
       closed: s.closed, wins: s.wins, reinforcements: s.reinforcements, openPosition: r.open != null,
       peakCost: s.peakCost, realized: s.realized, unrealized: s.unrealized, total: s.total,
       totalPct: Math.round(s.totalPct * 100) / 100,
@@ -100,6 +104,6 @@ export default async function backtestRoutes(app, { pool }) {
       const ids = new Set(w.map((x) => Number(x.instrument_id)));
       items = items.filter((i) => ids.has(i.instrumentId));
     }
-    return { strategy: info(strategy), years: YEARS, budget: strategy.budget, computedAt: new Date(entry.at).toISOString(), items };
+    return { strategy: info(strategy), years: strategy.windowYears, budget: strategy.budget, computedAt: new Date(entry.at).toISOString(), items };
   });
 }

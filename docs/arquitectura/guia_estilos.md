@@ -198,7 +198,7 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 - Acções «Adicionar à lista», «Criar alerta», menu «Estratégia» e «Simular operação».
 - Botões de indicadores por cima do gráfico (EMA9, SMA10, SMA50, SMA125, SMA200), que servem também de legenda; selecção guardada no browser.
 - Gráfico de momento por baixo do histórico, sincronizado com ele (cursor e tooltip): área SMA10/SMA200 − 1 em colunas verdes («a subir») ou vermelhas («a descer»), linha SMA8/SMA125 − 1 e linha do zero; valores actuais no cabeçalho; botão «Momento» para mostrar ou esconder.
-- Menu «Estratégia» (Nenhuma por omissão, A-Momentum; estratégias em preparação, como a B-Opus, aparecem desactivadas com «(em preparação)»). Escolher uma estratégia mostra a simulação no histórico, com o nome da estratégia no título do painel: marcadores C (compra), R (reforço) e V (venda) com letra, e um painel com o resultado, as operações, os reforços, os sinais ignorados e a comparação com comprar e manter. Indicar sempre que é uma simulação e que não altera a carteira.
+- Menu «Estratégia» (Nenhuma por omissão, A-Momentum, B-Opus; uma estratégia em preparação aparece desactivada com «(em preparação)»). Com a B-Opus, a página carrega 3 anos de cotações (aquecimento) e mostra também a linha tracejada do stop da posição aberta; as vendas mostram o motivo (stop, tendência, momento, liquidez, tempo) e, sem compras, o painel lista os critérios que as impediram. Escolher uma estratégia mostra a simulação no histórico, com o nome da estratégia no título do painel: marcadores C (compra), R (reforço) e V (venda) com letra, e um painel com o resultado, as operações, os reforços, os sinais ignorados e a comparação com comprar e manter. Indicar sempre que é uma simulação e que não altera a carteira.
 - Disponibilizar resumo textual e acesso aos dados do gráfico em tabela, incluindo os indicadores e o momento visíveis.
 
 Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Não animar pontos como se fossem actualizados em tempo real. Se a cobertura for inferior a três anos (a carga inicial), indicar o período efectivamente disponível e que a SMA200 e o momento podem não cobrir todo o gráfico.
@@ -281,7 +281,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 
 ### 5.11. Sinais
 
-- Lista dos sinais da estratégia (compra C, reforço R, venda V, com etiqueta de cor e letra) em todos os instrumentos, ordenados do mais recente.
+- Menu «Estratégia» (A-Momentum por omissão, B-Opus; `?estrategia=`). Lista dos sinais da estratégia (compra C, reforço R só na A-Momentum, venda V com o motivo, com etiqueta de cor e letra) em todos os instrumentos, ordenados do mais recente.
 - Filtro por tipo com contagens e período (última sessão a últimas 10 sessões), guardados no URL.
 - Cada linha: sessão («há N sessões»), sinal, instrumento, preço do sinal, variação desde o sinal (com o último fecho), SMA10/SMA200 actual e botões «Comprar» e «Vender»; «Vender» desactivado quando o instrumento não está na carteira.
 - «Comprar» abre a operação com a quantidade que cabe em 15 000 € ao último fecho; «Vender» abre-a com todas as unidades em carteira. A quantidade continua editável e o modal mostra uma nota com a origem do valor.

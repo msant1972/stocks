@@ -19,7 +19,6 @@ const DailyChart = lazy(() => import('../../components/finance/DailyChart.jsx'))
 export default function InstrumentPage() {
   const { id } = useParams();
   const inst = useInstrument(id);
-  const quotes = useQuotes(id, inst.data?.status === 'active');
   const qc = useQueryClient();
   const toast = useToast();
   const [trading, setTrading] = useState(false);
@@ -33,6 +32,11 @@ export default function InstrumentPage() {
     if (id) next.set('estrategia', id); else next.delete('estrategia');
     return next;
   }, { replace: true });
+  // Estratégias com aquecimento (ex.: B-Opus) precisam de histórico antes da janela em que actuam.
+  const strat = getStrategy(strategy);
+  const lastSession = inst.data?.lastSession;
+  const quotesFrom = strat?.warmupYears && lastSession ? f.yearsBefore(lastSession, strat.windowYears + strat.warmupYears) : undefined;
+  const quotes = useQuotes(id, inst.data?.status === 'active', quotesFrom);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 

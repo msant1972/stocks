@@ -4490,14 +4490,31 @@ paths:
                 additionalProperties: false
   /api/v1/signals:
     get:
-      summary: Sinais da estratégia de momento em todos os instrumentos (últimas N
-        sessões)
+      summary: Sinais de uma estratégia em todos os instrumentos (últimas N sessões)
       tags:
         - Sinais
-      description: "Compra: SMA10/SMA200 descer-subir-subir sem posição virtual;
-        reforço: +10% desde a última compra; venda: subir-descer-descer com
-        SMA8/SMA125 < 1%. Sinais ignorados na zona neutra (±1%). Simulação; não
-        são recomendações."
+      description: "Estratégias: a-momentum (A-Momentum: Compra 15 000 € quando o
+        SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a subir», só com
+        o preço acima da sua média de 200 sessões (não compra acções em queda);
+        reforça com mais 15 000 € sempre que o fecho sobe mais de 10% face à
+        compra mais recente; vende tudo após uma «a subir» seguida de duas «a
+        descer», mas só com o SMA8/SMA125 abaixo de 1%, ou, com a posição
+        reforçada, quando o fecho cai mais de 15% abaixo do preço do último
+        reforço. Sinais ignorados com o SMA10/SMA200 entre −1% e +1%. Executa ao
+        fecho da sessão do sinal, uma posição de cada vez, sem comissões.)
+        b-opus (B-Opus: Na última sessão de cada semana, sem posição, compra
+        15 000 € na abertura seguinte quando o fecho e a SMA50 estão acima da
+        SMA200, o M1 ((SMA10 − SMA125) / ATR22) e o M2 (momentum de 12 meses sem
+        o último, dividido pela volatilidade) são positivos, o Efficiency Ratio
+        de 60 sessões é pelo menos 0.25, o valor negociado médio de 50 sessões é
+        pelo menos 5 000 000 € e não houve um stop nas últimas 10 sessões; não
+        compra se a abertura subir mais de 1 ATR face ao fecho. Vende tudo se o
+        preço tocar o stop chandelier (máximo desde a compra − 3 × ATR22, que só
+        sobe), ou, na revisão semanal, por falta de liquidez, quebra de
+        tendência, perda de momento ou ao fim de 20 sessões sem ganhar 1 ATR
+        (venda na abertura seguinte). Uma posição de cada vez, sem reforços nem
+        comissões; indicadores sobre preços ajustados, execução a preços reais.)
+        Simulação; não são recomendações."
       parameters:
         - schema:
             default: 5
@@ -4507,6 +4524,15 @@ paths:
           in: query
           name: sessions
           required: false
+        - schema:
+            default: a-momentum
+            type: string
+            enum:
+              - a-momentum
+              - b-opus
+          in: query
+          name: strategy
+          required: false
       responses:
         "200":
           description: Default Response
@@ -4515,6 +4541,8 @@ paths:
               schema:
                 type: object
                 properties:
+                  strategy:
+                    type: string
                   sessions:
                     type: number
                   latestSession:
@@ -4540,6 +4568,11 @@ paths:
                             - buy
                             - add
                             - sell
+                        reason:
+                          nullable: true
+                          description: "Motivo da venda (ex.: stop, trend_break), quando a estratégia o
+                            indica"
+                          type: string
                         date:
                           type: string
                           pattern: ^\d{4}-\d{2}-\d{2}$
@@ -4548,7 +4581,8 @@ paths:
                           type: number
                         price:
                           type: string
-                          description: Fecho real na sessão do sinal
+                          description: Preço real da operação simulada (fecho na A-Momentum; abertura ou
+                            stop na B-Opus)
                         lastClose:
                           type: string
                         lastDate:
@@ -4567,6 +4601,7 @@ paths:
                         - symbol
                         - name
                         - side
+                        - reason
                         - date
                         - sessionsAgo
                         - price
@@ -4576,6 +4611,7 @@ paths:
                         - momentumPct
                       additionalProperties: false
                 required:
+                  - strategy
                   - sessions
                   - latestSession
                   - items
@@ -4635,8 +4671,20 @@ paths:
         posição reforçada, quando o fecho cai mais de 15% abaixo do preço do
         último reforço. Sinais ignorados com o SMA10/SMA200 entre −1% e +1%.
         Executa ao fecho da sessão do sinal, uma posição de cada vez, sem
-        comissões.) Posições abertas avaliadas ao último fecho. Simulação no
-        histórico; não altera a carteira nem é recomendação."
+        comissões.) b-opus (B-Opus: Na última sessão de cada semana, sem
+        posição, compra 15 000 € na abertura seguinte quando o fecho e a SMA50
+        estão acima da SMA200, o M1 ((SMA10 − SMA125) / ATR22) e o M2 (momentum
+        de 12 meses sem o último, dividido pela volatilidade) são positivos, o
+        Efficiency Ratio de 60 sessões é pelo menos 0.25, o valor negociado
+        médio de 50 sessões é pelo menos 5 000 000 € e não houve um stop nas
+        últimas 10 sessões; não compra se a abertura subir mais de 1 ATR face ao
+        fecho. Vende tudo se o preço tocar o stop chandelier (máximo desde a
+        compra − 3 × ATR22, que só sobe), ou, na revisão semanal, por falta de
+        liquidez, quebra de tendência, perda de momento ou ao fim de 20 sessões
+        sem ganhar 1 ATR (venda na abertura seguinte). Uma posição de cada vez,
+        sem reforços nem comissões; indicadores sobre preços ajustados, execução
+        a preços reais.) Posições abertas avaliadas ao último fecho. Simulação
+        no histórico; não altera a carteira nem é recomendação."
       parameters:
         - schema:
             default: all
@@ -4652,6 +4700,7 @@ paths:
             type: string
             enum:
               - a-momentum
+              - b-opus
           in: query
           name: strategy
           required: false

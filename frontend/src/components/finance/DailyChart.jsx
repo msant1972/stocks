@@ -141,7 +141,16 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
   // O momento é calculado sobre todo o histórico carregado e só depois recortado ao período.
   const mom = useMemo(() => momentum(quotes), [quotes]);
   const strat = getStrategy(strategy);
-  const strategyResult = useMemo(() => (strat ? strat.run(quotes, { mom }) : null), [strat, quotes, mom]);
+  // A estratégia actua nos últimos windowYears anos; o histórico anterior (se houver) serve de aquecimento.
+  const strategyResult = useMemo(
+    () => (strat && quotes.length ? strat.run(quotes, { mom, from: f.yearsBefore(quotes.at(-1).date, strat.windowYears) }) : null),
+    [strat, quotes, mom],
+  );
+  // Stop da posição aberta (preço real) convertido para a escala do gráfico (fecho ajustado).
+  const lastQuote = quotes.at(-1);
+  const stopLevel = strategyResult?.open?.stop != null && lastQuote
+    ? strategyResult.open.stop * (Number(lastQuote.adjClose ?? lastQuote.close) / Number(lastQuote.close))
+    : null;
   const data = useMemo(() => {
     if (!quotes.length) return [];
     const from = cutoff(quotes.at(-1).date, RANGES.find((r) => r.value === range).months);
@@ -227,10 +236,14 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
               <Line key={i.key} type="linear" dataKey={i.key} stroke={i.color} strokeWidth={1.75} dot={false}
                 activeDot={{ r: 4, stroke: 'var(--surface)', strokeWidth: 2 }} connectNulls={false} isAnimationActive={false} />
             ))}
+            {stopLevel != null && (
+              <ReferenceLine y={stopLevel} stroke="var(--negative)" strokeDasharray="5 4" ifOverflow="extendDomain"
+                label={{ value: 'Stop', position: 'insideBottomRight', fill: 'var(--negative)', fontSize: 12 }} />
+            )}
             {strategyResult?.signals.filter((s) => s.date >= first.date).map((s) => {
               const point = data.find((d) => d.date === s.date);
               return point && (
-                <ReferenceDot key={`${s.side}-${s.date}`} x={s.date} y={point.value} r={0} ifOverflow="extendDomain"
+                <ReferenceDot key={`${s.side}-${s.date}-${s.reason ?? ''}`} x={s.date} y={point.value} r={0} ifOverflow="extendDomain"
                   shape={(props) => <SignalMarker {...props} side={s.side} />} />
               );
             })}

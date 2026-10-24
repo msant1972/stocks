@@ -1,7 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { momentum, rollingMean } from '../../shared/momentum.js';
 import { backtest } from '../../shared/strategies/a-momentum.js';
+import { backtest as bOpus } from '../../shared/strategies/b-opus.js';
 import { api, hasTestDb, login, makeInstrument, makeUser, recentSessions, setup } from './helpers.js';
+
+/** 'AAAA-MM-DD' recuado n anos (como yearsBefore na API). */
+const yearsAgo = (date, n) => { const [y, m, d] = date.split('-').map(Number); const t = new Date(Date.UTC(y - n, m - 1, d)); if (t.getUTCMonth() !== m - 1) t.setUTCDate(0); return t.toISOString().slice(0, 10); };
 
 /** Instrumento com ~3 anos de fechos ondulantes e médias calculadas como o motor de recolha. */
 async function wavyInstrument(pool, symbol, phase) {
@@ -12,6 +16,8 @@ async function wavyInstrument(pool, symbol, phase) {
   const [s10, s125, s200] = [10, 125, 200].map((p) => rollingMean(nums, p));
   const rows = dates.map((d, k) => [s10[k]?.toFixed(6) ?? null, s125[k]?.toFixed(6) ?? null, s200[k]?.toFixed(6) ?? null, id, d]);
   for (const r of rows) await pool.query('UPDATE daily_quotes SET sma10 = ?, sma125 = ?, sma200 = ? WHERE instrument_id = ? AND session_date = ?', r);
+  // Máximos, mínimos e volume realistas (a B-Opus usa o ATR e a liquidez).
+  await pool.query('UPDATE daily_quotes SET high = close * 1.01, low = close * 0.99, volume = 1000000 WHERE instrument_id = ?', [id]);
   return id;
 }
 
@@ -55,12 +61,31 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
     expect(body.items.find((i) => i.symbol === 'CURTO.LS')).toMatchObject({ closed: 0, total: 0, fromDate: null, buyHoldPnl: null });
   });
 
-  it('lista as estratégias e recusa as que ainda estão em preparação', async () => {
+  it('lista as estratégias e recusa ids desconhecidos', async () => {
     const list = (await ana.get('/strategies')).json();
     expect(list.defaultId).toBe('a-momentum');
-    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', false]]);
-    expect((await ana.get('/backtest?strategy=a-momentum')).statusCode).toBe(200);
-    expect((await ana.get('/backtest?strategy=b-opus')).statusCode).toBe(400);
+    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', true]]);
+    expect((await ana.get('/backtest?strategy=c-x')).statusCode).toBe(400);
+  });
+
+  it('B-Opus: coincide com a página do instrumento (3 anos de histórico, actua nos últimos 2)', async () => {
+    const body = (await ana.get('/backtest?strategy=b-opus')).json();
+    expect(body.strategy).toMatchObject({ id: 'b-opus', name: 'B-Opus' });
+    let traded = 0;
+    for (const id of ids) {
+      const { lastSession } = (await ana.get(`/instruments/${id}`)).json();
+      const { quotes } = (await ana.get(`/instruments/${id}/quotes?from=${yearsAgo(lastSession, 3)}`)).json();
+      const last = quotes.at(-1).date;
+      const expected = bOpus(quotes, { from: yearsAgo(last, 2) }).summary;
+      const row = body.items.find((i) => i.instrumentId === id);
+      expect(row).toMatchObject({ closed: expected.closed, wins: expected.wins, total: expected.total, reinforcements: 0 });
+      expect(row.fromDate >= yearsAgo(last, 2)).toBe(true);
+      traded += row.closed;
+    }
+    expect(traded).toBeGreaterThan(0);
+    const sig = (await ana.get('/signals?strategy=b-opus&sessions=20')).json();
+    expect(sig.strategy).toBe('b-opus');
+    expect(sig.items.every((x) => ['buy', 'sell'].includes(x.side))).toBe(true);
   });
 
   it('filtra pela lista do utilizador', async () => {

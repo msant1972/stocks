@@ -11,7 +11,7 @@ export const keys = {
   alerts: ['alerts'],
   alertEvents: ['alerts', 'events'],
   instrument: (id) => ['instrument', Number(id)],
-  quotes: (id) => ['quotes', Number(id)],
+  quotes: (id, from) => ['quotes', Number(id), from ?? null],
   search: (q, sort, dir) => ['instruments', q, sort, dir],
 };
 
@@ -68,8 +68,14 @@ export function useOrderbookSummary(items, enabled = true) {
   return { byId, isLoading: results.some((r) => r.isFetching && !r.data), isError: results.some((r) => r.isError) };
 }
 
-export function useQuotes(id, enabled) {
-  return useQuery({ queryKey: keys.quotes(id), queryFn: () => api.get(`/instruments/${id}/quotes`), enabled });
+/** Cotações do instrumento: por omissão os últimos 2 anos; from pede mais histórico (aquecimento de estratégias). */
+export function useQuotes(id, enabled, from) {
+  return useQuery({
+    queryKey: keys.quotes(id, from),
+    queryFn: () => api.get(`/instruments/${id}/quotes${from ? `?from=${from}` : ''}`),
+    enabled,
+    placeholderData: (prev) => prev,
+  });
 }
 
 /** Catálogo (50 primeiros). sort 'symbol', 'volume' ou 'change' ordena o catálogo inteiro no servidor. */

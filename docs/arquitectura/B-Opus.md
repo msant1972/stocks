@@ -1,5 +1,7 @@
 # B-Opus — Estratégia de tendência e momentum por instrumento
 
+> **Implementada a 24 out. 2026** em `shared/strategies/b-opus.js`; resultados da ablação e da sensibilidade em [b-opus-ablacao.md](b-opus-ablacao.md).
+>
 > Especificação de implementação da estratégia B-Opus na aplicação Stocks. A B-Opus é uma estratégia **por instrumento**, como a A-Momentum, com regras e indicadores diferentes: cada instrumento é simulado isoladamente, com os seus próprios dados, no mesmo ambiente (registo `shared/strategies/`, API, BackTest, página do instrumento e Sinais), com o mesmo orçamento por compra e sem comissões. Os valores e regras aqui definidos são vinculativos. Descrição metodológica para estudo e simulação; não constitui recomendação de investimento.
 
 ---

@@ -28,7 +28,7 @@ Este documento descreve a arquitectura implementada. O módulo de livro de ofert
 | Alertas | Email; um resumo por utilizador após cada recolha diária, nunca mais do que um email por hora |
 | Simulação | Último fecho diário não ajustado; sem comissões; quantidades inteiras; sem posições curtas; custo médio ponderado |
 | Capital virtual | 1 000 000 EUR por omissão nas contas novas (configurável por conta); sem reposição |
-| Estratégias | Registo de estratégias simuladas no histórico (secção 5.4): A-Momentum disponível; B-Opus em preparação. Não executam operações nem alteram a carteira |
+| Estratégias | Registo de estratégias simuladas no histórico, por instrumento (secção 5.4): A-Momentum e B-Opus. Não executam operações nem alteram a carteira |
 | Email | Servidor SMTP configurado pelos administradores em Definições (hoje OVH, `ssl0.ovh.net:465`, remetente `stocks@graus.pt`); sem configuração, os alertas não enviam emails |
 
 O requisito «frequência máxima de 1h» é cumprido com um único email de resumo por utilizador, enviado depois de cada recolha diária, e com um intervalo mínimo de 60 minutos entre emails ao mesmo utilizador. Como os dados são diários, o caso relevante é o de várias regras a disparar na mesma noite, que o resumo agrupa numa só mensagem.
@@ -97,7 +97,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5, 10 ou 20 sessões |
 | Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |
 | Operações | Histórico filtrável por tipo, instrumento e datas |
-| Sinais | Compras, reforços e vendas da estratégia aplicada virtualmente a todos os instrumentos, nas últimas 1 a 10 sessões, com filtro por tipo e botões Comprar e Vender (operação na carteira virtual) |
+| Sinais | Compras, reforços e vendas da estratégia escolhida (A-Momentum ou B-Opus) aplicada virtualmente a todos os instrumentos, nas últimas 1 a 10 sessões, com o motivo das vendas, filtro por tipo e botões Comprar e Vender (operação na carteira virtual) |
 | BackTest | Resultado da estratégia em cada instrumento nos últimos 2 anos (resultado em € e %, operações, taxa de acerto, posição aberta, comparação com comprar e manter), com resumo, filtro «Todos / A minha lista», pesquisa e ordenação; o símbolo abre o gráfico com a estratégia aplicada |
 | Alertas | Regras com pré-visualização em linguagem natural, activação e eventos com o estado do envio |
 | Entrar | Palavra-passe e, a seguir, código de 6 dígitos ou código de recuperação; no primeiro login, configuração do 2.º factor com QR code, chave manual e 10 códigos de recuperação |
@@ -129,7 +129,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Alertas | `GET/POST /alerts`, `PATCH/DELETE /alerts/{id}`, `GET /alerts/events` |
 | Mapa de calor | `GET /heatmap?period=1\|5\|15\|30&scope=all\|watchlist&limit=20` |
 | Mercado | `GET /market/momentum?top=5` (distribuição do SMA10/SMA200 na última sessão e extremos), `GET /market/crossovers?sessions=5` (cruzamentos SMA10/SMA50: ascendente se SMA10 ≤ SMA50 na sessão anterior e > na seguinte, descendente o inverso; conta o mais recente por instrumento); cache 10 min |
-| Sinais | `GET /signals?sessions=5` (estratégia aplicada a todos os instrumentos activos com todo o histórico; cache 10 min) |
+| Sinais | `GET /signals?strategy=a-momentum&sessions=5` (estratégia aplicada a todos os instrumentos activos; a A-Momentum com todo o histórico, a B-Opus na janela de 2 anos com aquecimento; preço e motivo da operação; cache 10 min por estratégia) |
 | Estratégias e BackTest | `GET /strategies` (registo); `GET /backtest?strategy=a-momentum&scope=all\|watchlist` (estratégia em cada instrumento activo sobre os últimos 2 anos; cache 10 min por estratégia) |
 | Estado | `GET /status` |
 | Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}`, `GET/PUT /admin/smtp`, `POST /admin/smtp/test` |
@@ -264,7 +264,9 @@ A API devolve, por omissão, os últimos dois anos de sessões, com os indicador
 
 As estratégias estão num registo partilhado (`shared/strategies/index.js`): cada uma tem um id, um nome, as regras em texto, o orçamento por compra e uma função `run(quotes)` que devolve sempre o mesmo formato (operações, posição aberta, sinais para o gráfico e resumo). O menu «Estratégia» da página do instrumento (Nenhuma ou uma estratégia; `?estrategia=<id>` no endereço), a página BackTest (`GET /backtest?strategy=<id>`) e `GET /strategies` usam esse registo. Uma estratégia registada como não disponível aparece nos menus como «em preparação» e é recusada pela API.
 
-- **B-Opus:** registada como «em preparação». A especificação, adaptada a esta aplicação, está em [B-Opus.md](B-Opus.md): estratégia por instrumento, como a A-Momentum, que compra 15 000 € quando a acção está em tendência de alta limpa (SMA50 e SMA200, Efficiency Ratio) com momentum positivo (M1 e M2), decide semanalmente, executa na abertura seguinte e sai por stop chandelier (3 × ATR) ou por quebra de tendência, perda de momentum ou stop temporal; a implementação é uma próxima fase. Para a activar basta criar `shared/strategies/b-opus.js` com a função `run` e marcá-la como disponível no registo; os menus, o gráfico, o painel e o BackTest passam a mostrá-la sem outras alterações.
+- **B-Opus** (`shared/strategies/b-opus.js`, especificação em [B-Opus.md](B-Opus.md)): estratégia por instrumento, como a A-Momentum, com regras e indicadores próprios. Em cada revisão semanal, sem posição, compra 15 000 € na abertura seguinte quando o fecho e a SMA50 estão acima da SMA200, M1 = (SMA10 − SMA125)/ATR22 e M2 (momentum 12-1 / volatilidade) são positivos, o Efficiency Ratio de 60 sessões é ≥ 0,25, o valor negociado médio de 50 sessões é ≥ 5 M€ e não houve stop nas últimas 10 sessões (cancela se a abertura subir mais de 1 ATR). Sai pelo stop chandelier diário (máximo desde a compra − 3 × ATR22, só sobe) ou, na revisão semanal, por liquidez, quebra de tendência, perda de momento ou stop temporal (20 sessões sem ganhar 1 ATR). Sem reforços nem comissões. Indicadores sobre a série ajustada (OHLC × fecho ajustado/fecho), execução e resultados a preços reais. Precisa de 253 sessões de aquecimento: o registo declara `warmupYears: 1`, e a página do instrumento, o BackTest e os Sinais passam-lhe 3 anos de histórico com `from` = início da janela de 2 anos (os valores do BackTest e da página do instrumento coincidem; testado).
+
+  Primeiros resultados (24 out. 2026, 296 instrumentos, 2 anos): soma +126 k€, 125 instrumentos com ganho e 122 com perda, 852 operações com 40% de acerto, 810 delas fechadas pelo stop chandelier. A ablação e a sensibilidade (`scripts/b-opus-ablation.mjs`) estão em [b-opus-ablacao.md](b-opus-ablacao.md): sem o filtro do Efficiency Ratio a soma sobe para +404 k€ (mais operações e maiores perdas nos 10 piores) e com o ADX em vez do ER para +315 k€; a revisão mensal quase anula o resultado; um stop de 4 × ATR dá +171 k€. As opções por omissão mantêm-se as da especificação até decisão do utilizador.
 - **A-Momentum** (`shared/strategies/a-momentum.js`), corrida no browser sobre o histórico carregado, sem alterar a carteira:
 
 - estado de cada sessão = cor do momento (SMA10/SMA200 «a subir» ou «a descer»);
@@ -350,7 +352,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é feita por snapshots EBS do volume, geridos na AWS |
 
-Testes automáticos em cada componente: API com Vitest contra uma BD de testes (99, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (14). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
+Testes automáticos em cada componente: API com Vitest contra uma BD de testes (100, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (23, 9 deles da B-Opus). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e snapshots EBS do volume (cópia fora do servidor, geridos na AWS), com restauro testado pelo administrador.

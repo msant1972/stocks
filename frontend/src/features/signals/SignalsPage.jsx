@@ -4,9 +4,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { usePortfolio } from '../../lib/queries.js';
-import { getStrategy, STRATEGY_BUDGET } from '../../lib/strategy.js';
-
-const A_MOMENTUM = getStrategy('a-momentum');
+import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
+import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { PriceChange } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Field, Notice, Segmented } from '../../components/ui/controls.jsx';
@@ -19,16 +18,19 @@ const SIDES = {
 };
 const PERIODS = ['1', '3', '5', '10'];
 
-/** Sinais da estratégia de momento aplicada virtualmente a todos os instrumentos. */
+/** Sinais de uma estratégia do registo aplicada virtualmente a todos os instrumentos. */
 export default function SignalsPage() {
   const [params, setParams] = useSearchParams();
+  const strategyId = getStrategy(params.get('estrategia')) ? params.get('estrategia') : DEFAULT_STRATEGY_ID;
+  const strategy = getStrategy(strategyId);
+  const budget = strategy.budget;
   const side = ['buy', 'add', 'sell'].includes(params.get('tipo')) ? params.get('tipo') : 'all';
   const sessions = PERIODS.includes(params.get('sessoes')) ? params.get('sessoes') : '5';
   const [trade, setTrade] = useState(null); // { instrument, side, quantity, note }
   const portfolio = usePortfolio();
   const q = useQuery({
-    queryKey: ['signals', sessions],
-    queryFn: () => api.get(`/signals?sessions=${sessions}`),
+    queryKey: ['signals', strategyId, sessions],
+    queryFn: () => api.get(`/signals?strategy=${strategyId}&sessions=${sessions}`),
     placeholderData: (prev) => prev,
     staleTime: 5 * 60_000,
   });
@@ -49,15 +51,16 @@ export default function SignalsPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Sinais</h1>
-          <p className="page-sub">Compras, reforços e vendas da estratégia A-Momentum aplicada virtualmente a todos os instrumentos.</p>
+          <p className="page-sub">Compras{strategyId === 'a-momentum' ? ', reforços' : ''} e vendas da estratégia {strategy.name} aplicada virtualmente a todos os instrumentos.</p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <Link className="button mobile-only-inline" to="/backtest">BackTest</Link>
+          <StrategySelect value={strategyId} onChange={(id) => setParam('estrategia', id, DEFAULT_STRATEGY_ID)} />
           <Segmented label="Tipo de sinal" value={side} onChange={(v) => setParam('tipo', v, 'all')}
             options={[
               { value: 'all', label: `Todos${q.data ? ` (${all.length})` : ''}` },
               { value: 'buy', label: `Compra${q.data ? ` (${count('buy')})` : ''}` },
-              { value: 'add', label: `Reforço${q.data ? ` (${count('add')})` : ''}` },
+              ...(strategyId === 'a-momentum' ? [{ value: 'add', label: `Reforço${q.data ? ` (${count('add')})` : ''}` }] : []),
               { value: 'sell', label: `Venda${q.data ? ` (${count('sell')})` : ''}` },
             ]} />
           <div style={{ minWidth: '9rem' }}>
@@ -74,7 +77,7 @@ export default function SignalsPage() {
 
       <div className="stack">
         <Notice>
-          Estratégia {A_MOMENTUM.name}: {A_MOMENTUM.rules}
+          Estratégia {strategy.name}: {strategy.rules}
           Os sinais resultam de uma simulação sobre dados diários; não são recomendações de investimento. Os botões abrem uma operação na sua carteira virtual.
         </Notice>
 
@@ -110,9 +113,12 @@ export default function SignalsPage() {
                           {f.date(i.date)}
                           <div className="muted">{i.sessionsAgo === 0 ? 'última sessão' : `há ${i.sessionsAgo} ${i.sessionsAgo === 1 ? 'sessão' : 'sessões'}`}</div>
                         </td>
-                        <td><span className={`badge ${s.cls}`}><strong>{s.letter}</strong> {s.label}</span></td>
                         <td>
-                          <Link to={`/instrumentos/${i.instrumentId}`} className="row-link">{i.symbol}</Link>
+                          <span className={`badge ${s.cls}`}><strong>{s.letter}</strong> {s.label}</span>
+                          {i.reason && strategy.reasonLabels?.[i.reason] && i.reason !== 'signal' && <div className="small muted">{strategy.reasonLabels[i.reason]}</div>}
+                        </td>
+                        <td>
+                          <Link to={`/instrumentos/${i.instrumentId}?estrategia=${strategyId}`} className="row-link">{i.symbol}</Link>
                           <div className="small muted cx-name">{i.name}</div>
                         </td>
                         <td className="r">{f.price(i.price)}</td>
@@ -125,8 +131,8 @@ export default function SignalsPage() {
                           <Button size="small" onClick={() => setTrade({
                             instrument, side: 'buy',
                             // Orçamento da estratégia ao último fecho (o preço que a operação vai usar).
-                            quantity: Math.max(1, Math.floor(STRATEGY_BUDGET / Number(i.lastClose))),
-                            note: `≈ ${f.money(STRATEGY_BUDGET, 'EUR', 0)} (orçamento da estratégia) ao último fecho.`,
+                            quantity: Math.max(1, Math.floor(budget / Number(i.lastClose))),
+                            note: `≈ ${f.money(budget, 'EUR', 0)} (orçamento da estratégia) ao último fecho.`,
                           })}>
                             Comprar<span className="visually-hidden"> {i.symbol}</span>
                           </Button>{' '}
