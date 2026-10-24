@@ -1,58 +1,55 @@
-# B-Opus — Estratégia de carteira de tendência e momentum
+# B-Opus — Estratégia de tendência e momentum por instrumento
 
-> Especificação de implementação da estratégia B-Opus na aplicação Stocks, adaptada ao ambiente já criado para a A-Momentum (registo `shared/strategies/`, API Fastify, BackTest, página do instrumento e Sinais). Os valores e regras aqui definidos são vinculativos. Descrição metodológica para estudo e simulação; não constitui recomendação de investimento.
+> Especificação de implementação da estratégia B-Opus na aplicação Stocks. A B-Opus é uma estratégia **por instrumento**, como a A-Momentum: cada instrumento é simulado isoladamente, com os seus próprios dados, e usa o mesmo ambiente (registo `shared/strategies/`, API, BackTest, página do instrumento e Sinais). Os valores e regras aqui definidos são vinculativos. Descrição metodológica para estudo e simulação; não constitui recomendação de investimento.
 >
-> Versão adaptada (24 out. 2026) a partir da especificação original «Estratégia de tendência e momentum». As diferenças face ao original estão na secção 18.
+> Versão adaptada (24 out. 2026) a partir da especificação original «Estratégia de tendência e momentum». As diferenças face ao original estão na secção 15.
 
 ---
 
 ## 0. Instruções para a implementação
 
 1. Lê este documento inteiro antes de escrever código.
-2. A B-Opus é um módulo JavaScript puro, sem dependências, em `shared/strategies/b-opus.js`, registado em `shared/strategies/index.js` como a A-Momentum. É o mesmo código que corre no BackTest, na página do instrumento e nos Sinais: não pode haver lógica de decisão duplicada.
-3. Ao contrário da A-Momentum (simulada instrumento a instrumento), a B-Opus é uma estratégia **de carteira**: em cada semana escolhe as melhores acções de todo o catálogo e reparte um capital comum. Por isso corre no servidor (API), sobre todos os instrumentos, e o browser recebe o resultado.
-4. Universo: os instrumentos **activos do catálogo partilhado**, todos cotados em EUR (cerca de 296 acções europeias: XETRA, Paris, Milão, Amesterdão, Madrid, Helsínquia, Bruxelas, Viena, Lisboa e Dublin). É um universo de grandes e médias empresas europeias semelhante ao STOXX 600, mas não é o índice.
-5. Ordem de implementação: preparação dos dados → indicadores (com testes) → motor de simulação (com testes) → bases de comparação e métricas → integração na API → interface (BackTest, instrumento, Sinais) → documentação.
-6. Sem *lookahead*: uma decisão tomada no fecho da sessão t usa apenas dados até ao fecho de t, inclusive.
-7. Resultados determinísticos: a estratégia não usa aleatoriedade.
-8. Para e pergunta ao utilizador quando encontrares uma contradição ou ambiguidade nesta especificação. Nunca inventes dados.
-9. A tarefa está concluída quando todos os critérios da secção 19 forem cumpridos.
+2. A B-Opus é um módulo JavaScript puro, sem dependências, em `shared/strategies/b-opus.js`, registado em `shared/strategies/index.js` exactamente como a A-Momentum: `run(quotes, options)` devolve o resultado no formato comum do registo (secção 12). É o mesmo código que corre no browser (página do instrumento) e no servidor (BackTest e Sinais): não pode haver lógica de decisão duplicada.
+3. Cada simulação usa **apenas os dados do próprio instrumento**. Não há capital partilhado entre instrumentos, ranking entre instrumentos nem índice de mercado.
+4. Ordem de implementação: preparação dos dados → indicadores (com testes) → simulação (com testes) → registo e dados de entrada na API → interface → documentação.
+5. Sem *lookahead*: uma decisão tomada no fecho da sessão t usa apenas dados até ao fecho de t, inclusive.
+6. Resultados determinísticos: a estratégia não usa aleatoriedade.
+7. Para e pergunta ao utilizador quando encontrares uma contradição ou ambiguidade nesta especificação. Nunca inventes dados.
+8. A tarefa está concluída quando todos os critérios da secção 16 forem cumpridos.
 
 ---
 
 ## 1. Resumo da estratégia
 
-Carteira virtual de até N = 10 acções líquidas em tendência de alta, escolhidas semanalmente por momentum ajustado ao risco e protegidas por stops de volatilidade.
+Em cada instrumento, a B-Opus compra quando a acção está numa tendência de alta limpa e com momentum ajustado ao risco, e protege a posição com um stop de volatilidade que só sobe.
 
-- **Regime de mercado:** só há compras quando o índice de referência (um índice equiponderado do catálogo, secção 4.10) está acima da sua SMA200, com histerese de ±1%. Em regime contrário não há compras e a exposição desce a 50%.
-- **Elegibilidade:** tendência (fecho > SMA200 e SMA50 > SMA200), momentum absoluto positivo, tendência limpa (Efficiency Ratio), liquidez e arrefecimento após stop.
-- **Ranking:** pontuação S que combina o rácio SMA10/SMA125 normalizado por ATR (M1) e o momentum 12-1 ajustado à volatilidade (M2). Compram-se as 10 melhores; uma posição só sai por ranking quando cai abaixo do 20.º lugar.
-- **Saídas:** stop chandelier diário (máximo desde a entrada − 3 × ATR, só sobe); saídas semanais por quebra de tendência, perda de momentum, ranking, stop temporal ou regime de mercado. Sem realizações parciais.
-- **Risco:** 0,5% do capital em risco por posição até ao stop; limites de peso, exposição e risco aberto; alvo de volatilidade da carteira de 15% ao ano; sem alavancagem nem vendas a descoberto.
-- **Calendário:** decisões no fecho da última sessão de cada semana; execução na abertura da sessão seguinte; stops activos todos os dias.
+- **Entrada (revisão semanal):** fecho > SMA200 e SMA50 > SMA200; M1 > 0 (SMA10/SMA125 normalizado pelo ATR) e M2 > 0 (momentum 12-1 ajustado à volatilidade); tendência limpa (Efficiency Ratio ≥ 0,25); liquidez mínima; sem arrefecimento após um stop recente.
+- **Execução:** decisão no fecho da última sessão da semana, compra na abertura da sessão seguinte, com protecção contra gaps.
+- **Posição:** 15 000 € por compra (quantidade inteira), uma posição de cada vez, sem reforços.
+- **Saídas:** stop chandelier diário (máximo desde a entrada − 3 × ATR, só sobe); saídas semanais por quebra de tendência, perda de momentum, falta de liquidez ou stop temporal. Venda da posição inteira.
+- **Sem comissões**, como a A-Momentum.
 
 Diferenças em relação à A-Momentum:
 
 | | A-Momentum | B-Opus |
 |---|---|---|
-| Unidade | Cada instrumento isoladamente | Uma carteira com todo o catálogo |
-| Capital | 15 000 € por compra e por reforço, sem limite | 150 000 € partilhados por até 10 posições |
-| Decisões | Diárias, ao fecho do sinal | Semanais (entradas e saídas planeadas), stops diários |
+| Sinal de entrada | Padrão descer-subir-subir do SMA10/SMA200, com o preço acima da SMA200 | Tendência (SMA50 e SMA200), M1 e M2 positivos, Efficiency Ratio, liquidez |
+| Frequência | Diária | Semanal (entradas e saídas planeadas); stops diários |
 | Execução | Fecho da sessão do sinal | Abertura da sessão seguinte |
-| Custos | Sem comissões | 0,15% por execução |
-| Onde corre | Browser e servidor | Servidor (precisa de todos os instrumentos) |
+| Posição | 15 000 € e reforços de 15 000 € a cada +10% | 15 000 €, sem reforços |
+| Saída | Padrão subir-descer-descer com SMA8/SMA125 < 1%; protecção de 15% dos reforços | Stop chandelier (3 × ATR), quebra de tendência, perda de momentum, stop temporal |
+| Custos | Sem comissões | Sem comissões |
 
 ```mermaid
 flowchart TD
-    U[Catálogo activo, EUR, líquido] --> R{Índice do catálogo acima da SMA200?}
-    R -- não --> RO[Risk-off: sem compras, exposição até 50%]
-    R -- sim --> E[Elegibilidade: tendência, momentum, ER, arrefecimento]
-    E --> K[Ranking pela pontuação S: top N]
-    K --> D[Dimensionamento: risco 0,5%, limites, alvo de volatilidade]
-    D --> C[Carteira virtual: até N posições]
-    C --> M[Monitorização: stop chandelier diário e revisão semanal]
-    M -- saída dispara --> V[Venda total da posição]
-    V -- lugar livre --> K
+    D[Cotações do instrumento] --> I[Indicadores: SMA, ATR, M1, M2, ER, liquidez]
+    I --> W{Dia de revisão?}
+    W -- sim, sem posição --> E{Elegível? tendência, momentum, ER, liquidez, arrefecimento}
+    E -- sim --> B[Compra 15 000 € na abertura seguinte, salvo gap]
+    W -- sim, com posição --> X{Saída semanal? tendência, momentum, liquidez, tempo}
+    X -- sim --> V[Venda na abertura seguinte]
+    B --> S[Stop chandelier diário]
+    S -- mínimo da sessão toca o stop --> V
 ```
 
 ---
@@ -61,83 +58,67 @@ flowchart TD
 
 | Tema | Convenção |
 |---|---|
-| Sessão | Dia do calendário do catálogo (secção 3.4) |
+| Sessão | Sessão em que o instrumento tem cotação (as suas próprias datas) |
 | Índice temporal | t = sessão actual; t−k = k sessões antes no histórico do instrumento |
 | Dados disponíveis em t | Tudo até ao fecho de t, inclusive |
-| Execução | Decisões do fecho de t executam-se na abertura da sessão seguinte em que o instrumento negoceia |
-| Dia de revisão | Última sessão do calendário em cada semana ISO (normalmente sexta-feira). `review: 'biweekly'` = revisões semanais alternadas, começando pela primeira; `review: 'monthly'` = última sessão de cada mês |
-| Preços | OHLC ajustados (secção 3.2), excepto onde se diz «bruto» |
+| Execução | Decisões do fecho de t executam-se na abertura da sessão seguinte do instrumento |
+| Dia de revisão | Última sessão do instrumento em cada semana ISO (normalmente sexta-feira). `review: 'biweekly'` = revisões semanais alternadas, começando pela primeira; `review: 'monthly'` = última sessão de cada mês |
+| Preços | Indicadores e decisões sobre OHLC ajustados (secção 3.2); preços de execução e resultados em preços reais, como a A-Momentum |
 | Retorno diário | r_t = C_t / C_{t−1} − 1, com fecho ajustado |
 | Desvio-padrão | Amostral (n − 1), salvo indicação em contrário |
 | Anualização | 252 sessões por ano |
-| Frações | Percentagens nas opções escrevem-se como frações (0.005 = 0,5%) |
-| Moeda | EUR; não há conversão cambial (o catálogo só aceita instrumentos em EUR) |
+| Frações | Percentagens nas opções escrevem-se como frações (0.25 = 25%) |
+| Moeda | EUR (o catálogo só aceita instrumentos em EUR) |
 | Valores em falta | Um indicador sem dados suficientes é `null`; qualquer critério que dependa de um `null` é considerado falhado |
-| Datas | Strings `AAAA-MM-DD`, como no resto da API |
+| Datas | Strings `AAAA-MM-DD`, como no resto da aplicação |
 
 ---
 
 ## 3. Dados
 
-### 3.1 Fonte
+### 3.1 Fonte e entrada
 
-A base MariaDB da aplicação, lida pela API. A B-Opus não acede à base: recebe os dados já carregados, como a A-Momentum.
-
-| Origem | Campos usados |
-|---|---|
-| `instruments` | `id`, `symbol`, `name`, `exchange`, `currency` (sempre EUR), `status` (só `active`), `last_session` |
-| `daily_quotes` | `session_date`, `open`, `high`, `low`, `close` (brutos), `adj_close` (ajustado a dividendos e desdobramentos), `volume` |
-
-A recolha (motor Python com yfinance) guarda OHLC e fecho **não ajustados** e o fecho ajustado numa coluna própria, com três anos de histórico por instrumento (`STOCKS_HISTORY_YEARS = 3`). Os indicadores pré-calculados na base (`ema9`, `sma10`, `sma50`, `sma125`, `sma200`) são ignorados na decisão: todos os indicadores são recalculados a partir dos preços, dentro do módulo. Podem ser usados num teste de consistência.
-
-A API entrega à B-Opus, por instrumento, as sessões em ordem cronológica:
+A base MariaDB da aplicação, tabela `daily_quotes`, entregue pela API ao browser e ao servidor como já acontece com a A-Momentum. `run(quotes, options)` recebe as sessões do instrumento em ordem cronológica:
 
 ```js
-{ id, symbol, name, exchange, quotes: [{ date, open, high, low, close, adjClose, volume }] }
+{ date, open, high, low, close, adjClose, volume }   // open, high, low, close: brutos; adjClose: ajustado
 ```
+
+A recolha (motor Python com yfinance) guarda OHLC e fecho **não ajustados** e o fecho ajustado a dividendos e desdobramentos numa coluna própria, com três anos de histórico por instrumento (`STOCKS_HISTORY_YEARS = 3`). Os indicadores pré-calculados na base (`ema9`, `sma10`, `sma50`, `sma125`, `sma200`) não são usados na decisão: todos os indicadores da B-Opus são calculados dentro do módulo a partir dos preços. Podem ser usados num teste de consistência.
 
 ### 3.2 Ajustamento de preços
 
-A base fornece fecho ajustado e OHLC brutos (caso 2 da especificação original):
+A base fornece fecho ajustado e OHLC brutos:
 
 ```
 f_t = adjClose_t / close_t
 O_t = open_t × f_t;   H_t = high_t × f_t;   L_t = low_t × f_t;   C_t = adjClose_t
-close_raw_t = close_t;   volume_raw_t = volume_t
 ```
 
-Os brutos (`close_raw`, `volume_raw`) só servem para a liquidez (secção 4.7) e para mostrar preços reais na interface. Os preços de execução simulados são os ajustados (a série é coerente ao longo do tempo); a interface mostra também o preço bruto da sessão.
+Todos os indicadores, stops e decisões usam a série ajustada (O, H, L, C), que é contínua nas datas de dividendos e desdobramentos. Os preços de execução e o resultado são registados em **preços reais** da sessão (preço ajustado ÷ f_t), como na A-Momentum, que opera ao fecho real.
 
 ### 3.3 Limpeza
 
-- Remove sessões com OHLC em falta ou não positivo, ou sem `adjClose`.
-- Se `close` ou `open` estiverem fora de [low, high], corrige `low = min(O, H, L, C)` e `high = max(O, H, L, C)` e conta a correcção.
+- Ignora sessões com OHLC em falta ou não positivo, ou sem `adjClose`.
+- Se `close` ou `open` estiverem fora de [low, high], usa `low = min(O, H, L, C)` e `high = max(O, H, L, C)` e conta a correcção.
 - Volume em falta = 0.
-- O resultado inclui um bloco `dataQuality`: instrumentos recebidos, sessões removidas, correcções feitas e instrumentos com menos de `minHistory` sessões.
+- O resultado inclui `dataQuality`: sessões ignoradas e correcções feitas.
 
-### 3.4 Calendário
+### 3.4 Período simulado
 
-O calendário é o conjunto das datas em que pelo menos 50% dos instrumentos do catálogo com histórico nessa data têm preço (não há índice na base). As bolsas do catálogo têm feriados diferentes; uma data com menos de 50% não é sessão do calendário.
+Para ser comparável com a A-Momentum, a B-Opus actua na mesma janela: **os últimos 2 anos até à última sessão do instrumento**. Os indicadores precisam de 253 sessões de aquecimento (secção 4.4), por isso quem chama passa todo o histórico disponível (três anos) e indica o início da janela:
 
-Um instrumento sem preço numa sessão do calendário (feriado local ou suspensão) não é avaliado nessa sessão: não entra, não sai por regra semanal e mantém o último fecho para avaliação da carteira. Os seus stops são avaliados na próxima sessão em que negociar.
+```js
+run(quotes, { from: 'AAAA-MM-DD' })   // indicadores calculados sobre todas as sessões; compras só a partir de `from`
+```
 
-### 3.5 Universo e deslistagens
-
-- Pertence ao universo em t todo o instrumento activo do catálogo com preço em t (não há composição histórica de índices na base).
-- O catálogo só contém instrumentos que existem hoje: o resultado inclui sempre o aviso «Resultados sujeitos a viés de sobrevivência».
-- **Fim de dados:** se uma posição deixa de ter preços antes do fim dos dados do catálogo (instrumento removido ou sem recolha há mais de 10 sessões), é vendida ao último fecho disponível, com custos, motivo `delisted`.
-
-### 3.6 Período
-
-A B-Opus simula todo o histórico disponível (três anos). O aquecimento consome as primeiras 253 sessões (secção 15.1), por isso a simulação efectiva cobre cerca dos **últimos 2 anos** — a mesma janela do BackTest da A-Momentum, o que permite compará-las.
-
-Se o universo tiver em média menos de 3 × N instrumentos, o resultado inclui o aviso «Universo demasiado pequeno para o ranking».
+Sem `from`, a B-Opus pode actuar desde a primeira sessão com indicadores válidos. `firstDate` no resultado é a primeira sessão em que a estratégia pode actuar (a mais tardia entre `from` e o fim do aquecimento).
 
 ---
 
 ## 4. Indicadores
 
-Calculados por instrumento sobre as suas próprias sessões, com preços ajustados. Funções puras, exportadas para teste. Os parâmetros entre parênteses são os valores por omissão (secção 17).
+Calculados sobre as sessões do instrumento, com preços ajustados. Funções puras, exportadas para teste. Os parâmetros entre parênteses são os valores por omissão (secção 13).
 
 ### 4.1 Médias móveis simples
 
@@ -173,20 +154,9 @@ sigma(t)    = desvio-padrão(r_{t−251}, …, r_t) × sqrt(252)
 M2(t)       = ret_12_1(t) / sigma(t)
 ```
 
-`m2Lookback = 252`, `m2Skip = 21`. Exige 253 fechos válidos.
+`m2Lookback = 252`, `m2Skip = 21`. Exige 253 fechos válidos: é o indicador que define o aquecimento.
 
-### 4.5 Pontuação S
-
-Calculada em cada revisão sobre o conjunto `U_rank` (secção 6.2):
-
-```
-z(x_i) = clip((x_i − média(x)) / desvio_populacional(x), −3, +3)
-S_i    = wM1 × z(M1_i) + (1 − wM1) × z(M2_i)
-```
-
-`wM1 = 0.5`, `zClip = 3`. Se `U_rank` tiver menos de 2 elementos ou desvio nulo, z = 0.
-
-### 4.6 Efficiency Ratio de Kaufman
+### 4.5 Efficiency Ratio de Kaufman
 
 ```
 ER_n(t) = |C_t − C_{t−n}| / Σ_{i=t−n+1..t} |C_i − C_{i−1}|      (denominador 0 → ER = 0)
@@ -194,15 +164,15 @@ ER_n(t) = |C_t − C_{t−n}| / Σ_{i=t−n+1..t} |C_i − C_{i−1}|      (deno
 
 `erWindow = 60`. Num passeio aleatório de 60 sessões, ER ≈ 0,13.
 
-### 4.7 Liquidez
+### 4.6 Liquidez
 
 ```
-VMN50(t) = média_{50 sessões}(close_raw × volume_raw)
+VMN50(t) = média_{50 sessões}(close × volume)        (preços e volumes brutos)
 ```
 
 Em EUR. Limiar `minTradedValue = 5 000 000` (cerca de 285 dos 296 instrumentos do catálogo cumprem-no).
 
-### 4.8 ADX (Wilder) — só na variante `trendStrength: 'adx'`
+### 4.7 ADX (Wilder) — só na variante `trendStrength: 'adx'`
 
 ```
 up_t   = H_t − H_{t−1};   down_t = L_{t−1} − L_t
@@ -214,482 +184,242 @@ DX  = 100 × |+DI − −DI| / (+DI + −DI)     (soma 0 → DX = 0)
 ADX = suavização de Wilder de DX com n = 14
 ```
 
-### 4.9 Indicadores das variantes
+### 4.8 Indicadores das variantes
 
 - **CMF(20)** (variante `volumeConfirmation`): `MFM = ((C − L) − (H − C)) / (H − L)` (H = L → 0); `CMF = Σ_20 (MFM × V) / Σ_20 V` (Σ V = 0 → CMF = 0).
-- **P90 de M1** (variantes `overextensionBlock` e `partialTakeProfit`): percentil 90 de M1 do próprio instrumento nas últimas 504 sessões, exigindo pelo menos 252 observações. Com três anos de dados, só fica disponível no último ano da simulação; antes disso o critério é considerado falhado (secção 2).
-
-### 4.10 Índice de referência do catálogo
-
-A base não tem índices (só acções), por isso o índice de referência é um **proxy equiponderado** do universo:
-
-```
-r_proxy(t) = média dos r_t de todos os instrumentos do universo com preço em t e em t−1
-proxy(t)   = 100 × Π (1 + r_proxy)
-```
-
-O proxy só tem fecho; quando for necessária uma abertura (bases de comparação, secção 13), usa-se o fecho. A interface chama-lhe «Índice do catálogo (equiponderado)».
-
-### 4.11 Volatilidade da carteira
-
-```
-w_i     = Q_i × C_i(t) / equity(t)
-Σ       = matriz de covariância amostral dos retornos diários das últimas 63 sessões (volWindowPortfolio)
-sigma_p = sqrt(252 × wᵀ Σ w)
-```
-
-Retornos em falta tratam-se por covariância par a par; cada par exige pelo menos 40 observações comuns, senão a covariância desse par é 0 e regista-se um aviso.
+- **P90 de M1** (variantes `overextensionBlock` e `partialTakeProfit`): percentil 90 de M1 do próprio instrumento nas últimas 504 sessões, exigindo pelo menos 252 observações. Com três anos de dados, só fica disponível a partir do segundo ano; antes disso o critério é considerado falhado (secção 2).
 
 ---
 
-## 5. Regime de mercado
+## 5. Elegibilidade para entrada
 
-Avaliado em cada dia de revisão com o fecho do índice do catálogo X(t) e a sua SMA200 (`regime.sma = 200`), com histerese `band = 0.01`:
+Avaliada em cada dia de revisão t, só quando não há posição aberta nem compra pendente, e só a partir de `from` (secção 3.4). O instrumento é elegível se cumprir todos:
 
-```
-se estado = risk_off e X(t) > SMA200(t) × (1 + band): estado ← risk_on
-se estado = risk_on  e X(t) < SMA200(t) × (1 − band): estado ← risk_off
-caso contrário: mantém o estado
-estado inicial (primeira revisão com SMA200 válida): risk_on se X > SMA200, senão risk_off
-```
+1. pelo menos `minHistory = 253` sessões válidas até t;
+2. **liquidez:** `VMN50(t) ≥ minTradedValue`;
+3. **tendência:** `C > SMA200` e `SMA50 > SMA200`;
+4. **momentum:** `M1 > 0` e `M2 > 0`;
+5. **força de tendência** (`trendStrength`): `'er'` → `ER60 ≥ erThreshold (0.25)`; `'adx'` → `ADX14 ≥ adxThreshold (20)`; `'none'` → sem filtro;
+6. **arrefecimento:** se a última posição saiu por stop na sessão e, só volta a ser elegível quando o número de sessões do instrumento depois de e até t, inclusive, for pelo menos `cooldownSessions = 10`;
+7. **variante** `volumeConfirmation: true`: `CMF20 > 0`;
+8. **variante** `overextensionBlock: true`: `M1 ≤ P90(M1)`.
 
-| Estado | Efeito |
-|---|---|
-| `risk_on` | Novas entradas permitidas; exposição bruta máxima `maxGross = 1.0` |
-| `risk_off` | Sem novas entradas; exposição bruta máxima `riskoffMaxGross = 0.5` (secção 8.4) |
-
-Com `useMarketRegime: false` o estado é sempre `risk_on`.
+O resultado conta as revisões em que cada critério falhou (`blocked`: `{ liquidity, trend, momentum, trendStrength, cooldown, volume, overextension }`), para o painel explicar porque é que a estratégia não comprou.
 
 ---
 
-## 6. Universo, elegibilidade e ranking
+## 6. Entrada
 
-Avaliados em cada dia de revisão t, apenas para instrumentos com preço em t.
+Se o instrumento for elegível no dia de revisão t, planeia-se uma compra para a abertura da sessão seguinte.
 
-### 6.1 Universo `U(t)`
-
-Instrumento activo do catálogo que cumpre todos:
-
-1. tem preço em t;
-2. tem pelo menos `minHistory = 253` sessões válidas até t;
-3. `VMN50(t) ≥ minTradedValue`.
-
-### 6.2 Conjunto de ranking `U_rank(t)`
-
-Instrumentos de `U(t)` com:
-
-1. `C > SMA200` e `SMA50 > SMA200`;
-2. `M1 > 0` e `M2 > 0`.
-
-Ordenam-se por S decrescente (desempate por `symbol` crescente). `rank_i` = posição (1 = melhor). S calcula-se sobre este conjunto (secção 4.5).
-
-### 6.3 Elegibilidade para entrada `E(t)`
-
-Instrumentos de `U_rank(t)` que cumprem ainda:
-
-1. **Força de tendência** (`trendStrength`): `'er'` → `ER60 ≥ erThreshold (0.25)`; `'adx'` → `ADX14 ≥ adxThreshold (20)`; `'none'` → sem filtro.
-2. **Arrefecimento:** se o instrumento saiu por stop na sessão e, só volta a ser elegível quando o número de sessões do calendário depois de e até t, inclusive, for pelo menos `cooldownSessions = 10`.
-3. **Variante** `volumeConfirmation: true`: `CMF20 > 0`.
-4. **Variante** `overextensionBlock: true`: `M1 ≤ P90(M1)`.
-
-Os critérios da secção 6.3 aplicam-se só a novas compras; uma posição aberta nunca é vendida por deixar de os cumprir.
-
----
-
-## 7. Entradas
-
-No dia de revisão t, depois das saídas semanais (secção 8.2), se o regime for `risk_on`:
-
-```
-slots       = N − (número de posições que continuam após as saídas planeadas)
-candidatos  = instrumentos com rank ≤ N, não detidos, pertencentes a E(t), por ordem de rank
-para cada candidato, enquanto slots > 0:
-    calcular Q_base (secção 9.1)
-    aplicar os limites (secção 9.2); se falhar, passa ao candidato seguinte
-    planear compra; slots ← slots − 1
-```
-
-`N = nPositions = 10`. Os lugares que não se preencham ficam em liquidez até à revisão seguinte.
-
-**Ordem:** compra na abertura da sessão seguinte.
-
-**Protecção contra gaps:** a compra é cancelada se `O_{t+1} > C_t + gapProtectAtr × ATR_t` (`gapProtectAtr = 1.0`). O instrumento pode voltar a ser candidato na revisão seguinte.
-
-**Stop inicial:** `stop_0 = preço de execução − stopMult × ATR_t` (`stopMult = 3.0`), com o ATR do dia de revisão. O stop está activo desde a sessão da compra.
+- **Quantidade:** `floor(budget / preço de execução real)`, com `budget = 15 000 €` (o mesmo da A-Momentum). Se for 0, a compra é cancelada.
+- **Protecção contra gaps:** a compra é cancelada se `O_{t+1} > C_t + gapProtectAtr × ATR_t` (`gapProtectAtr = 1.0`). O instrumento pode voltar a ser elegível na revisão seguinte.
+- **Stop inicial:** `stop_0 = preço de execução − stopMult × ATR_t` (`stopMult = 3.0`), em preços ajustados, com o ATR do dia de revisão. O stop está activo desde a sessão da compra.
+- **Uma posição de cada vez, sem reforços.**
 
 **Variante `pullbackEntry: true`:** em vez de compra na abertura, ordem limite a `C_t − pullbackAtr × ATR_t` (`pullbackAtr = 1.0`), válida durante `pullbackWindow = 5` sessões. É executada na primeira sessão em que `L ≤ limite`, ao preço `min(O, limite)`. Não executada → cancelada. Sem protecção contra gaps nesta variante.
 
 ---
 
-## 8. Saídas
+## 7. Saídas
 
-Qualquer saída vende a posição inteira, excepto a variante de realização parcial (8.3) e os ajustes de volatilidade (9.3).
+Qualquer saída vende a posição inteira, excepto a variante de realização parcial (7.3).
 
-### 8.1 Stop diário (chandelier)
+### 7.1 Stop diário (chandelier)
 
-Para cada posição, no fecho de cada sessão s em que o instrumento negoceia (incluindo a sessão de entrada):
+No fecho de cada sessão s com posição aberta (incluindo a sessão de entrada):
 
 ```
 HH   = max(HH, H_s)                                  (HH inicial = preço de execução)
 stop = max(stop, HH − stopMult × ATR22(s))
 ```
 
-O stop nunca desce. O novo valor aplica-se a partir da sessão seguinte. A execução segue a secção 10.2.
+O stop nunca desce. O novo valor aplica-se a partir da sessão seguinte.
 
-### 8.2 Saídas semanais
+Execução, por sessão:
 
-No dia de revisão t, para cada posição com preço em t, aplica-se o primeiro motivo verificado, por esta ordem:
+1. **Gap na abertura:** se `O_t ≤ stop`, vende tudo a `O_t` (motivo `stop`).
+2. **Durante a sessão:** se `L_t ≤ stop`, vende tudo ao preço do stop (motivo `stop`).
+
+### 7.2 Saídas semanais
+
+No dia de revisão t, com posição aberta, aplica-se o primeiro motivo verificado, por esta ordem:
 
 | Motivo (`reason`) | Condição no fecho de t |
 |---|---|
-| `universe_exit` | O instrumento não está em `U(t)` (perdeu liquidez) |
+| `liquidity` | `VMN50(t) < minTradedValue` |
 | `trend_break` | `C ≤ SMA200` ou `SMA50 ≤ SMA200` |
 | `momentum_loss` | `M1 ≤ 0` ou `M2 ≤ 0` |
-| `rank_exit` | `rank > bufferMult × N` (`bufferMult = 2.0`, ou seja, fora do top 20) |
 | `time_stop` | Pelo menos `timeStopSessions = 20` sessões desde a entrada e o maior fecho desde a entrada (inclusive) < `entryPrice + timeStopAtr × atrEntry` (`timeStopAtr = 1.0`). Desactivado com `useTimeStop: false` |
 
-Se algum indicador necessário for `null`, não se toma decisão semanal sobre essa posição nessa revisão. A venda executa-se na abertura da sessão seguinte.
+Se algum indicador necessário for `null`, não se toma decisão semanal nessa revisão. A venda executa-se na abertura da sessão seguinte (antes, nessa abertura, aplica-se o stop com gap se for o caso).
 
-### 8.3 Variante `partialTakeProfit: true`
+### 7.3 Variante `partialTakeProfit: true`
 
-Na revisão, se a posição ainda não teve realização parcial e `M1 > P90(M1)`: vende-se `floor(Q / 2)`, `baseQuantity` é dividida por 2 (arredondada para baixo) e marca-se `partialDone = true`. Motivo `partial_take_profit`.
+Na revisão, se a posição ainda não teve realização parcial e `M1 > P90(M1)`: vende-se `floor(Q / 2)` na abertura seguinte e marca-se `partialDone = true`. O valor recebido entra no resultado da operação quando esta fecha (a operação regista `partialSales: [{ date, quantity, price, proceeds }]`).
 
-### 8.4 Redução em `risk_off`
+### 7.4 Fim dos dados
 
-Se o estado for `risk_off` e, depois das saídas de 8.2, a exposição bruta for superior a `riskoffMaxGross × equity`, vendem-se posições inteiras por ordem crescente de S (as que não estão em `U_rank` primeiro) até a exposição ficar igual ou abaixo do limite. Motivo `risk_off`. A exposição calcula-se com os fechos de t.
-
----
-
-## 9. Dimensionamento e limites de carteira
-
-`equity(t) = cash(t) + Σ Q_i × C_i(t)`, calculado no fecho do dia de revisão, antes das novas ordens.
-
-### 9.1 Quantidade base
-
-```
-Q_risk = floor(equity × riskPerPosition / (stopMult × ATR_t))      riskPerPosition = 0.005
-Q_cap  = floor(maxWeight × equity / C_t)                           maxWeight = 0.15
-Q_base = min(Q_risk, Q_cap)
-```
-
-Exemplo de referência (usado nos testes): equity = 100 000, r = 0,005, C = 50, ATR = 1,00, stopMult = 3 → Q_risk = floor(500 / 3) = 166; Q_cap = floor(15 000 / 50) = 300; Q_base = 166 (8 300, ou 8,3% do capital).
-
-Com o capital por omissão (150 000 €), uma posição típica fica entre 8 000 € e 22 500 €, da mesma ordem que uma compra da A-Momentum (15 000 €). A relação `r ≈ (exposição alvo / N) × distância típica do stop` (N = 10 e stop típico de 6% → r ≈ 0,6%) é informativa e não é verificada pelo código.
-
-### 9.2 Limites verificados em cada compra planeada
-
-Por esta ordem; `V_hold` = valor das posições que continuam, `V_new` = valor das compras já planeadas nesta revisão, aos fechos de t.
-
-1. **Exposição bruta:** se `V_hold + V_new + Q_base × C_t > maxGross × equity`, reduz-se Q_base para caber. Se a quantidade reduzida for inferior a 50% da original, o candidato é ignorado.
-2. **Risco aberto:**
-   ```
-   OR = Σ_posições max(0, C_i − stop_i) × Q_i + Σ_compras_planeadas stopMult × ATR_j × Q_j
-   ```
-   Se `OR + stopMult × ATR_t × Q_base > openRiskMax × equity` (`openRiskMax = 0.06`), o candidato é ignorado. Este limite nunca força vendas.
-3. **Ordem mínima:** se `Q_base × C_t < minOrderWeight × equity` (`minOrderWeight = 0.005`), o candidato é ignorado.
-
-Cada candidato ignorado é registado com o motivo (`gross_limit`, `open_risk_limit`, `min_order`).
-
-### 9.3 Alvo de volatilidade
-
-Na revisão, depois de planear saídas, reduções e entradas, com `useVolTarget: true`:
-
-```
-carteira P = posições que continuam (com baseQuantity) + compras planeadas (com Q_base)
-sigma_p    = volatilidade de P (secção 4.11), com Q = baseQuantity
-k          = min(1, volTarget / sigma_p)                            volTarget = 0.15
-Q_alvo_i   = floor(baseQuantity_i × k)
-```
-
-- Compras novas executam `Q_alvo`.
-- Posições existentes: só se emite ordem de ajuste se `|Q_alvo − Q_actual| / Q_actual > rebalanceTolerance (0.20)` e o valor da ordem for pelo menos `minOrderWeight × equity`. Reduções são vendas parciais (motivo `vol_target`); aumentos são compras que nunca levam a quantidade acima de `baseQuantity`.
-- k nunca é superior a 1: não há alavancagem.
-
-Com `useVolTarget: false`, `k = 1`.
+Uma posição aberta na última sessão é valorizada ao último fecho real (posição aberta no resultado), como na A-Momentum.
 
 ---
 
-## 10. Motor de simulação
+## 8. Sequência de cada sessão t
 
-### 10.1 Estado inicial
-
-`cash = initialCapital` (150 000 €), sem posições. A simulação começa na primeira sessão após o aquecimento (secção 15.1).
-
-### 10.2 Sequência de cada sessão t
+Para t desde a primeira sessão com dados até à última:
 
 **Abertura de t**
 
-1. **Stops com gap:** para cada posição com preço em t, se `O_t ≤ stop`, vende tudo a `O_t` (motivo `stop`) e cancela ordens pendentes desse instrumento.
-2. **Vendas pendentes** (saídas, reduções, ajustes de volatilidade): executam-se a `O_t`. Se o instrumento não tiver preço em t, a ordem mantém-se pendente até negociar.
-3. **Compras pendentes**, por ordem de rank, seguidas dos aumentos de ajuste de volatilidade:
-   - protecção contra gaps (secção 7);
-   - limite de liquidez: `Q = min(Q, floor(cash / (O_t × (1 + costPerSide))))`; se Q = 0, cancela;
-   - se o instrumento não tiver preço em t, a compra é cancelada.
-4. **Ordens limite** da variante `pullbackEntry`: verificadas em cada sessão da validade.
+1. Stop com gap (7.1, passo 1).
+2. Venda pendente (saída semanal ou realização parcial) a `O_t`.
+3. Compra pendente: protecção contra gaps; quantidade; stop inicial (secção 6).
+4. Ordem limite da variante `pullbackEntry`.
 
 **Durante a sessão t**
 
-5. Para cada posição com preço em t (incluindo as compradas nesta abertura): se `L_t ≤ stop`, vende tudo ao preço do stop (motivo `stop`).
+5. Stop intradiário (7.1, passo 2), incluindo numa posição comprada nesta abertura.
 
 **Fecho de t**
 
-6. **Fim de dados:** posição cujo instrumento não tem preços depois de t, sendo t anterior à última data do catálogo → venda a `C_t` (motivo `delisted`).
-7. **Avaliação:** `equity = cash + Σ Q × C` (último fecho conhecido para instrumentos sem preço em t). A liquidez não rende juros.
-8. **Stops:** actualização do chandelier (secção 8.1).
-9. **Revisão** (se t for dia de revisão): regime → universo e ranking → saídas semanais → redução risk-off → entradas → alvo de volatilidade → ordens pendentes para a sessão seguinte.
-10. **Registos** diários: data, equity, liquidez, exposição bruta, número de posições, regime, valor do índice do catálogo.
-
-### 10.3 Custos
-
-Cada execução paga `costPerSide × |Q × preço|` (`costPerSide = 0.0015`), deduzido de `cash`. O custo representa comissão, spread e *slippage* em conjunto. Não há vendas a descoberto nem frações de acções. Não há impostos.
-
-### 10.4 Posição (estrutura de dados)
-
-| Campo | Descrição |
-|---|---|
-| `instrumentId`, `symbol` | Identificação |
-| `quantity` | Quantidade actual |
-| `baseQuantity` | Quantidade de referência para o alvo de volatilidade |
-| `entryDate`, `entryPrice` | Data e preço de execução da compra |
-| `atrEntry` | ATR22 do dia de revisão que gerou a compra |
-| `initialStop` | Stop inicial |
-| `stop` | Stop actual (chandelier) |
-| `highestHigh` | Máximo desde a entrada |
-| `highestClose` | Maior fecho desde a entrada (para o stop temporal) |
-| `partialDone` | Realização parcial já feita (variante) |
-
-Estado da carteira: `cash`, posições, `cooldowns` (instrumento → data da última saída por stop), `regimeState`, ordens pendentes.
+6. Actualização do chandelier (7.1).
+7. Se t for dia de revisão: com posição → saídas semanais (7.2) e realização parcial (7.3); sem posição → elegibilidade (secção 5) e compra planeada (secção 6).
+8. Sinais para o gráfico: `buy` na sessão da compra executada, `sell` na sessão da venda (com `reason`).
 
 ---
 
-## 11. Variantes (opções)
+## 9. Posição (estrutura de dados)
 
-Todas as regras opcionais são controladas por opções (secção 17), para permitir comparar variantes sem alterar código, como as opções da A-Momentum.
+| Campo | Descrição |
+|---|---|
+| `buyDate`, `entryPrice` | Sessão e preço real de execução da compra |
+| `quantity` | Quantidade (inteira) |
+| `cost` | `quantity × entryPrice` |
+| `atrEntry` | ATR22 do dia de revisão que gerou a compra (preços ajustados) |
+| `initialStop`, `stop` | Stop inicial e stop actual (chandelier), em preços ajustados |
+| `highestHigh`, `highestClose` | Máximo e maior fecho desde a entrada (ajustados) |
+| `partialDone` | Realização parcial já feita (variante) |
+
+Na interface, os stops são mostrados em preços reais da sessão (stop ÷ f_t).
+
+---
+
+## 10. Variantes (opções)
+
+Todas as regras opcionais são controladas por opções (secção 13), como as opções da A-Momentum, para comparar variantes sem alterar código.
 
 | Opção | Por omissão | Efeito |
 |---|---|---|
-| `useMarketRegime` | `true` | Filtro do índice do catálogo (secção 5) |
 | `trendStrength` | `'er'` | `'er'`, `'adx'` ou `'none'` |
+| `useTimeStop` | `true` | Stop temporal |
 | `volumeConfirmation` | `false` | Exige CMF20 > 0 na entrada |
 | `overextensionBlock` | `false` | Bloqueia entradas com M1 > P90 |
-| `useTimeStop` | `true` | Stop temporal |
 | `partialTakeProfit` | `false` | Venda de metade com M1 > P90 |
 | `pullbackEntry` | `false` | Ordem limite em recuo |
-| `useVolTarget` | `true` | Alvo de volatilidade |
-| `wM1` | `0.5` | Peso de M1 na pontuação |
 | `review` | `'weekly'` | `'weekly'`, `'biweekly'` ou `'monthly'` |
 
 ---
 
-## 12. Parâmetros por omissão e gamas de sensibilidade
+## 11. Validação
 
-| Opção | Por omissão | Valores para análise de sensibilidade |
-|---|---|---|
-| `smaTrendFast` | 50 | 40, 50, 60 |
-| `smaTrendSlow` | 200 | 150, 200, 250 |
-| `m1Fast` | 10 | 5, 10, 20 |
-| `m1Slow` | 125 | 100, 125, 150 |
-| `m2Lookback` | 252 | 126, 189, 252 |
-| `m2Skip` | 21 | 0, 10, 21 |
-| `wM1` | 0.5 | 0, 0.5, 1 |
-| `atrN` | 22 | 14, 22, 30 |
-| `stopMult` | 3.0 | 2.5, 3.0, 3.5, 4.0 |
-| `erThreshold` | 0.25 | 0.20, 0.25, 0.30 |
-| `nPositions` | 10 | 8, 10, 15 |
-| `bufferMult` | 2.0 | 1.5, 2.0, 3.0 |
-| `riskPerPosition` | 0.005 | 0.004, 0.005, 0.007 |
-| `volTarget` | 0.15 | 0.10, 0.15, 0.20 |
-| `timeStopSessions` | 20 | 10, 20, 40 |
-| `cooldownSessions` | 10 | 5, 10, 20 |
-| `review` | weekly | weekly, monthly |
-| `costPerSide` | 0.0015 | 0, 0.0015, 0.003 (sensibilidade a custos) |
+### 11.1 Comparação com a A-Momentum
 
-Parâmetros fixos: `minTradedValue = 5 000 000`, `minHistory = 253`, `volWindowPortfolio = 63`, `rebalanceTolerance = 0.20`, `minOrderWeight = 0.005`, `maxGross = 1.0`, `riskoffMaxGross = 0.5`, `zClip = 3`, `timeStopAtr = 1.0`.
+O BackTest corre a B-Opus em todos os instrumentos activos, na mesma janela de 2 anos que a A-Momentum, com o mesmo orçamento por compra e sem comissões. A comparação faz-se com as métricas que o BackTest já mostra: resultado em € e em %, instrumentos com ganho e com perda, taxa de acerto, comparação com comprar e manter e soma dos resultados. O resultado inclui o aviso «Histórico curto (2 anos simulados): resultados indicativos, sem validação fora da amostra».
 
-M2 precisa de 253 sessões e o histórico tem cerca de 780: valores de `m2Lookback` ou `smaTrendSlow` maiores do que o por omissão encurtam o período simulado. A análise de sensibilidade é feita com um script em `scripts/` (não faz parte da aplicação) e serve só para verificar que o resultado não depende de um valor exacto; com dois anos de simulação não se fazem optimizações.
+### 11.2 Ablação e sensibilidade
 
----
-
-## 13. Bases de comparação
-
-Simuladas no mesmo período, com o mesmo capital inicial e os mesmos custos, e mostradas no BackTest ao lado da B-Opus.
-
-| Id | Descrição | Regras |
-|---|---|---|
-| `buy_hold` | Índice do catálogo (equiponderado) | Investido a 100% desde o início do período simulado |
-| `index_sma200` | Índice do catálogo com filtro SMA200 | Na última sessão de cada mês: fecho > SMA200 → investido; caso contrário → liquidez. Execução no fecho seguinte (o índice não tem abertura). Custos em cada mudança |
-| `equal_weight` | Carteira equiponderada do universo | Na última sessão de cada mês, pesos iguais em todos os instrumentos de `U(t)`; execução na abertura seguinte; custos sobre o volume transaccionado |
-| `a_momentum` | A-Momentum no mesmo período | Soma dos resultados da A-Momentum por instrumento (já calculada pelo BackTest), apresentada como referência: não é comparável em % porque não tem capital fixo |
-
-O índice do catálogo é calculado com fechos ajustados (inclui dividendos).
-
----
-
-## 14. Métricas
-
-Calculadas sobre a série diária de equity de cada simulação, no período simulado (sem taxa sem risco: r_f = 0).
-
-| Métrica | Definição |
-|---|---|
-| Resultado | `E_fim − E_início`, em EUR, e em % do capital inicial |
-| CAGR | `(E_fim / E_início)^(252 / T) − 1`, T = número de sessões |
-| Volatilidade | `desvio(r) × sqrt(252)` |
-| Sharpe | `média(r) / desvio(r) × sqrt(252)` |
-| Sortino | `média(r) / sqrt(média(min(r, 0)²)) × sqrt(252)` |
-| MaxDD | Maior queda relativa entre um máximo e um mínimo posterior (magnitude positiva) |
-| Duração do MaxDD | Sessões desde o máximo até recuperar esse máximo (ou até ao fim) |
-| Calmar | `CAGR / MaxDD` |
-| Taxa de acerto | Percentagem de operações fechadas com resultado > 0 |
-| Payoff | Ganho médio das operações vencedoras / perda média das perdedoras |
-| R-múltiplo médio | Média de `resultado / ((entryPrice − initialStop) × quantidade inicial)` |
-| Rotação anual | `Σ |valor transaccionado| / 2 / equity média`, por ano |
-| Exposição média | Média diária de `valor das posições / equity` |
-| Custos totais | Soma dos custos, em EUR e em % da equity média |
-| N.º de operações | Operações fechadas, por motivo de saída |
-
----
-
-## 15. Validação
-
-### 15.1 Períodos
-
-- **Aquecimento:** as primeiras sessões do calendário até haver indicadores válidos (pelo menos 253 sessões; 504 se uma variante usar o P90 de M1) e pelo menos 3 × N instrumentos em `U(t)`.
-- **Período simulado:** da primeira sessão após o aquecimento até à última sessão do catálogo (cerca de 2 anos com os dados actuais). As métricas e as comparações medem-se neste período.
-- O resultado inclui sempre o aviso «Histórico curto (cerca de 2 anos simulados): resultados indicativos, sem validação fora da amostra».
-
-### 15.2 Regra de comparação
-
-Para duas simulações A e B no mesmo período:
-
-```
-ΔSharpe = Sharpe_A − Sharpe_B
-ΔDD     = MaxDD_B − MaxDD_A          (positivo = A tem menor drawdown)
-A é melhor que B se:
-    (ΔSharpe ≥ +0.05 ou ΔDD ≥ +0.02) e (ΔSharpe ≥ −0.05 e ΔDD ≥ −0.02)
-```
-
-O BackTest mostra, para a B-Opus face a cada base de comparação, se é «melhor», «pior» ou «equivalente» segundo esta regra.
-
-### 15.3 Ablação
-
-Script em `scripts/` que corre a configuração por omissão (`full`) e cada uma das variantes seguintes, alterando uma única opção, e escreve uma tabela em Markdown com as métricas e a classificação.
+Um script em `scripts/` (fora da aplicação) corre a B-Opus em todos os instrumentos com a configuração por omissão (`full`) e com cada variante, alterando uma única opção, e escreve uma tabela em Markdown com a soma dos resultados, instrumentos com ganho e perda, as perdas dos 10 piores, os ganhos dos 10 melhores, o número de operações e a taxa de acerto:
 
 | Id | Tipo | Alteração |
 |---|---|---|
-| `no_vol_target` | remover | `useVolTarget: false` |
 | `no_trend_strength` | remover | `trendStrength: 'none'` |
 | `adx_instead_of_er` | substituir | `trendStrength: 'adx'` |
-| `no_market_regime` | remover | `useMarketRegime: false` |
 | `no_time_stop` | remover | `useTimeStop: false` |
-| `rank_m1_only` | substituir | `wM1: 1` |
-| `rank_m2_only` | substituir | `wM1: 0` |
 | `with_volume_confirmation` | adicionar | `volumeConfirmation: true` |
 | `with_pullback_entry` | adicionar | `pullbackEntry: true` |
 | `with_overextension_block` | adicionar | `overextensionBlock: true` |
 | `with_partial_take_profit` | adicionar | `partialTakeProfit: true` |
 | `monthly_review` | substituir | `review: 'monthly'` |
 
-Classificação: **remover** → componente `justificado` se `full` for melhor que a variante (secção 15.2), senão `não justificado`; **adicionar / substituir** → `melhora` se a variante for melhor que `full`, senão `não melhora`. Os resultados são guardados na documentação (secção 5.4 da arquitectura) e não alteram as opções por omissão sem decisão do utilizador.
+O mesmo script corre uma análise de sensibilidade com as gamas da secção 13, um parâmetro de cada vez, para verificar que o resultado não depende de um valor exacto. Com dois anos de dados não se fazem optimizações: os resultados ficam registados na documentação e as opções por omissão só mudam por decisão do utilizador.
 
-### 15.4 Testes automáticos
+### 11.3 Testes automáticos
 
-- Indicadores: valores conhecidos (ATR de Wilder, ER, M1, M2, z-scores com clip, ADX, CMF) sobre séries pequenas calculadas à mão.
-- Dimensionamento: o exemplo da secção 9.1 e cada limite da secção 9.2.
-- Motor: entrada na abertura seguinte, protecção contra gaps, stop com gap na abertura, stop intradiário, chandelier que nunca desce, cada motivo de saída semanal pela ordem da tabela, arrefecimento, regime com histerese e redução em risk-off, alvo de volatilidade sem alavancagem, custos.
+- Indicadores: valores conhecidos (ATR de Wilder, ER, M1, M2, ADX, CMF, P90) sobre séries pequenas calculadas à mão.
+- Ajustamento: o factor f_t aplicado a O, H e L; execução e resultado em preços reais.
+- Simulação: compra na abertura seguinte a uma revisão elegível; protecção contra gaps; stop com gap na abertura; stop intradiário; chandelier que nunca desce; cada motivo de saída semanal pela ordem da tabela; arrefecimento; uma posição de cada vez; quantidade com o orçamento de 15 000 €; respeito por `from`.
 - Sem *lookahead*: acrescentar sessões futuras não altera nenhuma decisão anterior.
 - Determinismo: duas execuções dão resultados idênticos.
-- Coerência: a soma dos resultados por instrumento mais os custos de operações abertas é igual à variação da equity.
+- Formato: o resultado tem os campos do formato comum (secção 12) e funciona no painel e no BackTest existentes.
 
 ---
 
-## 16. Integração na aplicação
+## 12. Integração na aplicação
 
-### 16.1 Registo de estratégias
+### 12.1 Registo
 
-A B-Opus é registada em `shared/strategies/index.js` com `available: true`, `kind: 'portfolio'` e `runPortfolio(instruments, options)`. A A-Momentum passa a ter `kind: 'instrument'` (o seu `run(quotes)` não muda). O registo continua a expor `id`, `name`, `summary`, `rules` e `budget` (para a B-Opus, o capital inicial).
+Em `shared/strategies/index.js`, a entrada da B-Opus passa a `available: true`, com `budget: 15000`, `summary` e `rules` (texto das regras da secção 1) e `run: (quotes, { mom, from } = {}) => bOpus.backtest(quotes, { from })`. Não há outras alterações no registo.
 
-`runPortfolio` devolve:
+`run` devolve o formato comum do registo, igual ao da A-Momentum:
 
 ```js
 {
-  firstDate, lastDate,                      // período simulado
-  equity: [{ date, equity, cash, gross, positions, regime, index }],
-  trades: [{ instrumentId, symbol, entryDate, entryPrice, quantity, initialStop,
-             exitDate, exitPrice, reason, pnl, pnlPct, costs, rMultiple }],
-  open: [{ instrumentId, symbol, entryDate, entryPrice, quantity, stop, lastPrice, value, pnl }],
-  orders: [{ instrumentId, symbol, side, quantity, type, price, reason }],  // para a sessão seguinte
-  ranking: [{ instrumentId, symbol, rank, S, M1, M2, ER, eligible, reason }], // última revisão
-  regime: { state, index, sma200, distancePct },
-  metrics: { ... },                          // secção 14
-  benchmarks: { buy_hold: { metrics, equity }, index_sma200: { ... }, equal_weight: { ... } },
-  skipped: [{ date, instrumentId, symbol, reason }],
-  dataQuality: { ... }, warnings: [ ... ],
-  byInstrument: { [instrumentId]: { trades, open, signals, summary } }
+  trades: [{ buyDate, sellDate, quantity, cost, avgPrice, lots: [{ date, price, quantity, cost }],
+             reinforcements: 0, sellPrice, proceeds, pnl, pnlPct, reason,
+             initialStop, partialSales }],
+  open: null | { buyDate, quantity, cost, avgPrice, lots, reinforcements: 0, lastDate, lastPrice, value, pnl, pnlPct, stop },
+  signals: [{ date, side: 'buy' | 'sell', reason }],
+  firstDate,
+  summary: { closed, wins, reinforcements: 0, peakCost, realized, unrealized, total, totalPct, buyHold },
+  // campos próprios da B-Opus:
+  blocked: { liquidity, trend, momentum, trendStrength, cooldown, volume, overextension },
+  gapCancels, exitReasons: { stop, trend_break, momentum_loss, liquidity, time_stop },
+  dataQuality
 }
 ```
 
-`byInstrument` projecta a carteira para cada instrumento no mesmo formato que a A-Momentum devolve (`trades`, `open`, `signals` com `buy`/`sell`, `summary` com `closed`, `wins`, `total`, `totalPct`, `peakCost`), para reutilizar o gráfico, o painel e a tabela do BackTest.
+`summary.buyHold` é calculado como na A-Momentum (o orçamento investido no primeiro dia da janela e mantido até ao fim).
 
-### 16.2 API
+### 12.2 Dados de entrada
 
-| Rota | Função |
-|---|---|
-| `GET /strategies` | Já existe; passa a incluir `kind` |
-| `GET /backtest?strategy=b-opus&scope=all\|watchlist` | Corre `runPortfolio` sobre todos os instrumentos activos (o âmbito filtra só a tabela por instrumento, nunca a simulação) e devolve as linhas por instrumento a partir de `byInstrument`, mais um bloco `portfolio` com equity, métricas, bases de comparação, regime e avisos. Cache de 10 minutos, como a A-Momentum |
-| `GET /strategies/b-opus/instruments/{id}` | Projecção de um instrumento (`byInstrument[id]`) e o seu lugar no ranking, para a página do instrumento |
-| `GET /signals?strategy=b-opus` | Ordens para a sessão seguinte, ranking da última revisão e posições abertas com stop |
+A B-Opus precisa de `open`, `high`, `low` e `volume`, além de `close` e `adjClose`, e de 253 sessões antes da janela de 2 anos:
 
-A simulação carrega todo o histórico (cerca de 224 000 sessões) numa só consulta, como os Sinais. Deve terminar em menos de 5 s no servidor; o resultado fica em cache e é partilhado por todos os utilizadores.
+- **Página do instrumento:** com a B-Opus escolhida, a página pede as cotações dos últimos 3 anos (`GET /instruments/{id}/quotes?from=…`, que já devolve OHLC, fecho ajustado e volume), mostra o gráfico com o período escolhido e passa à B-Opus todo o histórico com `from` = início da janela de 2 anos.
+- **BackTest (`GET /backtest?strategy=b-opus`):** a consulta passa a incluir `open`, `high`, `low` e `volume` e, para a B-Opus, todo o histórico de cada instrumento; `run` recebe `from` = última sessão − 2 anos (a mesma janela da A-Momentum, que continua a receber só os 2 anos).
+- **Sinais:** a página Sinais ganha o menu «Estratégia» (A-Momentum, B-Opus); `GET /signals?strategy=b-opus` corre a B-Opus sobre todo o histórico e lista as compras e vendas das últimas N sessões, com o motivo. Os botões Comprar e Vender abrem uma operação simulada na carteira virtual do utilizador; os sinais nunca executam operações sozinhos.
 
-### 16.3 Interface
+### 12.3 Interface
 
-- **BackTest:** com «B-Opus» escolhida no menu «Estratégia», mostra primeiro a carteira:
-  - resumo: resultado, CAGR, Sharpe, MaxDD, operações, taxa de acerto, exposição média, custos e regime actual;
-  - gráfico da equity da B-Opus com as bases de comparação e as zonas de risk-off;
-  - comparação com as bases, com a classificação da secção 15.2;
-  - avisos (viés de sobrevivência, histórico curto, índice equiponderado).
+Reutiliza os componentes da A-Momentum:
 
-  Por baixo fica a tabela por instrumento (as mesmas colunas da A-Momentum, com os instrumentos que a carteira negociou) e a lista das operações com o motivo de saída.
-- **Página do instrumento:** «B-Opus» no menu «Estratégia» pede a projecção à API e mostra no gráfico as compras (C) e vendas (V) da carteira nesse instrumento, o stop da posição aberta e um painel com as operações, o lugar no ranking e a elegibilidade actual (com o critério que falha). Se o instrumento nunca entrou na carteira, o painel explica porquê.
-- **Sinais:** um menu «Estratégia» (A-Momentum, B-Opus). Com a B-Opus, mostra o regime, as ordens para a sessão seguinte (comprar, vender e stops a actualizar, com o motivo), o top 20 do ranking e as posições abertas. Os botões Comprar e Vender abrem uma operação simulada normal na carteira virtual do utilizador, com a quantidade da estratégia (o utilizador pode alterá-la); os sinais nunca executam operações sozinhos.
-
-Não há estado guardado em ficheiros nem registo de execuções reais: a B-Opus é recalculada a partir das cotações sempre que a cache expira, e as operações do utilizador continuam na carteira virtual da aplicação.
+- **Página do instrumento:** «B-Opus» activa no menu «Estratégia»; marcadores C (compra) e V (venda) no gráfico; linha do stop da posição aberta; painel com as regras, o resultado, as operações (com o motivo de saída e o stop inicial), a posição aberta com o stop actual, a comparação com comprar e manter e, se não houve compras, as razões (`blocked`).
+- **BackTest:** «B-Opus» activa no menu «Estratégia»; a mesma tabela e o mesmo resumo da A-Momentum (sem a coluna de reforços, que é sempre 0).
+- **Sinais:** menu «Estratégia» e, com a B-Opus, o motivo de cada sinal.
 
 ---
 
-## 17. Configuração
+## 13. Opções
 
 As opções são um objecto exportado por `shared/strategies/b-opus.js`, como as da A-Momentum:
 
 ```js
 export const DEFAULT_OPTIONS = {
-  initialCapital: 150000,      // EUR (10 posições × 15 000 €, a ordem de grandeza da A-Momentum)
-  costPerSide: 0.0015,
+  budget: 15000,               // EUR por compra, como a A-Momentum
 
   // indicadores
   smaTrendFast: 50, smaTrendSlow: 200, m1Fast: 10, m1Slow: 125, atrN: 22,
   m2Lookback: 252, m2Skip: 21, erWindow: 60, adxN: 14, cmfN: 20,
-  p90Window: 504, p90MinObs: 252, minHistory: 253, volWindowPortfolio: 63,
+  p90Window: 504, p90MinObs: 252, minHistory: 253,
 
-  // universo e ranking
-  minTradedValue: 5000000, wM1: 0.5, zClip: 3, nPositions: 10, bufferMult: 2.0,
-
-  // filtros
+  // elegibilidade
+  minTradedValue: 5000000,
   trendStrength: 'er', erThreshold: 0.25, adxThreshold: 20, cooldownSessions: 10,
   volumeConfirmation: false, overextensionBlock: false,
-
-  // regime
-  useMarketRegime: true, regimeSma: 200, regimeBand: 0.01, riskoffMaxGross: 0.5,
 
   // entradas
   gapProtectAtr: 1.0, pullbackEntry: false, pullbackAtr: 1.0, pullbackWindow: 5,
 
   // saídas
   stopMult: 3.0, useTimeStop: true, timeStopSessions: 20, timeStopAtr: 1.0, partialTakeProfit: false,
-
-  // dimensionamento
-  riskPerPosition: 0.005, maxWeight: 0.15, maxGross: 1.0, openRiskMax: 0.06,
-  useVolTarget: true, volTarget: 0.15, rebalanceTolerance: 0.20, minOrderWeight: 0.005,
 
   // calendário
   review: 'weekly',            // 'weekly' | 'biweekly' | 'monthly'
@@ -698,40 +428,67 @@ export const DEFAULT_OPTIONS = {
 
 As opções são validadas ao correr (tipos, gamas, chaves desconhecidas → erro). O resultado inclui `options`, com as opções efectivas.
 
----
+Gamas para a análise de sensibilidade (secção 11.2):
 
-## 18. Diferenças face à especificação original
-
-| Original | Nesta aplicação | Motivo |
+| Opção | Por omissão | Valores |
 |---|---|---|
-| Ferramenta Python (`pandas`, `DataAdapter`, `LocalDbAdapter`, cache Parquet, `TRENDMOM_DB_URL`) | Módulo JavaScript em `shared/strategies/`, dados entregues pela API | As estratégias da aplicação são JavaScript partilhado entre servidor e browser; a base é a MariaDB da aplicação |
-| Configuração YAML (`config/default.yaml`, `config_used.yaml`) | Objecto `DEFAULT_OPTIONS` | Igual à A-Momentum |
-| Relatórios em `reports/<run_id>/` | Página BackTest e resposta da API | A aplicação mostra os resultados na interface |
-| Modo de sinais em CLI (`trendmom signals`, `apply-fills`, `state/*.json`, `orders.csv`) | Página Sinais com a B-Opus; operações na carteira virtual | A aplicação já tem Sinais e uma carteira virtual por utilizador |
-| Vários mercados, mercado configurável | Um universo: o catálogo activo em EUR | A aplicação só aceita EUR e tem um catálogo partilhado |
-| Índice de referência STOXX 600 | Índice equiponderado do catálogo (proxy da secção 4.10) | A base não tem séries de índices |
-| Universo point-in-time e deslistados | Catálogo actual, com aviso de viés de sobrevivência | Não há composição histórica nem instrumentos deslistados |
-| Filtro de resultados (datas de resultados) | Removido | A base não tem datas de resultados |
-| Limites setoriais | Removidos | A base não tem setores |
-| Juro da liquidez e série de taxas | Sem juro | A carteira virtual da aplicação não rende juros |
-| Impostos (28%) | Sem impostos | A simulação da aplicação não tem impostos |
-| Capital de 100 000 | 150 000 € | Posições da mesma ordem de grandeza que as compras da A-Momentum |
-| 15 anos de dados, calibração de 5 anos, walk-forward, Deflated Sharpe, Monte Carlo, regra de suspensão | Período simulado de cerca de 2 anos; comparação com bases, ablação e sensibilidade por script | Há três anos de histórico (dois após o aquecimento); a validação fora da amostra não é possível com estes dados |
-| Grelha de varrimento completa e mapas de calor | Gamas reduzidas (secção 12), sem optimização | Evitar ajustar parâmetros a dois anos de dados |
-| `docs/data_mapping.md` | Secção 3 deste documento | O mapeamento está feito: OHLC brutos, `adj_close` ajustado, volume, EUR |
-| Referências às secções 19 e 21 | Secção 10.2 (registos) e secção 19 (critérios) | O documento original não incluía essas secções |
+| `smaTrendFast` | 50 | 40, 50, 60 |
+| `smaTrendSlow` | 200 | 150, 200, 250 |
+| `m1Fast` | 10 | 5, 10, 20 |
+| `m1Slow` | 125 | 100, 125, 150 |
+| `m2Lookback` | 252 | 126, 189, 252 |
+| `m2Skip` | 21 | 0, 10, 21 |
+| `atrN` | 22 | 14, 22, 30 |
+| `stopMult` | 3.0 | 2.5, 3.0, 3.5, 4.0 |
+| `erThreshold` | 0.25 | 0.20, 0.25, 0.30 |
+| `timeStopSessions` | 20 | 10, 20, 40 |
+| `cooldownSessions` | 10 | 5, 10, 20 |
+| `gapProtectAtr` | 1.0 | 0.5, 1.0, 2.0 |
+| `review` | weekly | weekly, monthly |
 
-Extensões possíveis (fora do âmbito desta implementação, cada uma exige alterar a recolha de dados): série do índice STOXX 600 como referência; setores para os limites setoriais; datas de resultados para o filtro de resultados; mais anos de histórico para validação fora da amostra.
+Valores de `m2Lookback` ou `smaTrendSlow` acima do por omissão alongam o aquecimento além das 253 sessões e encurtam a janela efectiva.
 
 ---
 
-## 19. Critérios de aceitação
+## 14. Fora do âmbito
 
-1. `shared/strategies/b-opus.js` implementa as secções 3 a 10 com as opções da secção 17, sem dependências e sem aleatoriedade.
-2. A B-Opus está registada com `available: true` e aparece activa nos menus «Estratégia» do BackTest, da página do instrumento e dos Sinais; a A-Momentum continua a dar exactamente os mesmos resultados.
-3. Os testes da secção 15.4 passam, incluindo o exemplo de dimensionamento da secção 9.1 e o teste sem *lookahead*.
-4. `GET /backtest?strategy=b-opus` devolve a carteira, as bases de comparação e as linhas por instrumento em menos de 5 s sem cache, sobre os dados de produção.
-5. O BackTest mostra a equity da B-Opus com as bases de comparação, as métricas da secção 14, a classificação da secção 15.2 e os avisos (viés de sobrevivência, histórico curto, índice equiponderado).
-6. A página do instrumento mostra as operações da carteira nesse instrumento e o seu lugar no ranking; os Sinais mostram as ordens para a sessão seguinte.
-7. O script de ablação (secção 15.3) corre e o resultado está registado na documentação.
+Não fazem parte da B-Opus, por exigirem uma carteira com vários instrumentos ou dados que a aplicação não tem:
+
+- regime de mercado por índice de referência (a base não tem índices, e a B-Opus usa só os dados do instrumento);
+- ranking entre instrumentos e número máximo de posições;
+- capital partilhado, risco por posição em % do capital, limites de exposição, de setor e de risco aberto, alvo de volatilidade da carteira;
+- custos de transacção, juros e impostos (a simulação da aplicação não os tem);
+- filtro de datas de resultados (a base não tem essas datas).
+
+---
+
+## 15. Diferenças face à especificação original
+
+| Original | B-Opus nesta aplicação | Motivo |
+|---|---|---|
+| Carteira de até 10 acções escolhidas por ranking entre instrumentos | Simulação por instrumento, uma posição de cada vez | A B-Opus é uma estratégia por instrumento, como a A-Momentum |
+| Pontuação S (z-scores de M1 e M2 entre instrumentos) e saída por ranking (`rank_exit`) | M1 > 0 e M2 > 0 como condições de entrada; sem ranking | Os z-scores exigem comparar instrumentos |
+| Regime de mercado (índice acima da SMA200) e redução em risk-off | Removido | Exige um índice de mercado; a tendência do próprio instrumento (SMA50/SMA200) mantém-se |
+| Capital de 100 000, risco de 0,5% por posição, peso máximo, exposição bruta, risco aberto, setor, alvo de volatilidade | 15 000 € por compra, sem limites de carteira | Igual à A-Momentum; sem carteira não há limites de carteira |
+| Custos de 0,15% por execução, juro da liquidez, impostos | Sem custos, juros nem impostos | Igual à A-Momentum e ao resto da simulação |
+| `universe_exit` (sair do universo) | `liquidity` (liquidez abaixo do limiar) | Sem universo, fica só o critério de liquidez do próprio instrumento |
+| Filtro de resultados, setores, universo point-in-time, deslistados | Removidos | A base não tem esses dados |
+| Ferramenta Python, YAML, Parquet, relatórios em ficheiros, CLI `trendmom`, ficheiros de estado | Módulo JavaScript no registo; resultados no BackTest, na página do instrumento e nos Sinais | É o ambiente da A-Momentum |
+| Vários mercados, calendário de mercado | Sessões do próprio instrumento | Simulação por instrumento |
+| 15 anos de dados, calibração, walk-forward, Deflated Sharpe, Monte Carlo, regra de suspensão | Janela de 2 anos (como a A-Momentum), comparação, ablação e sensibilidade por script, testes | Há três anos de histórico (dois após o aquecimento) |
+| Bases de comparação do índice | Comparação com comprar e manter (por instrumento) e com a A-Momentum | Sem índice e sem carteira |
+| Execução e stops em preços ajustados | Decisões em preços ajustados; execução e resultados em preços reais | Igual à A-Momentum (resultado em preços reais) |
+| Referências às secções 19 e 21 | Secção 8 (sequência e sinais) e secção 16 (critérios) | O documento original não incluía essas secções |
+
+---
+
+## 16. Critérios de aceitação
+
+1. `shared/strategies/b-opus.js` implementa as secções 3 a 9 com as opções da secção 13, sem dependências e sem aleatoriedade, e `run` devolve o formato comum (secção 12.1).
+2. A B-Opus está registada com `available: true` e aparece activa no menu «Estratégia» da página do instrumento, do BackTest e dos Sinais; a A-Momentum continua a dar exactamente os mesmos resultados.
+3. Os testes da secção 11.3 passam, incluindo o teste sem *lookahead*.
+4. A página do instrumento mostra as operações da B-Opus nesse instrumento, calculadas com os 3 anos de histórico e actuando nos últimos 2, com o stop da posição aberta e as razões quando não houve compras.
+5. `GET /backtest?strategy=b-opus` devolve o resultado de todos os instrumentos na mesma janela da A-Momentum, e os valores de cada instrumento coincidem com os da página do instrumento (testado).
+6. Os Sinais mostram as compras e vendas recentes da B-Opus com o motivo.
+7. O script da secção 11.2 corre e o resultado (ablação e sensibilidade) está registado na documentação.
 8. A documentação (arquitectura, guia de estilos, plano e OpenAPI) está actualizada e o código está publicado em produção.
