@@ -1,5 +1,5 @@
 /**
- * Estratégia de momento sobre o SMA10/SMA200 (área do gráfico de momento), simulada no histórico:
+ * A-Momentum — estratégia de momento sobre o SMA10/SMA200 (área do gráfico de momento), simulada no histórico:
  *   compra 15 000 € quando as três últimas sessões foram «a descer», «a subir», «a subir»;
  *   vende tudo quando foram «a subir», «a descer», «a descer» e o SMA8/SMA125 está abaixo de 1%;
  *   reforça com mais 15 000 € sempre que o fecho ultrapassa em mais de 10% o preço da compra mais recente.

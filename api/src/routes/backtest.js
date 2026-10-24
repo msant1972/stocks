@@ -1,6 +1,5 @@
 import { z } from 'zod';
-import { momentum } from '../../../shared/momentum.js';
-import { backtest, STRATEGY_BUDGET } from '../../../shared/strategy.js';
+import { AVAILABLE_STRATEGIES, DEFAULT_STRATEGY_ID, getStrategy, STRATEGIES } from '../../../shared/strategies/index.js';
 import { IsoDate } from '../schemas.js';
 import { yearsBefore } from './instruments.js';
 
@@ -21,11 +20,11 @@ const Row = z.object({
 });
 
 /**
- * Aplica a estratégia de momento (shared/strategy.js, a mesma do botão «Aplicar estratégia» na página do
- * instrumento) a cada instrumento activo, sobre os mesmos dados que essa página carrega: os últimos 2 anos
- * até à última sessão do instrumento. Por isso os valores coincidem com os do gráfico.
+ * Aplica uma estratégia do registo (shared/strategies/, a mesma escolhida na página do instrumento) a cada
+ * instrumento activo, sobre os mesmos dados que essa página carrega: os últimos 2 anos até à última sessão
+ * do instrumento. Por isso os valores coincidem com os do gráfico.
  */
-async function computeAll(pool) {
+async function computeAll(pool, strategy) {
   const [rows] = await pool.query(
     `SELECT q.instrument_id, i.symbol, i.name, i.exchange, i.last_session, q.session_date AS date, q.close,
             q.adj_close AS adjClose, q.sma10, q.sma125, q.sma200
@@ -45,7 +44,7 @@ async function computeAll(pool) {
   const items = [];
   for (const inst of byInstrument.values()) {
     if (!inst.quotes.length) continue;
-    const r = backtest(inst.quotes, momentum(inst.quotes));
+    const r = strategy.run(inst.quotes);
     const s = r.summary;
     items.push({
       instrumentId: inst.id, symbol: inst.symbol, name: inst.name, exchange: inst.exchange,
@@ -61,29 +60,46 @@ async function computeAll(pool) {
 }
 
 export default async function backtestRoutes(app, { pool }) {
-  let cache = null;
+  const cache = new Map(); // por estratégia
+
+  const StrategyInfo = z.object({ id: z.string(), name: z.string(), available: z.boolean(), summary: z.string(), rules: z.string() });
+  const info = ({ id, name, available, summary, rules }) => ({ id, name, available, summary, rules });
+
+  app.get('/strategies', {
+    schema: {
+      tags: ['Estratégia'], summary: 'Estratégias registadas (as não disponíveis estão em preparação)',
+      response: { 200: z.object({ defaultId: z.string(), items: z.array(StrategyInfo) }) },
+    },
+  }, async () => ({ defaultId: DEFAULT_STRATEGY_ID, items: STRATEGIES.map(info) }));
 
   app.get('/backtest', {
     schema: {
-      tags: ['Estratégia'], summary: 'Resultado da estratégia de momento em cada instrumento, nos últimos 2 anos',
-      description: `Compras de ${STRATEGY_BUDGET} € (descer-subir-subir do SMA10/SMA200), reforços a +10% desde a última compra, `
-        + 'venda com subir-descer-descer e SMA8/SMA125 < 1%; sinais ignorados na zona neutra (±1%). Posições abertas '
-        + 'avaliadas ao último fecho. Simulação no histórico, sem comissões; não altera a carteira nem é recomendação.',
-      querystring: z.object({ scope: z.enum(['all', 'watchlist']).default('all') }),
+      tags: ['Estratégia'], summary: 'Resultado de uma estratégia em cada instrumento, nos últimos 2 anos',
+      description: 'Estratégias disponíveis: ' + AVAILABLE_STRATEGIES.map((s) => `${s.id} (${s.name}: ${s.rules})`).join(' ')
+        + ' Posições abertas avaliadas ao último fecho. Simulação no histórico; não altera a carteira nem é recomendação.',
+      querystring: z.object({
+        scope: z.enum(['all', 'watchlist']).default('all'),
+        strategy: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)).default(DEFAULT_STRATEGY_ID),
+      }),
       response: {
         200: z.object({
-          years: z.number(), budget: z.number(), computedAt: z.string(), items: z.array(Row),
+          strategy: StrategyInfo, years: z.number(), budget: z.number().nullable(), computedAt: z.string(), items: z.array(Row),
         }),
       },
     },
   }, async (req) => {
-    if (!cache || Date.now() - cache.at > CACHE_MS) cache = { at: Date.now(), items: await computeAll(pool) };
-    let { items } = cache;
+    const strategy = getStrategy(req.query.strategy);
+    let entry = cache.get(strategy.id);
+    if (!entry || Date.now() - entry.at > CACHE_MS) {
+      entry = { at: Date.now(), items: await computeAll(pool, strategy) };
+      cache.set(strategy.id, entry);
+    }
+    let { items } = entry;
     if (req.query.scope === 'watchlist') {
       const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [req.user.id]);
       const ids = new Set(w.map((x) => Number(x.instrument_id)));
       items = items.filter((i) => ids.has(i.instrumentId));
     }
-    return { years: YEARS, budget: STRATEGY_BUDGET, computedAt: new Date(cache.at).toISOString(), items };
+    return { strategy: info(strategy), years: YEARS, budget: strategy.budget, computedAt: new Date(entry.at).toISOString(), items };
   });
 }

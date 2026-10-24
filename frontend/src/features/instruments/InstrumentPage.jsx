@@ -9,6 +9,8 @@ import { EmptyState, ErrorState, Loading } from '../../components/feedback/state
 import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Notice } from '../../components/ui/controls.jsx';
 import TradeDialog from '../portfolio/TradeDialog.jsx';
+import StrategySelect from '../../components/finance/StrategySelect.jsx';
+import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
 import AlertDialog from '../alerts/AlertDialog.jsx';
 
 // O gráfico (Recharts) só é carregado quando é preciso.
@@ -22,9 +24,15 @@ export default function InstrumentPage() {
   const toast = useToast();
   const [trading, setTrading] = useState(false);
   const [alerting, setAlerting] = useState(false);
-  const [params] = useSearchParams();
-  // ?estrategia=1 (ex.: a partir do BackTest) abre a página com a estratégia aplicada.
-  const [strategy, setStrategy] = useState(params.get('estrategia') === '1');
+  const [params, setParams] = useSearchParams();
+  // ?estrategia=<id> (ex.: a partir do BackTest) abre a página com essa estratégia aplicada; «1» é a A-Momentum.
+  const fromUrl = params.get('estrategia') === '1' ? DEFAULT_STRATEGY_ID : params.get('estrategia');
+  const strategy = getStrategy(fromUrl) ? fromUrl : null;
+  const setStrategy = (id) => setParams((p) => {
+    const next = new URLSearchParams(p);
+    if (id) next.set('estrategia', id); else next.delete('estrategia');
+    return next;
+  }, { replace: true });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -69,10 +77,7 @@ export default function InstrumentPage() {
             {i.inWatchlist ? 'Remover da lista' : 'Adicionar à lista'}
           </Button>
           <Button onClick={() => setAlerting(true)} disabled={i.status === 'invalid'}>Criar alerta</Button>
-          <Button onClick={() => setStrategy((v) => !v)} aria-pressed={strategy} disabled={i.status !== 'active'}
-            title="Simular no histórico a estratégia de momento SMA10/SMA200">
-            {strategy ? 'Ocultar estratégia' : 'Aplicar estratégia'}
-          </Button>
+          <StrategySelect value={strategy} onChange={setStrategy} allowNone disabled={i.status !== 'active'} />
           {i.isinMic && <Link className="button" to={`/orderbook?instrumento=${i.id}`}>Livro de ofertas</Link>}
           <Button variant="primary" onClick={() => setTrading(true)} disabled={!tradable}>Simular operação</Button>
         </div>

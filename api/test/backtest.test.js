@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { momentum, rollingMean } from '../../shared/momentum.js';
-import { backtest } from '../../shared/strategy.js';
+import { backtest } from '../../shared/strategies/a-momentum.js';
 import { api, hasTestDb, login, makeInstrument, makeUser, recentSessions, setup } from './helpers.js';
 
 /** Instrumento com ~3 anos de fechos ondulantes e médias calculadas como o motor de recolha. */
@@ -36,7 +36,7 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
     const res = await ana.get('/backtest');
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body).toMatchObject({ years: 2, budget: 15000 });
+    expect(body).toMatchObject({ years: 2, budget: 15000, strategy: { id: 'a-momentum', name: 'A-Momentum' } });
     expect(body.items.map((i) => i.symbol).sort()).toEqual(['CURTO.LS', 'MARE.LS', 'ONDA.LS']);
     for (const id of ids) {
       const { quotes } = (await ana.get(`/instruments/${id}/quotes`)).json();
@@ -53,6 +53,14 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
       expect(row.buyHoldPnl).toBe(expected.buyHold.pnl);
     }
     expect(body.items.find((i) => i.symbol === 'CURTO.LS')).toMatchObject({ closed: 0, total: 0, fromDate: null, buyHoldPnl: null });
+  });
+
+  it('lista as estratégias e recusa as que ainda estão em preparação', async () => {
+    const list = (await ana.get('/strategies')).json();
+    expect(list.defaultId).toBe('a-momentum');
+    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', false]]);
+    expect((await ana.get('/backtest?strategy=a-momentum')).statusCode).toBe(200);
+    expect((await ana.get('/backtest?strategy=b-opus')).statusCode).toBe(400);
   });
 
   it('filtra pela lista do utilizador', async () => {

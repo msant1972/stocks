@@ -28,7 +28,7 @@ Este documento descreve a arquitectura implementada. O módulo de livro de ofert
 | Alertas | Email; um resumo por utilizador após cada recolha diária, nunca mais do que um email por hora |
 | Simulação | Último fecho diário não ajustado; sem comissões; quantidades inteiras; sem posições curtas; custo médio ponderado |
 | Capital virtual | 1 000 000 EUR por omissão nas contas novas (configurável por conta); sem reposição |
-| Estratégia | Simulação no histórico de uma estratégia de momento (secção 5.4); não executa operações nem altera a carteira |
+| Estratégias | Registo de estratégias simuladas no histórico (secção 5.4): A-Momentum disponível; B-Opus em preparação. Não executam operações nem alteram a carteira |
 | Email | Servidor SMTP configurado pelos administradores em Definições (hoje OVH, `ssl0.ovh.net:465`, remetente `stocks@graus.pt`); sem configuração, os alertas não enviam emails |
 
 O requisito «frequência máxima de 1h» é cumprido com um único email de resumo por utilizador, enviado depois de cada recolha diária, e com um intervalo mínimo de 60 minutos entre emails ao mesmo utilizador. Como os dados são diários, o caso relevante é o de várias regras a disparar na mesma noite, que o resumo agrupa numa só mensagem.
@@ -93,7 +93,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Visão geral | Valor da carteira, saldo e resultado; momento do mercado (distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos); cruzamentos da SMA10 com a SMA50 nas últimas 5 sessões, ascendentes e descendentes |
 | Acompanhar | Lista do utilizador e, com o botão «Catálogo», o catálogo partilhado (último fecho e sessão, volume, variação, mid e desequilíbrio do livro Euronext com o botão «Mostrar OB», ISIN-MIC com edição directa; ordenação por instrumento, volume, variação e desequilíbrio), adicionar símbolos ou importar Excel/CSV (colunas `ticker` e `isin_mic`) com pré-visualização, botão «Validar agora» |
 | Orderbook | Livro de ofertas Euronext (atraso 15 min) dos instrumentos com ISIN-MIC: melhor compra/venda, spread, mid, desequilíbrio, tabela com nº de ordens e totais, gráfico de profundidade cumulativa, actualização a cada 30 s |
-| Instrumento | Último fecho e variação, gráfico diário (1M a 2A) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, aplicar estratégia |
+| Instrumento | Último fecho e variação, gráfico diário (1M a 2A) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, menu «Estratégia» (Nenhuma, A-Momentum; B-Opus em preparação) |
 | HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5, 10 ou 20 sessões |
 | Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |
 | Operações | Histórico filtrável por tipo, instrumento e datas |
@@ -110,7 +110,7 @@ Regras da interface:
 - Não há actualizações optimistas do saldo: a interface espera pela confirmação do servidor.
 - Enquanto há instrumentos «A validar», as listas actualizam-se a cada 5 segundos; caso contrário não há polling, porque os dados são diários.
 - O gráfico (Recharts) é carregado só na página do instrumento.
-- O momento e a estratégia são módulos JavaScript puros em `shared/` (`momentum.js`, `strategy.js`), usados pelo browser (gráfico e «Aplicar estratégia») e pela API (página Sinais); assim o servidor e o browser calculam exactamente o mesmo. Têm testes próprios.
+- O momento e as estratégias são módulos JavaScript puros em `shared/` (`momentum.js` e `strategies/`, com o registo em `strategies/index.js`), usados pelo browser (gráfico e menu «Estratégia») e pela API (Sinais e BackTest); assim o servidor e o browser calculam exactamente o mesmo. Têm testes próprios.
 - As cores das séries do gráfico foram validadas para daltonismo nos dois temas; as cores do HeatMap têm contraste de pelo menos 4,98:1 com o texto branco.
 
 ### 4.2. Middleware / API
@@ -130,7 +130,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Mapa de calor | `GET /heatmap?period=1\|5\|15\|30&scope=all\|watchlist&limit=20` |
 | Mercado | `GET /market/momentum?top=5` (distribuição do SMA10/SMA200 na última sessão e extremos), `GET /market/crossovers?sessions=5` (cruzamentos SMA10/SMA50: ascendente se SMA10 ≤ SMA50 na sessão anterior e > na seguinte, descendente o inverso; conta o mais recente por instrumento); cache 10 min |
 | Sinais | `GET /signals?sessions=5` (estratégia aplicada a todos os instrumentos activos com todo o histórico; cache 10 min) |
-| BackTest | `GET /backtest?scope=all\|watchlist` (estratégia em cada instrumento activo sobre os últimos 2 anos; cache 10 min) |
+| Estratégias e BackTest | `GET /strategies` (registo); `GET /backtest?strategy=a-momentum&scope=all\|watchlist` (estratégia em cada instrumento activo sobre os últimos 2 anos; cache 10 min por estratégia) |
 | Estado | `GET /status` |
 | Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}`, `GET/PUT /admin/smtp`, `POST /admin/smtp/test` |
 | Saúde | `GET /health/live`, `GET /health/ready` (fora de `/api/v1`) |
@@ -260,9 +260,12 @@ Biblioteca em `api/src/orderbook/` que implementa a [especificação](orderbook-
 
 A API devolve, por omissão, os últimos dois anos de sessões, com os indicadores já calculados sobre os três anos guardados. A interface recorta o período escolhido, desenha o fecho ajustado e os indicadores pedidos, e calcula o momento (SMA10/SMA200 − 1 e SMA8/SMA125 − 1) sobre o histórico completo carregado.
 
-### 5.4. Estratégia de momento (simulação no histórico)
+### 5.4. Estratégias (simulação no histórico)
 
-O botão «Aplicar estratégia» corre no browser um backtest sobre o histórico carregado (`frontend/src/lib/strategy.js`), sem alterar a carteira:
+As estratégias estão num registo partilhado (`shared/strategies/index.js`): cada uma tem um id, um nome, as regras em texto, o orçamento por compra e uma função `run(quotes)` que devolve sempre o mesmo formato (operações, posição aberta, sinais para o gráfico e resumo). O menu «Estratégia» da página do instrumento (Nenhuma ou uma estratégia; `?estrategia=<id>` no endereço), a página BackTest (`GET /backtest?strategy=<id>`) e `GET /strategies` usam esse registo. Uma estratégia registada como não disponível aparece nos menus como «em preparação» e é recusada pela API.
+
+- **B-Opus:** registada como «em preparação»; as regras serão definidas numa próxima fase. Para a activar basta criar `shared/strategies/b-opus.js` com a função `run` e marcá-la como disponível no registo; os menus, o gráfico, o painel e o BackTest passam a mostrá-la sem outras alterações.
+- **A-Momentum** (`shared/strategies/a-momentum.js`), corrida no browser sobre o histórico carregado, sem alterar a carteira:
 
 - estado de cada sessão = cor do momento (SMA10/SMA200 «a subir» ou «a descer»);
 - compra 15 000 € (quantidade inteira) quando as três últimas sessões foram descer, subir, subir;
@@ -277,7 +280,7 @@ O gráfico marca as compras (C), os reforços (R) e as vendas (V); um painel mos
 
 A página **Sinais** aplica a mesma estratégia, no servidor, a todos os instrumentos activos com todo o histórico (para reconstruir a posição virtual de cada um) e lista os sinais das últimas N sessões. Os botões Comprar e Vender abrem uma operação simulada normal na carteira do utilizador, já com a quantidade preenchida (a que cabe em 15 000 € ao último fecho, ou todas as unidades em carteira); os sinais nunca executam operações sozinhos.
 
-A página **BackTest** aplica a mesma estratégia a cada instrumento activo sobre exactamente os dados que a página do instrumento carrega (os últimos 2 anos até à última sessão), por isso os resultados coincidem com os do botão «Aplicar estratégia» (testado). Mostra o resultado (realizado + posição aberta ao último fecho), a percentagem sobre o capital máximo investido em simultâneo, as operações e reforços, a taxa de acerto e a diferença para comprar e manter uma compra desde o início do período. O cálculo para todos os instrumentos demora cerca de 2 s e fica em cache 10 min.
+A página **BackTest** aplica a estratégia escolhida (A-Momentum por omissão) a cada instrumento activo sobre exactamente os dados que a página do instrumento carrega (os últimos 2 anos até à última sessão), por isso os resultados coincidem com os do menu «Estratégia» da página do instrumento (testado). A página Sinais usa sempre a A-Momentum. Mostra o resultado (realizado + posição aberta ao último fecho), a percentagem sobre o capital máximo investido em simultâneo, as operações e reforços, a taxa de acerto e a diferença para comprar e manter uma compra desde o início do período. O cálculo para todos os instrumentos demora cerca de 2 s e fica em cache 10 min.
 
 ### 5.5. Operação simulada
 
@@ -333,7 +336,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é feita por snapshots EBS do volume, geridos na AWS |
 
-Testes automáticos em cada componente: API com Vitest contra uma BD de testes (98, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (11). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
+Testes automáticos em cada componente: API com Vitest contra uma BD de testes (99, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (12). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e snapshots EBS do volume (cópia fora do servidor, geridos na AWS), com restauro testado pelo administrador.

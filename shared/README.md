@@ -3,6 +3,6 @@
 Módulos JavaScript puros (sem dependências) usados pelo frontend e pela API:
 
 - `momentum.js`: indicador de momento (SMA10/SMA200 e SMA8/SMA125) sobre as cotações diárias;
-- `strategy.js`: simulação da estratégia de momento no histórico (compras, reforços e vendas).
+- `strategies/`: estratégias simuladas no histórico. `index.js` é o registo (id, nome, regras, `run`, e o formato do resultado que todas devolvem); `a-momentum.js` é a A-Momentum (compras, reforços e vendas sobre o momento SMA10/SMA200). A B-Opus está registada como «em preparação».
 
-O frontend importa-os através de `frontend/src/lib/`; a API usa-os para gerar os sinais de todos os instrumentos (`/api/v1/signals`). Os testes estão em `frontend/test/`.
+O frontend importa-os através de `frontend/src/lib/`; a API usa-os nos sinais (`/api/v1/signals`) e no BackTest (`/api/v1/backtest`). Os testes estão em `frontend/test/`.

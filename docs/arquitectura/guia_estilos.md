@@ -195,10 +195,10 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 - Fecho diário, variação e data da sessão sempre visíveis.
 - Gráfico principal com selecção «1M», «3M», «6M», «1A» e «2A».
 - Indicação «Dados diários» junto ao selector de período.
-- Acções «Adicionar à lista», «Criar alerta», «Aplicar estratégia» e «Simular operação».
+- Acções «Adicionar à lista», «Criar alerta», menu «Estratégia» e «Simular operação».
 - Botões de indicadores por cima do gráfico (EMA9, SMA10, SMA50, SMA125, SMA200), que servem também de legenda; selecção guardada no browser.
 - Gráfico de momento por baixo do histórico, sincronizado com ele (cursor e tooltip): área SMA10/SMA200 − 1 em colunas verdes («a subir») ou vermelhas («a descer»), linha SMA8/SMA125 − 1 e linha do zero; valores actuais no cabeçalho; botão «Momento» para mostrar ou esconder.
-- «Aplicar estratégia» mostra a simulação no histórico: marcadores C (compra), R (reforço) e V (venda) com letra, e um painel com o resultado, as operações, os reforços, os sinais ignorados e a comparação com comprar e manter. Indicar sempre que é uma simulação e que não altera a carteira.
+- Menu «Estratégia» (Nenhuma por omissão, A-Momentum; estratégias em preparação, como a B-Opus, aparecem desactivadas com «(em preparação)»). Escolher uma estratégia mostra a simulação no histórico, com o nome da estratégia no título do painel: marcadores C (compra), R (reforço) e V (venda) com letra, e um painel com o resultado, as operações, os reforços, os sinais ignorados e a comparação com comprar e manter. Indicar sempre que é uma simulação e que não altera a carteira.
 - Disponibilizar resumo textual e acesso aos dados do gráfico em tabela, incluindo os indicadores e o momento visíveis.
 
 Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Não animar pontos como se fossem actualizados em tempo real. Se a cobertura for inferior a três anos (a carga inicial), indicar o período efectivamente disponível e que a SMA200 e o momento podem não cobrir todo o gráfico.
@@ -290,9 +290,9 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 ### 5.11a. BackTest
 
 - Resumo: instrumentos com operações, com ganho e com perda (número e %), melhor que comprar e manter, soma dos resultados (com o orçamento por compra).
-- Filtro «Todos / A minha lista» e pesquisa por símbolo ou designação.
+- Menu «Estratégia» (A-Momentum por omissão; as em preparação desactivadas; `?estrategia=<id>`), filtro «Todos / A minha lista» e pesquisa por símbolo ou designação.
 - Tabela ordenável (resultado em € por omissão, do maior para o menor): instrumento, resultado, %, operações (reforços entre parênteses), acerto (ganhos/fechadas e %), posição aberta, comprar e manter (€ e %), diferença. Ordenação no endereço (`?ordem=edge&sentido=desc`).
-- O símbolo abre a página do instrumento com a estratégia aplicada (`?estrategia=1`), para ver as operações no gráfico.
+- O símbolo abre a página do instrumento com a estratégia aplicada (`?estrategia=<id>`, com a mesma estratégia), para ver as operações no gráfico.
 - Texto com as regras, a hora do cálculo e o aviso de simulação. Em telemóvel, acesso pelo botão «BackTest» em Sinais.
 
 ### 5.12. Utilizadores

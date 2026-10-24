@@ -1,5 +1,4 @@
 import * as f from '../../lib/format.js';
-import { NEUTRAL_BAND, REINFORCE_GAIN, SELL_MAX_WAVE125, STRATEGY_BUDGET } from '../../lib/strategy.js';
 import { PnL } from './finance.jsx';
 
 function Reinforcements({ lots }) {
@@ -11,21 +10,21 @@ function Reinforcements({ lots }) {
   );
 }
 
-/** Resultado da simulação da estratégia de momento no histórico (não altera a carteira). */
-export default function StrategyPanel({ result, currency = 'EUR', symbol }) {
+/** Resultado da simulação de uma estratégia do registo no histórico (não altera a carteira). */
+export default function StrategyPanel({ strategy, result, currency = 'EUR', symbol }) {
   const { trades, open, summary, firstDate, skipped, sellsHeld } = result;
   const bh = summary.buyHold;
+  const notes = [
+    sellsHeld > 0 && `${sellsHeld} ${sellsHeld === 1 ? 'venda não executada' : 'vendas não executadas'} pela condição do SMA8/SMA125`,
+    skipped > 0 && `${skipped} ${skipped === 1 ? 'sinal ignorado' : 'sinais ignorados'} na zona neutra`,
+  ].filter(Boolean);
   return (
     <section className="stack" style={{ gap: '1rem' }} aria-labelledby="strategy-title">
       <div>
-        <h3 id="strategy-title" style={{ fontSize: '1.0625rem', fontWeight: 600 }}>Estratégia de momento — simulação no histórico</h3>
+        <h3 id="strategy-title" style={{ fontSize: '1.0625rem', fontWeight: 600 }}>{strategy.name} — simulação no histórico</h3>
         <p className="small muted" style={{ marginTop: 4 }}>
-          Compra {f.money(STRATEGY_BUDGET, currency, 0)} quando o SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a subir»;
-          vende tudo após uma «a subir» seguida de duas «a descer», mas só com o SMA8/SMA125 abaixo de {SELL_MAX_WAVE125}%
-          {sellsHeld > 0 && ` (${sellsHeld} ${sellsHeld === 1 ? 'venda não executada' : 'vendas não executadas'} por esta condição)`}. Os sinais são ignorados quando o SMA10/SMA200 está entre
-          −{NEUTRAL_BAND}% e +{NEUTRAL_BAND}%. Reforça com mais {f.money(STRATEGY_BUDGET, currency, 0)} sempre que o fecho sobe
-          mais de {REINFORCE_GAIN}% face à compra mais recente{skipped > 0 && ` (${skipped} ${skipped === 1 ? 'sinal ignorado' : 'sinais ignorados'} no período)`}. Executa ao fecho da sessão do sinal, uma posição de cada vez,
-          sem comissões. Período: {firstDate ? `desde ${f.date(firstDate)}` : 'sem dados suficientes'}. Não altera a carteira virtual.
+          {strategy.rules}{notes.length > 0 && ` No período: ${notes.join('; ')}.`} Período: {firstDate ? `desde ${f.date(firstDate)}` : 'sem dados suficientes'}.
+          Não altera a carteira virtual.
         </p>
       </div>
 
@@ -48,7 +47,7 @@ export default function StrategyPanel({ result, currency = 'EUR', symbol }) {
         <div>
           <p className="stat-label">Comprar e manter</p>
           <p className="stat-value">{bh ? <><PnL value={bh.pnl} currency={currency} /> <span className="small muted">{f.pct(bh.pnlPct.toFixed(2))}</span></> : '—'}</p>
-          <p className="small muted">{bh ? `${f.money(STRATEGY_BUDGET, currency, 0)} em ${symbol} desde ${f.date(bh.startDate)}` : ''}</p>
+          <p className="small muted">{bh ? `${f.money(strategy.budget ?? bh.cost, currency, 0)} em ${symbol} desde ${f.date(bh.startDate)}` : ''}</p>
         </div>
       </div>
 

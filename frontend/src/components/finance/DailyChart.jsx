@@ -2,7 +2,7 @@ import { useId, useMemo, useState } from 'react';
 import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as f from '../../lib/format.js';
 import { momentum, niceTicks } from '../../lib/momentum.js';
-import { backtest } from '../../lib/strategy.js';
+import { getStrategy } from '../../lib/strategy.js';
 import StrategyPanel from './StrategyPanel.jsx';
 import { Button, Segmented } from '../ui/controls.jsx';
 
@@ -115,7 +115,8 @@ function SignalMarker({ cx, cy, side }) {
  * desdobramentos) e, opcionalmente, médias móveis sobre a mesma escala. Inclui resumo textual e
  * alternativa em tabela.
  */
-export default function DailyChart({ quotes, currency, symbol, strategy = false }) {
+/** strategy: id de uma estratégia do registo (shared/strategies/) ou null. */
+export default function DailyChart({ quotes, currency, symbol, strategy = null }) {
   const [range, setRange] = useState('1A');
   const [selected, setSelected] = useState(readSelection);
   const [showTable, setShowTable] = useState(false);
@@ -139,7 +140,8 @@ export default function DailyChart({ quotes, currency, symbol, strategy = false 
 
   // O momento é calculado sobre todo o histórico carregado e só depois recortado ao período.
   const mom = useMemo(() => momentum(quotes), [quotes]);
-  const strategyResult = useMemo(() => (strategy ? backtest(quotes, mom) : null), [strategy, quotes, mom]);
+  const strat = getStrategy(strategy);
+  const strategyResult = useMemo(() => (strat ? strat.run(quotes, { mom }) : null), [strat, quotes, mom]);
   const data = useMemo(() => {
     if (!quotes.length) return [];
     const from = cutoff(quotes.at(-1).date, RANGES.find((r) => r.value === range).months);
@@ -278,7 +280,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = false 
         </section>
       )}
 
-      {strategyResult && <StrategyPanel result={strategyResult} currency={currency || 'EUR'} symbol={symbol} />}
+      {strategyResult && <StrategyPanel strategy={strat} result={strategyResult} currency={currency || 'EUR'} symbol={symbol} />}
 
       <p className="small muted">
         Eixo vertical em {currency || 'EUR'} (fecho ajustado); a escala não começa em zero. As médias são calculadas sobre o fecho ajustado.

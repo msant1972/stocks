@@ -7,6 +7,8 @@ import { PnL } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Segmented } from '../../components/ui/controls.jsx';
 import SortHeader, { nextSort } from '../../components/ui/SortHeader.jsx';
+import StrategySelect from '../../components/finance/StrategySelect.jsx';
+import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
 
 const SORT_DEFAULT_DIR = { symbol: 'asc', total: 'desc', totalPct: 'desc', closed: 'desc', winRate: 'desc', buyHoldPnl: 'desc', edge: 'desc' };
 
@@ -52,6 +54,7 @@ function Stat({ label, value, hint, tone }) {
 export default function BacktestPage() {
   const [params, setParams] = useSearchParams();
   const scope = params.get('lista') === '1' ? 'watchlist' : 'all';
+  const strategyId = getStrategy(params.get('estrategia')) ? params.get('estrategia') : DEFAULT_STRATEGY_ID;
   const [q, setQ] = useState('');
   const sort = { key: SORT_DEFAULT_DIR[params.get('ordem')] ? params.get('ordem') : 'total', dir: params.get('sentido') === 'asc' ? 'asc' : params.get('sentido') === 'desc' ? 'desc' : null };
   if (!sort.dir) sort.dir = SORT_DEFAULT_DIR[sort.key];
@@ -65,7 +68,11 @@ export default function BacktestPage() {
     setParam(s.key === 'total' && s.dir === 'desc' ? { ordem: null, sentido: null } : { ordem: s.key, sentido: s.dir });
   };
 
-  const bt = useQuery({ queryKey: ['backtest', scope], queryFn: () => api.get(`/backtest?scope=${scope}`), staleTime: 5 * 60_000 });
+  const bt = useQuery({
+    queryKey: ['backtest', strategyId, scope],
+    queryFn: () => api.get(`/backtest?strategy=${strategyId}&scope=${scope}`),
+    staleTime: 5 * 60_000,
+  });
   const items = bt.data?.items;
 
   const stats = useMemo(() => {
@@ -93,12 +100,15 @@ export default function BacktestPage() {
         <div>
           <h1 className="page-title">BackTest</h1>
           <p className="page-sub">
-            A estratégia de momento aplicada a cada instrumento nos últimos 2 anos, para ver onde funciona e onde não funciona.
+            Uma estratégia aplicada a cada instrumento nos últimos 2 anos, para ver onde funciona e onde não funciona.
             Simulação no histórico, sem comissões; não altera a carteira virtual nem é uma recomendação.
           </p>
         </div>
-        <Segmented label="Instrumentos" value={scope} onChange={(v) => setParam({ lista: v === 'watchlist' ? '1' : null })}
-          options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />
+        <div className="row" style={{ alignItems: 'center' }}>
+          <StrategySelect value={strategyId} onChange={(id) => setParam({ estrategia: id === DEFAULT_STRATEGY_ID ? null : id })} />
+          <Segmented label="Instrumentos" value={scope} onChange={(v) => setParam({ lista: v === 'watchlist' ? '1' : null })}
+            options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />
+        </div>
       </div>
 
       {bt.isPending ? <section className="card"><Loading rows={8} label="A aplicar a estratégia a todos os instrumentos…" /></section>
@@ -119,13 +129,13 @@ export default function BacktestPage() {
                   <Stat label="Com perda" value={`${stats.losses}${pctOf(stats.losses, stats.traded)}`} tone="negative" />
                   <Stat label="Melhor que comprar e manter" value={`${stats.beat}${pctOf(stats.beat, stats.traded)}`} />
                   <Stat label="Soma dos resultados" value={<PnL value={stats.sum.toFixed(2)} />}
-                    hint={`${bt.data.budget.toLocaleString('pt-PT')} € por compra e por reforço`} />
+                    hint={bt.data.budget ? `${bt.data.budget.toLocaleString('pt-PT')} € por compra` : null} />
                 </div>
               </section>
 
               <section className="card" aria-labelledby="bt-table">
                 <div className="card-head">
-                  <h2 id="bt-table" className="card-title">Resultado por instrumento</h2>
+                  <h2 id="bt-table" className="card-title">Resultado por instrumento · {bt.data.strategy.name}</h2>
                   <span className="small muted">{rows.length} {rows.length === 1 ? 'instrumento' : 'instrumentos'}</span>
                 </div>
                 <div style={{ marginBottom: '1rem' }}>
@@ -154,7 +164,7 @@ export default function BacktestPage() {
                         return (
                           <tr key={i.instrumentId}>
                             <td>
-                              <Link to={`/instrumentos/${i.instrumentId}?estrategia=1`} className="row-link" title="Ver a estratégia no gráfico">{i.symbol}</Link>
+                              <Link to={`/instrumentos/${i.instrumentId}?estrategia=${strategyId}`} className="row-link" title="Ver a estratégia no gráfico">{i.symbol}</Link>
                               <div className="small muted">{[i.name, i.exchange].filter(Boolean).join(' · ')}</div>
                             </td>
                             <td className="r"><PnL value={i.total.toFixed(2)} /></td>
@@ -173,9 +183,7 @@ export default function BacktestPage() {
                   </table>
                 </div>
                 <p className="small muted" style={{ marginTop: '1rem' }}>
-                  Regras: compra de {bt.data.budget.toLocaleString('pt-PT')} € quando o SMA10/SMA200 desce-sobe-sobe; reforço de mais{' '}
-                  {bt.data.budget.toLocaleString('pt-PT')} € a cada +10% desde a última compra; venda quando sobe-desce-desce com o SMA8/SMA125
-                  abaixo de 1%; sinais ignorados com o SMA10/SMA200 entre −1% e +1%. Execução ao fecho da sessão do sinal. Calculado às{' '}
+                  {bt.data.strategy.name}: {bt.data.strategy.rules} Calculado às{' '}
                   {f.dateTime(bt.data.computedAt)} com as cotações da última recolha. O símbolo abre o gráfico com a estratégia aplicada.
                 </p>
               </section>

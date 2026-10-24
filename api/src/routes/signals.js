@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { momentum } from '../../../shared/momentum.js';
-import { backtest } from '../../../shared/strategy.js';
+import { getStrategy } from '../../../shared/strategies/index.js';
+
+// Os sinais são os da A-Momentum (a estratégia que gera compras, reforços e vendas por sessão).
+const STRATEGY = getStrategy('a-momentum');
 import { IsoDate } from '../schemas.js';
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
@@ -16,7 +19,7 @@ const Signal = z.object({
 });
 
 /**
- * Aplica a estratégia de momento (shared/strategy.js, a mesma do botão «Aplicar estratégia») a todos os
+ * Aplica a A-Momentum (shared/strategies/a-momentum.js, a mesma da página do instrumento) a todos os
  * instrumentos activos, com todo o histórico, e devolve por instrumento a lista de sinais com a posição.
  */
 async function computeAll(pool) {
@@ -36,7 +39,7 @@ async function computeAll(pool) {
   const out = [];
   for (const inst of byInstrument.values()) {
     const mom = momentum(inst.quotes);
-    const result = backtest(inst.quotes, mom);
+    const result = STRATEGY.run(inst.quotes, { mom });
     out.push({ ...inst, mom, signals: result.signals });
   }
   return out;

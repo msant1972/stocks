@@ -4,7 +4,9 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { usePortfolio } from '../../lib/queries.js';
-import { NEUTRAL_BAND, REINFORCE_GAIN, SELL_MAX_WAVE125, STRATEGY_BUDGET } from '../../lib/strategy.js';
+import { getStrategy, STRATEGY_BUDGET } from '../../lib/strategy.js';
+
+const A_MOMENTUM = getStrategy('a-momentum');
 import { PriceChange } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Field, Notice, Segmented } from '../../components/ui/controls.jsx';
@@ -47,7 +49,7 @@ export default function SignalsPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Sinais</h1>
-          <p className="page-sub">Compras, reforços e vendas da estratégia de momento aplicada virtualmente a todos os instrumentos.</p>
+          <p className="page-sub">Compras, reforços e vendas da estratégia A-Momentum aplicada virtualmente a todos os instrumentos.</p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <Link className="button mobile-only-inline" to="/backtest">BackTest</Link>
@@ -72,9 +74,7 @@ export default function SignalsPage() {
 
       <div className="stack">
         <Notice>
-          Regras: compra {f.money(STRATEGY_BUDGET, 'EUR', 0)} quando o SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a subir»;
-          reforça quando o fecho sobe mais de {REINFORCE_GAIN}% face à última compra; vende quando tem uma sessão «a subir» seguida de duas
-          «a descer» e o SMA8/SMA125 está abaixo de {SELL_MAX_WAVE125}%. Sinais ignorados com o SMA10/SMA200 entre −{NEUTRAL_BAND}% e +{NEUTRAL_BAND}%.
+          Estratégia {A_MOMENTUM.name}: {A_MOMENTUM.rules}
           Os sinais resultam de uma simulação sobre dados diários; não são recomendações de investimento. Os botões abrem uma operação na sua carteira virtual.
         </Notice>
 

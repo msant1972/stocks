@@ -4580,17 +4580,61 @@ paths:
                   - latestSession
                   - items
                 additionalProperties: false
-  /api/v1/backtest:
+  /api/v1/strategies:
     get:
-      summary: Resultado da estratégia de momento em cada instrumento, nos últimos 2
-        anos
+      summary: Estratégias registadas (as não disponíveis estão em preparação)
       tags:
         - Estratégia
-      description: Compras de 15000 € (descer-subir-subir do SMA10/SMA200), reforços a
-        +10% desde a última compra, venda com subir-descer-descer e SMA8/SMA125
-        < 1%; sinais ignorados na zona neutra (±1%). Posições abertas avaliadas
-        ao último fecho. Simulação no histórico, sem comissões; não altera a
-        carteira nem é recomendação.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  defaultId:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        available:
+                          type: boolean
+                        summary:
+                          type: string
+                        rules:
+                          type: string
+                      required:
+                        - id
+                        - name
+                        - available
+                        - summary
+                        - rules
+                      additionalProperties: false
+                required:
+                  - defaultId
+                  - items
+                additionalProperties: false
+  /api/v1/backtest:
+    get:
+      summary: Resultado de uma estratégia em cada instrumento, nos últimos 2 anos
+      tags:
+        - Estratégia
+      description: "Estratégias disponíveis: a-momentum (A-Momentum: Compra 15 000 €
+        quando o SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a
+        subir»; reforça com mais 15 000 € sempre que o fecho sobe mais de 10%
+        face à compra mais recente; vende tudo após uma «a subir» seguida de
+        duas «a descer», mas só com o SMA8/SMA125 abaixo de 1%. Sinais ignorados
+        com o SMA10/SMA200 entre −1% e +1%. Executa ao fecho da sessão do sinal,
+        uma posição de cada vez, sem comissões.) Posições abertas avaliadas ao
+        último fecho. Simulação no histórico; não altera a carteira nem é
+        recomendação."
       parameters:
         - schema:
             default: all
@@ -4601,6 +4645,14 @@ paths:
           in: query
           name: scope
           required: false
+        - schema:
+            default: a-momentum
+            type: string
+            enum:
+              - a-momentum
+          in: query
+          name: strategy
+          required: false
       responses:
         "200":
           description: Default Response
@@ -4609,9 +4661,30 @@ paths:
               schema:
                 type: object
                 properties:
+                  strategy:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      available:
+                        type: boolean
+                      summary:
+                        type: string
+                      rules:
+                        type: string
+                    required:
+                      - id
+                      - name
+                      - available
+                      - summary
+                      - rules
+                    additionalProperties: false
                   years:
                     type: number
                   budget:
+                    nullable: true
                     type: number
                   computedAt:
                     type: string
@@ -4692,6 +4765,7 @@ paths:
                         - buyHoldPct
                       additionalProperties: false
                 required:
+                  - strategy
                   - years
                   - budget
                   - computedAt

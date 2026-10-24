@@ -91,3 +91,17 @@ test('só vende com o SMA8/SMA125 abaixo de 1%', () => {
   assert.equal(r.trades.length, 1);
   assert.deepEqual([r.trades[0].sellDate, r.trades[0].sellPrice], ['2026-01-11', 10.5]);
 });
+
+test('registo de estratégias: A-Momentum disponível e igual ao backtest; B-Opus em preparação', async () => {
+  const { STRATEGIES, getStrategy, DEFAULT_STRATEGY_ID } = await import('../src/lib/strategy.js');
+  const { momentum } = await import('../src/lib/momentum.js');
+  assert.deepEqual(STRATEGIES.map((s) => [s.id, s.name, s.available]), [['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', false]]);
+  assert.equal(DEFAULT_STRATEGY_ID, 'a-momentum');
+  assert.equal(getStrategy('b-opus'), null);
+  assert.equal(getStrategy('x'), null);
+  const quotes = Array.from({ length: 300 }, (_, k) => {
+    const close = 50 + 10 * Math.sin(k / 15);
+    return { date: `2025-${String(1 + Math.floor(k / 28) % 12).padStart(2, '0')}-${String(1 + (k % 28)).padStart(2, '0')}`, close, adjClose: close, sma10: close, sma125: 50, sma200: 50 };
+  });
+  assert.deepEqual(getStrategy('a-momentum').run(quotes), backtest(quotes, momentum(quotes)));
+});
