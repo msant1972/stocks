@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, Loading } from '../../components/feedback/state
 import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
+import SortHeader, { nextSort } from '../../components/ui/SortHeader.jsx';
 import AddInstrumentsDialog from './AddInstrumentsDialog.jsx';
 
 const ISIN_MIC_RE = /^[A-Z]{2}[A-Z0-9]{9}[0-9]-[A-Z0-9]{4}$/;
@@ -111,11 +112,6 @@ const store = (key, value) => { try { localStorage.setItem(key, value); } catch 
 const SORT_DEFAULT_DIR = { symbol: 'asc', volume: 'desc', change: 'desc', imbalance: 'desc' };
 const SERVER_SORTS = ['symbol', 'volume', 'change'];
 
-/** Próxima ordenação ao clicar num cabeçalho: a mesma coluna inverte, outra começa no sentido habitual. */
-const nextSort = (sort, key) => (sort.key === key
-  ? { key, dir: sort.dir === 'asc' ? 'desc' : 'asc' }
-  : { key, dir: SORT_DEFAULT_DIR[key] });
-
 /** Ordena localmente; os instrumentos sem valor ficam sempre no fim. */
 function sortItems(items, { key, dir }, summary) {
   const value = {
@@ -134,19 +130,6 @@ function sortItems(items, { key, dir }, summary) {
   });
 }
 
-function SortHeader({ label, sortKey, sort, onSort, align, title }) {
-  const active = sort.key === sortKey;
-  const ariaSort = active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
-  return (
-    <th scope="col" className={align === 'r' ? 'r' : undefined} aria-sort={ariaSort} title={title}>
-      <button type="button" className={`sort-button${active ? ' active' : ''}`} onClick={() => onSort(nextSort(sort, sortKey))}>
-        {label}
-        <span className="sort-arrow" aria-hidden="true">{active ? (sort.dir === 'asc' ? '▲' : '▼') : '↕'}</span>
-      </button>
-    </th>
-  );
-}
-
 /**
  * clientKeys: colunas ordenadas aqui, sobre as linhas recebidas (as restantes já vêm ordenadas do servidor).
  */
@@ -155,7 +138,7 @@ function InstrumentTable({ items, action, sort: requested, onSort, clientKeys = 
   const summary = useOrderbookSummary(items, showBook);
   const sort = !showBook && requested.key === 'imbalance' ? { key: 'symbol', dir: 'asc' } : requested;
   const rows = clientKeys.includes(sort.key) ? sortItems(items, sort, summary) : items;
-  const header = (label, key, extra) => <SortHeader label={label} sortKey={key} sort={sort} onSort={onSort} {...extra} />;
+  const header = (label, key, extra) => <SortHeader label={label} sortKey={key} sort={sort} onSort={(k) => onSort(nextSort(sort, k, SORT_DEFAULT_DIR))} {...extra} />;
   return (
     <>
     {note && sort.key === 'imbalance' && <p className="small muted" style={{ marginBottom: '0.5rem' }}>{note}</p>}

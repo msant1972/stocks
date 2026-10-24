@@ -287,6 +287,14 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - «Comprar» abre a operação com a quantidade que cabe em 15 000 € ao último fecho; «Vender» abre-a com todas as unidades em carteira. A quantidade continua editável e o modal mostra uma nota com a origem do valor.
 - Aviso com as regras e a indicação de que são resultados de uma simulação, não recomendações.
 
+### 5.11a. BackTest
+
+- Resumo: instrumentos com operações, com ganho e com perda (número e %), melhor que comprar e manter, soma dos resultados (com o orçamento por compra).
+- Filtro «Todos / A minha lista» e pesquisa por símbolo ou designação.
+- Tabela ordenável (resultado em € por omissão, do maior para o menor): instrumento, resultado, %, operações (reforços entre parênteses), acerto (ganhos/fechadas e %), posição aberta, comprar e manter (€ e %), diferença. Ordenação no endereço (`?ordem=edge&sentido=desc`).
+- O símbolo abre a página do instrumento com a estratégia aplicada (`?estrategia=1`), para ver as operações no gráfico.
+- Texto com as regras, a hora do cálculo e o aviso de simulação. Em telemóvel, acesso pelo botão «BackTest» em Sinais.
+
 ### 5.12. Utilizadores
 
 Só para administradores (o menu não aparece aos restantes):

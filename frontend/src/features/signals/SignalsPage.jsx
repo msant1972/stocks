@@ -50,6 +50,7 @@ export default function SignalsPage() {
           <p className="page-sub">Compras, reforços e vendas da estratégia de momento aplicada virtualmente a todos os instrumentos.</p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end' }}>
+          <Link className="button mobile-only-inline" to="/backtest">BackTest</Link>
           <Segmented label="Tipo de sinal" value={side} onChange={(v) => setParam('tipo', v, 'all')}
             options={[
               { value: 'all', label: `Todos${q.data ? ` (${all.length})` : ''}` },

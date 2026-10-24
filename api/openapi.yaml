@@ -4580,5 +4580,122 @@ paths:
                   - latestSession
                   - items
                 additionalProperties: false
+  /api/v1/backtest:
+    get:
+      summary: Resultado da estratégia de momento em cada instrumento, nos últimos 2
+        anos
+      tags:
+        - Estratégia
+      description: Compras de 15000 € (descer-subir-subir do SMA10/SMA200), reforços a
+        +10% desde a última compra, venda com subir-descer-descer e SMA8/SMA125
+        < 1%; sinais ignorados na zona neutra (±1%). Posições abertas avaliadas
+        ao último fecho. Simulação no histórico, sem comissões; não altera a
+        carteira nem é recomendação.
+      parameters:
+        - schema:
+            default: all
+            type: string
+            enum:
+              - all
+              - watchlist
+          in: query
+          name: scope
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  years:
+                    type: number
+                  budget:
+                    type: number
+                  computedAt:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        exchange:
+                          nullable: true
+                          type: string
+                        fromDate:
+                          nullable: true
+                          description: Primeira sessão com estado do momento conhecido
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                        toDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        sessions:
+                          type: number
+                        closed:
+                          type: number
+                        wins:
+                          type: number
+                        reinforcements:
+                          type: number
+                        openPosition:
+                          type: boolean
+                        peakCost:
+                          type: number
+                          description: Capital máximo investido em simultâneo
+                        realized:
+                          type: number
+                          description: EUR, 2 casas
+                        unrealized:
+                          type: number
+                          description: EUR, 2 casas
+                        total:
+                          type: number
+                          description: EUR, 2 casas
+                        totalPct:
+                          type: number
+                          description: Total sobre o capital máximo investido, em %
+                        buyHoldPnl:
+                          nullable: true
+                          type: number
+                          description: EUR, 2 casas
+                        buyHoldPct:
+                          nullable: true
+                          type: number
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - exchange
+                        - fromDate
+                        - toDate
+                        - sessions
+                        - closed
+                        - wins
+                        - reinforcements
+                        - openPosition
+                        - peakCost
+                        - realized
+                        - unrealized
+                        - total
+                        - totalPct
+                        - buyHoldPnl
+                        - buyHoldPct
+                      additionalProperties: false
+                required:
+                  - years
+                  - budget
+                  - computedAt
+                  - items
+                additionalProperties: false
 security:
   - session: []

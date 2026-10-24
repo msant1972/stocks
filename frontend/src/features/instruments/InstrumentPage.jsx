@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useParams, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
@@ -22,7 +22,9 @@ export default function InstrumentPage() {
   const toast = useToast();
   const [trading, setTrading] = useState(false);
   const [alerting, setAlerting] = useState(false);
-  const [strategy, setStrategy] = useState(false);
+  const [params] = useSearchParams();
+  // ?estrategia=1 (ex.: a partir do BackTest) abre a página com a estratégia aplicada.
+  const [strategy, setStrategy] = useState(params.get('estrategia') === '1');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 

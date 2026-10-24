@@ -13,6 +13,7 @@ import PortfolioPage from '../features/portfolio/PortfolioPage.jsx';
 import TradesPage from '../features/trades/TradesPage.jsx';
 import AlertsPage from '../features/alerts/AlertsPage.jsx';
 import SignalsPage from '../features/signals/SignalsPage.jsx';
+import BacktestPage from '../features/backtest/BacktestPage.jsx';
 import SettingsPage from '../features/settings/SettingsPage.jsx';
 import UsersPage from '../features/users/UsersPage.jsx';
 
@@ -23,7 +24,7 @@ function RequireSession({ children }) {
     return <div className="login-wrap" role="status"><span className="muted">A carregar…</span></div>;
   }
   // Sem sessão, ou com a autenticação em dois passos por concluir: o ecrã de entrada trata do passo em falta.
-  if (me.isError || !me.data || me.data.mfa.pending) return <Navigate to="/entrar" replace state={{ from: location.pathname }} />;
+  if (me.isError || !me.data || me.data.mfa.pending) return <Navigate to="/entrar" replace state={{ from: location.pathname + location.search }} />;
   return children;
 }
 
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="carteira" element={<PortfolioPage />} />
           <Route path="operacoes" element={<TradesPage />} />
           <Route path="sinais" element={<SignalsPage />} />
+          <Route path="backtest" element={<BacktestPage />} />
           <Route path="alertas" element={<AlertsPage />} />
           <Route path="utilizadores" element={<UsersPage />} />
           <Route path="definicoes" element={<SettingsPage />} />
