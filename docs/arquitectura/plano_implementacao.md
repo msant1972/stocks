@@ -110,6 +110,12 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US16 | Gestão de utilizadores | — | Feito |
 | US17 | Configuração SMTP na interface | — | Feito |
 | US18 | Sinais da estratégia em todos os instrumentos | — | Feito |
+| US20 | Registo de estratégias e estratégia A-Momentum com filtro de tendência e protecção dos reforços | — | Feito |
+| US21 | Módulo BackTest | — | Feito |
+| US22 | Estratégia B-Opus (especificação, implementação e versão B) | — | Feito |
+| US23 | Estratégia C-AI (especificação a partir da análise do catálogo e implementação) | — | Feito |
+| US24 | Módulo WinnersLoosers | — | Feito |
+| US25 | Módulo Promessas | — | Feito (regra validada em 5 janelas; revalidar à medida que o histórico cresce) |
 | US19 | ISIN-MIC no catálogo e módulo Orderbook | — | Feito; ISIN-MIC preenchido a 20 out. 2026 a partir de `ISIN.xlsx` em 162 dos 171 instrumentos Euronext (faltam 9 que não constam do ficheiro) |
 
 ## 6. Testes
@@ -138,6 +144,8 @@ O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pul
 | Perda da chave de cifra | Chave criada uma vez e nunca substituída | Aceite: perdê-la obriga a reintroduzir a palavra-passe SMTP |
 | Desenvolvimento no servidor de produção | Base de testes separada; publicação só com `install.sh` | Pendente: ambiente de testes separado |
 | Aumento do âmbito | Alterações pequenas, com testes e commit por funcionalidade | Em curso |
+| Memória da API em cálculos sobre o catálogo | Um instrumento de cada vez, cálculos partilhados entre pedidos, cache só do necessário | Resolvido a 24 out. 2026 (incidente 502); medir antes de cada novo módulo deste tipo |
+| Estratégias e Promessas ajustadas a um período curto | Separação por ano e validação fora da amostra; avisos na interface | Aceite: só 3 anos de dados (2 simulados); revalidar com mais histórico |
 
 ## 8. Próximos passos
 
@@ -152,10 +160,12 @@ Concluído a 18 out. 2026 (SMTP, carteira a 1 M€, cópia externa e restauro). 
 6. Contas de BD por componente (API e motores com permissões mínimas).
 7. Alerta operacional ao administrador quando a recolha diária ou os alertas falham (`job_runs` em `failed`).
 8. Medição de desempenho com o volume real e registo dos controlos OWASP ASVS aplicados.
+9. Teste automático de memória para os cálculos sobre todo o catálogo (BackTest, WinnersLoosers, Promessas, Sinais) com um heap limitado.
 
 ### P2 — evolução funcional (a decidir com o responsável funcional)
 
-9. Estratégia: opção de execução ao fecho do dia seguinte (mais realista), parâmetros configuráveis e aplicação a vários instrumentos de uma vez.
+9. Estratégias: comissões opcionais no BackTest, execução ao fecho do dia seguinte na A-Momentum (mais realista) e parâmetros configuráveis na interface.
+13. Promessas: revalidar a regra (e os valores da tabela de validação, hoje fixos na API) à medida que o histórico cresce; acompanhar o desempenho das listas publicadas.
 10. Histórico: períodos «5A» e «Tudo» no gráfico à medida que o histórico cresce.
 11. Simulação: comissões opcionais e tratamento de desdobramentos nas posições.
 12. Logótipos ou categorias por sector no HeatMap, se houver fonte com direitos de uso.

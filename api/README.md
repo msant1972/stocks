@@ -62,6 +62,8 @@ Códigos de saída: 0 OK, 2 argumentos inválidos, 3 sem dados ou não encontrad
   - a chave de idempotência impede operações duplicadas;
   - se a cotação mudou desde a pré-visualização, a API responde `409 PRICE_CHANGED`.
 - **Valores monetários:** circulam como strings decimais e são calculados com BigInt, sem passar por vírgula flutuante.
+- **Estratégias e análises** (`src/routes/backtest.js`, `src/routes/signals.js`): o código das estratégias está em `shared/strategies/` (registo em `index.js`). `GET /strategies`, `GET /backtest?strategy=`, `GET /winners-losers` e `GET /promessas` partilham os resultados do BackTest, guardados 10 minutos por estratégia; `GET /signals?strategy=` tem cache própria.
+- **Memória:** estes cálculos percorrem o catálogo **um instrumento de cada vez** (uma consulta por instrumento, cotações descartadas a seguir), calculam numa só passagem todas as estratégias em falta e servem pedidos simultâneos com o mesmo cálculo; a cache dos Sinais guarda só as últimas 20 sessões. Carregar todas as cotações de uma vez (cerca de 224 000 sessões por estratégia) esgotou o heap da API (cerca de 256 MB com `MemoryMax=512M`) a 24 out. 2026 e deu 502; com o modelo actual, o pico é de cerca de 44 MB com sete pedidos simultâneos. Qualquer novo cálculo sobre o catálogo deve seguir o mesmo modelo.
 
 ## Testes
 

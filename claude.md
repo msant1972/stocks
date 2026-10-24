@@ -10,9 +10,11 @@ A negociação é exclusivamente simulada: não há operações com dinheiro rea
 |---|---|---|
 | `frontend/` | Interface | React |
 | `api/` | Middleware / API | Node.js |
+| `shared/` | Cálculos partilhados pela interface e pela API: momento, estratégias (A-Momentum, B-Opus, C-AI) e Promessas | JavaScript |
 | `db/` | Esquema e migrações | MariaDB |
 | `engines/fetcher/` | Motor de recolha de cotações | Python (yfinance) |
 | `engines/alerts/` | Motor de alertas por email | Python |
+| `scripts/` | Análises fora da aplicação (ex.: ablação da B-Opus) | Node.js |
 
 ## Documentação
 
@@ -20,5 +22,8 @@ A negociação é exclusivamente simulada: não há operações com dinheiro rea
 - [Plano de implementação](docs/arquitectura/plano_implementacao.md)
 - [Guia de estilos UI/UX](docs/arquitectura/guia_estilos.md)
 - [Análise e decisões](docs/arquitectura/analise_e_decisoes.md)
+- Especificações: [livro de ofertas](docs/arquitectura/orderbook-spec.md), [estratégia B-Opus](docs/arquitectura/B-Opus.md) (e [ablação](docs/arquitectura/b-opus-ablacao.md)), [estratégia C-AI](docs/arquitectura/C-AI.md), [Promessas](docs/arquitectura/promessas.md)
+
+Módulos da interface: Visão geral, Acompanhar, Orderbook, HeatMap, Carteira, Operações, Sinais, BackTest, WinnersLoosers, Promessas, Alertas, Utilizadores (administradores) e Definições.
 
 usar o /model opusplan

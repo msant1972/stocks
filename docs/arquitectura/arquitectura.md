@@ -363,6 +363,7 @@ Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e snapshots EBS do volume (cópia fora do servidor, geridos na AWS), com restauro testado pelo administrador.
 - **Fonte não oficial:** o yfinance pode mudar ou ser limitado pelo Yahoo; a versão está fixada e o adaptador é substituível.
 - **Ambientes:** desenvolvimento e produção partilham o servidor e a base `stocks`; os testes usam a base `stocks_test`.
+- **Memória da API:** o serviço tem `MemoryMax=512M` (heap do Node de cerca de 256 MB). A 24 out. 2026, o WinnersLoosers calculava as três estratégias em paralelo com todas as cotações em memória, esgotou o heap e a API reiniciou em ciclo (502) durante alguns minutos. Corrigido: o BackTest, o WinnersLoosers, as Promessas e os Sinais percorrem o catálogo um instrumento de cada vez e partilham os cálculos entre pedidos simultâneos (pico medido de 44 MB com sete pedidos em simultâneo). Novos cálculos sobre todo o catálogo devem seguir o mesmo modelo.
 
 ## 8. Critérios de aceitação
 
