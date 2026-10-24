@@ -19,48 +19,46 @@ const Row = z.object({
 });
 
 /**
- * Aplica uma estratégia do registo (shared/strategies/, a mesma escolhida na página do instrumento) a cada
- * instrumento activo, sobre os mesmos dados que essa página carrega: os últimos windowYears anos até à última
- * sessão do instrumento, mais os warmupYears de aquecimento que a estratégia pedir (a estratégia só actua a
- * partir do início da janela). Por isso os valores coincidem com os do gráfico.
+ * Aplica estratégias do registo (shared/strategies/, as mesmas da página do instrumento) a cada instrumento
+ * activo, sobre os mesmos dados que essa página carrega: os últimos windowYears anos até à última sessão do
+ * instrumento, mais os warmupYears de aquecimento que cada estratégia pedir (a estratégia só actua a partir do
+ * início da janela). Por isso os valores coincidem com os do gráfico.
+ *
+ * Processa um instrumento de cada vez (uma consulta por instrumento, com as cotações descartadas a seguir), para
+ * a memória não crescer com o catálogo: carregar todas as cotações de uma vez esgotava a memória da API.
+ * Devolve Map(id da estratégia → linhas).
  */
-async function computeAll(pool, strategy) {
-  const histYears = strategy.windowYears + strategy.warmupYears;
-  const [rows] = await pool.query(
-    `SELECT q.instrument_id, i.symbol, i.name, i.exchange, i.last_session, q.session_date AS date,
-            q.open, q.high, q.low, q.close, q.adj_close AS adjClose, q.volume, q.sma10, q.sma125, q.sma200
-       FROM daily_quotes q JOIN instruments i ON i.id = q.instrument_id
-      WHERE i.status = 'active' AND q.session_date >= i.last_session - INTERVAL ${histYears} YEAR - INTERVAL 1 DAY
-      ORDER BY q.instrument_id, q.session_date`,
+async function computeStrategies(pool, strategies) {
+  const histYears = Math.max(...strategies.map((st) => st.windowYears + st.warmupYears));
+  const [instruments] = await pool.query(
+    "SELECT id, symbol, name, exchange, last_session FROM instruments WHERE status = 'active' AND last_session IS NOT NULL ORDER BY id",
   );
-  const byInstrument = new Map();
-  for (const r of rows) {
-    const id = Number(r.instrument_id);
-    if (!byInstrument.has(id)) {
-      byInstrument.set(id, {
-        id, symbol: r.symbol, name: r.name, exchange: r.exchange, quotes: [],
-        histFrom: yearsBefore(r.last_session, histYears), from: yearsBefore(r.last_session, strategy.windowYears),
+  const out = new Map(strategies.map((st) => [st.id, []]));
+  for (const inst of instruments) {
+    const [quotes] = await pool.query(
+      `SELECT session_date AS date, open, high, low, close, adj_close AS adjClose, volume, sma10, sma125, sma200
+         FROM daily_quotes WHERE instrument_id = ? AND session_date >= ? ORDER BY session_date`,
+      [inst.id, yearsBefore(inst.last_session, histYears)],
+    );
+    for (const st of strategies) {
+      const histFrom = yearsBefore(inst.last_session, st.windowYears + st.warmupYears);
+      const from = yearsBefore(inst.last_session, st.windowYears);
+      const q = quotes.filter((r) => r.date >= histFrom); // a mesma janela que GET /instruments/{id}/quotes?from=
+      if (!q.length) continue;
+      const r = st.run(q, { from });
+      const s = r.summary;
+      out.get(st.id).push({
+        instrumentId: Number(inst.id), symbol: inst.symbol, name: inst.name, exchange: inst.exchange,
+        fromDate: r.firstDate, toDate: q.at(-1).date, sessions: q.filter((x) => x.date >= from).length,
+        closed: s.closed, wins: s.wins, reinforcements: s.reinforcements, openPosition: r.open != null,
+        peakCost: s.peakCost, realized: s.realized, unrealized: s.unrealized, total: s.total,
+        totalPct: Math.round(s.totalPct * 100) / 100,
+        buyHoldPnl: s.buyHold?.pnl ?? null,
+        buyHoldPct: s.buyHold ? Math.round(s.buyHold.pnlPct * 100) / 100 : null,
       });
     }
-    const inst = byInstrument.get(id);
-    if (r.date >= inst.histFrom) inst.quotes.push(r); // a mesma janela que GET /instruments/{id}/quotes?from=
   }
-  const items = [];
-  for (const inst of byInstrument.values()) {
-    if (!inst.quotes.length) continue;
-    const r = strategy.run(inst.quotes, { from: inst.from });
-    const s = r.summary;
-    items.push({
-      instrumentId: inst.id, symbol: inst.symbol, name: inst.name, exchange: inst.exchange,
-      fromDate: r.firstDate, toDate: inst.quotes.at(-1).date, sessions: inst.quotes.filter((q) => q.date >= inst.from).length,
-      closed: s.closed, wins: s.wins, reinforcements: s.reinforcements, openPosition: r.open != null,
-      peakCost: s.peakCost, realized: s.realized, unrealized: s.unrealized, total: s.total,
-      totalPct: Math.round(s.totalPct * 100) / 100,
-      buyHoldPnl: s.buyHold?.pnl ?? null,
-      buyHoldPct: s.buyHold ? Math.round(s.buyHold.pnlPct * 100) / 100 : null,
-    });
-  }
-  return items;
+  return out;
 }
 
 export default async function backtestRoutes(app, { pool }) {
@@ -123,7 +121,8 @@ export default async function backtestRoutes(app, { pool }) {
       },
     },
   }, async (req) => {
-    const entries = await Promise.all(AVAILABLE_STRATEGIES.map(async (st) => [st, await results(st)]));
+    const computed = await ensure(AVAILABLE_STRATEGIES);
+    const entries = AVAILABLE_STRATEGIES.map((st, k) => [st, computed[k]]);
     const byId = new Map();
     for (const [st, entry] of entries) {
       for (const it of entry.items) {
@@ -150,15 +149,26 @@ export default async function backtestRoutes(app, { pool }) {
     };
   });
 
-  /** Resultados de uma estratégia em todos os instrumentos, com cache de 10 minutos. */
-  async function results(strategy) {
-    let entry = cache.get(strategy.id);
-    if (!entry || Date.now() - entry.at > CACHE_MS) {
-      entry = { at: Date.now(), items: await computeAll(pool, strategy) };
-      cache.set(strategy.id, entry);
-    }
-    return entry;
+  /**
+   * Resultados das estratégias em todos os instrumentos, com cache de 10 minutos. As que faltam são calculadas
+   * numa só passagem pelo catálogo; pedidos simultâneos partilham o mesmo cálculo (sem cálculos em paralelo).
+   */
+  let running = Promise.resolve();
+  function ensure(strategies) {
+    const fresh = (st) => { const e = cache.get(st.id); return e && Date.now() - e.at <= CACHE_MS; };
+    const job = running.then(async () => {
+      const missing = strategies.filter((st) => !fresh(st));
+      if (missing.length) {
+        const at = Date.now();
+        const computed = await computeStrategies(pool, missing);
+        for (const st of missing) cache.set(st.id, { at, items: computed.get(st.id) });
+      }
+      return strategies.map((st) => cache.get(st.id));
+    });
+    running = job.catch(() => {});
+    return job;
   }
+  const results = async (strategy) => (await ensure([strategy]))[0];
 
   async function onlyWatchlist(userId, items) {
     const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [userId]);
