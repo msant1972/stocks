@@ -108,6 +108,25 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
     expect(sig.items.every((x) => ['buy', 'add', 'sell'].includes(x.side))).toBe(true);
   });
 
+  it('WinnersLoosers: agrupa pelos resultados das três estratégias, iguais aos do BackTest', async () => {
+    const wl = (await ana.get('/winners-losers')).json();
+    expect(wl.strategies.map((x) => x.id)).toEqual(['a-momentum', 'b-opus', 'c-ai']);
+    const per = {};
+    for (const st of wl.strategies) per[st.id] = (await ana.get(`/backtest?strategy=${st.id}`)).json().items;
+    for (const it of wl.items) {
+      const values = wl.strategies.map((st) => per[st.id].find((r) => r.instrumentId === it.instrumentId).total);
+      expect(Object.values(it.results)).toEqual(values);
+      const expected = values.every((v) => v > 0) ? 'gain' : values.every((v) => v < 0) ? 'loss' : 'mixed';
+      expect(it.group).toBe(expected);
+      expect(it.total).toBeCloseTo(values.reduce((a, b) => a + b, 0), 2);
+    }
+    expect(wl.counts.total).toBe(wl.items.length);
+    expect(wl.counts.gain + wl.counts.loss + wl.counts.mixed).toBe(wl.items.length);
+    expect((await ana.get('/winners-losers?scope=watchlist')).json().items.map((i) => i.symbol)).toEqual(
+      wl.items.filter((i) => i.symbol === 'ONDA.LS').map((i) => i.symbol),
+    );
+  });
+
   it('filtra pela lista do utilizador', async () => {
     const body = (await ana.get('/backtest?scope=watchlist')).json();
     expect(body.items.map((i) => i.symbol)).toEqual(['ONDA.LS']);

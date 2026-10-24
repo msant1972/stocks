@@ -295,6 +295,13 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - O símbolo abre a página do instrumento com a estratégia aplicada (`?estrategia=<id>`, com a mesma estratégia), para ver as operações no gráfico.
 - Texto com as regras, a hora do cálculo e o aviso de simulação. Em telemóvel, acesso pelo botão «BackTest» em Sinais.
 
+### 5.11b. WinnersLoosers
+
+- Resumo: quantos instrumentos ganham com todas as estratégias e quantos perdem com todas (com a soma), quantos têm resultados mistos e o orçamento por compra.
+- Filtro «Todos / A minha lista» (no endereço, `?lista=1`) e pesquisa por símbolo ou designação, aplicada às duas tabelas.
+- Duas tabelas, «Ganham com todas as estratégias» (ponto verde, ordenada do maior para o menor total) e «Perdem com todas as estratégias» (ponto vermelho, do maior prejuízo para o menor), ordenáveis por qualquer coluna: instrumento, total, uma coluna por estratégia disponível e comprar e manter.
+- O símbolo abre o instrumento; o resultado de cada estratégia abre o gráfico com essa estratégia aplicada. Em telemóvel, acesso pelo botão «WinnersLoosers» no BackTest.
+
 ### 5.12. Utilizadores
 
 Só para administradores (o menu não aparece aos restantes):

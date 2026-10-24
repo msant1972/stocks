@@ -23,6 +23,7 @@ const PATHS = {
   signals: 'M4 18l4-5 3 3 5-7 4 4M16 9h4v4',
   orderbook: 'M4 6h7M4 10h5M4 14h8M4 18h4M13 6h7M15 10h5M12 14h8M16 18h4',
   backtest: 'M3.5 12a8.5 8.5 0 1 0 2.5-6M3.5 4v4.5H8M8 15l3-3 2 2 3-4',
+  winners: 'M4 20V10m5 10V4m6 16v-7m5 7V8M3 20h18',
   heatmap: 'M3 4h10v9H3V4Zm12 0h6v5h-6V4Zm0 7h6v9h-6v-9ZM3 15h10v5H3v-5Z',
 };
 

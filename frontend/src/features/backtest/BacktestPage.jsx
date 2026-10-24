@@ -105,6 +105,7 @@ export default function BacktestPage() {
           </p>
         </div>
         <div className="row" style={{ alignItems: 'center' }}>
+          <Link className="button mobile-only-inline" to="/winners-loosers">WinnersLoosers</Link>
           <StrategySelect value={strategyId} onChange={(id) => setParam({ estrategia: id === DEFAULT_STRATEGY_ID ? null : id })} />
           <Segmented label="Instrumentos" value={scope} onChange={(v) => setParam({ lista: v === 'watchlist' ? '1' : null })}
             options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />

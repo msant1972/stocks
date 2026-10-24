@@ -4844,5 +4844,120 @@ paths:
                   - computedAt
                   - items
                 additionalProperties: false
+  /api/v1/winners-losers:
+    get:
+      summary: Instrumentos em que todas as estratégias disponíveis ganham, ou todas
+        perdem (últimos 2 anos)
+      tags:
+        - Estratégia
+      description: "Usa os mesmos resultados do BackTest (cache de 10 minutos por
+        estratégia). group: gain (todas com resultado positivo), loss (todas
+        negativo) ou mixed. Só entram os instrumentos com resultado em todas as
+        estratégias."
+      parameters:
+        - schema:
+            default: all
+            type: string
+            enum:
+              - all
+              - watchlist
+          in: query
+          name: scope
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  strategies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                      required:
+                        - id
+                        - name
+                      additionalProperties: false
+                  years:
+                    type: number
+                  budget:
+                    nullable: true
+                    type: number
+                  computedAt:
+                    type: string
+                  counts:
+                    type: object
+                    properties:
+                      gain:
+                        type: number
+                      loss:
+                        type: number
+                      mixed:
+                        type: number
+                      total:
+                        type: number
+                    required:
+                      - gain
+                      - loss
+                      - mixed
+                      - total
+                    additionalProperties: false
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        exchange:
+                          nullable: true
+                          type: string
+                        results:
+                          type: object
+                          additionalProperties:
+                            type: number
+                          description: Resultado de cada estratégia, por id
+                        total:
+                          type: number
+                        buyHoldPct:
+                          nullable: true
+                          description: Comprar e manter no mesmo período, em %
+                          type: number
+                        group:
+                          type: string
+                          enum:
+                            - gain
+                            - loss
+                            - mixed
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - exchange
+                        - results
+                        - total
+                        - buyHoldPct
+                        - group
+                      additionalProperties: false
+                required:
+                  - strategies
+                  - years
+                  - budget
+                  - computedAt
+                  - counts
+                  - items
+                additionalProperties: false
 security:
   - session: []

@@ -76,6 +76,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Configuração SMTP | Em Definições, com palavra-passe cifrada na BD e email de teste pelo motor de alertas |
 | Capital de 1 M€ | Valor por omissão das contas novas |
 | A-Momentum: filtro e protecção | Só compra com o preço acima da SMA200; com reforços, vende se o fecho cair mais de 15% abaixo do último reforço. Perdas dos 10 piores de −172 k€ para −48 k€; soma dos resultados de +4,8 M€ para +2,1 M€ |
+| WinnersLoosers | Página com os instrumentos em que as três estratégias ganham e em que as três perdem (24 out. 2026: 102 e 80), a partir dos resultados do BackTest |
 | Estratégia C-AI | Especificada a partir da análise de todos os instrumentos ([C-AI.md](C-AI.md)) e implementada: entrada acima da SMA200 com M2 > 0, stop chandelier de 5 × ATR, reforços a +10% só com M2 > 2 (até 5); +1 491 k€, 182 com ganho e 106 com perda |
 | Estratégia B-Opus | Tendência e momentum por instrumento (SMA50/SMA200, M1, M2, liquidez), decisão semanal, execução na abertura seguinte, reforços a +10% (até 5), stop chandelier de 4 × ATR (versão B, +841 k€ contra +126 k€ das regras originais); no instrumento, BackTest e Sinais; ablação em `b-opus-ablacao.md` |
 | Registo de estratégias | A estratégia passa a chamar-se A-Momentum; menu «Estratégia» (Nenhuma, A-Momentum) no instrumento e no BackTest; B-Opus registada como «em preparação» |
@@ -114,7 +115,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 
 | Componente | Ferramenta | Testes |
 |---|---|---|
-| API | Vitest contra a base `stocks_test` | 101 (+1 de contrato com rede, opcional) |
+| API | Vitest contra a base `stocks_test` | 102 (+1 de contrato com rede, opcional) |
 | Motor de recolha | pytest, fornecedor simulado | 22 |
 | Motor de alertas | pytest, mailer simulado | 18 |
 | Frontend (cálculos) | `node --test` | 30 |

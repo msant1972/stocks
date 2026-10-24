@@ -14,6 +14,7 @@ import TradesPage from '../features/trades/TradesPage.jsx';
 import AlertsPage from '../features/alerts/AlertsPage.jsx';
 import SignalsPage from '../features/signals/SignalsPage.jsx';
 import BacktestPage from '../features/backtest/BacktestPage.jsx';
+import WinnersLosersPage from '../features/winners/WinnersLosersPage.jsx';
 import SettingsPage from '../features/settings/SettingsPage.jsx';
 import UsersPage from '../features/users/UsersPage.jsx';
 
@@ -43,6 +44,7 @@ export default function App() {
           <Route path="operacoes" element={<TradesPage />} />
           <Route path="sinais" element={<SignalsPage />} />
           <Route path="backtest" element={<BacktestPage />} />
+          <Route path="winners-loosers" element={<WinnersLosersPage />} />
           <Route path="alertas" element={<AlertsPage />} />
           <Route path="utilizadores" element={<UsersPage />} />
           <Route path="definicoes" element={<SettingsPage />} />

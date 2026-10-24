@@ -15,6 +15,7 @@ const NAV = [
   { to: '/operacoes', label: 'Operações', icon: 'trades' },
   { to: '/sinais', label: 'Sinais', icon: 'signals' },
   { to: '/backtest', label: 'BackTest', icon: 'backtest' },
+  { to: '/winners-loosers', label: 'WinnersLoosers', icon: 'winners' },
   { to: '/alertas', label: 'Alertas', icon: 'alerts' },
   { to: '/utilizadores', label: 'Utilizadores', icon: 'users', admin: true },
   { to: '/definicoes', label: 'Definições', icon: 'settings' },
