@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AVAILABLE_STRATEGIES, DEFAULT_STRATEGY_ID, getStrategy, STRATEGIES } from '../../../shared/strategies/index.js';
 import { IsoDate } from '../schemas.js';
 import { yearsBefore } from './instruments.js';
+import * as promessas from '../../../shared/promessas.js';
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
 
@@ -146,6 +147,71 @@ export default async function backtestRoutes(app, { pool }) {
       years: AVAILABLE_STRATEGIES[0].windowYears, budget: AVAILABLE_STRATEGIES[0].budget, computedAt: new Date(oldest).toISOString(),
       counts: { gain: count('gain'), loss: count('loss'), mixed: count('mixed'), total: items.length },
       items,
+    };
+  });
+
+  // ---------- Promessas: instrumentos com mais probabilidade de ganhar nos 12 meses seguintes ----------
+
+  // Validação da pontuação feita a 24 out. 2026 (docs/arquitectura/promessas.md): 30 melhores em cada data do passado.
+  const VALIDATION = [
+    { from: '2025-10-23', to: '2026-10-23', catalogWinners: 27, catalogReturn: 13, topWinners: 47, topReturn: 26 },
+    { from: '2026-04-23', to: '2026-10-23', catalogWinners: 18, catalogReturn: 4, topWinners: 20, topReturn: 1 },
+    { from: '2025-10-23', to: '2026-04-23', catalogWinners: 26, catalogReturn: 9, topWinners: 47, topReturn: 20 },
+    { from: '2026-01-23', to: '2026-07-23', catalogWinners: 25, catalogReturn: 9, topWinners: 57, topReturn: 19 },
+    { from: '2026-01-23', to: '2026-10-23', catalogWinners: 21, catalogReturn: 6, topWinners: 27, topReturn: 11 },
+  ];
+  let promCache = null;
+
+  app.get('/promessas', {
+    schema: {
+      tags: ['Estratégia'], summary: 'Promessas: instrumentos com sinais de continuarem ou passarem a ganhadores nos 12 meses seguintes',
+      description: 'Elegíveis: fecho acima da SMA200, SMA50 acima da SMA200 e rendimento de 3 meses positivo. Pontuação 0–100: '
+        + 'percentis em todo o catálogo de M2 (peso 2), volatilidade de 3 meses (menor é melhor) e inclinação da SMA200 em 3 meses. '
+        + 'pastWinner: ganhador em todas as estratégias nos últimos 2 anos (BackTest). Validação histórica em validation. Não é recomendação.',
+      querystring: z.object({ scope: z.enum(['all', 'watchlist']).default('all') }),
+      response: {
+        200: z.object({
+          computedAt: z.string(), asOf: IsoDate.nullable(), topN: z.number(),
+          counts: z.object({ eligible: z.number(), ranked: z.number() }),
+          validation: z.array(z.object({ from: IsoDate, to: IsoDate, catalogWinners: z.number(), catalogReturn: z.number(), topWinners: z.number(), topReturn: z.number() })),
+          items: z.array(z.object({
+            instrumentId: z.number(), symbol: z.string(), name: z.string().nullable(), exchange: z.string().nullable(),
+            rank: z.number(), score: z.number(), date: IsoDate, close: z.number(),
+            m2: z.number(), vol63: z.number(), s200slope: z.number(), r63: z.number(), r252: z.number(), distHigh: z.number(),
+            pastWinner: z.boolean().nullable(),
+          })),
+        }),
+      },
+    },
+  }, async (req) => {
+    if (!promCache || Date.now() - promCache.at > CACHE_MS) {
+      const [instruments] = await pool.query(
+        "SELECT id, symbol, name, exchange FROM instruments WHERE status = 'active' AND last_session IS NOT NULL ORDER BY id",
+      );
+      const list = [];
+      for (const inst of instruments) { // um instrumento de cada vez (memória)
+        const [quotes] = await pool.query(
+          `SELECT session_date AS date, open, high, low, close, adj_close AS adjClose, volume FROM daily_quotes
+            WHERE instrument_id = ? ORDER BY session_date DESC LIMIT ?`,
+          [inst.id, promessas.SESSIONS_NEEDED + 20],
+        );
+        list.push({ instrumentId: Number(inst.id), symbol: inst.symbol, name: inst.name, exchange: inst.exchange, features: promessas.features(quotes.reverse()) });
+      }
+      const ranked = promessas.rank(list);
+      const [wlA, ...wlRest] = await ensure(AVAILABLE_STRATEGIES);
+      const winners = new Set(wlA.items.filter((it) => it.total > 0 && wlRest.every((e) => (e.items.find((x) => x.instrumentId === it.instrumentId)?.total ?? 0) > 0)).map((it) => it.instrumentId));
+      const items = ranked.filter((r) => r.eligible).map((r) => ({
+        instrumentId: r.instrumentId, symbol: r.symbol, name: r.name, exchange: r.exchange, rank: r.rank, score: r.score,
+        date: r.features.date, close: r.features.close, m2: r.features.m2, vol63: r.features.vol63, s200slope: r.features.s200slope,
+        r63: r.features.r63, r252: r.features.r252, distHigh: r.features.distHigh, pastWinner: winners.has(r.instrumentId),
+      }));
+      promCache = { at: Date.now(), items, ranked: ranked.length, asOf: items.reduce((m, i) => (i.date > m ? i.date : m), '') || null };
+    }
+    let { items } = promCache;
+    if (req.query.scope === 'watchlist') items = await onlyWatchlist(req.user.id, items);
+    return {
+      computedAt: new Date(promCache.at).toISOString(), asOf: promCache.asOf, topN: promessas.TOP_N,
+      counts: { eligible: promCache.items.length, ranked: promCache.ranked }, validation: VALIDATION, items,
     };
   });
 

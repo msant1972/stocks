@@ -100,6 +100,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Sinais | Compras, reforços e vendas da estratégia escolhida (A-Momentum, B-Opus ou C-AI) aplicada virtualmente a todos os instrumentos, nas últimas 1 a 10 sessões, com o motivo das vendas, filtro por tipo e botões Comprar e Vender (operação na carteira virtual) |
 | BackTest | Resultado da estratégia em cada instrumento nos últimos 2 anos (resultado em € e %, operações, taxa de acerto, posição aberta, comparação com comprar e manter), com resumo, filtro «Todos / A minha lista», pesquisa e ordenação; o símbolo abre o gráfico com a estratégia aplicada |
 | WinnersLoosers | Instrumentos em que todas as estratégias disponíveis ganham, e em que todas perdem, nos últimos 2 anos: resumo (quantos e soma), filtro «Todos / A minha lista», pesquisa e duas tabelas ordenáveis com o resultado de cada estratégia, o total e comprar e manter; cada resultado abre o gráfico com essa estratégia |
+| Promessas | Instrumentos que nos últimos 3 meses mostram os sinais que no passado anunciaram ganhadores nos 12 meses seguintes ([método e validação](promessas.md)): elegíveis com a tendência intacta, pontuação 0–100 (M2, volatilidade baixa, SMA200 a subir), top 30 ou todos, se foram ganhadores nas 3 estratégias, e a validação histórica com aviso |
 | Alertas | Regras com pré-visualização em linguagem natural, activação e eventos com o estado do envio |
 | Entrar | Palavra-passe e, a seguir, código de 6 dígitos ou código de recuperação; no primeiro login, configuração do 2.º factor com QR code, chave manual e 10 códigos de recuperação |
 | Utilizadores | Só administradores: listar (com o estado do 2.º factor), adicionar, redefinir palavra-passe, repor o 2.º factor e remover contas |
@@ -133,6 +134,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Sinais | `GET /signals?strategy=a-momentum&sessions=5` (estratégia aplicada a todos os instrumentos activos; a A-Momentum com todo o histórico, a B-Opus na janela de 2 anos com aquecimento; preço e motivo da operação; cache 10 min por estratégia) |
 | Estratégias e BackTest | `GET /strategies` (registo); `GET /backtest?strategy=a-momentum&scope=all\|watchlist` (estratégia em cada instrumento activo sobre os últimos 2 anos; cache 10 min por estratégia) |
 | WinnersLoosers | `GET /winners-losers?scope=all\|watchlist` (resultados do BackTest de todas as estratégias disponíveis, agrupados em gain, loss e mixed; usa a cache do BackTest) |
+| Promessas | `GET /promessas?scope=all\|watchlist` (sinais por instrumento, um de cada vez, cache 10 min; `pastWinner` a partir do BackTest; tabela de validação) |
 | Estado | `GET /status` |
 | Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}`, `GET/PUT /admin/smtp`, `POST /admin/smtp/test` |
 | Saúde | `GET /health/live`, `GET /health/ready` (fora de `/api/v1`) |
@@ -355,7 +357,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária seguida dos alertas |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é feita por snapshots EBS do volume, geridos na AWS |
 
-Testes automáticos em cada componente: API com Vitest contra uma BD de testes (102, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (30: 11 da B-Opus e 5 da C-AI). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
+Testes automáticos em cada componente: API com Vitest contra uma BD de testes (103, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (33: 11 da B-Opus, 5 da C-AI e 3 das Promessas). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e snapshots EBS do volume (cópia fora do servidor, geridos na AWS), com restauro testado pelo administrador.
@@ -395,4 +397,4 @@ Riscos aceites ou pendentes:
 
 ## 10. Base documental
 
-Documento elaborado a partir do diagrama original, dos requisitos e das decisões de 18 out. 2026, e actualizado para a implementação publicada. O código de referência é o do ramo `main`; o contrato da API está em [api/openapi.yaml](../../api/openapi.yaml). Os próximos passos estão na secção 8 do [plano de implementação](plano_implementacao.md). Especificações: [livro de ofertas](orderbook-spec.md), [estratégia B-Opus](B-Opus.md) e [estratégia C-AI](C-AI.md).
+Documento elaborado a partir do diagrama original, dos requisitos e das decisões de 18 out. 2026, e actualizado para a implementação publicada. O código de referência é o do ramo `main`; o contrato da API está em [api/openapi.yaml](../../api/openapi.yaml). Os próximos passos estão na secção 8 do [plano de implementação](plano_implementacao.md). Especificações: [livro de ofertas](orderbook-spec.md), [estratégia B-Opus](B-Opus.md), [estratégia C-AI](C-AI.md) e [Promessas](promessas.md).

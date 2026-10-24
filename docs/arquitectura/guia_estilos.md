@@ -302,6 +302,14 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Duas tabelas, «Ganham com todas as estratégias» (ponto verde, ordenada do maior para o menor total) e «Perdem com todas as estratégias» (ponto vermelho, do maior prejuízo para o menor), ordenáveis por qualquer coluna: instrumento, total, uma coluna por estratégia disponível e comprar e manter.
 - O símbolo abre o instrumento; o resultado de cada estratégia abre o gráfico com essa estratégia aplicada. Em telemóvel, acesso pelo botão «WinnersLoosers» no BackTest.
 
+### 5.11c. Promessas
+
+- Subtítulo que diz o que a lista mede e que ganhadores do passado nem sempre continuam a sê-lo.
+- Quadro «Como é feita a lista»: condição dos últimos 3 meses, pontuação e resultado no passado (médias), com «Validação por período» expansível (tabela das 5 janelas e nota sobre a janela fraca).
+- Opções «Top 30 / Todos os elegíveis» e «Todos / A minha lista», no endereço (`?ver=todos`, `?lista=1`).
+- Tabela ordenável: posição, instrumento (ligação), pontuação com barra (0–100), M2, volatilidade de 3 meses, inclinação da SMA200, rendimentos de 3 e 12 meses, distância ao máximo de 52 semanas e «Nas 3» (ganhou nas três estratégias nos últimos 2 anos).
+- Aviso final de simulação estatística, sem garantia nem recomendação, com a hora do cálculo.
+
 ### 5.12. Utilizadores
 
 Só para administradores (o menu não aparece aos restantes):

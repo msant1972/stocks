@@ -4959,5 +4959,149 @@ paths:
                   - counts
                   - items
                 additionalProperties: false
+  /api/v1/promessas:
+    get:
+      summary: "Promessas: instrumentos com sinais de continuarem ou passarem a
+        ganhadores nos 12 meses seguintes"
+      tags:
+        - Estratégia
+      description: "Elegíveis: fecho acima da SMA200, SMA50 acima da SMA200 e
+        rendimento de 3 meses positivo. Pontuação 0–100: percentis em todo o
+        catálogo de M2 (peso 2), volatilidade de 3 meses (menor é melhor) e
+        inclinação da SMA200 em 3 meses. pastWinner: ganhador em todas as
+        estratégias nos últimos 2 anos (BackTest). Validação histórica em
+        validation. Não é recomendação."
+      parameters:
+        - schema:
+            default: all
+            type: string
+            enum:
+              - all
+              - watchlist
+          in: query
+          name: scope
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  computedAt:
+                    type: string
+                  asOf:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  topN:
+                    type: number
+                  counts:
+                    type: object
+                    properties:
+                      eligible:
+                        type: number
+                      ranked:
+                        type: number
+                    required:
+                      - eligible
+                      - ranked
+                    additionalProperties: false
+                  validation:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        from:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        to:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        catalogWinners:
+                          type: number
+                        catalogReturn:
+                          type: number
+                        topWinners:
+                          type: number
+                        topReturn:
+                          type: number
+                      required:
+                        - from
+                        - to
+                        - catalogWinners
+                        - catalogReturn
+                        - topWinners
+                        - topReturn
+                      additionalProperties: false
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        exchange:
+                          nullable: true
+                          type: string
+                        rank:
+                          type: number
+                        score:
+                          type: number
+                        date:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        close:
+                          type: number
+                        m2:
+                          type: number
+                        vol63:
+                          type: number
+                        s200slope:
+                          type: number
+                        r63:
+                          type: number
+                        r252:
+                          type: number
+                        distHigh:
+                          type: number
+                        pastWinner:
+                          nullable: true
+                          type: boolean
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - exchange
+                        - rank
+                        - score
+                        - date
+                        - close
+                        - m2
+                        - vol63
+                        - s200slope
+                        - r63
+                        - r252
+                        - distHigh
+                        - pastWinner
+                      additionalProperties: false
+                required:
+                  - computedAt
+                  - asOf
+                  - topN
+                  - counts
+                  - validation
+                  - items
+                additionalProperties: false
 security:
   - session: []

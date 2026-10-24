@@ -127,6 +127,21 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
     );
   });
 
+  it('Promessas: só elegíveis (tendência intacta), ordenados pela pontuação, com a validação histórica', async () => {
+    const body = (await ana.get('/promessas')).json();
+    expect(body.topN).toBe(30);
+    expect(body.validation).toHaveLength(5);
+    expect(body.counts.ranked).toBeGreaterThanOrEqual(body.counts.eligible);
+    for (const [k, it] of body.items.entries()) {
+      expect(it.rank).toBe(k + 1);
+      expect(it.r63).toBeGreaterThan(0);
+      if (k > 0) expect(it.score).toBeLessThanOrEqual(body.items[k - 1].score);
+      expect(typeof it.pastWinner).toBe('boolean');
+    }
+    expect(body.items.some((i) => i.symbol === 'CURTO.LS')).toBe(false); // sem histórico suficiente
+    expect((await ana.get('/promessas?scope=x')).statusCode).toBe(400);
+  });
+
   it('filtra pela lista do utilizador', async () => {
     const body = (await ana.get('/backtest?scope=watchlist')).json();
     expect(body.items.map((i) => i.symbol)).toEqual(['ONDA.LS']);

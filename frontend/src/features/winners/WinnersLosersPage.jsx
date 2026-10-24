@@ -104,8 +104,11 @@ export default function WinnersLosersPage() {
             Simulação no histórico, sem comissões; não é uma recomendação.
           </p>
         </div>
-        <Segmented label="Instrumentos" value={scope} onChange={(v) => setParams(v === 'watchlist' ? { lista: '1' } : {}, { replace: true })}
-          options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />
+        <div className="row" style={{ alignItems: 'center' }}>
+          <Link className="button mobile-only-inline" to="/promessas">Promessas</Link>
+          <Segmented label="Instrumentos" value={scope} onChange={(v) => setParams(v === 'watchlist' ? { lista: '1' } : {}, { replace: true })}
+            options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />
+        </div>
       </div>
 
       {wl.isPending ? <section className="card"><Loading rows={8} label="A aplicar as estratégias a todos os instrumentos…" /></section>
