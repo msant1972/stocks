@@ -193,7 +193,7 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 - Estados do instrumento: «A validar», «Activo» e «Inválido» (com o motivo, ex.: «Não está cotado em EUR»).
 - Ticker em destaque, com nome, mercado e moeda próximos.
 - Fecho diário, variação e data da sessão sempre visíveis.
-- Gráfico principal com selecção «1M», «3M», «6M», «1A» e «2A».
+- Gráfico principal com selecção «1M», «3M», «6M», «1A» e «2A»; o período escolhido fica guardado no browser e é o usado ao abrir qualquer instrumento (1A na primeira vez).
 - Indicação «Dados diários» junto ao selector de período.
 - Acções «Adicionar à lista», «Criar alerta», menu «Estratégia» e «Simular operação».
 - Botões de indicadores por cima do gráfico (EMA9, SMA10, SMA50, SMA125, SMA200), que servem também de legenda; selecção guardada no browser.

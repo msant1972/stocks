@@ -25,6 +25,15 @@ export const INDICATORS = [
 
 const STORAGE_KEY = 'stocks.indicators';
 const MOMENTUM_KEY = 'stocks.momentum';
+const RANGE_KEY = 'stocks.periodo';
+
+/** Último período escolhido no gráfico (guardado no browser); 1A por omissão. */
+function readRange() {
+  try {
+    const saved = localStorage.getItem(RANGE_KEY);
+    return RANGES.some((r) => r.value === saved) ? saved : '1A';
+  } catch { return '1A'; }
+}
 
 function readMomentum() {
   try { return localStorage.getItem(MOMENTUM_KEY) !== 'off'; } catch { return true; }
@@ -117,7 +126,11 @@ function SignalMarker({ cx, cy, side }) {
  */
 /** strategy: id de uma estratégia do registo (shared/strategies/) ou null. */
 export default function DailyChart({ quotes, currency, symbol, strategy = null }) {
-  const [range, setRange] = useState('1A');
+  const [range, setRangeState] = useState(readRange);
+  const setRange = (value) => {
+    setRangeState(value);
+    try { localStorage.setItem(RANGE_KEY, value); } catch { /* só nesta sessão */ }
+  };
   const [selected, setSelected] = useState(readSelection);
   const [showTable, setShowTable] = useState(false);
   const [showMomentum, setShowMomentum] = useState(readMomentum);
