@@ -346,6 +346,7 @@ Enquanto a sessão não é completa, só `/me`, `/auth/logout` e `/auth/mfa/*` r
 - Segredos em `/etc/stocks/stocks.env` (`root:stocks-svc`, modo 640), fora do código; registos sem cookies nem credenciais.
 - Palavra-passe SMTP cifrada na BD com AES-256-GCM; chave em `/etc/stocks/secret.key` (`root:stocks-svc`, 640), partilhada pela API e pelo motor de alertas; a API nunca a devolve e a auditoria só regista se foi alterada.
 - MariaDB e API só escutam em `127.0.0.1`.
+- Firewall `ufw`: entrada só nas portas 22/tcp (SSH), 80/tcp, 443/tcp e 443/udp (HTTP/3); saída livre.
 
 ## 7. Implantação e operação
 
@@ -358,12 +359,12 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança para a fila de recolha |
 | `stocks-intraday.timer` | dias úteis, de hora a hora das 08h23 às 17h23 de Lisboa | Actualização das cotações durante a sessão (provisória), sem alertas |
 | `stocks-daily.timer` | dias úteis, 19h01 de Lisboa (ao minuto 1, para não coincidir com o timer de 5 minutos) | Recolha diária com os fechos definitivos, seguida dos alertas |
-| `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); cópia fora do servidor pendente desde a mudança de servidor |
+| `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é o autobackup do VPS, feito pelo fornecedor |
 
 Testes automáticos em cada componente: API com Vitest contra uma BD de testes (103, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (33: 11 da B-Opus, 5 da C-AI e 3 das Promessas). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
-- **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD, no mesmo disco. Desde a mudança de servidor (2 nov. 2026) não há cópia fora do servidor: pendente.
+- **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e pelo autobackup do VPS (cópia fora do servidor, feita pelo fornecedor). Falta testar o restauro a partir do autobackup.
 - **Fonte não oficial:** o yfinance pode mudar ou ser limitado pelo Yahoo; a versão está fixada e o adaptador é substituível.
 - **Ambientes:** desenvolvimento e produção partilham o servidor e a base `stocks`; os testes usam a base `stocks_test`.
 - **Memória da API:** o serviço tem `MemoryMax=512M` (heap do Node de cerca de 256 MB). A 24 out. 2026, o WinnersLoosers calculava as três estratégias em paralelo com todas as cotações em memória, esgotou o heap e a API reiniciou em ciclo (502) durante alguns minutos. Corrigido: o BackTest, o WinnersLoosers, as Promessas e os Sinais percorrem o catálogo um instrumento de cada vez e partilham os cálculos entre pedidos simultâneos (pico medido de 44 MB com sete pedidos em simultâneo). Novos cálculos sobre todo o catálogo devem seguir o mesmo modelo.

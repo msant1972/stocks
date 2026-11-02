@@ -12,7 +12,7 @@ Os três pendentes da versão 1 foram fechados pelo administrador a 18 out. 2026
 
 1. SMTP configurado em Definições (OVH, `ssl0.ovh.net:465`, SSL/TLS, remetente `stocks@graus.pt`), com email de teste aceite;
 2. carteira de produção passada para 1 000 000 € e valor por omissão actualizado em `/etc/stocks/stocks.env`;
-3. cópia fora do servidor e restauro testado. Com a mudança de servidor a 2 nov. 2026, esta cópia deixou de existir e voltou a ser um pendente (secção 8, P1).
+3. cópia fora do servidor e restauro testado. Com a mudança de servidor a 2 nov. 2026, a cópia fora do servidor passou a ser o autobackup do VPS; falta repetir o teste de restauro (secção 8, P1).
 
 ## 2. Âmbito
 
@@ -104,7 +104,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US09 | Regras de alerta | P0 | Feito |
 | US10 | Envio de alertas | P0 | Feito (SMTP da OVH) |
 | US11 | Estado das recolhas | P1 | Feito (`/status`, Definições, «Validar agora») |
-| US12 | Backup e recuperação | P0 | Dumps diários locais; cópia fora do servidor por refazer desde a mudança de servidor (restauro testado no servidor anterior) |
+| US12 | Backup e recuperação | P0 | Feito: dumps diários e autobackup do VPS; restauro testado no servidor anterior, por repetir no actual |
 | US13 | Indicadores e momento | — | Feito |
 | US14 | Estratégia simulada | — | Feito |
 | US15 | HeatMap e momento do mercado | — | Feito |
@@ -141,7 +141,7 @@ O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pul
 | Gastos concorrentes do saldo | Transacções, bloqueio da carteira, testes concorrentes | Resolvido |
 | Alertas repetidos | Chave única por regra e sessão; reserva por utilizador | Resolvido |
 | Aceitação SMTP ambígua | Estado `uncertain`, sem reenvio cego | Resolvido |
-| Servidor único | Dumps diários no mesmo disco; cópia externa por refazer | Pendente: sem cópia fora do servidor desde 2 nov. 2026 |
+| Servidor único | Dumps diários e autobackup do VPS (cópia fora do servidor) | Mitigado; falta testar o restauro no servidor actual; indisponibilidade conjunta aceite |
 | Perda da chave de cifra | Chave criada uma vez e nunca substituída | Aceite: perdê-la obriga a reintroduzir a palavra-passe SMTP |
 | Desenvolvimento no servidor de produção | Base de testes separada; publicação só com `install.sh` | Pendente: ambiente de testes separado |
 | Aumento do âmbito | Alterações pequenas, com testes e commit por funcionalidade | Em curso |
@@ -156,7 +156,7 @@ Concluído a 18 out. 2026 (SMTP, carteira a 1 M€, cópia externa e restauro). 
 
 ### P1 — robustez
 
-3. Cópia dos dumps e de `/etc/stocks/secret.key` para fora do servidor, e novo teste de restauro (perdida com a mudança de servidor a 2 nov. 2026).
+3. Teste de restauro a partir do autobackup do VPS (a cópia fora do servidor existe desde 2 nov. 2026; o último restauro testado foi no servidor anterior).
 4. Análise estática (ESLint, Ruff) e auditoria de dependências (`npm audit`, `pip-audit`) no CI.
 5. Ambiente de testes separado da produção (outra máquina ou contentores), e trabalho por ramos com pull requests.
 6. Contas de BD por componente (API e motores com permissões mínimas).
@@ -183,7 +183,8 @@ Lista de verificação da versão 1:
 - [x] Testes de saldo, concorrência e isolamento aprovados.
 - [x] Testes de resumo único e desduplicação de alertas aprovados.
 - [ ] Monitorização com alerta operacional (hoje: `journalctl`, `/status` e Definições).
-- [ ] Backup externo e restauro demonstrado (feito no servidor anterior; por refazer no servidor actual).
+- [x] Backup externo: autobackup do VPS.
+- [ ] Restauro demonstrado no servidor actual (feito no servidor anterior a 18 out. 2026).
 - [x] Envio real de email verificado (email de teste pelo SMTP da OVH).
 - [x] Procedimento de rollback documentado em [deploy/README.md](../../deploy/README.md).
 

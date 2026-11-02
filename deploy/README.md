@@ -26,7 +26,12 @@ Os serviços correm com o utilizador de sistema `stocks-svc` (sem login nem sudo
 
 - Ubuntu com acesso `sudo`.
 - O DNS de `stocks.graus.pt` a apontar para o IP público do servidor.
-- As portas **80 e 443** abertas na firewall do fornecedor e na do servidor, se houver: o Caddy precisa delas para obter o certificado. A 3000 e a 3306 não devem ser abertas (a API e o MariaDB só escutam em `127.0.0.1`).
+- As portas **80 e 443** abertas na firewall: o Caddy precisa delas para obter o certificado. A 3000 e a 3306 não devem ser abertas (a API e o MariaDB só escutam em `127.0.0.1`). No servidor actual, a firewall `ufw` só aceita ligações de entrada nas portas 22/tcp (SSH), 80/tcp, 443/tcp e 443/udp (HTTP/3); as de saída são livres (Yahoo, Euronext, SMTP, GitHub):
+  ```bash
+  sudo ufw default deny incoming && sudo ufw default allow outgoing
+  sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 443/udp
+  sudo ufw enable
+  ```
 - O dbmate em `/usr/local/bin`:
   ```bash
   sudo curl -fsSL -o /usr/local/bin/dbmate https://github.com/amacneil/dbmate/releases/download/v2.37.0/dbmate-linux-amd64
@@ -70,7 +75,7 @@ No primeiro login é pedido que configure a autenticação em dois passos (obrig
 sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/api && node src/cli.js reset-mfa --email miguel@graus.pt'
 ```
 
-Os segredos TOTP são cifrados com `/etc/stocks/secret.key`: perder ou substituir esta chave invalida o 2.º factor de todos (repor com `reset-mfa`). Inclua-a na cópia fora do servidor.
+Os segredos TOTP são cifrados com `/etc/stocks/secret.key`: perder ou substituir esta chave invalida o 2.º factor de todos (repor com `reset-mfa`). A cópia fora do servidor (autobackup do VPS) inclui-a.
 
 Carregar a lista inicial de instrumentos:
 
@@ -110,9 +115,9 @@ O SMTP configura-se em **Definições → Envio de email (SMTP)** (administrador
 Cópias:
 
 1. **Dumps diários** (`stocks-backup.timer`, 03:30 UTC) em `/var/backups/stocks`, guardados 14 dias. São consistentes, porque são feitos com `mariadb-dump --single-transaction`.
-2. **Cópia fora do servidor: pendente.** Os dumps ficam só no disco do VPS. Até haver uma cópia externa (por exemplo, sincronizar `/var/backups/stocks` e `/etc/stocks/secret.key` para outro local), a perda do servidor implica a perda dos dados.
+2. **Cópia fora do servidor:** autobackup do VPS, feito pelo fornecedor (frequência e retenção definidas no painel do fornecedor). Protege contra a perda do servidor e inclui os dumps do ponto 1, a configuração e a chave `/etc/stocks/secret.key`. Numa recuperação a partir do autobackup, restaure o dump mais recente (procedimento abaixo) em vez de confiar nos ficheiros do MariaDB copiados com o servidor ligado.
 
-O restauro foi testado a 18 out. 2026, no servidor anterior. Repita o teste periodicamente, por exemplo uma vez por trimestre.
+O restauro foi testado a 18 out. 2026, no servidor anterior; falta testá-lo a partir do autobackup do servidor actual. Repita o teste periodicamente, por exemplo uma vez por trimestre.
 
 Restaurar, depois de parar a API e os timers:
 
