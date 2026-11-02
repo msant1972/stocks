@@ -25,6 +25,11 @@ Os serviços correm com o utilizador de sistema `stocks-svc` (sem login nem sudo
 ## Pré-requisitos
 
 - Ubuntu com acesso `sudo`.
+- A timezone do sistema em Lisboa, para que os registos (`journalctl`), as listas de timers e as horas da base de dados mostrem a hora de Lisboa. Os horários dos timers já indicam `Europe/Lisbon` (e o backup UTC), e a API e os alertas trabalham em UTC, por isso o funcionamento não depende disto. Se o MariaDB já estiver instalado, reinicie-o (e a API) para assumir a nova timezone:
+  ```bash
+  sudo timedatectl set-timezone Europe/Lisbon
+  sudo systemctl restart mariadb stocks-api   # só se já estiverem instalados
+  ```
 - O DNS de `stocks.graus.pt` a apontar para o IP público do servidor.
 - As portas **80 e 443** abertas na firewall: o Caddy precisa delas para obter o certificado. A 3000 e a 3306 não devem ser abertas (a API e o MariaDB só escutam em `127.0.0.1`). No servidor actual, a firewall `ufw` só aceita ligações de entrada nas portas 22/tcp (SSH), 80/tcp, 443/tcp e 443/udp (HTTP/3); as de saída são livres (Yahoo, Euronext, SMTP, GitHub):
   ```bash
