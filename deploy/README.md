@@ -20,7 +20,7 @@ systemd timers ─▶ motor de recolha (cargas iniciais a cada 5 min; actualiza�
 | `stocks-daily.timer` | dias úteis, 19:00 de Lisboa | Actualização com os fechos definitivos e, a seguir, alertas ([bin/daily.sh](bin/daily.sh)) |
 | `stocks-backup.timer` | diariamente, 03:30 UTC | `mariadb-dump` para `/var/backups/stocks`, guardado durante 14 dias |
 
-Os serviços correm com o utilizador de sistema `stocks`, com o sistema de ficheiros só de leitura (`ProtectSystem=strict`). A configuração e os segredos ficam em `/etc/stocks/stocks.env` (`root:stocks`, modo 640). A chave que cifra os segredos guardados na BD (palavra-passe SMTP) fica em `/etc/stocks/secret.key`, criada pelo `install.sh` e nunca substituída: perdê-la obriga a voltar a introduzir a palavra-passe SMTP.
+Os serviços correm com o utilizador de sistema `stocks-svc` (sem login nem sudo), com o sistema de ficheiros só de leitura (`ProtectSystem=strict`). A configuração e os segredos ficam em `/etc/stocks/stocks.env` (`root:stocks-svc`, modo 640). A chave que cifra os segredos guardados na BD (palavra-passe SMTP) fica em `/etc/stocks/secret.key`, criada pelo `install.sh` e nunca substituída: perdê-la obriga a voltar a introduzir a palavra-passe SMTP.
 
 ## Pré-requisitos
 
@@ -61,13 +61,13 @@ O script faz o seguinte, e pode ser repetido em cada publicação:
 Criar a primeira conta:
 
 ```bash
-sudo -u stocks bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/api && node src/cli.js create-user --email miguel@graus.pt --name "Miguel" --admin'
+sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/api && node src/cli.js create-user --email miguel@graus.pt --name "Miguel" --admin'
 ```
 
 No primeiro login é pedido que configure a autenticação em dois passos (obrigatória). Se um administrador perder o telemóvel e os códigos de recuperação, e não houver outro administrador para a repor na página Utilizadores:
 
 ```bash
-sudo -u stocks bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/api && node src/cli.js reset-mfa --email miguel@graus.pt'
+sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/api && node src/cli.js reset-mfa --email miguel@graus.pt'
 ```
 
 Os segredos TOTP são cifrados com `/etc/stocks/secret.key`: perder ou substituir esta chave invalida o 2.º factor de todos (repor com `reset-mfa`). Os snapshots EBS incluem-na.
@@ -75,7 +75,7 @@ Os segredos TOTP são cifrados com `/etc/stocks/secret.key`: perder ou substitui
 Carregar a lista inicial de instrumentos:
 
 ```bash
-sudo -u stocks bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/engines/fetcher && .venv/bin/python -m fetcher add --file seeds/instrumentos_iniciais.txt && .venv/bin/python -m fetcher run'
+sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/engines/fetcher && .venv/bin/python -m fetcher add --file seeds/instrumentos_iniciais.txt && .venv/bin/python -m fetcher run'
 ```
 
 ## Operação
@@ -92,7 +92,7 @@ sudo systemctl start stocks-backup                 # forçar uma cópia de segur
 Depois de aumentar `STOCKS_HISTORY_YEARS` (hoje 3 por omissão), completar o histórico dos instrumentos já existentes:
 
 ```bash
-sudo -u stocks bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/engines/fetcher && .venv/bin/python -m fetcher backfill'
+sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/engines/fetcher && .venv/bin/python -m fetcher backfill'
 ```
 
 Faz um pedido ao Yahoo por instrumento (alguns minutos para cerca de 300); os pedidos que falharem são repetidos pelo timer de 5 minutos. As sessões existentes são actualizadas, sem duplicados.

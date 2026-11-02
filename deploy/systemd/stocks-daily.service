@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=stocks
-Group=stocks
+User=stocks-svc
+Group=stocks-svc
 EnvironmentFile=/etc/stocks/stocks.env
 ExecStart=/opt/stocks/deploy/bin/daily.sh
 TimeoutStartSec=2h

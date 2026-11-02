@@ -4,8 +4,8 @@ After=mariadb.service
 
 [Service]
 Type=oneshot
-User=stocks
-Group=stocks
+User=stocks-svc
+Group=stocks-svc
 EnvironmentFile=/etc/stocks/stocks.env
 ExecStart=/opt/stocks/deploy/bin/backup.sh
 NoNewPrivileges=true

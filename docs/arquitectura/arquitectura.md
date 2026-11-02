@@ -341,9 +341,9 @@ Enquanto a sessão não é completa, só `/me`, `/auth/logout` e `/auth/mfa/*` r
   - risco aceite: quem conheça a palavra-passe de uma conta que ainda não configurou o 2.º factor pode configurá-lo primeiro; o administrador repõe-no e redefine a palavra-passe.
 - Autorização por recurso: cada utilizador só vê a sua carteira, lista, operações e alertas; a administração exige perfil de administrador.
 - Content-Security-Policy sem scripts inline além do script de tema, permitido pelo seu hash.
-- Serviços systemd com utilizador próprio (`stocks`), sistema de ficheiros só de leitura e escrita apenas onde é necessária (`/var/lib/stocks`, `/var/backups/stocks`).
-- Segredos em `/etc/stocks/stocks.env` (`root:stocks`, modo 640), fora do código; registos sem cookies nem credenciais.
-- Palavra-passe SMTP cifrada na BD com AES-256-GCM; chave em `/etc/stocks/secret.key` (`root:stocks`, 640), partilhada pela API e pelo motor de alertas; a API nunca a devolve e a auditoria só regista se foi alterada.
+- Serviços systemd com utilizador próprio (`stocks-svc`), sistema de ficheiros só de leitura e escrita apenas onde é necessária (`/var/lib/stocks`, `/var/backups/stocks`).
+- Segredos em `/etc/stocks/stocks.env` (`root:stocks-svc`, modo 640), fora do código; registos sem cookies nem credenciais.
+- Palavra-passe SMTP cifrada na BD com AES-256-GCM; chave em `/etc/stocks/secret.key` (`root:stocks-svc`, 640), partilhada pela API e pelo motor de alertas; a API nunca a devolve e a auditoria só regista se foi alterada.
 - MariaDB e API só escutam em `127.0.0.1`.
 
 ## 7. Implantação e operação

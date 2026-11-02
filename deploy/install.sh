@@ -25,14 +25,14 @@ if (( ${#missing[@]} )); then apt-get update -q && DEBIAN_FRONTEND=noninteractiv
 command -v dbmate >/dev/null || { echo "falta o dbmate em /usr/local/bin (ver deploy/README.md)" >&2; exit 1; }
 
 step "Utilizador de sistema e pastas"
-id stocks >/dev/null 2>&1 || useradd --system --home-dir "$APP" --shell /usr/sbin/nologin stocks
+id stocks-svc >/dev/null 2>&1 || useradd --system --user-group --home-dir "$APP" --shell /usr/sbin/nologin stocks-svc
 install -d -m 755 "$APP"
-install -d -m 750 -o root -g stocks /etc/stocks
-install -d -m 750 -o stocks -g stocks /var/backups/stocks
-install -d -m 755 -o stocks -g stocks /var/lib/stocks
+install -d -m 750 -o root -g stocks-svc /etc/stocks
+install -d -m 750 -o stocks-svc -g stocks-svc /var/backups/stocks
+install -d -m 755 -o stocks-svc -g stocks-svc /var/lib/stocks
 
 if [[ ! -f "$ENV_FILE" ]]; then
-  install -m 640 -o root -g stocks "$SRC/deploy/stocks.env.example" "$ENV_FILE"
+  install -m 640 -o root -g stocks-svc "$SRC/deploy/stocks.env.example" "$ENV_FILE"
   echo "Criado $ENV_FILE a partir do exemplo. Preencha STOCKS_DB_PASSWORD (e o SMTP) e volte a correr este script."
   exit 0
 fi
@@ -42,7 +42,7 @@ if [[ ! -f /etc/stocks/secret.key ]]; then
   (umask 027; head -c 32 /dev/urandom | base64 > /etc/stocks/secret.key)
   echo "Criada a chave de cifra /etc/stocks/secret.key"
 fi
-chown root:stocks /etc/stocks/secret.key
+chown root:stocks-svc /etc/stocks/secret.key
 chmod 640 /etc/stocks/secret.key
 
 set -a; . "$ENV_FILE"; set +a
@@ -102,4 +102,4 @@ done
 curl -fsS "http://127.0.0.1:${STOCKS_API_PORT:-3000}/health/ready" && echo
 systemctl --no-pager list-timers 'stocks-*'
 echo
-echo "Concluído. Criar contas: sudo -u stocks bash -c 'set -a; . $ENV_FILE; cd $APP/api && node src/cli.js create-user --email ... --name ...'"
+echo "Concluído. Criar contas: sudo -u stocks-svc bash -c 'set -a; . $ENV_FILE; cd $APP/api && node src/cli.js create-user --email ... --name ...'"
