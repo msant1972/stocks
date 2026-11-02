@@ -1,6 +1,7 @@
 import ExcelJS from 'exceljs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { api, hasTestDb, login, makeInstrument, makeUser, setup } from './helpers.js';
+import { createUser } from '../src/services/users.js';
+import { api, enableMfa, FAST_HASH, hasTestDb, login, makeInstrument, makeUser, PASSWORD, setup } from './helpers.js';
 
 function multipart(filename, content, contentType) {
   const boundary = '----stocks-teste';
@@ -117,6 +118,28 @@ describe.skipIf(!hasTestDb)('catálogo, histórico e watchlist', () => {
     expect(await order('sort=change&dir=asc')).toEqual(['ORDB.LS', 'ORDC.LS', 'ORDA.LS', 'ORDD.LS']);
     expect(await order('sort=change&limit=1')).toEqual(['ORDA.LS']); // a ordenação vem antes do limite
     expect((await ana.get('/instruments?sort=nome')).statusCode).toBe(400);
+  });
+
+  it('só administradores apagam do catálogo, com cotações, listas e alertas; recusa com operações', async () => {
+    await enableMfa(ctx.pool, await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true, initialCapital: '10000' }, FAST_HASH));
+    const admin = api(ctx.app, await login(ctx.app, 'admin@exemplo.pt'));
+    const argx = await makeInstrument(ctx.pool, 'ARGX.BR', { closes: ['500.00', '510.00'] });
+    expect((await ana.post('/watchlist/items', { instrumentId: argx })).statusCode).toBe(204);
+    expect((await ana.post('/alerts', { instrumentId: argx, kind: 'close_above', threshold: '600' })).statusCode).toBe(201);
+
+    expect((await ana.del(`/instruments/${argx}`)).statusCode).toBe(403);
+    const res = await admin.del(`/instruments/${argx}`);
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ symbol: 'ARGX.BR', watchlists: 1, alertRules: 1, quotes: 2 });
+    expect((await ana.get(`/instruments/${argx}`)).statusCode).toBe(404);
+    expect((await admin.del(`/instruments/${argx}`)).statusCode).toBe(404);
+
+    const held = await makeInstrument(ctx.pool, 'HELD.PA');
+    const [[p]] = await ctx.pool.query("SELECT p.id FROM portfolios p JOIN users u ON u.id = p.user_id WHERE u.email = 'ana@exemplo.pt'");
+    await ctx.pool.query('INSERT INTO positions (portfolio_id, instrument_id, quantity, cost_basis) VALUES (?, ?, 1, 10)', [p.id, held]);
+    const refused = await admin.del(`/instruments/${held}`);
+    expect(refused.statusCode).toBe(409);
+    expect(refused.json().error.code).toBe('INSTRUMENT_IN_USE');
   });
 
   it('a lista de acompanhamento é privada de cada utilizador', async () => {

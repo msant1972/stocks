@@ -3,11 +3,11 @@ import { Link, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useInstrumentSearch, useOrderbookSummary, useStatus, useWatchlist } from '../../lib/queries.js';
+import { keys, useInstrumentSearch, useMe, useOrderbookSummary, useStatus, useWatchlist } from '../../lib/queries.js';
 import { InstrumentStatus, PriceChange } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
-import { Button } from '../../components/ui/controls.jsx';
+import { Button, Dialog, Notice } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
 import SortHeader, { nextSort } from '../../components/ui/SortHeader.jsx';
 import AddInstrumentsDialog from './AddInstrumentsDialog.jsx';
@@ -189,6 +189,11 @@ export default function WatchlistPage() {
   const [adding, setAdding] = useState(false);
   const [pendingId, setPendingId] = useState(null);
   const [actionError, setActionError] = useState(null);
+  const [toDelete, setToDelete] = useState(null); // instrumento a apagar do catálogo (confirmação)
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
+  const { data: me } = useMe();
+  const isAdmin = Boolean(me?.user.isAdmin);
   const toast = useToast();
   const qc = useQueryClient();
   const watchlist = useWatchlist();
@@ -257,6 +262,39 @@ export default function WatchlistPage() {
     }
   }
 
+  async function deleteFromCatalog() {
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const r = await api.del(`/instruments/${toDelete.id}`);
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: keys.watchlist }), qc.invalidateQueries({ queryKey: ['instruments'] }),
+        qc.invalidateQueries({ queryKey: keys.status }), qc.invalidateQueries({ queryKey: keys.alerts }),
+      ]);
+      setToDelete(null);
+      toast(`${r.symbol} apagado do catálogo`);
+    } catch (err) {
+      setDeleteError(errorMessage(err));
+    } finally {
+      setDeleteBusy(false);
+    }
+  }
+
+  // No catálogo: acompanhar ou deixar de acompanhar, em texto; os administradores podem também apagar do catálogo.
+  const catalogAction = (i) => (
+    <span className="row-actions">
+      <Button size="small" variant="ghost" busy={pendingId === i.id} onClick={() => toggle(i)} disabled={!i.inWatchlist && i.status === 'invalid'}>
+        {i.inWatchlist ? 'Remover da lista' : 'Acompanhar'}<span className="visually-hidden"> {i.symbol}</span>
+      </Button>
+      {isAdmin && (
+        <Button size="small" variant="ghost" className="icon-button button-danger" title="Apagar do catálogo"
+          onClick={() => { setDeleteError(null); setToDelete(i); }}>
+          <Icon name="trash" size={18} /><span className="visually-hidden">Apagar {i.symbol} do catálogo</span>
+        </Button>
+      )}
+    </span>
+  );
+
   const action = (i) => (i.inWatchlist ? (
     <Button size="small" variant="ghost" className="icon-button" busy={pendingId === i.id} onClick={() => toggle(i)} title="Remover da lista">
       <Icon name="trash" size={18} /><span className="visually-hidden">Remover {i.symbol} da lista</span>
@@ -324,7 +362,7 @@ export default function WatchlistPage() {
                 {q ? 'Se o símbolo ainda não está no catálogo, pode adicioná-lo.' : 'Adicione os primeiros símbolos, à mão ou por Excel.'}
               </EmptyState>
             ) : (
-              <InstrumentTable items={search.data.items} action={action} sort={catalogSort} onSort={setCatalogSort} clientKeys={['imbalance']} showBook={showBook}
+              <InstrumentTable items={search.data.items} action={catalogAction} sort={catalogSort} onSort={setCatalogSort} clientKeys={['imbalance']} showBook={showBook}
                 note={search.data.total > search.data.items.length
                   ? `Ordenados por desequilíbrio os ${search.data.items.length} instrumentos mostrados (o livro é pedido à Euronext só para estes). Pesquise para restringir a lista.`
                   : null} />
@@ -348,6 +386,22 @@ export default function WatchlistPage() {
       </div>
 
       <AddInstrumentsDialog open={adding} onClose={() => setAdding(false)} onDone={toast} />
+      <Dialog open={toDelete != null} onClose={() => !deleteBusy && setToDelete(null)} title={`Apagar ${toDelete?.symbol ?? ''} do catálogo?`}>
+        {toDelete && (
+          <div className="stack" style={{ gap: '1rem' }}>
+            <p>
+              O instrumento {toDelete.symbol}{toDelete.name ? ` (${toDelete.name})` : ''} deixa de existir para todos os utilizadores:
+              apagam-se as cotações, sai das listas de acompanhamento e as regras de alerta sobre ele são removidas.
+            </p>
+            <p className="small muted">Não é possível apagar um instrumento com operações simuladas ou posições numa carteira.</p>
+            {deleteError && <Notice tone="error">{deleteError}</Notice>}
+            <div className="modal-actions">
+              <Button onClick={() => setToDelete(null)} disabled={deleteBusy}>Cancelar</Button>
+              <Button variant="danger" busy={deleteBusy} onClick={deleteFromCatalog}>Apagar {toDelete.symbol}</Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
     </>
   );
 }

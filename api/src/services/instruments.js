@@ -79,6 +79,34 @@ export async function setIsinMic(pool, userId, instrumentId, value) {
 }
 
 /**
+ * Apaga um instrumento do catálogo e da base de dados: cotações, pedidos de recolha, listas de acompanhamento e
+ * regras de alerta (com os eventos). Recusa se houver operações simuladas ou posições em alguma carteira, para não
+ * alterar o histórico nem os saldos. Devolve o símbolo e o que foi apagado.
+ */
+export async function deleteInstrument(pool, userId, instrumentId) {
+  return withTransaction(pool, async (conn) => {
+    const [[inst]] = await conn.query('SELECT id, symbol FROM instruments WHERE id = ? FOR UPDATE', [instrumentId]);
+    if (!inst) throw notFound('Instrumento');
+    const [[{ trades }]] = await conn.query(
+      `SELECT (SELECT COUNT(*) FROM simulated_trades WHERE instrument_id = ?)
+            + (SELECT COUNT(*) FROM positions WHERE instrument_id = ?) AS trades`,
+      [instrumentId, instrumentId],
+    );
+    if (Number(trades) > 0) {
+      throw new AppError(409, 'INSTRUMENT_IN_USE', `${inst.symbol} tem operações simuladas ou posições numa carteira e não pode ser apagado`);
+    }
+    const [w] = await conn.query('DELETE FROM watchlist_items WHERE instrument_id = ?', [instrumentId]);
+    const [r] = await conn.query('DELETE FROM alert_rules WHERE instrument_id = ?', [instrumentId]); // eventos em cascata
+    await conn.query('DELETE FROM fetch_jobs WHERE instrument_id = ?', [instrumentId]);
+    const [q] = await conn.query('DELETE FROM daily_quotes WHERE instrument_id = ?', [instrumentId]);
+    await conn.query('DELETE FROM instruments WHERE id = ?', [instrumentId]);
+    const deleted = { watchlists: w.affectedRows, alertRules: r.affectedRows, quotes: q.affectedRows };
+    await audit(conn, userId, 'instrument.delete', 'instrument', instrumentId, { symbol: inst.symbol, ...deleted });
+    return { symbol: inst.symbol, ...deleted };
+  });
+}
+
+/**
  * Pede a validação imediata dos instrumentos «A validar»: os pedidos em fila deixam de esperar pela
  * próxima tentativa, os que falharam voltam à fila e os que não têm pedido recebem um. Devolve quantos
  * instrumentos ficaram na fila.

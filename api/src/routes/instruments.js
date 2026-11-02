@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { AppError, notFound } from '../errors.js';
 import { Decimal, ErrorBody, Id, InstrumentStatus, InstrumentSummary, IsoDate, NullableDecimal } from '../schemas.js';
-import { addSymbols, importTemplate, previewImport, readSymbolFile, requestPendingFetch, setIsinMic, triggerFetcher } from '../services/instruments.js';
+import {
+  addSymbols, deleteInstrument, importTemplate, previewImport, readSymbolFile, requestPendingFetch, setIsinMic, triggerFetcher,
+} from '../services/instruments.js';
 import {
   computeStats, EncryptedResponseError, fetchOrderBook, InstrumentNotFoundError, SOURCE_NOTE, suggestMic, toJson,
   UnexpectedFormatError, UpstreamError,
@@ -183,6 +185,23 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       sessions: Number(sessions),
       fetch: job ? { status: job.status, kind: job.kind, lastError: job.last_error, finishedAt: job.finished_at?.toISOString() ?? null } : null,
     };
+  });
+
+  app.delete('/instruments/:id', {
+    config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Instrumentos'], summary: 'Apagar um instrumento do catálogo (administradores)',
+      description: 'Apaga o instrumento e as suas cotações, pedidos de recolha, entradas nas listas de acompanhamento e regras '
+        + 'de alerta de todos os utilizadores. Recusado (409 INSTRUMENT_IN_USE) se houver operações simuladas ou posições.',
+      params: z.object({ id: Id }),
+      response: {
+        200: z.object({ symbol: z.string(), watchlists: z.number(), alertRules: z.number(), quotes: z.number() }),
+        403: ErrorBody, 404: ErrorBody, 409: ErrorBody,
+      },
+    },
+  }, async (req) => {
+    if (!req.user.isAdmin) throw new AppError(403, 'FORBIDDEN', 'reservado a administradores');
+    return deleteInstrument(pool, req.user.id, req.params.id);
   });
 
   app.put('/instruments/:id/isin-mic', {

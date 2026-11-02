@@ -122,7 +122,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 |---|---|
 | Sessão | `POST /auth/login`, `POST /auth/logout`, `GET /me`, `PUT /me/password` |
 | 2.º factor | `POST /auth/mfa/verify`, `POST /auth/mfa/setup`, `POST /auth/mfa/enable`, `GET /me/mfa`, `POST /me/mfa/recovery-codes`, `POST /me/mfa/reset`, `DELETE /admin/users/{id}/mfa` |
-| Instrumentos | `GET /instruments` (`sort` = symbol, volume ou change, `dir`), `GET /instruments/{id}`, `POST /instruments`, `POST /instruments/import/preview`, `GET /instruments/import/template`, `POST /instruments/fetch` |
+| Instrumentos | `GET /instruments` (`sort` = symbol, volume ou change, `dir`), `GET /instruments/{id}`, `DELETE /instruments/{id}` (administradores; recusado com operações ou posições), `POST /instruments`, `POST /instruments/import/preview`, `GET /instruments/import/template`, `POST /instruments/fetch` |
 | Histórico | `GET /instruments/{id}/quotes` (cotações e indicadores) |
 | ISIN-MIC e livro de ofertas | `PUT /instruments/{id}/isin-mic`, `GET /instruments?withIsinMic=true`, `GET /instruments/{id}/orderbook`, `GET /instruments/orderbook-summary?ids=…` (mid e desequilíbrio de até 50 instrumentos) |
 | Lista | `GET /watchlist`, `POST /watchlist/items`, `DELETE /watchlist/items/{id}` |

@@ -1361,6 +1361,111 @@ paths:
                 required:
                   - error
                 additionalProperties: false
+    delete:
+      summary: Apagar um instrumento do catálogo (administradores)
+      tags:
+        - Instrumentos
+      description: Apaga o instrumento e as suas cotações, pedidos de recolha,
+        entradas nas listas de acompanhamento e regras de alerta de todos os
+        utilizadores. Recusado (409 INSTRUMENT_IN_USE) se houver operações
+        simuladas ou posições.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  symbol:
+                    type: string
+                  watchlists:
+                    type: number
+                  alertRules:
+                    type: number
+                  quotes:
+                    type: number
+                required:
+                  - symbol
+                  - watchlists
+                  - alertRules
+                  - quotes
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
   /api/v1/instruments/{id}/isin-mic:
     put:
       summary: Definir ou apagar o ISIN-MIC de um instrumento do catálogo
