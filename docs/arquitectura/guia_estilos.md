@@ -120,7 +120,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Barra superior com pesquisa, estado dos dados e menu do utilizador.
 - Área principal com largura confortável e limite proposto de 1440 px.
 - Conteúdo em grelha de 12 colunas.
-- Menu lateral: Visão geral, Acompanhar, Orderbook, HeatMap, Carteira, Operações, Sinais, BackTest, WinnersLoosers, Promessas, Alertas, Utilizadores (só administradores) e Definições.
+- Menu lateral: Visão geral, Acompanhar, Charts, Orderbook, HeatMap, Carteira, Operações, Sinais, BackTest, WinnersLoosers, Promessas, Alertas, Utilizadores (só administradores) e Definições.
 
 ### Tablet — de 768 a 1199 px
 
@@ -202,6 +202,15 @@ Não apresentar um gráfico de evolução da carteira antes de existir uma séri
 - Disponibilizar resumo textual e acesso aos dados do gráfico em tabela, incluindo os indicadores e o momento visíveis.
 
 Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, o indicador de dados no topo mostra «Dados de <data> · sessão em curso, <hora>» (com o aviso de valores provisórios e atraso no `title`); depois das 19h00 volta a «Dados de <data>». Não animar pontos como se fossem actualizados em tempo real. Se a cobertura for inferior a três anos (a carga inicial), indicar o período efectivamente disponível e que a SMA200 e o momento podem não cobrir todo o gráfico.
+
+### 5.3a. Charts
+
+- Inspirado nas plataformas de gráficos: o gráfico ocupa a área principal e a lista de acompanhamento fica à direita (abaixo do gráfico em ecrãs com menos de 1200 px), fixa ao fazer scroll.
+- Lista compacta: símbolo, último preço e variação; o instrumento mostrado fica destacado (fundo e barra de acento, `aria-current`). Clique, setas ↑/↓ na lista ou botões anterior/seguinte (com «n / total») mudam o instrumento sem sair da página.
+- Cabeçalho do gráfico: símbolo, último preço, variação, nome, bolsa e data da cotação; menu «Estratégia» (por omissão a melhor de cada instrumento, «(melhor)» no menu; uma escolha explícita mantém-se ao mudar de instrumento) e «Abrir instrumento».
+- Enquanto chegam as cotações do novo instrumento, o gráfico anterior fica esbatido (`aria-busy`); os vizinhos na lista são pré-carregados.
+- Por baixo da lista, o nome, a melhor estratégia com o resultado e a ligação para o livro de ofertas.
+- Lista sem instrumentos activos: estado vazio com ligação para Acompanhar. Em telemóvel, o acesso é pelo botão «Charts» em Acompanhar.
 
 ### 5.4. Carteira virtual
 

@@ -348,6 +348,7 @@ export default function WatchlistPage() {
             title={showCatalog ? 'Esconder o catálogo partilhado' : 'Mostrar o catálogo partilhado'}>
             <Icon name="search" size={18} />Catálogo
           </Button>
+          <Link className="button" to="/charts" title="Ver os gráficos da lista, passando de um instrumento a outro"><Icon name="charts" size={18} />Charts</Link>
           <Link className="button mobile-only-inline" to="/orderbook">Orderbook</Link>
           <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" size={18} />Adicionar instrumentos</Button>
         </div>
