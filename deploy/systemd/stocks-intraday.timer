@@ -1,8 +1,10 @@
 [Unit]
-Description=Stocks — de hora a hora entre as 08:00 e as 17:00 de Lisboa, nos dias úteis (sessões em curso)
+Description=Stocks — de hora a hora entre as 08:23 e as 17:23 de Lisboa, nos dias úteis (sessões em curso)
 
 [Timer]
-OnCalendar=Mon..Fri 08..17:00 Europe/Lisbon
+# Ao minuto 23: o Yahoo tem cerca de 20 minutos de atraso, e assim também não coincide com o
+# stocks-fetcher-run.timer (a cada 5 min), que apanharia os pedidos desta execução.
+OnCalendar=Mon..Fri 08..17:23 Europe/Lisbon
 # Sem Persistent: uma recolha perdida durante a sessão não deve correr fora de horas.
 
 [Install]

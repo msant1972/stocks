@@ -1,6 +1,6 @@
 # Arquitectura de Software — Plataforma de Simulação e Acompanhamento de Acções
 
-Estado: versão 1 em produção em https://stocks.graus.pt (actualizado a 18 out. 2026).
+Estado: versão 1 em produção em https://stocks.graus.pt (actualizado a 2 nov. 2026; desde essa data num servidor novo, instalado de raiz, ver [deploy/README.md](../../deploy/README.md)).
 
 ## 1. Objectivo e âmbito
 
@@ -24,7 +24,7 @@ Este documento descreve a arquitectura implementada. O módulo de livro de ofert
 | Granularidade | Diária: um registo por sessão de bolsa |
 | Histórico | Carga inicial de três anos (para a SMA200 estar completa nos dois anos mostrados); actualização diária; as cotações nunca são apagadas |
 | Indicadores | EMA9, SMA10, SMA50, SMA125 e SMA200 por sessão, guardados na BD; momento SMA10/SMA200 e SMA8/SMA125 |
-| Recolha | Nos dias úteis, de hora a hora entre as 08h00 e as 17h00 de Lisboa (sessão em curso, valores provisórios com cerca de 15 min de atraso do Yahoo) e às 19h00, depois do fecho das bolsas europeias (17h30 CET), com os fechos definitivos |
+| Recolha | Nos dias úteis, de hora a hora entre as 08h23 e as 17h23 de Lisboa (sessão em curso, valores provisórios com cerca de 20 min de atraso do Yahoo) e às 19h00, depois do fecho das bolsas europeias (17h30 CET), com os fechos definitivos |
 | Alertas | Email; um resumo por utilizador após cada recolha diária, nunca mais do que um email por hora |
 | Simulação | Último fecho diário não ajustado; sem comissões; quantidades inteiras; sem posições curtas; custo médio ponderado |
 | Capital virtual | 1 000 000 EUR por omissão nas contas novas (configurável por conta); sem reposição |
@@ -45,7 +45,7 @@ A aplicação mantém os cinco módulos do desenho original:
 | 4 | Motor de recolha | Python 3, yfinance, PyMySQL | `engines/fetcher/` |
 | 5 | Motor de alertas | Python 3, PyMySQL, smtplib, cryptography | `engines/alerts/` |
 
-Tudo corre num único servidor Ubuntu (`stocks.graus.pt`). O Caddy termina o HTTPS e encaminha para a API, que serve também o frontend compilado na mesma origem. Os motores Python são processos de curta duração lançados pelo systemd.
+Tudo corre num único servidor Ubuntu (`stocks.graus.pt`, um VPS na Contabo desde 2 nov. 2026). O Caddy termina o HTTPS e encaminha para a API, que serve também o frontend compilado na mesma origem. Os motores Python são processos de curta duração lançados pelo systemd.
 
 ```mermaid
 flowchart LR
@@ -64,7 +64,7 @@ flowchart LR
         API <-->|SQL| DB
         API -->|escreve sinal| SIG
         SIG -->|stocks-fetcher-run.path| SYSD
-        SYSD -->|5 min / sinal / 08h–17h / 19h00| FETCH
+        SYSD -->|5 min / sinal / 08h23–17h23 / 19h01| FETCH
         SYSD -->|após a recolha diária| ALERT
         FETCH -->|cotações e indicadores| DB
         ALERT <-->|regras, eventos, envios, SMTP| DB
@@ -89,11 +89,10 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 
 | Ecrã | Função |
 |---|---|
-| Entrar | Login por email e palavra-passe |
 | Visão geral | Valor da carteira, saldo e resultado; momento do mercado (distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos); cruzamentos da SMA10 com a SMA50 nas últimas 5 sessões, ascendentes e descendentes |
 | Acompanhar | Lista do utilizador e, com o botão «Catálogo», o catálogo partilhado (último fecho e sessão, volume, variação, mid e desequilíbrio do livro Euronext com o botão «Mostrar OB», ISIN-MIC com edição directa; ordenação por instrumento, volume, variação e desequilíbrio), adicionar símbolos ou importar Excel/CSV (colunas `ticker` e `isin_mic`) com pré-visualização, botão «Validar agora» |
 | Orderbook | Livro de ofertas Euronext (atraso 15 min) dos instrumentos com ISIN-MIC: melhor compra/venda, spread, mid, desequilíbrio, tabela com nº de ordens e totais, gráfico de profundidade cumulativa, actualização a cada 30 s |
-| Instrumento | Último fecho e variação, gráfico diário (1M a 2A, com o último período escolhido guardado no browser) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, menu «Estratégia» (Nenhuma, A-Momentum; B-Opus em preparação) |
+| Instrumento | Último fecho e variação, gráfico diário (1M a 2A, com o último período escolhido guardado no browser) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, menu «Estratégia» (Nenhuma, A-Momentum, B-Opus, C-AI) |
 | HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5, 10 ou 20 sessões |
 | Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |
 | Operações | Histórico filtrável por tipo, instrumento e datas |
@@ -129,7 +128,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Lista | `GET /watchlist`, `POST /watchlist/items`, `DELETE /watchlist/items/{id}` |
 | Carteira e operações | `GET /portfolio`, `GET /portfolio/positions`, `GET /simulated-trades/preview`, `POST /simulated-trades`, `GET /simulated-trades` |
 | Alertas | `GET/POST /alerts`, `PATCH/DELETE /alerts/{id}`, `GET /alerts/events` |
-| Mapa de calor | `GET /heatmap?period=1\|5\|15\|30&scope=all\|watchlist&limit=20` |
+| Mapa de calor | `GET /heatmap?period=1\|5\|10\|20&scope=all\|watchlist&limit=20` |
 | Mercado | `GET /market/momentum?top=5` (distribuição do SMA10/SMA200 na última sessão e extremos), `GET /market/crossovers?sessions=5` (cruzamentos SMA10/SMA50: ascendente se SMA10 ≤ SMA50 na sessão anterior e > na seguinte, descendente o inverso; conta o mais recente por instrumento); cache 10 min |
 | Sinais | `GET /signals?strategy=a-momentum&sessions=5` (estratégia aplicada a todos os instrumentos activos; a A-Momentum com todo o histórico, a B-Opus na janela de 2 anos com aquecimento; preço e motivo da operação; cache 10 min por estratégia) |
 | Estratégias e BackTest | `GET /strategies` (registo); `GET /backtest?strategy=a-momentum&scope=all\|watchlist` (estratégia em cada instrumento activo sobre os últimos 2 anos; cache 10 min por estratégia) |
@@ -166,7 +165,7 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 
 | Tabela | Conteúdo |
 |---|---|
-| `instruments` | Catálogo global: símbolo Yahoo (único), mercado, moeda, nome, ISIN e MIC Euronext (opcionais; preenchidos a partir da lista oficial `ISIN.xlsx` na raiz do repositório), estado (`pending`/`active`/`invalid`) e motivo, primeira e última sessão |
+| `instruments` | Catálogo global: símbolo Yahoo (único), mercado, moeda, nome, ISIN e MIC Euronext (opcionais; preenchidos a partir da lista oficial `ISIN.xlsx` na raiz do repositório com `scripts/isin-mic-from-xlsx.mjs`), estado (`pending`/`active`/`invalid`) e motivo, primeira e última sessão |
 | `daily_quotes` | Uma linha por (instrumento, sessão): abertura, máximo, mínimo, fecho, fecho ajustado, volume, origem, e os indicadores `ema9`, `sma10`, `sma50`, `sma125`, `sma200` |
 | `fetch_jobs` | Fila de recolha: tipo (inicial ou incremental), estado, tentativas, próxima tentativa, último erro |
 | `job_runs` | Execuções da recolha diária e dos alertas, para diagnóstico |
@@ -256,7 +255,7 @@ Biblioteca em `api/src/orderbook/` que implementa a [especificação](orderbook-
 
 ### 5.2. Actualizações e alertas
 
-0. `stocks-intraday.timer` (dias úteis, de hora a hora das 08h00 às 17h00 de Lisboa) executa `fetcher update --intraday`: actualiza as cotações, incluindo a sessão em curso (provisória), e recalcula os indicadores, sem alertas. A interface indica «sessão em curso» com a hora da última actualização, e as estratégias, o BackTest, os Sinais e as Promessas passam a usar a vela provisória (cache de 10 minutos).
+0. `stocks-intraday.timer` (dias úteis, de hora a hora das 08h23 às 17h23 de Lisboa) executa `fetcher update --intraday`: actualiza as cotações, incluindo a sessão em curso (provisória), e recalcula os indicadores, sem alertas. A interface indica «sessão em curso» com a hora da última actualização, e as estratégias, o BackTest, os Sinais e as Promessas passam a usar a vela provisória (cache de 10 minutos).
 1. `stocks-daily.timer` (dias úteis, 19h00 de Lisboa) executa `deploy/bin/daily.sh`.
 2. O motor de recolha pede a actualização de todos os activos, processa-os, recalcula os indicadores e regista a execução em `job_runs`.
 3. Mesmo que a recolha tenha falhas, o motor de alertas corre a seguir (`--dry-run-if-unconfigured`): avalia cada regra uma vez por sessão, regista os eventos e envia um resumo por utilizador, ou só mostra os resumos no registo se não houver SMTP configurado.
@@ -302,7 +301,7 @@ As perdas ficam muito menores, mas o lucro nas tendências fortes também: as pa
 
 A página **Sinais** aplica a mesma estratégia, no servidor, a todos os instrumentos activos com todo o histórico (para reconstruir a posição virtual de cada um) e lista os sinais das últimas N sessões. Os botões Comprar e Vender abrem uma operação simulada normal na carteira do utilizador, já com a quantidade preenchida (a que cabe em 15 000 € ao último fecho, ou todas as unidades em carteira); os sinais nunca executam operações sozinhos.
 
-A página **BackTest** aplica a estratégia escolhida (A-Momentum por omissão) a cada instrumento activo sobre exactamente os dados que a página do instrumento carrega (os últimos 2 anos até à última sessão), por isso os resultados coincidem com os do menu «Estratégia» da página do instrumento (testado). A página Sinais usa sempre a A-Momentum. Mostra o resultado (realizado + posição aberta ao último fecho), a percentagem sobre o capital máximo investido em simultâneo, as operações e reforços, a taxa de acerto e a diferença para comprar e manter uma compra desde o início do período. O cálculo para todos os instrumentos demora cerca de 2 s e fica em cache 10 min.
+A página **BackTest** aplica a estratégia escolhida (A-Momentum por omissão) a cada instrumento activo sobre exactamente os dados que a página do instrumento carrega (os últimos 2 anos até à última sessão), por isso os resultados coincidem com os do menu «Estratégia» da página do instrumento (testado). A página Sinais tem o mesmo menu «Estratégia». Mostra o resultado (realizado + posição aberta ao último fecho), a percentagem sobre o capital máximo investido em simultâneo, as operações e reforços, a taxa de acerto e a diferença para comprar e manter uma compra desde o início do período. O cálculo para todos os instrumentos demora cerca de 2 s e fica em cache 10 min.
 
 ### 5.5. Operação simulada
 
@@ -355,14 +354,14 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-api.service` | sempre | API e frontend |
 | `stocks-fetcher-run.path` | quando a API escreve o sinal | Arranca o motor de recolha de imediato |
 | `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança para a fila de recolha |
-| `stocks-intraday.timer` | dias úteis, de hora a hora das 08h00 às 17h00 de Lisboa | Actualização das cotações durante a sessão (provisória), sem alertas |
-| `stocks-daily.timer` | dias úteis, 19h00 de Lisboa | Recolha diária com os fechos definitivos, seguida dos alertas |
-| `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é feita por snapshots EBS do volume, geridos na AWS |
+| `stocks-intraday.timer` | dias úteis, de hora a hora das 08h23 às 17h23 de Lisboa | Actualização das cotações durante a sessão (provisória), sem alertas |
+| `stocks-daily.timer` | dias úteis, 19h01 de Lisboa (ao minuto 1, para não coincidir com o timer de 5 minutos) | Recolha diária com os fechos definitivos, seguida dos alertas |
+| `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); cópia fora do servidor pendente desde a mudança de servidor |
 
 Testes automáticos em cada componente: API com Vitest contra uma BD de testes (103, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (33: 11 da B-Opus, 5 da C-AI e 3 das Promessas). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
 Riscos aceites ou pendentes:
-- **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e snapshots EBS do volume (cópia fora do servidor, geridos na AWS), com restauro testado pelo administrador.
+- **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD, no mesmo disco. Desde a mudança de servidor (2 nov. 2026) não há cópia fora do servidor (antes eram snapshots EBS na AWS): pendente.
 - **Fonte não oficial:** o yfinance pode mudar ou ser limitado pelo Yahoo; a versão está fixada e o adaptador é substituível.
 - **Ambientes:** desenvolvimento e produção partilham o servidor e a base `stocks`; os testes usam a base `stocks_test`.
 - **Memória da API:** o serviço tem `MemoryMax=512M` (heap do Node de cerca de 256 MB). A 24 out. 2026, o WinnersLoosers calculava as três estratégias em paralelo com todas as cotações em memória, esgotou o heap e a API reiniciou em ciclo (502) durante alguns minutos. Corrigido: o BackTest, o WinnersLoosers, as Promessas e os Sinais percorrem o catálogo um instrumento de cada vez e partilham os cálculos entre pedidos simultâneos (pico medido de 44 MB com sete pedidos em simultâneo). Novos cálculos sobre todo o catálogo devem seguir o mesmo modelo.

@@ -15,7 +15,7 @@ Este guia estabelece uma proposta visual e funcional para implementação. Os va
 - Histórico diário dos últimos dois anos, sujeito à disponibilidade dos dados.
 - Alertas por email agrupados num único resumo por utilizador, enviado após a recolha diária das cotações.
 - Instrumentos cotados em EUR e carteira em EUR.
-- Ausência de cotações intradiárias e de execução real em bolsa.
+- Ausência de cotações em tempo real (durante a sessão só há a vela provisória do dia, actualizada de hora a hora) e de execução real em bolsa.
 
 A interface nunca deve criar a impressão de negociação real ou de acompanhamento em tempo real.
 
@@ -120,7 +120,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Barra superior com pesquisa, estado dos dados e menu do utilizador.
 - Área principal com largura confortável e limite proposto de 1440 px.
 - Conteúdo em grelha de 12 colunas.
-- Menu lateral: Visão geral, Acompanhar, Orderbook, HeatMap, Carteira, Operações, Sinais, Alertas, Utilizadores (só administradores) e Definições.
+- Menu lateral: Visão geral, Acompanhar, Orderbook, HeatMap, Carteira, Operações, Sinais, BackTest, WinnersLoosers, Promessas, Alertas, Utilizadores (só administradores) e Definições.
 
 ### Tablet — de 768 a 1199 px
 
@@ -281,7 +281,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 
 ### 5.11. Sinais
 
-- Menu «Estratégia» (A-Momentum por omissão, B-Opus; `?estrategia=`). Lista dos sinais da estratégia (compra C, reforço R, venda V com o motivo, com etiqueta de cor e letra) em todos os instrumentos, ordenados do mais recente.
+- Menu «Estratégia» (A-Momentum por omissão, B-Opus, C-AI; `?estrategia=`). Lista dos sinais da estratégia (compra C, reforço R, venda V com o motivo, com etiqueta de cor e letra) em todos os instrumentos, ordenados do mais recente.
 - Filtro por tipo com contagens e período (última sessão a últimas 10 sessões), guardados no URL.
 - Cada linha: sessão («há N sessões»), sinal, instrumento, preço do sinal, variação desde o sinal (com o último fecho), SMA10/SMA200 actual e botões «Comprar» e «Vender»; «Vender» desactivado quando o instrumento não está na carteira.
 - «Comprar» abre a operação com a quantidade que cabe em 15 000 € ao último fecho; «Vender» abre-a com todas as unidades em carteira. A quantidade continua editável e o modal mostra uma nota com a origem do valor.

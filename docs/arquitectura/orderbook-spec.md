@@ -4,7 +4,7 @@
 |---|---|
 | **Versão** | 0.1 (rascunho) |
 | **Data** | 2026-10-19 |
-| **Estado** | Para revisão |
+| **Estado** | Implementada (`api/src/orderbook/`; decisões face a esta especificação na arquitectura, secção 4.6). As evoluções 2 e 4 da secção 12 já estão feitas |
 
 ---
 

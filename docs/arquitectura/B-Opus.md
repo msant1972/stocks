@@ -33,7 +33,7 @@ Diferenças em relação à A-Momentum:
 
 | | A-Momentum | B-Opus |
 |---|---|---|
-| Sinal de entrada | Padrão descer-subir-subir do SMA10/SMA200, com o preço acima da SMA200 | Tendência (SMA50 e SMA200), M1 e M2 positivos, Efficiency Ratio, liquidez |
+| Sinal de entrada | Padrão descer-subir-subir do SMA10/SMA200, com o preço acima da SMA200 | Tendência (SMA50 e SMA200), M1 e M2 positivos, liquidez (Efficiency Ratio opcional, desligado na versão B) |
 | Frequência | Diária | Semanal (entradas e saídas planeadas); stops diários |
 | Execução | Fecho da sessão do sinal | Abertura da sessão seguinte |
 | Posição | 15 000 € e reforços de 15 000 € a cada +10%, sem limite | 15 000 € e reforços de 15 000 € a cada +10%, até 5 |
@@ -372,7 +372,7 @@ Em `shared/strategies/index.js`, a entrada da B-Opus passa a `available: true`, 
              reinforcements, sellPrice, proceeds, pnl, pnlPct, reason,
              initialStop, partialSales }],
   open: null | { buyDate, quantity, cost, avgPrice, lots, reinforcements, lastDate, lastPrice, value, pnl, pnlPct, stop },
-  signals: [{ date, side: 'buy' | 'sell', reason }],
+  signals: [{ date, side: 'buy' | 'add' | 'sell', reason }],
   firstDate,
   summary: { closed, wins, reinforcements, peakCost, realized, unrealized, total, totalPct, buyHold },
   // campos próprios da B-Opus:
@@ -397,7 +397,7 @@ A B-Opus precisa de `open`, `high`, `low` e `volume`, além de `close` e `adjClo
 Reutiliza os componentes da A-Momentum:
 
 - **Página do instrumento:** «B-Opus» activa no menu «Estratégia»; marcadores C (compra) e V (venda) no gráfico; linha do stop da posição aberta; painel com as regras, o resultado, as operações (com o motivo de saída e o stop inicial), a posição aberta com o stop actual, a comparação com comprar e manter e, se não houve compras, as razões (`blocked`).
-- **BackTest:** «B-Opus» activa no menu «Estratégia»; a mesma tabela e o mesmo resumo da A-Momentum (sem a coluna de reforços, que é sempre 0).
+- **BackTest:** «B-Opus» activa no menu «Estratégia»; a mesma tabela e o mesmo resumo da A-Momentum, incluindo os reforços (versão B).
 - **Sinais:** menu «Estratégia» e, com a B-Opus, o motivo de cada sinal.
 
 ---

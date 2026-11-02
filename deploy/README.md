@@ -1,6 +1,6 @@
 # Implantação
 
-Toda a aplicação corre num único servidor Ubuntu, `stocks.graus.pt`:
+Toda a aplicação corre num único servidor Ubuntu, `stocks.graus.pt`. Desde 2 nov. 2026 é um VPS na Contabo (Ubuntu 26.04), instalado de raiz com este procedimento; o servidor anterior, na AWS, deixou de receber tráfego.
 
 ```text
 Internet ──HTTPS──▶ Caddy (:443, certificado automático)
@@ -16,8 +16,8 @@ systemd timers ─▶ motor de recolha (cargas iniciais a cada 5 min; actualiza�
 | `stocks-api.service` | sempre | API e frontend |
 | `stocks-fetcher-run.path` | quando a aplicação pede | Arranca o motor de imediato ao adicionar símbolos ou em «Validar agora» (a API escreve em `/var/lib/stocks/fetch-request`) |
 | `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança: processa os pedidos que ficarem na fila |
-| `stocks-intraday.timer` | dias úteis, de hora a hora das 08:00 às 17:00 de Lisboa | Actualização das cotações durante a sessão, sem alertas (`fetcher update --intraday`) |
-| `stocks-daily.timer` | dias úteis, 19:00 de Lisboa | Actualização com os fechos definitivos e, a seguir, alertas ([bin/daily.sh](bin/daily.sh)) |
+| `stocks-intraday.timer` | dias úteis, de hora a hora das 08:23 às 17:23 de Lisboa | Actualização das cotações durante a sessão, sem alertas (`fetcher update --intraday`) |
+| `stocks-daily.timer` | dias úteis, 19:01 de Lisboa | Actualização com os fechos definitivos e, a seguir, alertas ([bin/daily.sh](bin/daily.sh)) |
 | `stocks-backup.timer` | diariamente, 03:30 UTC | `mariadb-dump` para `/var/backups/stocks`, guardado durante 14 dias |
 
 Os serviços correm com o utilizador de sistema `stocks-svc` (sem login nem sudo), com o sistema de ficheiros só de leitura (`ProtectSystem=strict`). A configuração e os segredos ficam em `/etc/stocks/stocks.env` (`root:stocks-svc`, modo 640). A chave que cifra os segredos guardados na BD (palavra-passe SMTP) fica em `/etc/stocks/secret.key`, criada pelo `install.sh` e nunca substituída: perdê-la obriga a voltar a introduzir a palavra-passe SMTP.
@@ -26,7 +26,7 @@ Os serviços correm com o utilizador de sistema `stocks-svc` (sem login nem sudo
 
 - Ubuntu com acesso `sudo`.
 - O DNS de `stocks.graus.pt` a apontar para o IP público do servidor.
-- As portas **80 e 443** abertas no *security group* da AWS: o Caddy precisa delas para obter o certificado. A porta 22 deve ficar restrita aos IPs de administração. A 3000 e a 3306 não devem ser abertas.
+- As portas **80 e 443** abertas na firewall do fornecedor e na do servidor, se houver: o Caddy precisa delas para obter o certificado. A 3000 e a 3306 não devem ser abertas (a API e o MariaDB só escutam em `127.0.0.1`).
 - O dbmate em `/usr/local/bin`:
   ```bash
   sudo curl -fsSL -o /usr/local/bin/dbmate https://github.com/amacneil/dbmate/releases/download/v2.37.0/dbmate-linux-amd64
@@ -70,7 +70,7 @@ No primeiro login é pedido que configure a autenticação em dois passos (obrig
 sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/api && node src/cli.js reset-mfa --email miguel@graus.pt'
 ```
 
-Os segredos TOTP são cifrados com `/etc/stocks/secret.key`: perder ou substituir esta chave invalida o 2.º factor de todos (repor com `reset-mfa`). Os snapshots EBS incluem-na.
+Os segredos TOTP são cifrados com `/etc/stocks/secret.key`: perder ou substituir esta chave invalida o 2.º factor de todos (repor com `reset-mfa`). Inclua-a na cópia fora do servidor.
 
 Carregar a lista inicial de instrumentos:
 
@@ -107,27 +107,19 @@ O SMTP configura-se em **Definições → Envio de email (SMTP)** (administrador
 
 ## Cópias de segurança e recuperação
 
-Há dois níveis de cópia:
+Cópias:
 
 1. **Dumps diários** (`stocks-backup.timer`, 03:30 UTC) em `/var/backups/stocks`, guardados 14 dias. São consistentes, porque são feitos com `mariadb-dump --single-transaction`.
-2. **Snapshots EBS** do volume do servidor, geridos na AWS (frequência e retenção definidas na consola ou no Data Lifecycle Manager). Protegem contra a perda do servidor e incluem os dumps do ponto 1.
+2. **Cópia fora do servidor: pendente.** No servidor anterior era feita por snapshots EBS na AWS; neste servidor os dumps ficam só no mesmo disco. Até haver uma cópia externa (por exemplo, sincronizar `/var/backups/stocks` e `/etc/stocks/secret.key` para outro local), a perda do servidor implica a perda dos dados.
 
-O restauro foi testado a 18 out. 2026. Repita o teste periodicamente, por exemplo uma vez por trimestre.
-
-**Recuperar a partir de um snapshot EBS.** Um snapshot do volume é «crash-consistent»: os ficheiros do MariaDB podem não estar num estado consistente. Use antes o dump mais recente que o snapshot contém:
-
-1. Na AWS, criar um volume a partir do snapshot e anexá-lo a uma instância (a própria ou uma nova).
-2. Montar o volume, por exemplo em `/mnt/recuperacao`, e localizar `/mnt/recuperacao/var/backups/stocks/stocks-<data>.sql.gz`.
-3. Restaurar esse dump com o procedimento abaixo.
-
-Se for preciso reconstruir o servidor inteiro, basta lançar uma instância a partir do snapshot: o sistema, a configuração (`/etc/stocks`, incluindo `secret.key`) e o código (`/opt/stocks`) vêm com ele. Depois restaure o dump para garantir uma base de dados consistente.
+O restauro foi testado a 18 out. 2026, no servidor anterior. Repita o teste periodicamente, por exemplo uma vez por trimestre.
 
 Restaurar, depois de parar a API e os timers:
 
 ```bash
-sudo systemctl stop stocks-api stocks-fetcher-run.timer stocks-daily.timer
+sudo systemctl stop stocks-api stocks-fetcher-run.timer stocks-intraday.timer stocks-daily.timer
 gunzip -c /var/backups/stocks/stocks-<data>.sql.gz | sudo mariadb stocks
-sudo systemctl start stocks-api stocks-fetcher-run.timer stocks-daily.timer
+sudo systemctl start stocks-api stocks-fetcher-run.timer stocks-intraday.timer stocks-daily.timer
 ```
 
 Teste o restauro periodicamente numa base separada, por exemplo `stocks_restore`.

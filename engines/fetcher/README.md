@@ -49,8 +49,8 @@ python -m fetcher backfill                                    # completa o hist�
 ## Agendamento proposto (systemd)
 
 - `stocks-fetcher-run.timer`: corre `python -m fetcher run` a cada 5 minutos, para processar as cargas iniciais pedidas pela aplicação.
-- `stocks-intraday.timer`: corre `python -m fetcher update --intraday` de segunda a sexta, de hora a hora das 08:00 às 17:00 de Lisboa, durante as sessões; a vela do próprio dia é provisória.
-- `stocks-daily.timer`: corre `python -m fetcher update` (e depois os alertas) de segunda a sexta às 19:00 de Lisboa, depois do fecho das bolsas europeias (17:30 CET), gravando os fechos definitivos.
+- `stocks-intraday.timer`: corre `python -m fetcher update --intraday` de segunda a sexta, de hora a hora das 08:23 às 17:23 de Lisboa (o Yahoo tem cerca de 20 minutos de atraso), durante as sessões; a vela do próprio dia é provisória.
+- `stocks-daily.timer`: corre `python -m fetcher update` (e depois os alertas) de segunda a sexta às 19:01 de Lisboa, depois do fecho das bolsas europeias (17:30 CET), gravando os fechos definitivos.
 
 ## Testes
 

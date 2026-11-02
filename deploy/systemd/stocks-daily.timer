@@ -2,7 +2,9 @@
 Description=Stocks — dias úteis às 19:00 de Lisboa, depois do fecho das bolsas europeias
 
 [Timer]
-OnCalendar=Mon..Fri 19:00 Europe/Lisbon
+# Às 19:01, e não às 19:00: o stocks-fetcher-run.timer (a cada 5 min) também corre à hora certa; se apanhasse
+# os pedidos, a recolha terminava logo e os alertas eram avaliados antes de os fechos estarem gravados.
+OnCalendar=Mon..Fri 19:01 Europe/Lisbon
 Persistent=true
 
 [Install]

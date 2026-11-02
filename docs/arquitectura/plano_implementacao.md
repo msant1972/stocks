@@ -1,6 +1,6 @@
 # Plano de Implementação — Plataforma de Simulação e Acompanhamento de Acções
 
-Estado em 18 out. 2026. Versão 1 em produção em https://stocks.graus.pt, no ramo `main`.
+Estado em 2 nov. 2026. Versão 1 em produção em https://stocks.graus.pt, no ramo `main`; desde 2 nov. 2026 num servidor novo (VPS na Contabo), instalado de raiz com a base de dados vazia.
 
 Documentos relacionados: [Arquitectura](arquitectura.md) (o que está construído), [Análise e decisões](analise_e_decisoes.md) (porquê), [Guia de estilos](guia_estilos.md) (interface) e [deploy/README.md](../../deploy/README.md) (operação).
 
@@ -12,7 +12,7 @@ Os três pendentes da versão 1 foram fechados pelo administrador a 18 out. 2026
 
 1. SMTP configurado em Definições (OVH, `ssl0.ovh.net:465`, SSL/TLS, remetente `stocks@graus.pt`), com email de teste aceite;
 2. carteira de produção passada para 1 000 000 € e valor por omissão actualizado em `/etc/stocks/stocks.env`;
-3. cópia fora do servidor por snapshots EBS do volume (geridos na AWS) e restauro testado.
+3. cópia fora do servidor por snapshots EBS do volume (geridos na AWS) e restauro testado. Com a mudança de servidor a 2 nov. 2026, esta cópia deixou de existir e voltou a ser um pendente (secção 8, P1).
 
 ## 2. Âmbito
 
@@ -30,7 +30,7 @@ Detalhe em [Análise e decisões](analise_e_decisoes.md).
 - Grupo privado de utilizadores; contas criadas por administradores.
 - yfinance atrás de um adaptador substituível, com versão fixada.
 - Instrumentos e carteira em EUR; catálogo global partilhado com importação de Excel.
-- Recolha nos dias úteis às 19h00 de Lisboa; cotações nunca apagadas.
+- Recolha nos dias úteis às 19h01 de Lisboa (fechos definitivos) e de hora a hora durante a sessão; cotações nunca apagadas.
 - Operações ao último fecho não ajustado; gráficos e indicadores sobre o fecho ajustado.
 - Quantidades inteiras, sem posições curtas nem comissões; custo médio ponderado.
 - Capital virtual inicial de 1 000 000 € por omissão.
@@ -38,7 +38,7 @@ Detalhe em [Análise e decisões](analise_e_decisoes.md).
 ### 2.3. Fora do âmbito (mantém-se)
 
 - Negociação real, pagamentos, corretoras e custódia.
-- Cotações intradiárias e alertas em tempo real.
+- Cotações em tempo real e alertas intradiários (a recolha horária guarda só a vela provisória do dia).
 - Negociação automática: a estratégia só é simulada no histórico e não executa operações.
 - Aplicações móveis nativas, carteiras multimoeda, vendas a descoberto e tratamento completo de dividendos e desdobramentos.
 - Alta disponibilidade.
@@ -104,7 +104,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US09 | Regras de alerta | P0 | Feito |
 | US10 | Envio de alertas | P0 | Feito (SMTP da OVH) |
 | US11 | Estado das recolhas | P1 | Feito (`/status`, Definições, «Validar agora») |
-| US12 | Backup e recuperação | P0 | Feito: dumps diários locais, snapshots EBS e restauro testado |
+| US12 | Backup e recuperação | P0 | Dumps diários locais; cópia fora do servidor por refazer desde a mudança de servidor (antes: snapshots EBS e restauro testado) |
 | US13 | Indicadores e momento | — | Feito |
 | US14 | Estratégia simulada | — | Feito |
 | US15 | HeatMap e momento do mercado | — | Feito |
@@ -141,7 +141,7 @@ O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pul
 | Gastos concorrentes do saldo | Transacções, bloqueio da carteira, testes concorrentes | Resolvido |
 | Alertas repetidos | Chave única por regra e sessão; reserva por utilizador | Resolvido |
 | Aceitação SMTP ambígua | Estado `uncertain`, sem reenvio cego | Resolvido |
-| Servidor único | Dumps diários, snapshots EBS e restauro testado | Mitigado; indisponibilidade conjunta aceite |
+| Servidor único | Dumps diários no mesmo disco; cópia externa por refazer | Pendente: sem cópia fora do servidor desde 2 nov. 2026 |
 | Perda da chave de cifra | Chave criada uma vez e nunca substituída | Aceite: perdê-la obriga a reintroduzir a palavra-passe SMTP |
 | Desenvolvimento no servidor de produção | Base de testes separada; publicação só com `install.sh` | Pendente: ambiente de testes separado |
 | Aumento do âmbito | Alterações pequenas, com testes e commit por funcionalidade | Em curso |
@@ -156,6 +156,7 @@ Concluído a 18 out. 2026 (SMTP, carteira a 1 M€, cópia externa e restauro). 
 
 ### P1 — robustez
 
+3. Cópia dos dumps e de `/etc/stocks/secret.key` para fora do servidor, e novo teste de restauro (perdida com a mudança de servidor a 2 nov. 2026).
 4. Análise estática (ESLint, Ruff) e auditoria de dependências (`npm audit`, `pip-audit`) no CI.
 5. Ambiente de testes separado da produção (outra máquina ou contentores), e trabalho por ramos com pull requests.
 6. Contas de BD por componente (API e motores com permissões mínimas).
@@ -182,13 +183,13 @@ Lista de verificação da versão 1:
 - [x] Testes de saldo, concorrência e isolamento aprovados.
 - [x] Testes de resumo único e desduplicação de alertas aprovados.
 - [ ] Monitorização com alerta operacional (hoje: `journalctl`, `/status` e Definições).
-- [x] Backup externo (snapshots EBS) e restauro demonstrado.
+- [ ] Backup externo e restauro demonstrado (feito no servidor anterior com snapshots EBS; por refazer no servidor actual).
 - [x] Envio real de email verificado (email de teste pelo SMTP da OVH).
 - [x] Procedimento de rollback documentado em [deploy/README.md](../../deploy/README.md).
 
 Rollback:
 
-1. Suspender os timers (`stocks-fetcher-run`, `stocks-daily`), preservando logs e eventos.
+1. Suspender os timers (`stocks-fetcher-run`, `stocks-intraday`, `stocks-daily`), preservando logs e eventos.
 2. Verificar se a versão anterior é compatível com o esquema actual; as migrações não são revertidas automaticamente.
 3. `git checkout <versão anterior>` e `sudo deploy/install.sh`.
 4. Se for preciso restaurar dados, obter aprovação explícita para a perda ou reconciliação das escritas posteriores ao backup.
