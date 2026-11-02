@@ -3,9 +3,9 @@ import { STRATEGIES } from '../../lib/strategy.js';
 
 /**
  * Menu de estratégias do registo (shared/strategies/). As que ainda estão em preparação aparecem
- * desactivadas. allowNone acrescenta «Nenhuma» (valor null).
+ * desactivadas. allowNone acrescenta «Nenhuma» (valor null); best marca a estratégia com melhor resultado.
  */
-export default function StrategySelect({ value, onChange, allowNone = false, disabled, compact }) {
+export default function StrategySelect({ value, onChange, allowNone = false, best = null, disabled, compact }) {
   const id = useId();
   return (
     <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
@@ -14,7 +14,9 @@ export default function StrategySelect({ value, onChange, allowNone = false, dis
         style={{ minHeight: '2.75rem', width: 'auto' }} title="Simular no histórico uma estratégia (não altera a carteira virtual)">
         {allowNone && <option value="">Nenhuma</option>}
         {STRATEGIES.map((s) => (
-          <option key={s.id} value={s.id} disabled={!s.available}>{s.available ? s.name : `${s.name} (em preparação)`}</option>
+          <option key={s.id} value={s.id} disabled={!s.available}>
+            {!s.available ? `${s.name} (em preparação)` : s.id === best ? `${s.name} (melhor)` : s.name}
+          </option>
         ))}
       </select>
     </div>

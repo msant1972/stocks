@@ -65,7 +65,7 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
   it('lista as estratégias e recusa ids desconhecidos', async () => {
     const list = (await ana.get('/strategies')).json();
     expect(list.defaultId).toBe('a-momentum');
-    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', true], ['c-ai', 'C-AI', true]]);
+    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', true], ['c-ai', 'C-AI', true], ['d-reversao', 'D-Reversão', true]]);
     expect((await ana.get('/backtest?strategy=c-x')).statusCode).toBe(400);
     expect((await ana.get('/signals?strategy=c-x')).statusCode).toBe(400);
   });
@@ -108,9 +108,9 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
     expect(sig.items.every((x) => ['buy', 'add', 'sell'].includes(x.side))).toBe(true);
   });
 
-  it('WinnersLoosers: agrupa pelos resultados das três estratégias, iguais aos do BackTest', async () => {
+  it('WinnersLoosers: agrupa pelos resultados das quatro estratégias, iguais aos do BackTest', async () => {
     const wl = (await ana.get('/winners-losers')).json();
-    expect(wl.strategies.map((x) => x.id)).toEqual(['a-momentum', 'b-opus', 'c-ai']);
+    expect(wl.strategies.map((x) => x.id)).toEqual(['a-momentum', 'b-opus', 'c-ai', 'd-reversao']);
     const per = {};
     for (const st of wl.strategies) per[st.id] = (await ana.get(`/backtest?strategy=${st.id}`)).json().items;
     for (const it of wl.items) {
@@ -128,6 +128,19 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
     // Cada linha indica se está na lista do utilizador (ONDA.LS está; os outros não).
     expect(wl.items.filter((i) => i.inWatchlist).map((i) => i.symbol)).toEqual(wl.items.filter((i) => i.symbol === 'ONDA.LS').map((i) => i.symbol));
     expect(wl.items.every((i) => typeof i.inWatchlist === 'boolean')).toBe(true);
+  });
+
+  it('melhor estratégia de cada instrumento: a de maior resultado no BackTest', async () => {
+    const best = (await ana.get('/strategies/best')).json();
+    const ids = (await ana.get('/strategies')).json().items.filter((x) => x.available).map((x) => x.id);
+    const per = {};
+    for (const id of ids) per[id] = (await ana.get(`/backtest?strategy=${id}`)).json().items;
+    expect(best.items.length).toBeGreaterThan(0);
+    for (const it of best.items) {
+      const totals = ids.map((id) => per[id].find((r) => r.instrumentId === it.instrumentId)?.total ?? -Infinity);
+      expect(it.total).toBe(Math.max(...totals));
+      expect(per[it.strategyId].find((r) => r.instrumentId === it.instrumentId).total).toBe(it.total);
+    }
   });
 
   it('Promessas: só elegíveis (tendência intacta), ordenados pela pontuação, com a validação histórica', async () => {

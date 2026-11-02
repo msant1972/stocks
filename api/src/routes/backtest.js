@@ -98,6 +98,34 @@ export default async function backtestRoutes(app, { pool }) {
     return { strategy: info(strategy), years: strategy.windowYears, budget: strategy.budget, computedAt: new Date(entry.at).toISOString(), items };
   });
 
+  // ---------- Melhor estratégia de cada instrumento (página Acompanhar e omissão na página do instrumento) ----------
+
+  app.get('/strategies/best', {
+    schema: {
+      tags: ['Estratégia'], summary: 'Estratégia com melhor resultado em cada instrumento, nos últimos 2 anos',
+      description: 'Usa os resultados do BackTest de todas as estratégias disponíveis (cache de 10 minutos). total é o resultado '
+        + 'da melhor estratégia; pode ser negativo, quando nenhuma ganha nesse instrumento.',
+      response: {
+        200: z.object({
+          computedAt: z.string(),
+          items: z.array(z.object({
+            instrumentId: z.number(), strategyId: z.string(), total: Money, totalPct: z.number(),
+          })),
+        }),
+      },
+    },
+  }, async () => {
+    const computed = await ensure(AVAILABLE_STRATEGIES);
+    const best = new Map();
+    AVAILABLE_STRATEGIES.forEach((st, k) => {
+      for (const it of computed[k].items) {
+        const cur = best.get(it.instrumentId);
+        if (!cur || it.total > cur.total) best.set(it.instrumentId, { instrumentId: it.instrumentId, strategyId: st.id, total: it.total, totalPct: it.totalPct });
+      }
+    });
+    return { computedAt: new Date(Math.min(...computed.map((e) => e.at))).toISOString(), items: [...best.values()] };
+  });
+
   // ---------- WinnersLoosers: instrumentos em que todas as estratégias ganham, ou todas perdem ----------
 
   const Money2 = z.number();

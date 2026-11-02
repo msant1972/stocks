@@ -93,13 +93,14 @@ test('só vende com o SMA8/SMA125 abaixo de 1%', () => {
   assert.deepEqual([r.trades[0].sellDate, r.trades[0].sellPrice], ['2026-01-11', 10.5]);
 });
 
-test('registo de estratégias: A-Momentum igual ao backtest; B-Opus e C-AI disponíveis', async () => {
+test('registo de estratégias: A-Momentum igual ao backtest; B-Opus, C-AI e D-Reversão disponíveis', async () => {
   const { STRATEGIES, getStrategy, DEFAULT_STRATEGY_ID } = await import('../src/lib/strategy.js');
   const { momentum } = await import('../src/lib/momentum.js');
-  assert.deepEqual(STRATEGIES.map((s) => [s.id, s.name, s.available, s.warmupYears]), [['a-momentum', 'A-Momentum', true, 0], ['b-opus', 'B-Opus', true, 1], ['c-ai', 'C-AI', true, 1]]);
+  assert.deepEqual(STRATEGIES.map((s) => [s.id, s.name, s.available, s.warmupYears]), [['a-momentum', 'A-Momentum', true, 0], ['b-opus', 'B-Opus', true, 1], ['c-ai', 'C-AI', true, 1], ['d-reversao', 'D-Reversão', true, 1]]);
   assert.equal(DEFAULT_STRATEGY_ID, 'a-momentum');
   assert.equal(getStrategy('b-opus').name, 'B-Opus');
   assert.equal(getStrategy('c-ai').name, 'C-AI');
+  assert.equal(getStrategy('d-reversao').name, 'D-Reversão');
   assert.equal(getStrategy('x'), null);
   const quotes = Array.from({ length: 300 }, (_, k) => {
     const close = 50 + 10 * Math.sin(k / 15);

@@ -3,7 +3,8 @@ import { Link, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useInstrumentSearch, useMe, useOrderbookSummary, useStatus, useWatchlist } from '../../lib/queries.js';
+import { keys, useBestStrategies, useInstrumentSearch, useMe, useOrderbookSummary, useStatus, useWatchlist } from '../../lib/queries.js';
+import { getStrategy } from '../../lib/strategy.js';
 import { InstrumentStatus, PriceChange } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
@@ -130,12 +131,30 @@ function sortItems(items, { key, dir }, summary) {
   });
 }
 
+/** Melhor estratégia do instrumento nos últimos 2 anos; a ligação abre o gráfico com ela aplicada. */
+function BestStrategyCell({ item, best }) {
+  if (best.isPending) return <span className="muted" aria-label="A calcular">…</span>;
+  const b = best.data?.get(item.id);
+  const st = b && getStrategy(b.strategyId);
+  if (!st) return <span className="muted">—</span>;
+  if (b.total <= 0) {
+    return <span className="small muted" title={`A menos má: ${st.name} (${f.signedMoney(b.total)})`}>Nenhuma ganha</span>;
+  }
+  return (
+    <>
+      <Link to={`/instrumentos/${item.id}?estrategia=${st.id}`} title={`Abrir o gráfico com a ${st.name} aplicada`}>{st.name}</Link>
+      <div className="small positive" style={{ whiteSpace: 'nowrap' }}>{f.signedMoney(b.total)}</div>
+    </>
+  );
+}
+
 /**
  * clientKeys: colunas ordenadas aqui, sobre as linhas recebidas (as restantes já vêm ordenadas do servidor).
  */
 function InstrumentTable({ items, action, sort: requested, onSort, clientKeys = Object.keys(SORT_DEFAULT_DIR), note, showBook }) {
   // Sem as colunas do livro, não há pedidos à Euronext nem ordenação por desequilíbrio.
   const summary = useOrderbookSummary(items, showBook);
+  const best = useBestStrategies();
   const sort = !showBook && requested.key === 'imbalance' ? { key: 'symbol', dir: 'asc' } : requested;
   const rows = clientKeys.includes(sort.key) ? sortItems(items, sort, summary) : items;
   const header = (label, key, extra) => <SortHeader label={label} sortKey={key} sort={sort} onSort={(k) => onSort(nextSort(sort, k, SORT_DEFAULT_DIR))} {...extra} />;
@@ -151,6 +170,7 @@ function InstrumentTable({ items, action, sort: requested, onSort, clientKeys = 
             <th scope="col" className="r">Último fecho</th>
             {header('Volume', 'volume', { align: 'r' })}
             {header('Variação', 'change', { align: 'r' })}
+            <th scope="col" title="Estratégia com melhor resultado neste instrumento nos últimos 2 anos (BackTest, 15 000 € por compra)">Melhor estratégia</th>
             {showBook && <th scope="col" className="r" title="Ponto médio entre a melhor compra e a melhor venda no livro Euronext (atraso 15 min)">Mid</th>}
             {showBook && header('Desequilíbrio', 'imbalance', { align: 'r', title: '(compras − vendas) / total das quantidades no livro: positivo = pressão compradora' })}
             <th scope="col">ISIN-MIC</th>
@@ -171,6 +191,7 @@ function InstrumentTable({ items, action, sort: requested, onSort, clientKeys = 
               </td>
               <td className="r">{f.quantity(i.latest?.volume)}</td>
               <td className="r">{i.latest ? <PriceChange value={i.latest.changePct} showLabel={false} /> : '—'}</td>
+              <td><BestStrategyCell item={i} best={best} /></td>
               {showBook && <BookCells item={i} summary={summary} />}
               <td><IsinMicCell item={i} /></td>
               <td className="r">{action(i)}</td>

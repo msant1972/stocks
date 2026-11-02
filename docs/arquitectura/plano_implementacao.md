@@ -79,6 +79,8 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Actualização horária | Recolha de hora a hora entre as 08h00 e as 17h00 de Lisboa nos dias úteis (sessão em curso, provisória), mantendo a recolha das 19h00 com os fechos definitivos e os alertas; indicação «sessão em curso» na interface |
 | Promessas | Lista dos instrumentos com sinais de continuarem ou passarem a ganhadores nos 12 meses seguintes, com a regra validada em 5 janelas do passado ([promessas.md](promessas.md)) |
 | WinnersLoosers | Página com os instrumentos em que as três estratégias ganham e em que as três perdem (24 out. 2026: 102 e 80), a partir dos resultados do BackTest |
+| Estratégia D-Reversão | Reversão à média definida a partir da análise dos perdedores do WinnersLoosers ([D-Reversao.md](D-Reversao.md)): compra com z < −2,5 face à média de 20 sessões, vende com RSI2 > 70 ou ao fim de 10 sessões; +250 k€ no catálogo, +42 k€ nos perdedores das outras três |
+| Melhor estratégia por instrumento | Coluna em Acompanhar e estratégia aplicada por omissão na página do instrumento (`GET /strategies/best`) |
 | Estratégia C-AI | Especificada a partir da análise de todos os instrumentos ([C-AI.md](C-AI.md)) e implementada: entrada acima da SMA200 com M2 > 0, stop chandelier de 5 × ATR, reforços a +10% só com M2 > 2 (até 5); +1 491 k€, 182 com ganho e 106 com perda |
 | Estratégia B-Opus | Tendência e momentum por instrumento (SMA50/SMA200, M1, M2, liquidez), decisão semanal, execução na abertura seguinte, reforços a +10% (até 5), stop chandelier de 4 × ATR (versão B, +841 k€ contra +126 k€ das regras originais); no instrumento, BackTest e Sinais; ablação em `b-opus-ablacao.md` |
 | Registo de estratégias | A estratégia passa a chamar-se A-Momentum; menu «Estratégia» (Nenhuma, A-Momentum) no instrumento e no BackTest; B-Opus registada como «em preparação» |
@@ -115,6 +117,8 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US21 | Módulo BackTest | — | Feito |
 | US22 | Estratégia B-Opus (especificação, implementação e versão B) | — | Feito |
 | US23 | Estratégia C-AI (especificação a partir da análise do catálogo e implementação) | — | Feito |
+| US26 | Estratégia D-Reversão (análise dos perdedores, especificação e implementação) | — | Feito |
+| US27 | Melhor estratégia por instrumento em Acompanhar e por omissão na página do instrumento | — | Feito |
 | US24 | Módulo WinnersLoosers | — | Feito |
 | US25 | Módulo Promessas | — | Feito (regra validada em 5 janelas; revalidar à medida que o histórico cresce) |
 | US19 | ISIN-MIC no catálogo e módulo Orderbook | — | Feito; ISIN-MIC preenchido a 20 out. 2026 a partir de `ISIN.xlsx` em 162 dos 171 instrumentos Euronext (faltam 9 que não constam do ficheiro) |

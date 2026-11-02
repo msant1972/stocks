@@ -13,6 +13,7 @@ export const keys = {
   instrument: (id) => ['instrument', Number(id)],
   quotes: (id, from) => ['quotes', Number(id), from ?? null],
   search: (q, sort, dir) => ['instruments', q, sort, dir],
+  bestStrategies: ['strategies', 'best'],
 };
 
 export const useMe = () => useQuery({ queryKey: keys.me, queryFn: () => api.get('/me'), retry: false, staleTime: Infinity });
@@ -28,6 +29,14 @@ export const useStatus = () => useQuery({
 export const useWatchlist = () => useQuery({
   queryKey: keys.watchlist, queryFn: () => api.get('/watchlist'),
   refetchInterval: (q) => (hasPending(q) ? POLL_PENDING_MS : false),
+});
+/**
+ * Melhor estratégia de cada instrumento nos últimos 2 anos (resultados do BackTest, com cache de 10 min na API).
+ * data: Map(instrumentId → { strategyId, total, totalPct }).
+ */
+export const useBestStrategies = () => useQuery({
+  queryKey: keys.bestStrategies, queryFn: () => api.get('/strategies/best'), staleTime: 10 * 60_000,
+  select: (d) => new Map(d.items.map((i) => [i.instrumentId, i])),
 });
 export const usePortfolio = () => useQuery({ queryKey: keys.portfolio, queryFn: () => api.get('/portfolio') });
 export const useAlerts = () => useQuery({ queryKey: keys.alerts, queryFn: () => api.get('/alerts') });

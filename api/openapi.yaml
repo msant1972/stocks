@@ -4659,8 +4659,13 @@ paths:
         fecho sobe mais de 10% face ao último lote e o M2 é superior a 2, até 5
         reforços. Volta a comprar logo que as condições se verifiquem depois de
         um stop. Uma posição de cada vez, sem comissões; indicadores sobre
-        preços ajustados, execução a preços reais.) Simulação; não são
-        recomendações."
+        preços ajustados, execução a preços reais.) d-reversao (D-Reversão: Sem
+        posição, compra 15 000 € na abertura seguinte quando o fecho fica mais
+        de 2,5 desvios-padrão abaixo da média das últimas 20 sessões. Vende tudo
+        na abertura seguinte quando o RSI de 2 sessões passa 70 (ressalto) ou ao
+        fim de 10 sessões. Sem stop nem reforços; uma posição de cada vez, sem
+        comissões; indicadores sobre preços ajustados, execução a preços reais.)
+        Simulação; não são recomendações."
       parameters:
         - schema:
             default: 5
@@ -4677,6 +4682,7 @@ paths:
               - a-momentum
               - b-opus
               - c-ai
+              - d-reversao
           in: query
           name: strategy
           required: false
@@ -4839,9 +4845,14 @@ paths:
         quando o fecho sobe mais de 10% face ao último lote e o M2 é superior a
         2, até 5 reforços. Volta a comprar logo que as condições se verifiquem
         depois de um stop. Uma posição de cada vez, sem comissões; indicadores
-        sobre preços ajustados, execução a preços reais.) Posições abertas
-        avaliadas ao último fecho. Simulação no histórico; não altera a carteira
-        nem é recomendação."
+        sobre preços ajustados, execução a preços reais.) d-reversao
+        (D-Reversão: Sem posição, compra 15 000 € na abertura seguinte quando o
+        fecho fica mais de 2,5 desvios-padrão abaixo da média das últimas 20
+        sessões. Vende tudo na abertura seguinte quando o RSI de 2 sessões passa
+        70 (ressalto) ou ao fim de 10 sessões. Sem stop nem reforços; uma
+        posição de cada vez, sem comissões; indicadores sobre preços ajustados,
+        execução a preços reais.) Posições abertas avaliadas ao último fecho.
+        Simulação no histórico; não altera a carteira nem é recomendação."
       parameters:
         - schema:
             default: all
@@ -4859,6 +4870,7 @@ paths:
               - a-momentum
               - b-opus
               - c-ai
+              - d-reversao
           in: query
           name: strategy
           required: false
@@ -4977,6 +4989,48 @@ paths:
                   - strategy
                   - years
                   - budget
+                  - computedAt
+                  - items
+                additionalProperties: false
+  /api/v1/strategies/best:
+    get:
+      summary: Estratégia com melhor resultado em cada instrumento, nos últimos 2 anos
+      tags:
+        - Estratégia
+      description: Usa os resultados do BackTest de todas as estratégias disponíveis
+        (cache de 10 minutos). total é o resultado da melhor estratégia; pode
+        ser negativo, quando nenhuma ganha nesse instrumento.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  computedAt:
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        strategyId:
+                          type: string
+                        total:
+                          type: number
+                          description: EUR, 2 casas
+                        totalPct:
+                          type: number
+                      required:
+                        - instrumentId
+                        - strategyId
+                        - total
+                        - totalPct
+                      additionalProperties: false
+                required:
                   - computedAt
                   - items
                 additionalProperties: false

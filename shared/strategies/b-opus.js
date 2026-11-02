@@ -106,7 +106,7 @@ export function atrWilder(bars, n) {
 }
 
 /** Desvio-padrão amostral (n − 1) numa janela móvel. */
-function rollingStd(values, n) {
+export function rollingStd(values, n) {
   const out = new Array(values.length).fill(null);
   for (let i = n - 1; i < values.length; i++) {
     let mean = 0;

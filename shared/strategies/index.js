@@ -25,6 +25,7 @@ import { momentum } from '../momentum.js';
 import * as aMomentum from './a-momentum.js';
 import * as bOpus from './b-opus.js';
 import * as cAi from './c-ai.js';
+import * as dReversao from './d-reversao.js';
 
 const eur = (v) => `${v.toLocaleString('pt-PT')} €`;
 
@@ -89,6 +90,23 @@ export const STRATEGIES = [
     warmupYears: 1,
     reasonLabels: { stop: 'stop' },
     run: (quotes, { from } = {}) => cAi.backtest(quotes, { from }),
+  },
+  {
+    id: 'd-reversao',
+    name: 'D-Reversão',
+    available: true,
+    budget: dReversao.DEFAULT_OPTIONS.budget,
+    summary: 'Reversão à média: compra quedas anormais (z < −2,5 face à média de 20 sessões) e vende no ressalto',
+    rules: `Sem posição, compra ${eur(dReversao.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho fica mais de `
+      + `${String(-dReversao.DEFAULT_OPTIONS.zEntry).replace('.', ',')} desvios-padrão abaixo da média das últimas `
+      + `${dReversao.DEFAULT_OPTIONS.meanN} sessões. Vende tudo na abertura seguinte quando o RSI de `
+      + `${dReversao.DEFAULT_OPTIONS.rsiN} sessões passa ${dReversao.DEFAULT_OPTIONS.rsiExit} (ressalto) ou ao fim de `
+      + `${dReversao.DEFAULT_OPTIONS.maxHold} sessões. Sem stop nem reforços; uma posição de cada vez, sem comissões; `
+      + 'indicadores sobre preços ajustados, execução a preços reais.',
+    windowYears: 2,
+    warmupYears: 1,
+    reasonLabels: { rebound: 'ressalto', time: 'tempo' },
+    run: (quotes, { from } = {}) => dReversao.backtest(quotes, { from }),
   },
 ];
 

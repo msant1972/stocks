@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useInstrument, useQuotes } from '../../lib/queries.js';
+import { keys, useBestStrategies, useInstrument, useQuotes } from '../../lib/queries.js';
 import { InstrumentStatus, PriceChange, QuoteDate } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
@@ -24,12 +24,18 @@ export default function InstrumentPage() {
   const [trading, setTrading] = useState(false);
   const [alerting, setAlerting] = useState(false);
   const [params, setParams] = useSearchParams();
-  // ?estrategia=<id> (ex.: a partir do BackTest) abre a página com essa estratégia aplicada; «1» é a A-Momentum.
-  const fromUrl = params.get('estrategia') === '1' ? DEFAULT_STRATEGY_ID : params.get('estrategia');
-  const strategy = getStrategy(fromUrl) ? fromUrl : null;
+  // Melhor estratégia do instrumento nos últimos 2 anos (só se tiver ganho): aplicada por omissão.
+  const bestMap = useBestStrategies();
+  const best = bestMap.data?.get(Number(id));
+  const bestId = best && best.total > 0 && getStrategy(best.strategyId) ? best.strategyId : null;
+  // ?estrategia=<id> (ex.: a partir do BackTest) abre a página com essa estratégia aplicada; «1» é a A-Momentum;
+  // «nenhuma» é a escolha explícita de não aplicar nenhuma. Sem parâmetro, a melhor estratégia do instrumento.
+  const raw = params.get('estrategia');
+  const fromUrl = raw === '1' ? DEFAULT_STRATEGY_ID : raw;
+  const strategy = raw == null ? bestId : getStrategy(fromUrl) ? fromUrl : null;
   const setStrategy = (id) => setParams((p) => {
     const next = new URLSearchParams(p);
-    if (id) next.set('estrategia', id); else next.delete('estrategia');
+    next.set('estrategia', id ?? 'nenhuma');
     return next;
   }, { replace: true });
   // Estratégias com aquecimento (ex.: B-Opus) precisam de histórico antes da janela em que actuam.
@@ -81,7 +87,7 @@ export default function InstrumentPage() {
             {i.inWatchlist ? 'Remover da lista' : 'Adicionar à lista'}
           </Button>
           <Button onClick={() => setAlerting(true)} disabled={i.status === 'invalid'}>Criar alerta</Button>
-          <StrategySelect value={strategy} onChange={setStrategy} allowNone disabled={i.status !== 'active'} />
+          <StrategySelect value={strategy} onChange={setStrategy} allowNone best={bestId} disabled={i.status !== 'active'} />
           {i.isinMic && <Link className="button" to={`/orderbook?instrumento=${i.id}`}>Livro de ofertas</Link>}
           <Button variant="primary" onClick={() => setTrading(true)} disabled={!tradable}>Simular operação</Button>
         </div>

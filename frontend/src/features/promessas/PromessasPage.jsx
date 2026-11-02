@@ -143,7 +143,7 @@ export default function PromessasPage() {
                           {header('3 meses', 'r63', { align: 'r' })}
                           {header('12 meses', 'r252', { align: 'r' })}
                           {header('Do máximo', 'distHigh', { align: 'r', title: 'Distância ao máximo de 52 semanas' })}
-                          <th scope="col" title="Ganhou com todas as estratégias nos últimos 2 anos (WinnersLoosers)">Nas 3</th>
+                          <th scope="col" title="Ganhou com todas as estratégias nos últimos 2 anos (WinnersLoosers)">Em todas</th>
                         </tr>
                       </thead>
                       <tbody>
