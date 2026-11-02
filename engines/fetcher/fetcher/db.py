@@ -1,4 +1,5 @@
 """Acesso à base de dados MariaDB do motor de recolha."""
+import json
 from datetime import date
 
 import pymysql
@@ -156,6 +157,27 @@ def recompute_all_indicators(conn) -> int:
     return len(ids)
 
 
+def fill_isin_mic(cur, instrument_id: int) -> str | None:
+    """Preenche o ISIN-MIC do instrumento a partir da lista oficial da Euronext (tabela euronext_isins), se
+    ainda não o tiver e o símbolo Yahoo constar da lista. Devolve o ISIN-MIC preenchido, ou None.
+    A mesma regra é aplicada a todo o catálogo por scripts/isin-mic-from-xlsx.mjs."""
+    cur.execute(
+        "SELECT i.symbol, e.isin, e.mic FROM instruments i JOIN euronext_isins e ON e.yahoo_symbol = i.symbol "
+        "WHERE i.id = %s AND (i.isin IS NULL OR i.mic IS NULL)",
+        (instrument_id,),
+    )
+    row = cur.fetchone()
+    if row is None:
+        return None
+    isin_mic = f"{row['isin']}-{row['mic']}"
+    cur.execute("UPDATE instruments SET isin = %s, mic = %s WHERE id = %s", (row["isin"], row["mic"], instrument_id))
+    cur.execute(
+        "INSERT INTO audit_log (user_id, action, entity, entity_id, detail) VALUES (NULL, 'instrument.isin_mic', 'instrument', %s, %s)",
+        (instrument_id, json.dumps({"symbol": row["symbol"], "isinMic": isin_mic, "source": "euronext_isins"})),
+    )
+    return isin_mic
+
+
 def complete_job(conn, job_id: int, instrument_id: int, info: InstrumentInfo | None,
                  quotes: list[DailyQuote], source: str, note: str | None, provisional: date | None = None) -> int:
     """Grava cotações, cobertura do instrumento e fim do pedido numa só transacção."""
@@ -170,6 +192,8 @@ def complete_job(conn, job_id: int, instrument_id: int, info: InstrumentInfo | N
                     "currency = %s, exchange = %s, name = %s WHERE id = %s",
                     (info.currency, info.exchange, info.name, instrument_id),
                 )
+                # Instrumento novo, agora validado: ISIN-MIC da lista oficial da Euronext, se constar.
+                fill_isin_mic(cur, instrument_id)
             cur.execute(
                 "UPDATE instruments i SET "
                 "first_session = (SELECT MIN(session_date) FROM daily_quotes WHERE instrument_id = i.id), "

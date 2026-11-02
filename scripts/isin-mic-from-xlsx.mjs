@@ -1,74 +1,52 @@
 /**
- * Preenche o ISIN-MIC dos instrumentos do catálogo que ainda não o têm, a partir da lista oficial da Euronext
- * (ISIN.xlsx na raiz do repositório: colunas Name, ISIN, Symbol, Market).
+ * Carrega a lista oficial da Euronext (ISIN.xlsx na raiz do repositório: colunas Name, ISIN, Symbol, Market) para
+ * a tabela euronext_isins, substituindo o conteúdo anterior, e preenche o ISIN-MIC dos instrumentos do catálogo
+ * que ainda não o têm. Daí em diante, o motor de recolha preenche-o sozinho em cada instrumento novo que valida.
  *
- * Correspondência: o sufixo do símbolo Yahoo dá o mercado (GALP.LS → Euronext Lisbon, MIC XLIS) e o resto do
- * símbolo tem de ser igual à coluna Symbol desse mercado. Só se grava quando há exactamente uma linha e o ISIN tem
- * dígito de controlo válido. Os instrumentos fora da Euronext (.DE, .MC, .HE, …) não têm livro e são ignorados.
- * Sem --apply só mostra o que faria.
+ * Correspondência: o símbolo Yahoo do instrumento tem de ser o símbolo Euronext com o sufixo do mercado
+ * (GALP.LS → GALP em Euronext Lisbon, MIC XLIS). Os instrumentos fora da Euronext (.DE, .MC, .HE, …) não têm
+ * livro de ofertas e ficam sem ISIN-MIC. Sem --apply só mostra o que faria.
  *
  *   cd api && node --env-file=../.env ../scripts/isin-mic-from-xlsx.mjs [--apply] [ficheiro.xlsx]
  */
-import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
-import { createPool, audit, withTransaction } from '../api/src/db.js';
+import { createPool } from '../api/src/db.js';
 import { loadConfig } from '../api/src/config.js';
-import { parseIsinMic } from '../api/src/orderbook/instrument.js';
-
-const ExcelJS = createRequire(new URL('../api/package.json', import.meta.url))('exceljs');
-
-const MARKETS = {
-  LS: ['Euronext Lisbon', 'XLIS'], PA: ['Euronext Paris', 'XPAR'], AS: ['Euronext Amsterdam', 'XAMS'],
-  BR: ['Euronext Brussels', 'XBRU'], MI: ['Euronext Milan', 'MTAA'], IR: ['Euronext Dublin', 'XMSM'],
-};
+import { fillMissingIsinMics, MARKETS, readIsinFile, replaceEuronextIsins } from '../api/src/services/euronextIsins.js';
 
 const args = process.argv.slice(2);
 const apply = args.includes('--apply');
 const file = args.find((a) => !a.startsWith('--')) ?? fileURLToPath(new URL('../ISIN.xlsx', import.meta.url));
 
-const wb = new ExcelJS.Workbook();
-await wb.xlsx.readFile(file);
-const byKey = new Map(); // "Euronext Paris|MC" → [{ name, isin }]
-wb.worksheets[0].eachRow((row, n) => {
-  if (n === 1) return;
-  const [name, isin, symbol, market] = row.values.slice(1).map((v) => String(v ?? '').trim());
-  const key = `${market}|${symbol.toUpperCase()}`;
-  byKey.set(key, [...(byKey.get(key) ?? []), { name, isin: isin.toUpperCase() }]);
-});
+const { rows, rejected } = await readIsinFile(file);
+for (const r of rejected) console.log(`linha ${r.line} (${r.symbol}): ignorada, ${r.reason}`);
 
-const cfg = loadConfig();
-const pool = createPool(cfg.db);
-const [instruments] = await pool.query('SELECT id, symbol FROM instruments WHERE isin IS NULL OR mic IS NULL ORDER BY symbol');
+const pool = createPool(loadConfig().db);
+if (apply) await replaceEuronextIsins(pool, rows);
+console.log(`${rows.length} instrumentos Euronext ${apply ? 'carregados em euronext_isins' : 'a carregar em euronext_isins'}`
+  + (rejected.length ? `, ${rejected.length} linhas ignoradas` : ''));
 
-const counts = { filled: 0, notEuronext: 0, missing: 0, ambiguous: 0, invalid: 0 };
-const updates = [];
-for (const inst of instruments) {
-  const m = /^(.+)\.([A-Z]+)$/.exec(inst.symbol);
-  const market = m && MARKETS[m[2]];
-  if (!market) { counts.notEuronext++; continue; }
-  const hits = byKey.get(`${market[0]}|${m[1]}`) ?? [];
-  if (hits.length !== 1) {
-    counts[hits.length ? 'ambiguous' : 'missing']++;
-    console.log(`${inst.symbol.padEnd(12)} ${hits.length ? `ambíguo (${hits.length} linhas)` : `não consta do ficheiro (${market[0]})`}`);
-    continue;
-  }
-  const parsed = parseIsinMic(`${hits[0].isin}-${market[1]}`);
-  if (!parsed) { counts.invalid++; console.log(`${inst.symbol.padEnd(12)} ISIN inválido no ficheiro: ${hits[0].isin}`); continue; }
-  counts.filled++;
-  updates.push({ id: Number(inst.id), symbol: inst.symbol, ...parsed });
-  console.log(`${inst.symbol.padEnd(12)} ${parsed.isin}-${parsed.mic}  ${hits[0].name}`);
-}
-
-if (apply && updates.length) {
-  await withTransaction(pool, async (conn) => {
-    for (const u of updates) {
-      await conn.query('UPDATE instruments SET isin = ?, mic = ? WHERE id = ? AND (isin IS NULL OR mic IS NULL)', [u.isin, u.mic, u.id]);
-      await audit(conn, null, 'instrument.isin_mic', 'instrument', u.id, { symbol: u.symbol, isinMic: `${u.isin}-${u.mic}`, source: 'ISIN.xlsx' });
-    }
+// Sem --apply a tabela não foi actualizada: a pré-visualização usa as linhas do ficheiro directamente.
+let filled;
+if (apply) {
+  filled = await fillMissingIsinMics(pool);
+} else {
+  const byYahoo = new Map(rows.map((r) => [r.yahooSymbol, r]));
+  const [missing] = await pool.query('SELECT id, symbol FROM instruments WHERE isin IS NULL OR mic IS NULL ORDER BY symbol');
+  filled = missing.filter((i) => byYahoo.has(i.symbol)).map((i) => {
+    const r = byYahoo.get(i.symbol);
+    return { id: Number(i.id), symbol: i.symbol, isinMic: `${r.isin}-${r.mic}`, name: r.name };
   });
 }
+for (const f of filled) console.log(`${f.symbol.padEnd(12)} ${f.isinMic}  ${f.name ?? ''}`);
+
+// Instrumentos de mercados Euronext que continuam sem ISIN-MIC (não constam do ficheiro).
+const suffixes = Object.values(MARKETS).map((m) => m.suffix);
+const filledIds = new Set(filled.map((f) => f.id));
+const [still] = await pool.query('SELECT id, symbol FROM instruments WHERE isin IS NULL OR mic IS NULL ORDER BY symbol');
+const absent = still.filter((i) => !filledIds.has(Number(i.id)) && suffixes.some((s) => i.symbol.endsWith(s)));
+for (const a of absent) console.log(`${a.symbol.padEnd(12)} não consta do ficheiro`);
 await pool.end();
 
-console.log(`\n${instruments.length} sem ISIN-MIC: ${counts.filled} ${apply ? 'preenchidos' : 'a preencher (use --apply)'}, `
-  + `${counts.missing} não constam do ficheiro, ${counts.ambiguous} ambíguos, ${counts.invalid} com ISIN inválido, `
-  + `${counts.notEuronext} fora da Euronext`);
+console.log(`\n${filled.length} instrumentos ${apply ? 'preenchidos' : 'a preencher (use --apply)'}, `
+  + `${absent.length} da Euronext sem correspondência no ficheiro`);

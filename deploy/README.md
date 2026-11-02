@@ -78,7 +78,7 @@ Carregar a lista inicial de instrumentos:
 sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/engines/fetcher && .venv/bin/python -m fetcher add --file seeds/instrumentos_iniciais.txt && .venv/bin/python -m fetcher run'
 ```
 
-Preencher o ISIN-MIC (livro de ofertas) dos instrumentos Euronext que ainda não o têm, a partir de `ISIN.xlsx`; sem `--apply` só mostra o que faria:
+Carregar a lista oficial da Euronext (`ISIN.xlsx`) para a tabela `euronext_isins` e preencher o ISIN-MIC (livro de ofertas) dos instrumentos que ainda não o têm; sem `--apply` só mostra o que faria. Daí em diante, o motor de recolha preenche o ISIN-MIC de cada instrumento novo ao validá-lo. Volte a correr o script quando actualizar o ficheiro:
 
 ```bash
 sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/api && node ../scripts/isin-mic-from-xlsx.mjs --apply'

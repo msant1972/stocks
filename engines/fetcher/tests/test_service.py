@@ -228,3 +228,17 @@ def test_indicadores_so_gravam_as_sessoes_alteradas(conn, settings):
         cur.execute("UPDATE daily_quotes SET sma10 = 1 WHERE session_date = %s", (TODAY - timedelta(days=1),))
         assert db.update_indicators(cur, instrument(conn, "ASML.AS")["id"]) == 1
     conn.commit()
+
+
+def test_instrumento_novo_recebe_isin_mic_da_lista_euronext(conn, settings):
+    with conn.cursor() as cur:
+        cur.execute("INSERT INTO euronext_isins (isin, mic, symbol, yahoo_symbol, name, market) "
+                    "VALUES ('NL0010273215', 'XAMS', 'ASML', 'ASML.AS', 'ASML HOLDING', 'Euronext Amsterdam')")
+    conn.commit()
+    db.add_instrument(conn, "ASML.AS")
+    db.add_instrument(conn, "SAP.DE")  # fora da Euronext: fica sem ISIN-MIC
+    run_pending(conn, FakeProvider(), settings, TODAY)
+    asml, sap = instrument(conn, "ASML.AS"), instrument(conn, "SAP.DE")
+    assert (asml["isin"], asml["mic"]) == ("NL0010273215", "XAMS")
+    assert (sap["isin"], sap["mic"]) == (None, None)
+    assert count(conn, "SELECT COUNT(*) FROM audit_log WHERE action = 'instrument.isin_mic'") == 1
