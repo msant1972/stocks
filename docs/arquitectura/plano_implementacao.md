@@ -1,6 +1,6 @@
 # Plano de Implementação — Plataforma de Simulação e Acompanhamento de Acções
 
-Estado em 2 nov. 2026. Versão 1 em produção em https://stocks.graus.pt, no ramo `main`; desde 2 nov. 2026 num servidor novo (VPS na Contabo), instalado de raiz com a base de dados vazia.
+Estado em 2 nov. 2026. Versão 1 em produção em https://stocks.graus.pt, no ramo `main`; desde 2 nov. 2026 num servidor novo (VPS com Ubuntu), instalado de raiz com a base de dados vazia.
 
 Documentos relacionados: [Arquitectura](arquitectura.md) (o que está construído), [Análise e decisões](analise_e_decisoes.md) (porquê), [Guia de estilos](guia_estilos.md) (interface) e [deploy/README.md](../../deploy/README.md) (operação).
 
@@ -12,7 +12,7 @@ Os três pendentes da versão 1 foram fechados pelo administrador a 18 out. 2026
 
 1. SMTP configurado em Definições (OVH, `ssl0.ovh.net:465`, SSL/TLS, remetente `stocks@graus.pt`), com email de teste aceite;
 2. carteira de produção passada para 1 000 000 € e valor por omissão actualizado em `/etc/stocks/stocks.env`;
-3. cópia fora do servidor por snapshots EBS do volume (geridos na AWS) e restauro testado. Com a mudança de servidor a 2 nov. 2026, esta cópia deixou de existir e voltou a ser um pendente (secção 8, P1).
+3. cópia fora do servidor e restauro testado. Com a mudança de servidor a 2 nov. 2026, esta cópia deixou de existir e voltou a ser um pendente (secção 8, P1).
 
 ## 2. Âmbito
 
@@ -104,7 +104,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US09 | Regras de alerta | P0 | Feito |
 | US10 | Envio de alertas | P0 | Feito (SMTP da OVH) |
 | US11 | Estado das recolhas | P1 | Feito (`/status`, Definições, «Validar agora») |
-| US12 | Backup e recuperação | P0 | Dumps diários locais; cópia fora do servidor por refazer desde a mudança de servidor (antes: snapshots EBS e restauro testado) |
+| US12 | Backup e recuperação | P0 | Dumps diários locais; cópia fora do servidor por refazer desde a mudança de servidor (restauro testado no servidor anterior) |
 | US13 | Indicadores e momento | — | Feito |
 | US14 | Estratégia simulada | — | Feito |
 | US15 | HeatMap e momento do mercado | — | Feito |
@@ -183,7 +183,7 @@ Lista de verificação da versão 1:
 - [x] Testes de saldo, concorrência e isolamento aprovados.
 - [x] Testes de resumo único e desduplicação de alertas aprovados.
 - [ ] Monitorização com alerta operacional (hoje: `journalctl`, `/status` e Definições).
-- [ ] Backup externo e restauro demonstrado (feito no servidor anterior com snapshots EBS; por refazer no servidor actual).
+- [ ] Backup externo e restauro demonstrado (feito no servidor anterior; por refazer no servidor actual).
 - [x] Envio real de email verificado (email de teste pelo SMTP da OVH).
 - [x] Procedimento de rollback documentado em [deploy/README.md](../../deploy/README.md).
 

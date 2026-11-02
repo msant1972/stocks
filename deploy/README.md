@@ -1,6 +1,6 @@
 # Implantação
 
-Toda a aplicação corre num único servidor Ubuntu, `stocks.graus.pt`. Desde 2 nov. 2026 é um VPS na Contabo (Ubuntu 26.04), instalado de raiz com este procedimento; o servidor anterior, na AWS, deixou de receber tráfego.
+Toda a aplicação corre num único servidor Ubuntu, `stocks.graus.pt`. Desde 2 nov. 2026 é um VPS com Ubuntu (26.04), instalado de raiz com este procedimento.
 
 ```text
 Internet ──HTTPS──▶ Caddy (:443, certificado automático)
@@ -110,7 +110,7 @@ O SMTP configura-se em **Definições → Envio de email (SMTP)** (administrador
 Cópias:
 
 1. **Dumps diários** (`stocks-backup.timer`, 03:30 UTC) em `/var/backups/stocks`, guardados 14 dias. São consistentes, porque são feitos com `mariadb-dump --single-transaction`.
-2. **Cópia fora do servidor: pendente.** No servidor anterior era feita por snapshots EBS na AWS; neste servidor os dumps ficam só no mesmo disco. Até haver uma cópia externa (por exemplo, sincronizar `/var/backups/stocks` e `/etc/stocks/secret.key` para outro local), a perda do servidor implica a perda dos dados.
+2. **Cópia fora do servidor: pendente.** Os dumps ficam só no disco do VPS. Até haver uma cópia externa (por exemplo, sincronizar `/var/backups/stocks` e `/etc/stocks/secret.key` para outro local), a perda do servidor implica a perda dos dados.
 
 O restauro foi testado a 18 out. 2026, no servidor anterior. Repita o teste periodicamente, por exemplo uma vez por trimestre.
 
