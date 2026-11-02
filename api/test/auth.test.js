@@ -41,6 +41,14 @@ describe.skipIf(!hasTestDb)('autenticação e sessões', () => {
     expect((await api(ctx.app, cookie).get('/me')).statusCode).toBe(401);
   });
 
+  it('cada login apaga as sessões expiradas do utilizador', async () => {
+    const [[{ id }]] = await ctx.pool.query("SELECT id FROM users WHERE email = 'ana@exemplo.pt'");
+    await ctx.pool.query("INSERT INTO sessions (token_hash, user_id, stage, expires_at) VALUES (REPEAT('a', 64), ?, 'mfa_verify', NOW(3) - INTERVAL 1 DAY)", [id]);
+    await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: 'ana@exemplo.pt', password: PASSWORD } });
+    const [[{ n }]] = await ctx.pool.query('SELECT COUNT(*) AS n FROM sessions WHERE user_id = ? AND expires_at <= NOW(3)', [id]);
+    expect(Number(n)).toBe(0);
+  });
+
   it('não guarda o token em claro', async () => {
     const cookie = await login(ctx.app, 'ana@exemplo.pt');
     const token = cookie.split('=')[1];

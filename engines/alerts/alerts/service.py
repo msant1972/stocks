@@ -67,14 +67,25 @@ def recover_stale_deliveries(conn, tx: Tx, settings: Settings) -> int:
     return n
 
 
+# Numa recuperação (ex.: um fecho que chegou depois da execução anterior) avaliam-se no máximo estas sessões.
+MAX_CATCH_UP_SESSIONS = 10
+
+
 def evaluate_rules(conn, tx: Tx) -> tuple[int, int]:
-    """Avalia cada regra activa sobre a última sessão do instrumento, uma só vez por sessão."""
+    """Avalia cada regra activa sobre as sessões definitivas do instrumento ainda não avaliadas.
+
+    As velas provisórias (recolha horária, durante a sessão) são ignoradas. Uma regra nova é avaliada só na
+    última sessão definitiva; nas seguintes, cada sessão definitiva posterior à última avaliada é avaliada por
+    ordem, para que uma sessão cujo fecho chegou tarde (ex.: recolha das 19:01 repetida mais tarde) não se perca.
+    """
     with conn.cursor() as cur:
         cur.execute(
             """
             SELECT r.id FROM alert_rules r JOIN instruments i ON i.id = r.instrument_id
-             WHERE r.active AND i.status = 'active' AND i.last_session IS NOT NULL
-               AND (r.last_evaluated_session IS NULL OR r.last_evaluated_session < i.last_session)
+             WHERE r.active AND i.status = 'active'
+               AND EXISTS (SELECT 1 FROM daily_quotes q
+                            WHERE q.instrument_id = r.instrument_id AND NOT q.provisional
+                              AND (r.last_evaluated_session IS NULL OR q.session_date > r.last_evaluated_session))
              ORDER BY r.id
             """
         )
@@ -95,31 +106,38 @@ def evaluate_rules(conn, tx: Tx) -> tuple[int, int]:
                 if rule is None:
                     tx.rollback()
                     continue
+                # Sessões definitivas mais recentes (por ordem decrescente), mais uma para a variação da primeira.
                 cur.execute(
-                    "SELECT session_date, close FROM daily_quotes WHERE instrument_id = %s "
-                    "ORDER BY session_date DESC LIMIT 2",
-                    (rule["instrument_id"],),
+                    "SELECT session_date, close FROM daily_quotes WHERE instrument_id = %s AND NOT provisional "
+                    "ORDER BY session_date DESC LIMIT %s",
+                    (rule["instrument_id"], MAX_CATCH_UP_SESSIONS + 1),
                 )
-                quotes = cur.fetchall()
-                if not quotes or (rule["last_evaluated_session"] and rule["last_evaluated_session"] >= quotes[0]["session_date"]):
+                quotes = cur.fetchall()[::-1]
+                last = rule["last_evaluated_session"]
+                pending = [i for i, q in enumerate(quotes) if last is None or q["session_date"] > last]
+                if last is None:
+                    pending = pending[-1:]
+                if not pending:
                     tx.rollback()
                     continue
-                latest = quotes[0]
-                previous = quotes[1]["close"] if len(quotes) > 1 else None
-                last_state = None if rule["last_state"] is None else bool(rule["last_state"])
-                ev = evaluate(rule["kind"], rule["threshold"], latest["close"], previous, last_state)
-                if ev.fire:
-                    cur.execute(
-                        "INSERT IGNORE INTO alert_events (rule_id, session_date, close, previous_close, change_pct) "
-                        "VALUES (%s, %s, %s, %s, %s)",
-                        (rule_id, latest["session_date"], latest["close"], previous, ev.change_pct),
-                    )
-                    events += cur.rowcount
+                state = None if rule["last_state"] is None else bool(rule["last_state"])
+                for i in pending:
+                    latest = quotes[i]
+                    previous = quotes[i - 1]["close"] if i > 0 else None
+                    ev = evaluate(rule["kind"], rule["threshold"], latest["close"], previous, state)
+                    if ev.fire:
+                        cur.execute(
+                            "INSERT IGNORE INTO alert_events (rule_id, session_date, close, previous_close, change_pct) "
+                            "VALUES (%s, %s, %s, %s, %s)",
+                            (rule_id, latest["session_date"], latest["close"], previous, ev.change_pct),
+                        )
+                        events += cur.rowcount
+                    state = ev.state
                 # updated_at = updated_at: a avaliação não conta como edição da regra pelo utilizador.
                 cur.execute(
                     "UPDATE alert_rules SET last_state = %s, last_evaluated_session = %s, updated_at = updated_at "
                     "WHERE id = %s",
-                    (ev.state, latest["session_date"], rule_id),
+                    (state, quotes[pending[-1]]["session_date"], rule_id),
                 )
             tx.commit()
             evaluated += 1

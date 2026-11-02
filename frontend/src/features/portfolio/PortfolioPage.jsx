@@ -62,7 +62,7 @@ export default function PortfolioPage() {
             <h2 id="totals-title" className="card-title" style={{ marginBottom: '0.5rem' }}>Valor total</h2>
             <p className="hero-value">{f.money(p.totalValue, p.currency)}</p>
             <p className="small muted" style={{ marginTop: 4 }}>
-              Saldo disponível mais valor das posições ao último fecho{p.valuationDate ? ` (${f.date(p.valuationDate)})` : ''}.
+              Saldo disponível mais valor das posições ao último preço disponível{p.valuationDate ? ` (${f.date(p.valuationDate)})` : ''}.
             </p>
             <div className="stats">
               <div><p className="stat-label">Saldo disponível</p><p className="stat-value">{f.money(p.cashBalance, p.currency)}</p></div>
@@ -84,7 +84,7 @@ export default function PortfolioPage() {
             </div>
             {p.positions.length === 0 ? (
               <EmptyState title="Ainda não tem posições" action={<Button onClick={() => setPicking(true)}>Simular a primeira compra</Button>}>
-                As compras simuladas usam o último fecho diário disponível.
+                As compras simuladas usam o último preço disponível (durante a sessão, um valor provisório).
               </EmptyState>
             ) : (
               <div className="table-wrap" tabIndex={0} aria-label="Tabela de posições">

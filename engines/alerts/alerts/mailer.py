@@ -29,7 +29,9 @@ class SmtpMailer:
                 smtp = smtplib.SMTP_SSL(s.host, s.port, timeout=s.timeout, context=context)
             else:
                 smtp = smtplib.SMTP(s.host, s.port, timeout=s.timeout)
-            with smtp:
+            # Sem `with smtp:`: o QUIT que o `with` envia à saída pode falhar depois de a mensagem ter sido
+            # aceite, e essa excepção seria tratada como envio falhado (e o resumo enviado de novo).
+            try:
                 smtp.ehlo()
                 if s.security == "starttls":
                     smtp.starttls(context=context)
@@ -51,6 +53,13 @@ class SmtpMailer:
                     raise SendUncertain(f"ligação perdida durante o envio: {exc}") from exc
                 if code != 250:
                     raise SendFailed(f"mensagem recusada: {code} {resp!r}")
+                # Mensagem aceite: um erro ao terminar a sessão já não altera o resultado.
+                try:
+                    smtp.quit()
+                except (smtplib.SMTPException, OSError):
+                    pass
+            finally:
+                smtp.close()
         except (SendFailed, SendUncertain):
             raise
         except (smtplib.SMTPException, OSError) as exc:

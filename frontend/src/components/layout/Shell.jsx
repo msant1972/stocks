@@ -35,7 +35,7 @@ function DataStatus() {
   const time = live ? new Date(intraday.finishedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : null;
   return (
     <span className={`badge ${stale ? 'badge-warning' : ''}`}
-      title={live ? 'Sessão em curso: valores provisórios, com cerca de 15 minutos de atraso; o fecho definitivo é gravado às 19h00' : 'Data da última sessão recolhida'}>
+      title={live ? 'Sessão em curso: valores provisórios, com cerca de 20 minutos de atraso; o fecho definitivo é gravado às 19h01' : 'Data da última sessão recolhida'}>
       {stale && <Icon name="warning" size={14} />}
       Dados de {f.date(data.latestSession)}{live && ` · sessão em curso, ${time}`}
     </span>

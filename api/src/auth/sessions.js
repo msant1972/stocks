@@ -14,6 +14,8 @@ export const hashToken = (token) => createHash('sha256').update(token).digest('h
  * segundo factor, e expiram em RESTRICTED_MINUTES sem renovação.
  */
 export async function createSession(pool, userId, days, stage = 'full') {
+  // As sessões expiradas do utilizador já não servem para nada: cada nova sessão limpa-as.
+  await pool.query('DELETE FROM sessions WHERE user_id = ? AND expires_at <= NOW(3)', [userId]);
   const token = randomBytes(32).toString('base64url');
   const expiry = stage === 'full' ? 'NOW(3) + INTERVAL ? DAY' : 'NOW(3) + INTERVAL ? MINUTE';
   await pool.query(

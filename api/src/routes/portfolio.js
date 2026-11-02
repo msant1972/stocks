@@ -47,8 +47,9 @@ export default async function portfolioRoutes(app, { pool, cfg }) {
     config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
     schema: {
       tags: ['Operações'],
-      summary: 'Executar compra ou venda simulada ao último fecho disponível',
-      description: 'Repetir o pedido com a mesma idempotencyKey devolve a operação original (200) sem a duplicar. '
+      summary: 'Executar compra ou venda simulada ao último preço disponível',
+      description: 'O preço é o último disponível: durante a sessão, o valor provisório da recolha horária (cerca de 20 min '
+        + 'de atraso); depois do fecho, o fecho do dia. Repetir o pedido com a mesma idempotencyKey devolve a operação original (200) sem a duplicar. '
         + 'Se expectedPrice/expectedQuoteDate não coincidirem com a cotação actual, responde 409 PRICE_CHANGED.',
       body: z.object({
         instrumentId: Id, side: Side, quantity: Quantity,

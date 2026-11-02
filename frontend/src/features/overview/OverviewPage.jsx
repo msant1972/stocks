@@ -18,7 +18,7 @@ function PortfolioCard() {
         <>
           <p className="hero-value">{f.money(p.totalValue, p.currency)}</p>
           <p className="small muted" style={{ marginTop: 4 }}>
-            {p.valuationDate ? `Valorizado ao último fecho disponível (${f.date(p.valuationDate)})` : 'Sem posições: valor igual ao saldo disponível'}
+            {p.valuationDate ? `Valorizado ao último preço disponível (${f.date(p.valuationDate)})` : 'Sem posições: valor igual ao saldo disponível'}
           </p>
           <div className="stats">
             <div><p className="stat-label">Saldo virtual disponível</p><p className="stat-value">{f.money(p.cashBalance, p.currency)}</p></div>

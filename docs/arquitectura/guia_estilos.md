@@ -221,7 +221,7 @@ Conteúdo obrigatório:
 - Título «Simular compra» ou «Simular venda».
 - Instrumento e moeda.
 - Quantidade e validação de valores permitidos.
-- Último fecho disponível e data correspondente.
+- Último preço disponível e data correspondente (durante a sessão, um valor provisório).
 - Total calculado e saldo/quantidade após a operação, identificados como pré-visualização.
 - Mensagem «Esta operação é virtual e não é enviada para a bolsa.»
 - Botão «Confirmar compra simulada» ou «Confirmar venda simulada».

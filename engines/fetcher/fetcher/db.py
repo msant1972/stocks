@@ -89,21 +89,27 @@ def claim_job(conn) -> dict | None:
     return job
 
 
-def upsert_quotes(cur, instrument_id: int, quotes: list[DailyQuote], source: str) -> int:
-    """Insere ou actualiza sessões; repetir a recolha nunca duplica linhas."""
+def upsert_quotes(cur, instrument_id: int, quotes: list[DailyQuote], source: str,
+                  provisional: date | None = None) -> int:
+    """Insere ou actualiza sessões; repetir a recolha nunca duplica linhas.
+
+    provisional: sessão cuja vela ainda não é definitiva (a do próprio dia, durante a sessão).
+    """
     if not quotes:
         return 0
     cur.executemany(
         """
         INSERT INTO daily_quotes
-          (instrument_id, session_date, open, high, low, close, adj_close, volume, source)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+          (instrument_id, session_date, open, high, low, close, adj_close, volume, provisional, source)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
           open = VALUES(open), high = VALUES(high), low = VALUES(low), close = VALUES(close),
-          adj_close = VALUES(adj_close), volume = VALUES(volume), source = VALUES(source)
+          adj_close = VALUES(adj_close), volume = VALUES(volume), provisional = VALUES(provisional),
+          source = VALUES(source)
         """,
         [
-            (instrument_id, q.session_date, q.open, q.high, q.low, q.close, q.adj_close, q.volume, source)
+            (instrument_id, q.session_date, q.open, q.high, q.low, q.close, q.adj_close, q.volume,
+             q.session_date == provisional, source)
             for q in quotes
         ],
     )
@@ -111,9 +117,15 @@ def upsert_quotes(cur, instrument_id: int, quotes: list[DailyQuote], source: str
 
 
 def update_indicators(cur, instrument_id: int) -> int:
-    """Recalcula os indicadores de todas as sessões do instrumento sobre o fecho ajustado."""
+    """Recalcula os indicadores de todas as sessões do instrumento sobre o fecho ajustado.
+
+    A série é sempre calculada por inteiro (um ajuste do fornecedor a dividendos altera os fechos do passado),
+    mas só se gravam as sessões cujos valores mudaram: numa recolha normal são as poucas sessões relidas.
+    Devolve o número de sessões actualizadas.
+    """
+    cols = ", ".join(indicators.COLUMNS)
     cur.execute(
-        "SELECT session_date, COALESCE(adj_close, close) AS price FROM daily_quotes "
+        f"SELECT session_date, COALESCE(adj_close, close) AS price, {cols} FROM daily_quotes "
         "WHERE instrument_id = %s ORDER BY session_date",
         (instrument_id,),
     )
@@ -121,12 +133,14 @@ def update_indicators(cur, instrument_id: int) -> int:
     if not rows:
         return 0
     values = indicators.compute([r["price"] for r in rows])
-    sets = ", ".join(f"{c} = %s" for c in indicators.COLUMNS)
-    cur.executemany(
-        f"UPDATE daily_quotes SET {sets}, fetched_at = fetched_at WHERE instrument_id = %s AND session_date = %s",
-        [(*v, instrument_id, r["session_date"]) for v, r in zip(values, rows)],
-    )
-    return len(rows)
+    changed = [(v, r) for v, r in zip(values, rows) if v != tuple(r[c] for c in indicators.COLUMNS)]
+    if changed:
+        sets = ", ".join(f"{c} = %s" for c in indicators.COLUMNS)
+        cur.executemany(
+            f"UPDATE daily_quotes SET {sets}, fetched_at = fetched_at WHERE instrument_id = %s AND session_date = %s",
+            [(*v, instrument_id, r["session_date"]) for v, r in changed],
+        )
+    return len(changed)
 
 
 def recompute_all_indicators(conn) -> int:
@@ -143,11 +157,11 @@ def recompute_all_indicators(conn) -> int:
 
 
 def complete_job(conn, job_id: int, instrument_id: int, info: InstrumentInfo | None,
-                 quotes: list[DailyQuote], source: str, note: str | None) -> int:
+                 quotes: list[DailyQuote], source: str, note: str | None, provisional: date | None = None) -> int:
     """Grava cotações, cobertura do instrumento e fim do pedido numa só transacção."""
     try:
         with conn.cursor() as cur:
-            written = upsert_quotes(cur, instrument_id, quotes, source)
+            written = upsert_quotes(cur, instrument_id, quotes, source, provisional)
             if written:
                 update_indicators(cur, instrument_id)
             if info is not None:

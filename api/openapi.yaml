@@ -3,7 +3,8 @@ info:
   title: Stocks API
   version: 1.0.0
   description: API da plataforma de simulação e acompanhamento de acções. Todas as
-    operações são simuladas e usam cotações diárias, não dados em tempo real.
+    operações são simuladas e usam cotações diárias (durante a sessão, um valor
+    provisório actualizado de hora a hora), não dados em tempo real.
     Autenticação por cookie de sessão (stocks_session), obtido em POST
     /api/v1/auth/login.
 components:
@@ -2500,12 +2501,15 @@ paths:
                 additionalProperties: false
   /api/v1/simulated-trades:
     post:
-      summary: Executar compra ou venda simulada ao último fecho disponível
+      summary: Executar compra ou venda simulada ao último preço disponível
       tags:
         - Operações
-      description: Repetir o pedido com a mesma idempotencyKey devolve a operação
-        original (200) sem a duplicar. Se expectedPrice/expectedQuoteDate não
-        coincidirem com a cotação actual, responde 409 PRICE_CHANGED.
+      description: "O preço é o último disponível: durante a sessão, o valor
+        provisório da recolha horária (cerca de 20 min de atraso); depois do
+        fecho, o fecho do dia. Repetir o pedido com a mesma idempotencyKey
+        devolve a operação original (200) sem a duplicar. Se
+        expectedPrice/expectedQuoteDate não coincidirem com a cotação actual,
+        responde 409 PRICE_CHANGED."
       requestBody:
         required: true
         content:
@@ -3381,7 +3385,7 @@ paths:
                     additionalProperties: false
                   lastIntradayRun:
                     nullable: true
-                    description: Última actualização durante a sessão (dias úteis, 08:00–17:00 de
+                    description: Última actualização durante a sessão (dias úteis, 08:23–17:23 de
                       Lisboa)
                     type: object
                     properties:

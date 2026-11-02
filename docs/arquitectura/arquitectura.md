@@ -26,7 +26,7 @@ Este documento descreve a arquitectura implementada. O módulo de livro de ofert
 | Indicadores | EMA9, SMA10, SMA50, SMA125 e SMA200 por sessão, guardados na BD; momento SMA10/SMA200 e SMA8/SMA125 |
 | Recolha | Nos dias úteis, de hora a hora entre as 08h23 e as 17h23 de Lisboa (sessão em curso, valores provisórios com cerca de 20 min de atraso do Yahoo) e às 19h00, depois do fecho das bolsas europeias (17h30 CET), com os fechos definitivos |
 | Alertas | Email; um resumo por utilizador após cada recolha diária, nunca mais do que um email por hora |
-| Simulação | Último fecho diário não ajustado; sem comissões; quantidades inteiras; sem posições curtas; custo médio ponderado |
+| Simulação | Último preço não ajustado disponível (durante a sessão, a vela provisória da recolha horária; depois do fecho, o fecho do dia); sem comissões; quantidades inteiras; sem posições curtas; custo médio ponderado |
 | Capital virtual | 1 000 000 EUR por omissão nas contas novas (configurável por conta); sem reposição |
 | Estratégias | Registo de estratégias simuladas no histórico, por instrumento (secção 5.4): A-Momentum, B-Opus e C-AI. Não executam operações nem alteram a carteira |
 | Email | Servidor SMTP configurado pelos administradores em Definições (hoje OVH, `ssl0.ovh.net:465`, remetente `stocks@graus.pt`); sem configuração, os alertas não enviam emails |
@@ -142,7 +142,7 @@ Erros no formato comum `{ "error": { "code", "message", "details" } }`, com cód
 
 #### Regras da simulação
 
-- Preço: último fecho diário **não ajustado** disponível (o preço que efectivamente existiu); a data da cotação fica registada na operação.
+- Preço: último preço **não ajustado** disponível (o preço que efectivamente existiu): durante a sessão, o valor provisório da recolha horária (cerca de 20 min de atraso); depois do fecho, o fecho do dia. A data da cotação fica registada na operação.
 - Compra limitada ao saldo; venda limitada à quantidade detida; sem posições curtas; quantidades inteiras; sem comissões.
 - Saldo, posição, operação e movimento de saldo são actualizados numa só transacção, com a carteira bloqueada (`SELECT … FOR UPDATE`). Duas compras simultâneas não gastam o mesmo saldo.
 - Cada pedido traz uma chave de idempotência: repeti-lo devolve a operação original em vez de criar outra.
@@ -166,7 +166,7 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 | Tabela | Conteúdo |
 |---|---|
 | `instruments` | Catálogo global: símbolo Yahoo (único), mercado, moeda, nome, ISIN e MIC Euronext (opcionais; preenchidos a partir da lista oficial `ISIN.xlsx` na raiz do repositório com `scripts/isin-mic-from-xlsx.mjs`), estado (`pending`/`active`/`invalid`) e motivo, primeira e última sessão |
-| `daily_quotes` | Uma linha por (instrumento, sessão): abertura, máximo, mínimo, fecho, fecho ajustado, volume, origem, e os indicadores `ema9`, `sma10`, `sma50`, `sma125`, `sma200` |
+| `daily_quotes` | Uma linha por (instrumento, sessão): abertura, máximo, mínimo, fecho, fecho ajustado, volume, `provisional` (vela do próprio dia gravada antes das 18:00 de Lisboa), origem, e os indicadores `ema9`, `sma10`, `sma50`, `sma125`, `sma200` |
 | `fetch_jobs` | Fila de recolha: tipo (inicial ou incremental), estado, tentativas, próxima tentativa, último erro |
 | `job_runs` | Execuções da recolha diária e dos alertas, para diagnóstico |
 | `users`, `sessions` | Contas (hash scrypt, perfil de administrador, desactivação, segredo TOTP cifrado e último passo aceite) e sessões (só o SHA-256 do token; fase `mfa_setup`, `mfa_verify` ou `full`; códigos errados) |
@@ -193,8 +193,8 @@ Comandos `python -m fetcher add | run | update [--intraday] | status | indicator
 3. **Actualização:** um pedido `incremental` por instrumento activo, relendo os últimos 7 dias para apanhar correcções do fornecedor. Corre de hora a hora durante a sessão (`update --intraday`, registada em `job_runs` como `fetch_intraday`), em que a vela do próprio dia é provisória (o «fecho» é o último preço, com o atraso do Yahoo, e o volume é parcial), e às 19h00 (`update`, `fetch_update`), que grava o fecho definitivo por cima.
 4. **Gravação idempotente:** `INSERT … ON DUPLICATE KEY UPDATE` sobre a chave (instrumento, sessão).
 5. **Validação dos dados:** sessões com preços não positivos ou incoerentes são descartadas, não corrigidas.
-6. **Indicadores:** depois de cada recolha, a série completa do instrumento é recalculada sobre o fecho ajustado, porque os ajustes do fornecedor alteram os fechos do passado. SMA de N sessões; EMA9 iniciada com a SMA das primeiras 9 sessões e α = 0,2. Os valores ficam `NULL` enquanto não houver sessões suficientes.
-7. **Falhas:** falhas de rede e limite de pedidos voltam à fila com espera progressiva (2, 4, 8… minutos, até 5 tentativas). Uma falha num instrumento não pára os restantes, e uma falha de rede nunca invalida um instrumento.
+6. **Indicadores:** depois de cada recolha, a série completa do instrumento é recalculada sobre o fecho ajustado, porque os ajustes do fornecedor alteram os fechos do passado; só se gravam as sessões cujos valores mudaram (normalmente as poucas relidas). SMA de N sessões; EMA9 iniciada com a SMA das primeiras 9 sessões e α = 0,2. Os valores ficam `NULL` enquanto não houver sessões suficientes.
+7. **Falhas:** falhas de rede, limite de pedidos e erros inesperados voltam à fila com espera progressiva (2, 4, 8… minutos, até 5 tentativas). Uma falha num instrumento não pára os restantes, e uma falha de rede nunca invalida um instrumento.
 8. **Concorrência:** os pedidos são reservados com `SELECT … FOR UPDATE SKIP LOCKED`, e o mesmo instrumento nunca é recolhido por dois processos ao mesmo tempo.
 
 Os símbolos são descarregados um a um, porque o Yahoo só serve o histórico por símbolo e o pedido individual devolve também a moeda e o nome. A carga de 293 símbolos demorou cerca de 1,5 minutos.
@@ -219,9 +219,10 @@ Após cada recolha diária, para cada utilizador:
 - caso contrário, enviar um único email de resumo com todos esses eventos.
 ```
 
+- **Só fechos definitivos:** as velas provisórias da recolha horária são ignoradas. Cada sessão definitiva posterior à última avaliada é avaliada por ordem (até 10), por isso um fecho que chegue depois da execução (ex.: recolha das 19:01 repetida mais tarde pelo timer de 5 minutos) é avaliado na execução seguinte; uma regra nova é avaliada só na última sessão.
 - **Desduplicação:** a chave única (regra, sessão) impede notificar o mesmo evento duas vezes.
 - **Envio recusado** pelo servidor SMTP: os eventos voltam ao resumo seguinte.
-- **Ligação perdida** durante a transmissão: o envio fica `uncertain` e não é repetido automaticamente.
+- **Ligação perdida** durante a transmissão: o envio fica `uncertain` e não é repetido automaticamente. Um erro ao terminar a ligação (`QUIT`) depois de a mensagem ser aceite não conta como falha.
 - **Edição de regras:** criar, editar ou reactivar uma regra repõe o estado da avaliação.
 - **Configuração SMTP:** lida da tabela `smtp_settings` (Definições), com a palavra-passe decifrada com a chave do servidor; na falta dela, das variáveis `STOCKS_SMTP_*`; sem nenhuma, corre em `--dry-run`, mostra os resumos no registo e não grava nada.
 - **Email de teste:** `python -m alerts test --to …`, chamado pela API em Definições, usa exactamente o mesmo código de envio.

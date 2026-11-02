@@ -93,6 +93,12 @@ async function main() {
         const id = await findUser(pool, values.email ?? '');
         const disable = command === 'disable-user';
         await withTransaction(pool, async (conn) => {
+          if (disable) {
+            // Como na remoção de contas: a aplicação nunca fica sem administradores activos.
+            const [[u]] = await conn.query('SELECT is_admin FROM users WHERE id = ? FOR UPDATE', [id]);
+            const [[{ n }]] = await conn.query('SELECT COUNT(*) AS n FROM users WHERE is_admin AND disabled_at IS NULL AND id <> ? FOR UPDATE', [id]);
+            if (u.is_admin && Number(n) === 0) throw new Error('não pode desactivar o último administrador activo');
+          }
           await conn.query(`UPDATE users SET disabled_at = ${disable ? 'NOW(3)' : 'NULL'} WHERE id = ?`, [id]);
           if (disable) await destroyUserSessions(conn, id);
           await audit(conn, null, disable ? 'user.disable' : 'user.enable', 'user', id);

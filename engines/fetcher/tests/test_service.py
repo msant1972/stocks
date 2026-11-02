@@ -183,3 +183,48 @@ def test_actualizacao_horaria_e_registada_a_parte(conn, monkeypatch):
         rows = cur.fetchall()
     conn.commit()
     assert [(r["kind"], r["status"]) for r in rows] == [("fetch_update", "done"), ("fetch_intraday", "done")]
+
+
+def test_vela_do_dia_e_provisoria_durante_a_sessao(conn, settings):
+    """Antes das 18:00 de Lisboa a sessão de hoje fica provisória; a recolha depois do fecho torna-a definitiva."""
+    from datetime import datetime
+    from fetcher.service import MARKET_TZ
+
+    today = date(2026, 10, 15)  # quinta-feira
+    db.add_instrument(conn, "ASML.AS")
+    run_pending(conn, FakeProvider(), settings, today, now=datetime(2026, 10, 15, 14, 23, tzinfo=MARKET_TZ))
+    provisional = "SELECT session_date FROM daily_quotes WHERE provisional"
+    with conn.cursor() as cur:
+        cur.execute(provisional)
+        assert [r["session_date"] for r in cur.fetchall()] == [today]
+    conn.commit()
+
+    db.enqueue_incremental(conn)
+    run_pending(conn, FakeProvider(), settings, today, now=datetime(2026, 10, 15, 19, 1, tzinfo=MARKET_TZ))
+    assert count(conn, "SELECT COUNT(*) FROM daily_quotes WHERE provisional") == 0
+
+
+def test_erro_inesperado_desiste_ao_fim_de_max_attempts(conn, settings, monkeypatch):
+    from fetcher import service
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("erro de teste")
+
+    monkeypatch.setattr(service, "process_job", boom)
+    db.add_instrument(conn, "SAP.DE")
+    for _ in range(settings.max_attempts):
+        with conn.cursor() as cur:
+            cur.execute("UPDATE fetch_jobs SET next_attempt_at = NOW(3) WHERE status = 'queued'")
+        conn.commit()
+        run_pending(conn, FakeProvider(), settings, TODAY)
+    assert count(conn, "SELECT COUNT(*) FROM fetch_jobs WHERE status = 'failed'") == 1
+
+
+def test_indicadores_so_gravam_as_sessoes_alteradas(conn, settings):
+    db.add_instrument(conn, "ASML.AS")
+    run_pending(conn, FakeProvider(), settings, TODAY)
+    with conn.cursor() as cur:
+        assert db.update_indicators(cur, instrument(conn, "ASML.AS")["id"]) == 0  # nada mudou
+        cur.execute("UPDATE daily_quotes SET sma10 = 1 WHERE session_date = %s", (TODAY - timedelta(days=1),))
+        assert db.update_indicators(cur, instrument(conn, "ASML.AS")["id"]) == 1
+    conn.commit()

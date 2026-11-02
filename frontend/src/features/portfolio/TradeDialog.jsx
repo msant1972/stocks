@@ -89,7 +89,7 @@ export default function TradeDialog({ open, onClose, instrument, initialSide = '
             <dt>Instrumento</dt><dd>{receipt.symbol}</dd>
             <dt>Quantidade</dt><dd>{f.quantity(receipt.quantity)}</dd>
             <dt>Preço aplicado</dt><dd>{f.price(receipt.price, receipt.currency)}</dd>
-            <dt>Fecho de</dt><dd>{f.date(receipt.quoteDate)}</dd>
+            <dt>Cotação de</dt><dd>{f.date(receipt.quoteDate)}</dd>
             <dt>Total</dt><dd>{f.money(receipt.amount, receipt.currency)}</dd>
             {receipt.realizedPnl != null && <><dt>Resultado realizado</dt><dd>{f.signedMoney(receipt.realizedPnl, receipt.currency)}</dd></>}
             <dt>Referência</dt><dd>#{receipt.id}</dd>
@@ -127,7 +127,7 @@ export default function TradeDialog({ open, onClose, instrument, initialSide = '
           {preview.isError && <Notice tone="error">{errorMessage(preview.error)}</Notice>}
           {p && (
             <dl className="summary-box" aria-live="polite">
-              <dt>Último fecho disponível</dt><dd>{f.price(p.price, p.currency)}</dd>
+              <dt>Último preço disponível</dt><dd>{f.price(p.price, p.currency)}</dd>
               <dt>Data da cotação</dt><dd>{f.date(p.quoteDate)}</dd>
               <dt>Total (pré-visualização)</dt><dd>{f.money(p.amount, p.currency)}</dd>
               <dt>Saldo após a operação</dt><dd>{f.money(p.cashAfter, p.currency)}</dd>
@@ -139,7 +139,7 @@ export default function TradeDialog({ open, onClose, instrument, initialSide = '
           {error && <Notice tone="error">{error}</Notice>}
 
           <p className="small muted">
-            Esta operação é virtual e não é enviada para a bolsa. É executada, de forma simplificada, ao último fecho diário disponível.
+            Esta operação é virtual e não é enviada para a bolsa. É executada, de forma simplificada, ao último preço disponível: durante a sessão, o valor provisório mais recente (actualizado de hora a hora, com cerca de 20 minutos de atraso); depois do fecho, o fecho do dia.
           </p>
           <div className="modal-actions">
             <Button onClick={onClose}>Cancelar</Button>

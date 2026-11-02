@@ -130,9 +130,9 @@ export default function SignalsPage() {
                         <td className="r" style={{ whiteSpace: 'nowrap' }}>
                           <Button size="small" onClick={() => setTrade({
                             instrument, side: 'buy',
-                            // Orçamento da estratégia ao último fecho (o preço que a operação vai usar).
+                            // Orçamento da estratégia ao último preço (o que a operação vai usar).
                             quantity: Math.max(1, Math.floor(budget / Number(i.lastClose))),
-                            note: `≈ ${f.money(budget, 'EUR', 0)} (orçamento da estratégia) ao último fecho.`,
+                            note: `≈ ${f.money(budget, 'EUR', 0)} (orçamento da estratégia) ao último preço disponível.`,
                           })}>
                             Comprar<span className="visually-hidden"> {i.symbol}</span>
                           </Button>{' '}

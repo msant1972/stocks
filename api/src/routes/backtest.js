@@ -164,6 +164,31 @@ export default async function backtestRoutes(app, { pool }) {
     { from: '2026-01-23', to: '2026-10-23', catalogWinners: 21, catalogReturn: 6, topWinners: 27, topReturn: 11 },
   ];
   let promCache = null;
+  let promJob = null; // cálculo em curso, partilhado por pedidos simultâneos (memória)
+
+  async function computePromessas() {
+    const [instruments] = await pool.query(
+      "SELECT id, symbol, name, exchange FROM instruments WHERE status = 'active' AND last_session IS NOT NULL ORDER BY id",
+    );
+    const list = [];
+    for (const inst of instruments) { // um instrumento de cada vez (memória)
+      const [quotes] = await pool.query(
+        `SELECT session_date AS date, open, high, low, close, adj_close AS adjClose, volume FROM daily_quotes
+          WHERE instrument_id = ? ORDER BY session_date DESC LIMIT ?`,
+        [inst.id, promessas.SESSIONS_NEEDED + 20],
+      );
+      list.push({ instrumentId: Number(inst.id), symbol: inst.symbol, name: inst.name, exchange: inst.exchange, features: promessas.features(quotes.reverse()) });
+    }
+    const ranked = promessas.rank(list);
+    const [wlA, ...wlRest] = await ensure(AVAILABLE_STRATEGIES);
+    const winners = new Set(wlA.items.filter((it) => it.total > 0 && wlRest.every((e) => (e.items.find((x) => x.instrumentId === it.instrumentId)?.total ?? 0) > 0)).map((it) => it.instrumentId));
+    const items = ranked.filter((r) => r.eligible).map((r) => ({
+      instrumentId: r.instrumentId, symbol: r.symbol, name: r.name, exchange: r.exchange, rank: r.rank, score: r.score,
+      date: r.features.date, close: r.features.close, m2: r.features.m2, vol63: r.features.vol63, s200slope: r.features.s200slope,
+      r63: r.features.r63, r252: r.features.r252, distHigh: r.features.distHigh, pastWinner: winners.has(r.instrumentId),
+    }));
+    return { at: Date.now(), items, ranked: ranked.length, asOf: items.reduce((m, i) => (i.date > m ? i.date : m), '') || null };
+  }
 
   app.get('/promessas', {
     schema: {
@@ -188,27 +213,8 @@ export default async function backtestRoutes(app, { pool }) {
     },
   }, async (req) => {
     if (!promCache || Date.now() - promCache.at > CACHE_MS) {
-      const [instruments] = await pool.query(
-        "SELECT id, symbol, name, exchange FROM instruments WHERE status = 'active' AND last_session IS NOT NULL ORDER BY id",
-      );
-      const list = [];
-      for (const inst of instruments) { // um instrumento de cada vez (memória)
-        const [quotes] = await pool.query(
-          `SELECT session_date AS date, open, high, low, close, adj_close AS adjClose, volume FROM daily_quotes
-            WHERE instrument_id = ? ORDER BY session_date DESC LIMIT ?`,
-          [inst.id, promessas.SESSIONS_NEEDED + 20],
-        );
-        list.push({ instrumentId: Number(inst.id), symbol: inst.symbol, name: inst.name, exchange: inst.exchange, features: promessas.features(quotes.reverse()) });
-      }
-      const ranked = promessas.rank(list);
-      const [wlA, ...wlRest] = await ensure(AVAILABLE_STRATEGIES);
-      const winners = new Set(wlA.items.filter((it) => it.total > 0 && wlRest.every((e) => (e.items.find((x) => x.instrumentId === it.instrumentId)?.total ?? 0) > 0)).map((it) => it.instrumentId));
-      const items = ranked.filter((r) => r.eligible).map((r) => ({
-        instrumentId: r.instrumentId, symbol: r.symbol, name: r.name, exchange: r.exchange, rank: r.rank, score: r.score,
-        date: r.features.date, close: r.features.close, m2: r.features.m2, vol63: r.features.vol63, s200slope: r.features.s200slope,
-        r63: r.features.r63, r252: r.features.r252, distHigh: r.features.distHigh, pastWinner: winners.has(r.instrumentId),
-      }));
-      promCache = { at: Date.now(), items, ranked: ranked.length, asOf: items.reduce((m, i) => (i.date > m ? i.date : m), '') || null };
+      promJob ??= computePromessas().finally(() => { promJob = null; });
+      promCache = await promJob;
     }
     let { items } = promCache;
     if (req.query.scope === 'watchlist') items = await onlyWatchlist(req.user.id, items);

@@ -76,7 +76,7 @@ export async function buildApp({ pool, cfg, logger = true }) {
         title: 'Stocks API',
         version: '1.0.0',
         description: 'API da plataforma de simulação e acompanhamento de acções. Todas as operações são '
-          + 'simuladas e usam cotações diárias, não dados em tempo real. Autenticação por cookie de sessão '
+          + 'simuladas e usam cotações diárias (durante a sessão, um valor provisório actualizado de hora a hora), não dados em tempo real. Autenticação por cookie de sessão '
           + `(${SESSION_COOKIE}), obtido em POST /api/v1/auth/login.`,
       },
       components: { securitySchemes: { session: { type: 'apiKey', in: 'cookie', name: SESSION_COOKIE } } },

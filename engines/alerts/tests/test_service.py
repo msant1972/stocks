@@ -138,3 +138,31 @@ def test_regista_a_execucao(conn, db, settings, mailer):
     row = db.one("SELECT status, detail FROM job_runs WHERE kind = 'alerts'")
     assert row["status"] == "done"
     assert "regras avaliadas" in row["detail"]
+
+
+def test_vela_provisoria_nao_e_avaliada(conn, db, settings, mailer):
+    ana = db.user("ana@exemplo.pt")
+    galp = db.instrument("GALP.LS")
+    db.rule(ana, galp, "close_above", "15")
+    db.quote(galp, "14.00", days_ago=2)
+    assert run(conn, settings, mailer).events == 0
+    d = db.quote(galp, "16.00", days_ago=1)
+    db.exec("UPDATE daily_quotes SET provisional = TRUE WHERE session_date = %s", (d,))
+    assert run(conn, settings, mailer).events == 0          # ainda provisória: não avalia
+    db.exec("UPDATE daily_quotes SET provisional = FALSE WHERE session_date = %s", (d,))
+    r = run(conn, settings, mailer)                          # fecho definitivo: notifica
+    assert (r.events, r.sent) == (1, 1)
+
+
+def test_sessao_que_chegou_tarde_e_avaliada_na_execucao_seguinte(conn, db, settings, mailer):
+    """Se o fecho de uma sessão só chega depois da execução dos alertas, é avaliado na seguinte, com a sua variação."""
+    ana = db.user("ana@exemplo.pt")
+    galp = db.instrument("GALP.LS")
+    db.rule(ana, galp, "change_up", "5")
+    db.quote(galp, "10.00", days_ago=3)
+    assert run(conn, settings, mailer).events == 0
+    db.quote(galp, "11.00", days_ago=2)                      # +10%, mas a execução desse dia não a viu
+    db.quote(galp, "11.10", days_ago=1)                      # +0,9%
+    r = run(conn, settings, mailer)
+    assert (r.events, r.sent) == (1, 1)
+    assert db.one("SELECT change_pct FROM alert_events")["change_pct"] == 10

@@ -108,7 +108,7 @@ export default function SettingsPage() {
           <h2 id="rules-title" className="card-title" style={{ marginBottom: '0.75rem' }}>Regras da simulação</h2>
           <ul style={{ margin: 0, paddingLeft: '1.25rem' }} className="stack small">
             <li>As operações são virtuais: não há dinheiro real nem ligação a corretoras.</li>
-            <li>Cada operação usa o último fecho diário disponível (não ajustado) e regista a data dessa cotação.</li>
+            <li>Cada operação usa o último preço disponível (não ajustado) e regista a data dessa cotação: durante a sessão, o valor provisório mais recente, actualizado de hora a hora com cerca de 20 minutos de atraso; depois do fecho, o fecho do dia.</li>
             <li>Uma compra não pode exceder o saldo virtual; uma venda não pode exceder a quantidade detida. Não há vendas a descoberto.</li>
             <li>Quantidades inteiras, sem comissões. O custo das posições é o custo médio ponderado.</li>
             <li>Só são simuláveis instrumentos cotados em EUR. Com cotações com mais de 7 dias, as operações são recusadas.</li>

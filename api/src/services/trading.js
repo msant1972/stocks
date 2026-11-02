@@ -5,7 +5,8 @@ import { ageInDays } from './quotes.js';
 
 /**
  * Regras da simulação (arquitectura, secção 4.2):
- * - preço = último fecho diário não ajustado disponível;
+ * - preço = último preço não ajustado disponível: durante a sessão, a vela provisória da recolha horária
+ *   (cerca de 20 min de atraso); depois do fecho, o fecho do dia;
  * - compra limitada ao saldo; venda limitada à quantidade detida; sem posições curtas;
  * - saldo, posição, operação e movimento de saldo actualizados numa só transacção;
  * - a mesma chave de idempotência nunca cria duas operações.
@@ -20,7 +21,7 @@ async function lockPortfolio(conn, userId) {
   return p;
 }
 
-/** Instrumento negociável e respectivo último fecho, ou erro explicativo. */
+/** Instrumento negociável e respectivo último preço disponível, ou erro explicativo. */
 async function tradableQuote(conn, instrumentId, currency, maxQuoteAgeDays) {
   const [[inst]] = await conn.query(
     'SELECT id, symbol, status, currency, last_session FROM instruments WHERE id = ?',
