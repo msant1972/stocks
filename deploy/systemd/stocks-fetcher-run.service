@@ -8,6 +8,8 @@ Type=oneshot
 User=stocks-svc
 Group=stocks-svc
 EnvironmentFile=/etc/stocks/stocks.env
+# Cache de cookies e fusos do yfinance: a home (/opt/stocks) é só de leitura.
+Environment=XDG_CACHE_HOME=/var/lib/stocks/cache
 WorkingDirectory=/opt/stocks/engines/fetcher
 ExecStart=/opt/stocks/engines/fetcher/.venv/bin/python -m fetcher run
 TimeoutStartSec=30min
@@ -15,3 +17,4 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
+ReadWritePaths=/var/lib/stocks

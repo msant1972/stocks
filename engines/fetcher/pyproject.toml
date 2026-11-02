@@ -9,6 +9,8 @@ description = "Motor de recolha de cotações diárias (yfinance → MariaDB)"
 requires-python = ">=3.11"
 dependencies = [
   "yfinance==1.7.0",
+  # O yfinance 1.7.0 usa inplace=True, que o pandas 3.1 marca como obsoleto e o pandas 4 remove.
+  "pandas>=3.1,<4",
   "PyMySQL==1.2.3",
 ]
 
