@@ -105,7 +105,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Alertas | Regras com pré-visualização em linguagem natural (preço, variação diária ou sinal de compra/reforço/venda de uma estratégia), activação e eventos com o estado do envio |
 | Entrar | Palavra-passe e, a seguir, código de 6 dígitos ou código de recuperação; no primeiro login, configuração do 2.º factor com QR code, chave manual e 10 códigos de recuperação |
 | Utilizadores | Só administradores: listar (com o estado do 2.º factor), adicionar, redefinir palavra-passe, repor o 2.º factor e remover contas |
-| Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, autenticação em dois passos (códigos de recuperação, trocar de aplicação), terminar sessão; para administradores, configuração SMTP com email de teste |
+| Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, cartão «SAXO Bank» com o campo «Token» (guardado cifrado, nunca mostrado de novo; por agora não é usado), autenticação em dois passos (códigos de recuperação, trocar de aplicação), terminar sessão; para administradores, configuração SMTP com email de teste |
 
 Regras da interface:
 - Os valores monetários chegam como strings decimais e só passam a número para apresentação. Formatação pt-PT («12 345,67 €», «16 out. 2026»).
@@ -139,6 +139,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | WinnersLoosers | `GET /winners-losers?scope=all\|watchlist` (resultados do BackTest de todas as estratégias disponíveis, agrupados em gain, loss e mixed, com `inWatchlist` por utilizador; usa a cache do BackTest) |
 | Promessas | `GET /promessas?scope=all\|watchlist` (sinais por instrumento, um de cada vez, cache 10 min; `pastWinner` a partir do BackTest; tabela de validação) |
 | Estado | `GET /status` |
+| Integrações | `GET/PUT/DELETE /me/integrations/saxo` (token da SAXO Bank do utilizador: o estado diz se existe e quando foi guardado, o token nunca é devolvido; 409 `NO_SECRET_KEY` sem a chave de cifra) |
 | Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}`, `GET/PUT /admin/smtp`, `POST /admin/smtp/test` |
 | Saúde | `GET /health/live`, `GET /health/ready` (fora de `/api/v1`) |
 
@@ -175,6 +176,7 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 | `fetch_jobs` | Fila de recolha: tipo (inicial ou incremental), estado, tentativas, próxima tentativa, último erro |
 | `job_runs` | Execuções da recolha diária e dos alertas, para diagnóstico |
 | `users`, `sessions` | Contas (hash scrypt, perfil de administrador, desactivação, segredo TOTP cifrado e último passo aceite) e sessões (só o SHA-256 do token; fase `mfa_setup`, `mfa_verify` ou `full`; códigos errados) |
+| `user_integration_tokens` | Token de cada utilizador à SAXO Bank (`provider = 'saxo'`), cifrado com AES-256-GCM e a chave do servidor, como a palavra-passe SMTP; nunca devolvido pela API |
 | `user_recovery_codes` | Códigos de recuperação do 2.º factor (só o SHA-256), cada um de uso único |
 | `watchlist_items` | Uma lista por utilizador sobre o catálogo |
 | `portfolios`, `cash_movements` | Carteira em EUR com capital inicial e saldo; movimentos de saldo |
@@ -186,7 +188,7 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 | `analysis_results` | Resultados das análises recalculadas semanalmente (JSON por nome): `promessas_validation` e `winner_persistence` |
 | `audit_log` | Acções relevantes, sem palavras-passe, tokens ou credenciais |
 
-Remover um utilizador apaga em cascata as sessões, os códigos de recuperação, a carteira, as operações, as posições, a lista, os alertas e os envios; a auditoria mantém-se.
+Remover um utilizador apaga em cascata as sessões, os códigos de recuperação, o token da SAXO Bank, a carteira, as operações, as posições, a lista, os alertas e os envios; a auditoria mantém-se.
 
 As cotações não são apagadas: 295 instrumentos com três anos são cerca de 224 000 sessões, que ocupam cerca de 51 MB com os indicadores e os índices (medido a 20 out. 2026), e crescem cerca de 75 000 sessões (≈ 17 MB) por ano.
 
@@ -360,7 +362,7 @@ Enquanto a sessão não é completa, só `/me`, `/auth/logout` e `/auth/mfa/*` r
 - Content-Security-Policy sem scripts inline além do script de tema, permitido pelo seu hash.
 - Serviços systemd com utilizador próprio (`stocks-svc`), sistema de ficheiros só de leitura e escrita apenas onde é necessária (`/var/lib/stocks`, `/var/backups/stocks`).
 - Segredos em `/etc/stocks/stocks.env` (`root:stocks-svc`, modo 640), fora do código; registos sem cookies nem credenciais.
-- Palavra-passe SMTP cifrada na BD com AES-256-GCM; chave em `/etc/stocks/secret.key` (`root:stocks-svc`, 640), partilhada pela API e pelo motor de alertas; a API nunca a devolve e a auditoria só regista se foi alterada.
+- Token da SAXO Bank de cada utilizador e palavra-passe SMTP cifrados na BD com AES-256-GCM (o token só é gravado com a chave do servidor, nunca registado na auditoria nem devolvido); chave em `/etc/stocks/secret.key` (`root:stocks-svc`, 640), partilhada pela API e pelo motor de alertas; a API nunca a devolve e a auditoria só regista se foi alterada.
 - MariaDB e API só escutam em `127.0.0.1`.
 - `fail2ban` no SSH: bloqueia 1 hora o IP que falhe 5 vezes em 10 minutos (duplica nos bloqueios repetidos), com regras `nftables` próprias.
 - Firewall `ufw`: entrada só nas portas 22/tcp (SSH), 80/tcp, 443/tcp e 443/udp (HTTP/3); saída livre.

@@ -3524,6 +3524,131 @@ paths:
                 required:
                   - items
                 additionalProperties: false
+  /api/v1/me/integrations/saxo:
+    get:
+      summary: Estado do token da SAXO Bank (nunca o devolve)
+      tags:
+        - Conta
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                  updatedAt:
+                    nullable: true
+                    type: string
+                  canEncrypt:
+                    type: boolean
+                    description: "false: a chave de cifra do servidor não está configurada e não é
+                      possível guardar o token"
+                required:
+                  - configured
+                  - updatedAt
+                  - canEncrypt
+                additionalProperties: false
+    put:
+      summary: Guardar o token da SAXO Bank (cifrado; substitui o anterior)
+      tags:
+        - Conta
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  minLength: 1
+                  maxLength: 4096
+                  pattern: ^[\x21-\x7e]+$
+              required:
+                - token
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                  updatedAt:
+                    nullable: true
+                    type: string
+                  canEncrypt:
+                    type: boolean
+                    description: "false: a chave de cifra do servidor não está configurada e não é
+                      possível guardar o token"
+                required:
+                  - configured
+                  - updatedAt
+                  - canEncrypt
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    delete:
+      summary: Remover o token da SAXO Bank
+      tags:
+        - Conta
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
   /api/v1/status:
     get:
       summary: "Estado dos dados: última sessão, recolhas e alertas"

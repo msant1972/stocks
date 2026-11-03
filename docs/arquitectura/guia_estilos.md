@@ -279,6 +279,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Estado ou data de actualização dos dados, quando disponível.
 - «Autenticação em dois passos»: estado «Activa» e data, códigos de recuperação por usar (aviso a partir de 3 ou menos), «Gerar novos códigos de recuperação» e «Trocar de aplicação»; ambos pedem um código (com alternativa «Usar um código de recuperação»), e trocar de aplicação pede também a palavra-passe e explica que as sessões terminam.
 - Para administradores, atalho para Utilizadores; para todos, «Terminar sessão» (necessário em telemóvel, onde não há barra lateral).
+- Para todos, cartão «SAXO Bank» com o campo «Token» (campo de palavra-passe, sem preenchimento automático): «Guardar» (activo só com um token válido, sem espaços), «Remover token» quando existe, a data em que foi guardado e a indicação de que fica cifrado, nunca é mostrado de novo e por agora não é usado (as operações continuam simuladas).
 - Para administradores, «Envio de email (SMTP)»: servidor, segurança (STARTTLS, SSL/TLS, sem cifra, com a porta ajustada à escolha), porta, utilizador, «Palavra-passe SMTP» (nunca mostrada; «Definida. Deixe vazio para manter.»), remetente, e os botões «Guardar», «Enviar email de teste» e «Remover palavra-passe». Indicar quem fez a última alteração e que, sem configuração, os alertas não enviam emails.
 
 ### 5.9. HeatMap
