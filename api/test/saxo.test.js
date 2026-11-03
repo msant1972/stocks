@@ -87,6 +87,8 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
   let ctx;
   let ana;
   let anaId;
+  let ruiId;
+  let rui;
   let galp;
   let seq = 0;
   const base = () => ({ instrumentId: galp, side: 'buy', quantity: 10, orderType: 'limit', limitPrice: '9.5' });
@@ -106,15 +108,18 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     ctx = await setup();
     ctx.cfg.saxo.orderSpacingMs = 0;
     ctx.cfg.saxo.sleep = async () => {};
+    // Utilizadores e logins uma só vez: o login tem limite de pedidos por minuto.
+    anaId = await makeUser(ctx.pool, 'ana@exemplo.pt');
+    ana = api(ctx.app, await login(ctx.app, 'ana@exemplo.pt'));
+    ruiId = await makeUser(ctx.pool, 'rui@exemplo.pt');
+    rui = api(ctx.app, await login(ctx.app, 'rui@exemplo.pt'));
   });
   beforeEach(async () => {
     await ctx.pool.query('SET FOREIGN_KEY_CHECKS = 0');
-    for (const t of ['saxo_orders', 'saxo_instruments', 'user_integration_tokens', 'cash_movements', 'simulated_trades', 'positions', 'portfolios', 'sessions', 'users', 'daily_quotes', 'instruments', 'audit_log']) {
+    for (const t of ['saxo_orders', 'saxo_instruments', 'user_integration_tokens', 'daily_quotes', 'instruments', 'audit_log']) {
       await ctx.pool.query(`TRUNCATE TABLE ${t}`);
     }
     await ctx.pool.query('SET FOREIGN_KEY_CHECKS = 1');
-    anaId = await makeUser(ctx.pool, 'ana@exemplo.pt');
-    ana = api(ctx.app, await login(ctx.app, 'ana@exemplo.pt'));
     galp = await makeInstrument(ctx.pool, 'GALP.LS', { closes: ['10.00'] });
     await ctx.pool.query("UPDATE instruments SET isin = 'PTGAL0AM0009', mic = 'XLIS' WHERE id = ?", [galp]);
     useSaxo();
@@ -233,8 +238,6 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     const p = (await preview()).json();
     const old = `${Date.now() - 1000}.${p.confirmation.split('.')[1]}`;
     expect((await ana.post('/saxo/orders', { ...base(), confirmation: old, idempotencyKey: 'ordem-e-aaaaaa' })).statusCode).toBe(409);
-    const ruiId = await makeUser(ctx.pool, 'rui@exemplo.pt');
-    const rui = api(ctx.app, await login(ctx.app, 'rui@exemplo.pt'));
     await saveToken(ruiId);
     const res = await rui.post('/saxo/orders', { ...base(), confirmation: p.confirmation, idempotencyKey: 'ordem-r-aaaaaa' });
     expect(res.json().error.code).toMatch(/SAXO_BAD_CONFIRMATION|SAXO_NO/);
@@ -278,8 +281,6 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     list = (await ana.get('/saxo/orders')).json();
     expect(list.items[0].status).toBe('ended');
     // Outro utilizador não as vê.
-    await makeUser(ctx.pool, 'rui@exemplo.pt');
-    const rui = api(ctx.app, await login(ctx.app, 'rui@exemplo.pt'));
     expect((await rui.get('/saxo/orders')).json().total).toBe(0);
   });
 
@@ -293,10 +294,47 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     expect((await ana.del('/saxo/orders/9999')).statusCode).toBe(404);
   });
 
+  it('recusa um preço limite fora do passo de preço e sugere o mais próximo', async () => {
+    const res = await preview({ limitPrice: '9.5004' });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toMatchObject({ code: 'SAXO_TICK_SIZE', details: { tickSize: 0.002, suggested: '9.5' } });
+    expect((await preview({ limitPrice: '9.504' })).statusCode).toBe(200);
+    // O código só existe para preços válidos: usá-lo com um preço fora do passo é recusado.
+    const p = (await preview()).json();
+    expect((await ana.post('/saxo/orders', { ...base(), limitPrice: '9.5004', confirmation: p.confirmation, idempotencyKey: 'ordem-tick-aaaa' })).statusCode).toBe(409);
+  });
+
+  it('uma correspondência guardada sem passo de preço é actualizada na pré-validação', async () => {
+    await preview();
+    await ctx.pool.query('UPDATE saxo_instruments SET tick_scheme = NULL');
+    expect((await preview({ limitPrice: '9.5004' })).json().error.code).toBe('SAXO_TICK_SIZE');
+    const [[r]] = await ctx.pool.query('SELECT tick_scheme FROM saxo_instruments');
+    expect(r.tick_scheme).toContain('DefaultTickSize');
+  });
+
   it('valida quantidade e preço limite', async () => {
     expect((await preview({ quantity: 0 })).statusCode).toBe(400);
     expect((await preview({ quantity: 1.5 })).statusCode).toBe(400);
     expect((await preview({ limitPrice: undefined })).json().error.code).toBe('LIMIT_PRICE_REQUIRED');
     expect((await preview({ limitPrice: '-1' })).statusCode).toBe(400);
+  });
+});
+
+describe('passo de preço', () => {
+  const scheme = fx('instrument-details-galp').body.TickSizeScheme;
+  it('escolhe o escalão pelo preço e valida múltiplos do passo', async () => {
+    const { tickFor, isOnTick, nearestTick } = await import('../src/saxo/ticks.js');
+    expect(tickFor(scheme, 15)).toBe(0.005);
+    expect(tickFor(scheme, 30)).toBe(0.01);
+    expect(tickFor(scheme, 30000)).toBe(10);
+    expect(tickFor(scheme, 60000)).toBe(20); // acima do último escalão: passo por omissão
+    expect(isOnTick(scheme, 30.01)).toBe(true);
+    expect(isOnTick(scheme, 30.005)).toBe(false);
+    expect(isOnTick(scheme, 15.005)).toBe(true);
+    expect(isOnTick(scheme, 15.003)).toBe(false);
+    expect(isOnTick(null, 1.2345)).toBe(true);
+    expect(nearestTick(scheme, 30.006)).toBe('30.01');
+    expect(nearestTick(scheme, 15.002)).toBe('15');
+    expect(nearestTick(scheme, 0.00001)).toBe('0.0001');
   });
 });

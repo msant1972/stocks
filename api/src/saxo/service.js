@@ -6,6 +6,7 @@ import { decryptSecret } from '../secrets.js';
 import { ageInDays } from '../services/quotes.js';
 import { createSaxoClient, errorText } from './client.js';
 import * as E from './errors.js';
+import { isOnTick, nearestTick, tickFor } from './ticks.js';
 
 const PROVIDER = 'saxo';
 const CONFIRM_TTL_MS = 5 * 60_000;
@@ -90,10 +91,10 @@ async function saveResolution(pool, session, inst, cand, accountKey, source) {
   if (currency !== inst.currency) throw new AppError(409, 'CURRENCY_MISMATCH', `${cand.symbol} negoceia em ${currency}, não em ${inst.currency}`);
   const types = (d?.SupportedOrderTypes ?? []).join(',');
   await pool.query(
-    `REPLACE INTO saxo_instruments (instrument_id, environment, uic, asset_type, saxo_symbol, exchange_id, currency, description, tradable, order_types, min_size, source)
-     VALUES (?, ?, ?, 'Stock', ?, ?, ?, ?, 1, ?, ?, ?)`,
+    `REPLACE INTO saxo_instruments (instrument_id, environment, uic, asset_type, saxo_symbol, exchange_id, currency, description, tradable, order_types, min_size, tick_scheme, source)
+     VALUES (?, ?, ?, 'Stock', ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
     [inst.id, session.environment, cand.uic, d?.Symbol ?? cand.symbol, cand.exchangeId, currency, (d?.Description ?? cand.description ?? '').slice(0, 255),
-      types.slice(0, 255), d?.MinimumTradeSize ?? 1, source],
+      types.slice(0, 255), d?.MinimumTradeSize ?? 1, d?.TickSizeScheme ? JSON.stringify(d.TickSizeScheme) : null, source],
   );
   return storedResolution(pool, inst.id, session.environment);
 }
@@ -185,6 +186,16 @@ function checkParams(saxo, p) {
   if (types.length && !types.includes(p.orderType === 'limit' ? 'Limit' : 'Market')) {
     throw new AppError(409, 'SAXO_ORDER_TYPE', `este instrumento não aceita ordens ${p.orderType === 'limit' ? 'limitadas' : 'a mercado'}`);
   }
+  if (p.orderType === 'limit') {
+    let scheme = null;
+    try { scheme = saxo.tick_scheme ? JSON.parse(saxo.tick_scheme) : null; } catch { /* esquema ilegível: a SAXO valida */ }
+    if (scheme && !isOnTick(scheme, p.limitPrice)) {
+      const tick = tickFor(scheme, p.limitPrice);
+      const suggested = nearestTick(scheme, p.limitPrice);
+      throw new AppError(422, 'SAXO_TICK_SIZE',
+        `o preço limite não respeita o passo de preço da bolsa (${tick}); o valor válido mais próximo é ${suggested}`, { tickSize: tick, suggested });
+    }
+  }
   if (saxo.min_size != null && p.quantity < Number(saxo.min_size)) {
     throw new AppError(422, 'SAXO_MIN_SIZE', `a quantidade mínima é ${Number(saxo.min_size)}`);
   }
@@ -199,7 +210,10 @@ export async function previewOrder(pool, cfg, session, p, { wait }) {
   const inst = await loadInstrument(pool, p.instrumentId);
   const quote = await appQuote(pool, inst.id, cfg.maxQuoteAgeDays);
   const account = await pickAccount(session.client, inst.currency);
-  const saxo = await resolveInstrument(pool, session, inst, account.accountKey);
+  let saxo = await resolveInstrument(pool, session, inst, account.accountKey);
+  if (!saxo.tick_scheme) { // correspondência guardada antes de se registar o passo de preço
+    saxo = await saveResolution(pool, session, inst, { uic: Number(saxo.uic), symbol: saxo.saxo_symbol, exchangeId: saxo.exchange_id, description: saxo.description, currency: saxo.currency }, account.accountKey, saxo.source);
+  }
   checkParams(saxo, p);
 
   await wait(session.userId);
