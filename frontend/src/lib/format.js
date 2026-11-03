@@ -33,6 +33,10 @@ export function number(value) {
   return value == null ? '—' : plain.format(Number(value));
 }
 
+/** Número compacto: 1 234 → «1,2 mil»; 12 345 678 → «12 M». */
+const compactFmt = new Intl.NumberFormat('pt-PT', { notation: 'compact', maximumFractionDigits: 1 });
+export const compact = (value) => (value == null ? '—' : compactFmt.format(Number(value)));
+
 export function quantity(value) {
   return value == null ? '—' : integer.format(Number(value));
 }

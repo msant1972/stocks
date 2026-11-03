@@ -82,6 +82,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Estratégia D-Reversão | Reversão à média definida a partir da análise dos perdedores do WinnersLoosers ([D-Reversao.md](D-Reversao.md)): compra com z < −2,5 face à média de 20 sessões, vende com RSI2 > 70 ou ao fim de 10 sessões; +250 k€ no catálogo, +42 k€ nos perdedores das outras três |
 | Charts | Gráfico do instrumento com a lista de acompanhamento à direita, para ver todos os gráficos sem mudar de página; lista da carteira ou do catálogo, pesquisa e ordenação |
 | Comparar estratégias, alertas de sinais, evolução da carteira | Quadro comparativo das estratégias; alertas quando uma estratégia dá sinal; gráfico do valor da carteira (3 nov. 2026) |
+| Charts único, painel do dia, navegação | Velas e volume; ações do instrumento no Charts; Visão geral com carteira, sinais, alertas e subidas/descidas da lista; menu em secções; botão «Mais» (3 nov. 2026) |
 | Operação e qualidade | Aviso operacional diário aos administradores; revalidação semanal das análises; ESLint, Ruff e auditoria de dependências no CI com as versões da produção; páginas do frontend carregadas a pedido (ficheiro principal de 761 KB para 316 KB) |
 | Melhor estratégia por instrumento | Coluna em Acompanhar e estratégia aplicada por omissão na página do instrumento (`GET /strategies/best`) |
 | Estratégia C-AI | Especificada a partir da análise de todos os instrumentos ([C-AI.md](C-AI.md)) e implementada: entrada acima da SMA200 com M2 > 0, stop chandelier de 5 × ATR, reforços a +10% só com M2 > 2 (até 5); +1 491 k€, 182 com ganho e 106 com perda |
@@ -128,6 +129,9 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US31 | Alertas de sinais das estratégias | — | Feito |
 | US32 | Revalidação semanal das Promessas e da persistência dos ganhadores | — | Feito |
 | US33 | Evolução da carteira | — | Feito |
+| US34 | Charts como sítio único do instrumento, com velas e volume (a página do instrumento redirecciona) | — | Feito |
+| US35 | Cálculos antecipados e caches stale-while-revalidate: páginas de estratégias imediatas | — | Feito |
+| US36 | Visão geral como painel do dia; menu em secções e botão «Mais» em telemóvel | — | Feito |
 | US24 | Módulo WinnersLoosers | — | Feito |
 | US25 | Módulo Promessas | — | Feito (regra validada em 5 janelas; revalidar à medida que o histórico cresce) |
 | US19 | ISIN-MIC no catálogo e módulo Orderbook | — | Feito; ISIN-MIC preenchido a 20 out. 2026 a partir de `ISIN.xlsx` em 162 dos 171 instrumentos Euronext (faltam 9 que não constam do ficheiro) |

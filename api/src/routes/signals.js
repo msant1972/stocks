@@ -50,9 +50,71 @@ async function computeAll(pool, strategy) {
   return out;
 }
 
-export default async function signalRoutes(app, { pool }) {
+/**
+ * Sinais de uma entrada em cache (computeAll) nas últimas `sessions` sessões de cada instrumento.
+ * only: conjunto de ids de instrumentos a incluir (todos se null). Devolve { items, latestSession }.
+ */
+function buildItems(entry, sessions, strategyId, only = null) {
+  const items = [];
+  let latestSession = null;
+  for (const inst of entry.data) {
+    if (only && !only.has(inst.id)) continue;
+    const { quotes } = inst;
+    const last = quotes.at(-1);
+    if (!last) continue;
+    if (!latestSession || last.date > latestSession) latestSession = last.date;
+    // Janela: as últimas N sessões do próprio instrumento.
+    const fromIdx = Math.max(0, quotes.length - sessions);
+    const fromDate = quotes[fromIdx].date;
+    for (const s of inst.signals) {
+      if (s.date < fromDate) continue;
+      const idx = quotes.findIndex((q) => q.date === s.date);
+      // Preço da operação: o da estratégia, se o indicar (ex.: abertura ou stop na B-Opus), senão o fecho real.
+      const price = s.price != null ? s.price.toFixed(6) : quotes[idx].close;
+      items.push({
+        instrumentId: inst.id, symbol: inst.symbol, name: inst.name, strategy: strategyId, side: s.side, reason: s.reason ?? null,
+        date: s.date, sessionsAgo: quotes.length - 1 - idx,
+        price, lastClose: last.close, lastDate: last.date,
+        changeSincePct: ((Number(last.close) / Number(price) - 1) * 100).toFixed(2),
+        momentumPct: inst.wave == null ? null : inst.wave.toFixed(2),
+      });
+    }
+  }
+  items.sort((a, b) => (a.date === b.date ? a.symbol.localeCompare(b.symbol) : b.date.localeCompare(a.date)));
+  return { items, latestSession };
+}
+
+export default async function signalRoutes(app, { pool, warmup = () => {} }) {
   const cache = new Map(); // por estratégia
   let running = Promise.resolve();
+  const fresh = (e) => e && Date.now() - e.at <= CACHE_MS;
+
+  /** Recalcula a estratégia (serializado: um cálculo de cada vez, por causa da memória). force recalcula mesmo se recente. */
+  function recompute(strategy, force = false) {
+    const job = running.then(async () => {
+      let e = cache.get(strategy.id);
+      if (force || !fresh(e)) {
+        e = { at: Date.now(), data: await computeAll(pool, strategy) };
+        cache.set(strategy.id, e);
+      }
+      return e;
+    });
+    running = job.catch(() => {});
+    return job;
+  }
+  /** Stale-while-revalidate: com resultado em cache (mesmo antigo) responde logo e recalcula em segundo plano. */
+  function entryFor(strategy) {
+    const e = cache.get(strategy.id);
+    if (e) {
+      if (!fresh(e)) recompute(strategy).catch((err) => app.log.warn({ err }, 'sinais: recálculo falhou'));
+      return Promise.resolve(e);
+    }
+    return recompute(strategy);
+  }
+  for (const st of AVAILABLE_STRATEGIES) warmup(() => recompute(st, true));
+
+  const SignalWithStrategy = Signal.extend({ strategy: z.string() });
+  const sessionsQuery = z.coerce.number().int().min(1).max(MAX_SESSIONS).default(5);
 
   app.get('/signals', {
     schema: {
@@ -60,7 +122,7 @@ export default async function signalRoutes(app, { pool }) {
       description: 'Estratégias: ' + AVAILABLE_STRATEGIES.map((x) => `${x.id} (${x.name}: ${x.rules})`).join(' ')
         + ' Simulação; não são recomendações.',
       querystring: z.object({
-        sessions: z.coerce.number().int().min(1).max(MAX_SESSIONS).default(5),
+        sessions: sessionsQuery,
         strategy: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)).default(DEFAULT_STRATEGY_ID),
       }),
       response: {
@@ -69,43 +131,29 @@ export default async function signalRoutes(app, { pool }) {
     },
   }, async (req) => {
     const strategy = getStrategy(req.query.strategy);
-    // Pedidos simultâneos partilham o cálculo e as estratégias são calculadas uma de cada vez.
-    const job = running.then(async () => {
-      let e = cache.get(strategy.id);
-      if (!e || Date.now() - e.at > CACHE_MS) {
-        e = { at: Date.now(), data: await computeAll(pool, strategy) };
-        cache.set(strategy.id, e);
-      }
-      return e;
-    });
-    running = job.catch(() => {});
-    const entry = await job;
-    const { sessions } = req.query;
+    const { items, latestSession } = buildItems(await entryFor(strategy), req.query.sessions, strategy.id);
+    return { strategy: strategy.id, sessions: req.query.sessions, latestSession, items };
+  });
+
+  app.get('/signals/watchlist', {
+    schema: {
+      tags: ['Sinais'], summary: 'Sinais de todas as estratégias nos instrumentos da minha lista (últimas N sessões)',
+      description: 'Junta os sinais das estratégias disponíveis, só nos instrumentos da lista de acompanhamento do utilizador. '
+        + 'Usa as mesmas caches dos Sinais. Simulação; não são recomendações.',
+      querystring: z.object({ sessions: sessionsQuery.default(1) }),
+      response: { 200: z.object({ sessions: z.number(), latestSession: IsoDate.nullable(), items: z.array(SignalWithStrategy) }) },
+    },
+  }, async (req) => {
+    const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [req.user.id]);
+    const mine = new Set(w.map((r) => Number(r.instrument_id)));
     const items = [];
     let latestSession = null;
-    for (const inst of entry.data) {
-      const { quotes } = inst;
-      const last = quotes.at(-1);
-      if (!last) continue;
-      if (!latestSession || last.date > latestSession) latestSession = last.date;
-      // Janela: as últimas N sessões do próprio instrumento.
-      const fromIdx = Math.max(0, quotes.length - sessions);
-      const fromDate = quotes[fromIdx].date;
-      for (const s of inst.signals) {
-        if (s.date < fromDate) continue;
-        const idx = quotes.findIndex((q) => q.date === s.date);
-        // Preço da operação: o da estratégia, se o indicar (ex.: abertura ou stop na B-Opus), senão o fecho real.
-        const price = s.price != null ? s.price.toFixed(6) : quotes[idx].close;
-        items.push({
-          instrumentId: inst.id, symbol: inst.symbol, name: inst.name, side: s.side, reason: s.reason ?? null,
-          date: s.date, sessionsAgo: quotes.length - 1 - idx,
-          price, lastClose: last.close, lastDate: last.date,
-          changeSincePct: ((Number(last.close) / Number(price) - 1) * 100).toFixed(2),
-          momentumPct: inst.wave == null ? null : inst.wave.toFixed(2),
-        });
-      }
+    for (const st of AVAILABLE_STRATEGIES) {
+      const r = buildItems(await entryFor(st), req.query.sessions, st.id, mine);
+      items.push(...r.items);
+      if (r.latestSession && (!latestSession || r.latestSession > latestSession)) latestSession = r.latestSession;
     }
     items.sort((a, b) => (a.date === b.date ? a.symbol.localeCompare(b.symbol) : b.date.localeCompare(a.date)));
-    return { strategy: strategy.id, sessions, latestSession, items };
+    return { sessions: req.query.sessions, latestSession, items };
   });
 }

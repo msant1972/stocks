@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { momentum, rollingMean } from '../../shared/momentum.js';
 import { backtest } from '../../shared/strategies/a-momentum.js';
 import { backtest as bOpus } from '../../shared/strategies/b-opus.js';
@@ -144,6 +144,23 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
     expect(cmp.buyHold).toMatchObject({ id: 'buy-hold', investedPct: 100, firstYear: null });
     const mine = (await ana.get('/strategies/compare?scope=watchlist')).json();
     expect(mine.instruments).toBeLessThanOrEqual(cmp.instruments);
+  });
+
+  it('cache desactualizada: responde de imediato com o resultado antigo e recalcula em segundo plano', async () => {
+    const first = (await ana.get('/strategies/compare')).json().computedAt;
+    vi.useFakeTimers({ toFake: ['Date'] }); // só o relógio; os temporizadores e a BD continuam reais
+    try {
+      vi.setSystemTime(Date.now() + 11 * 60_000);  // passam 11 minutos (a cache dura 10)
+      expect((await ana.get('/strategies/compare')).json().computedAt).toBe(first); // serviu o antigo, sem esperar
+      let later = first;
+      for (let i = 0; i < 50 && later === first; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        later = (await ana.get('/strategies/compare')).json().computedAt;
+      }
+      expect(later).not.toBe(first);               // o recálculo em segundo plano acabou
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('melhor estratégia de cada instrumento: a de maior resultado no BackTest', async () => {

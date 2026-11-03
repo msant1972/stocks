@@ -1,6 +1,7 @@
 import { useId, useMemo, useState } from 'react';
 import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as f from '../../lib/format.js';
+import { adjustedOhlc } from '../../lib/candles.js';
 import { momentum, niceTicks } from '../../lib/momentum.js';
 import { getStrategy } from '../../lib/strategy.js';
 import StrategyPanel from './StrategyPanel.jsx';
@@ -26,6 +27,9 @@ export const INDICATORS = [
 const STORAGE_KEY = 'stocks.indicators';
 const MOMENTUM_KEY = 'stocks.momentum';
 const RANGE_KEY = 'stocks.periodo';
+const TYPE_KEY = 'stocks.tipoGrafico';
+const VOLUME_KEY = 'stocks.volume';
+const TYPES = [{ value: 'linha', label: 'Linha' }, { value: 'velas', label: 'Velas' }];
 
 /** Último período escolhido no gráfico (guardado no browser); 1A por omissão. */
 function readRange() {
@@ -33,6 +37,14 @@ function readRange() {
     const saved = localStorage.getItem(RANGE_KEY);
     return RANGES.some((r) => r.value === saved) ? saved : '1A';
   } catch { return '1A'; }
+}
+
+function readType() {
+  try { return localStorage.getItem(TYPE_KEY) === 'velas' ? 'velas' : 'linha'; } catch { return 'linha'; }
+}
+
+function readVolume() {
+  try { return localStorage.getItem(VOLUME_KEY) !== 'off'; } catch { return true; }
 }
 
 function readMomentum() {
@@ -59,12 +71,15 @@ function cutoff(lastDate, months) {
 
 const num = (v) => (v == null ? null : Number(v));
 
-function ChartTooltip({ active, payload, currency, selected }) {
+function ChartTooltip({ active, payload, currency, selected, candles }) {
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
   return (
     <div className="card" style={{ padding: '0.5rem 0.75rem', boxShadow: 'var(--shadow-overlay)', minWidth: '11rem' }}>
       <div className="small muted">{f.date(p.date)}</div>
+      {candles && [['Abertura', p.o], ['Máximo', p.h], ['Mínimo', p.l]].map(([label, v]) => (
+        <div key={label} className="spread small" style={{ gap: '1rem' }}><span>{label}</span><span className="num">{f.price(v, currency)}</span></div>
+      ))}
       <div className="spread" style={{ gap: '1rem' }}>
         <span className="row small" style={{ gap: 6 }}><span className="swatch" style={{ background: 'var(--series-price)' }} />Fecho aj.</span>
         <span className="num" style={{ fontWeight: 600 }}>{f.price(p.value, currency)}</span>
@@ -76,6 +91,38 @@ function ChartTooltip({ active, payload, currency, selected }) {
         </div>
       ))}
     </div>
+  );
+}
+
+function VolumeTooltip({ active, payload }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0].payload;
+  return (
+    <div className="card" style={{ padding: '0.5rem 0.75rem', boxShadow: 'var(--shadow-overlay)' }}>
+      <div className="small muted">{f.date(p.date)}</div>
+      <div className="num" style={{ fontWeight: 600 }}>{p.volume == null ? '—' : f.quantity(p.volume)}</div>
+      <div className="small muted">acções negociadas</div>
+    </div>
+  );
+}
+
+/** Vela: pavio do mínimo ao máximo e corpo da abertura ao fecho; sobe = corpo vazio (verde), desce = corpo cheio (vermelho). */
+function Candle({ x, y, width, height, payload }) {
+  if (x == null || y == null || !width || !payload) return null;
+  const { o, c, h, l } = payload;
+  const up = c >= o;
+  const color = up ? 'var(--heat-up)' : 'var(--heat-down)';
+  const span = h - l;
+  const px = (v) => (span > 0 ? y + ((h - v) / span) * height : y + height / 2);
+  const top = px(Math.max(o, c));
+  const bottom = px(Math.min(o, c));
+  const cx = x + width / 2;
+  const bodyWidth = Math.max(1.5, width * 0.7);
+  return (
+    <g>
+      <line x1={cx} x2={cx} y1={y} y2={y + Math.max(height, 1)} stroke={color} strokeWidth={1.25} />
+      <rect x={cx - bodyWidth / 2} y={top} width={bodyWidth} height={Math.max(1.5, bottom - top)} fill={up ? 'var(--surface)' : color} stroke={color} strokeWidth={1.25} />
+    </g>
   );
 }
 
@@ -134,7 +181,20 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
   const [selected, setSelected] = useState(readSelection);
   const [showTable, setShowTable] = useState(false);
   const [showMomentum, setShowMomentum] = useState(readMomentum);
+  const [type, setTypeState] = useState(readType);
+  const [showVolume, setShowVolume] = useState(readVolume);
   const tableId = useId();
+  const candles = type === 'velas';
+  const setType = (value) => {
+    setTypeState(value);
+    try { localStorage.setItem(TYPE_KEY, value); } catch { /* só nesta sessão */ }
+  };
+  const toggleVolume = () => {
+    setShowVolume((v) => {
+      try { localStorage.setItem(VOLUME_KEY, v ? 'off' : 'on'); } catch { /* só nesta sessão */ }
+      return !v;
+    });
+  };
 
   const toggle = (key) => {
     setSelected((cur) => {
@@ -169,7 +229,8 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
     const from = cutoff(quotes.at(-1).date, RANGES.find((r) => r.value === range).months);
     return quotes
       .map((q, idx) => ({
-        date: q.date, value: Number(q.adjClose ?? q.close), close: q.close,
+        date: q.date, value: Number(q.adjClose ?? q.close), close: q.close, volume: q.volume,
+        ...(({ o, c, h, l }) => ({ o, c, h, l, range: [l, h] }))(adjustedOhlc(q)),
         ...Object.fromEntries(INDICATORS.map((i) => [i.key, num(q[i.key])])),
         ...mom[idx],
       }))
@@ -184,8 +245,8 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
   const prices = data.map((d) => d.value);
   const min = Math.min(...prices);
   const max = Math.max(...prices);
-  // A escala inclui as médias visíveis, para nenhuma linha ficar cortada.
-  const plotted = [...prices, ...visible.flatMap((i) => data.map((d) => d[i.key]).filter((v) => v != null))];
+  // A escala inclui as médias visíveis (e os máximos e mínimos, nas velas), para nada ficar cortado.
+  const plotted = [...(candles ? data.flatMap((d) => [d.h, d.l]) : prices), ...visible.flatMap((i) => data.map((d) => d[i.key]).filter((v) => v != null))];
   const lo = Math.min(...plotted);
   const hi = Math.max(...plotted);
   const pad = (hi - lo) * 0.08 || hi * 0.02;
@@ -200,17 +261,23 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
   return (
     <div className="stack" style={{ gap: '1rem' }}>
       <div className="spread">
-        <Segmented label="Período do gráfico" options={RANGES} value={range} onChange={setRange} />
+        <div className="row">
+          <Segmented label="Período do gráfico" options={RANGES} value={range} onChange={setRange} />
+          <Segmented label="Tipo de gráfico" options={TYPES} value={type} onChange={setType} />
+        </div>
         <span className="badge">Dados diários</span>
       </div>
 
       <div className="legend-chips" role="group" aria-label="Indicadores no gráfico">
-        <span className="legend-chip static"><span className="swatch" style={{ background: 'var(--series-price)' }} />Fecho ajustado</span>
+        <span className="legend-chip static"><span className="swatch" style={{ background: 'var(--series-price)' }} />{candles ? 'Velas (preços ajustados)' : 'Fecho ajustado'}</span>
         {INDICATORS.map((i) => (
           <button key={i.key} type="button" className="legend-chip" aria-pressed={selected.includes(i.key)} title={i.title} onClick={() => toggle(i.key)}>
             <span className="swatch" style={{ background: i.color }} />{i.label}
           </button>
         ))}
+        <button type="button" className="legend-chip" aria-pressed={showVolume} onClick={toggleVolume} title="Volume negociado por sessão, por baixo do preço">
+          <span className="swatch" style={{ background: 'var(--control-border)', height: 8 }} />Volume
+        </button>
         <button type="button" className="legend-chip" aria-pressed={showMomentum} onClick={toggleMomentum}
           title="Gráfico de momento por baixo do histórico: SMA10/SMA200 e SMA8/SMA125">
           <span className="swatch" style={{ background: 'var(--positive)', height: 8 }} />Momento
@@ -243,8 +310,10 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
               domain={[lo - pad, hi + pad]} width={64} tickLine={false} axisLine={false}
               tickFormatter={(v) => f.number(v)} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
             />
-            <Tooltip content={<ChartTooltip currency={currency} selected={selected} />} cursor={{ stroke: 'var(--control-border)' }} />
-            <Area type="linear" dataKey="value" stroke="var(--series-price)" strokeWidth={2} fill="url(#chartFill)" isAnimationActive={false} />
+            <Tooltip content={<ChartTooltip currency={currency} selected={selected} candles={candles} />} cursor={{ stroke: 'var(--control-border)' }} />
+            {candles
+              ? <Bar dataKey="range" shape={<Candle />} maxBarSize={14} isAnimationActive={false} />
+              : <Area type="linear" dataKey="value" stroke="var(--series-price)" strokeWidth={2} fill="url(#chartFill)" isAnimationActive={false} />}
             {visible.map((i) => (
               <Line key={i.key} type="linear" dataKey={i.key} stroke={i.color} strokeWidth={1.75} dot={false}
                 activeDot={{ r: 4, stroke: 'var(--surface)', strokeWidth: 2 }} connectNulls={false} isAnimationActive={false} />
@@ -263,6 +332,21 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
           </ComposedChart>
         </ResponsiveContainer>
       </div>
+      {showVolume && (
+        <div className="chart-volume" role="img"
+          aria-label={`Volume de ${symbol}: ${last.volume == null ? 'sem dados' : `${f.quantity(last.volume)} acções na última sessão`}.`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+              <XAxis dataKey="date" hide />
+              <YAxis width={64} tickLine={false} axisLine={false} tickCount={3} tickFormatter={f.compact} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+              <Tooltip content={<VolumeTooltip />} cursor={{ stroke: 'var(--control-border)' }} />
+              <Bar dataKey="volume" isAnimationActive={false}>
+                {data.map((d) => <Cell key={d.date} fill={d.c >= d.o ? 'var(--heat-up)' : 'var(--heat-down)'} fillOpacity={0.45} />)}
+              </Bar>
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      )}
       {showMomentum && (
         <section aria-labelledby={`${tableId}-mom`} className="stack" style={{ gap: '0.5rem' }}>
           <div className="row small" style={{ gap: '1rem' }}>
@@ -309,7 +393,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
       {strategyResult && <StrategyPanel strategy={strat} result={strategyResult} currency={currency || 'EUR'} symbol={symbol} />}
 
       <p className="small muted">
-        Eixo vertical em {currency || 'EUR'} (fecho ajustado); a escala não começa em zero. As médias são calculadas sobre o fecho ajustado.
+        Eixo vertical em {currency || 'EUR'} ({candles ? 'preços ajustados; vela vazia a verde = fechou acima da abertura, cheia a vermelho = abaixo' : 'fecho ajustado'}); a escala não começa em zero. As médias são calculadas sobre o fecho ajustado.
         {partial.map((i) => (
           <span key={i.key}> {i.label} {i.firstDate ? `disponível a partir de ${f.date(i.firstDate)}` : 'sem sessões suficientes neste período'}.</span>
         ))}
@@ -328,6 +412,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
                   <th scope="col">Sessão</th>
                   <th scope="col" className="r">Fecho</th>
                   <th scope="col" className="r">Fecho ajustado</th>
+                  <th scope="col" className="r">Volume</th>
                   {visible.map((i) => <th key={i.key} scope="col" className="r">{i.label}</th>)}
                   {showMomentum && <><th scope="col" className="r">SMA10/SMA200</th><th scope="col" className="r">SMA8/SMA125</th></>}
                 </tr>
@@ -338,6 +423,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
                     <td>{f.date(d.date)}</td>
                     <td className="r">{f.price(d.close, currency)}</td>
                     <td className="r">{f.price(d.value, currency)}</td>
+                    <td className="r">{d.volume == null ? '—' : f.quantity(d.volume)}</td>
                     {visible.map((i) => <td key={i.key} className="r">{d[i.key] == null ? '—' : f.price(d[i.key], currency)}</td>)}
                     {showMomentum && (
                       <>

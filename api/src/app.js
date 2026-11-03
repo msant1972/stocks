@@ -24,10 +24,11 @@ import adminRoutes from './routes/admin.js';
 import marketRoutes from './routes/market.js';
 import signalRoutes from './routes/signals.js';
 import backtestRoutes from './routes/backtest.js';
+import { scheduleWarmups } from './services/warmup.js';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-export async function buildApp({ pool, cfg, logger = true }) {
+export async function buildApp({ pool, cfg, logger = true, warm = false }) {
   const app = Fastify({
     logger: logger && {
       level: cfg.logLevel,
@@ -127,7 +128,8 @@ export async function buildApp({ pool, cfg, logger = true }) {
       if (!req.mfa.enabled) throw new AppError(403, 'MFA_SETUP_REQUIRED', 'configure a autenticação em dois passos');
     });
 
-    const opts = { pool, cfg, cookieOptions };
+    const warmups = []; // cálculos antecipados registados pelas rotas (ver services/warmup.js)
+    const opts = { pool, cfg, cookieOptions, warmup: (task) => warmups.push(task) };
     await api.register(authRoutes, opts);
     await api.register(instrumentRoutes, opts);
     await api.register(watchlistRoutes, opts);
@@ -139,6 +141,7 @@ export async function buildApp({ pool, cfg, logger = true }) {
     await api.register(marketRoutes, opts);
     await api.register(signalRoutes, opts);
     await api.register(backtestRoutes, opts);
+    if (warm) scheduleWarmups(app, pool, warmups);
   }, { prefix: '/api/v1' });
 
   // Em produção a API pode servir também o frontend compilado (aplicação de página única).

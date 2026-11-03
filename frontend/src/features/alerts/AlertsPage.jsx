@@ -9,7 +9,7 @@ import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Dialog, Notice, Switch } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
 import AlertDialog from './AlertDialog.jsx';
-import { getStrategy } from '../../lib/strategy.js';
+import { alertCondition as condition } from '../../lib/alerts.js';
 
 const DELIVERY = {
   pending: { label: 'A aguardar envio', cls: '' },
@@ -18,15 +18,6 @@ const DELIVERY = {
   failed: { label: 'Falha de envio', cls: 'badge-negative' },
   uncertain: { label: 'Envio incerto', cls: 'badge-warning' },
 };
-
-function condition(rule) {
-  if (rule.kind === 'signal') {
-    const name = getStrategy(rule.strategy)?.name ?? rule.strategy;
-    return rule.signalSide ? `Sinal de ${f.SIGNAL_SIDE_LABEL[rule.signalSide]} da ${name}` : `${f.ALERT_KIND_LABEL.signal} ${name}`;
-  }
-  const value = rule.kind.startsWith('close') ? f.money(rule.threshold, rule.currency || 'EUR') : `${f.number(rule.threshold)}%`;
-  return `${f.ALERT_KIND_LABEL[rule.kind]} ${value}`;
-}
 
 export default function AlertsPage() {
   const rules = useAlerts();

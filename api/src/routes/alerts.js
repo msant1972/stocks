@@ -41,7 +41,7 @@ export default async function alertRoutes(app, { pool }) {
       response: {
         200: z.object({
           items: z.array(z.object({
-            id: z.number(), ruleId: z.number(), kind: AlertKind, threshold: NullableDecimal, strategy: z.string().nullable(),
+            id: z.number(), ruleId: z.number(), instrumentId: z.number(), kind: AlertKind, threshold: NullableDecimal, strategy: z.string().nullable(),
             signalSide: z.enum(['buy', 'add', 'sell']).nullable(), symbol: z.string(),
             sessionDate: IsoDate, close: Decimal, changePct: NullableDecimal,
             deliveryStatus: z.enum(['pending', 'sending', 'sent', 'failed', 'uncertain']), deliveredAt: z.string().nullable(),

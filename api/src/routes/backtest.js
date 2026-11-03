@@ -22,7 +22,7 @@ const Row = z.object({
   secondYear: Money.describe('Resultado das vendas do 2.º ano e da posição aberta'),
 });
 
-export default async function backtestRoutes(app, { pool, cfg }) {
+export default async function backtestRoutes(app, { pool, cfg, warmup = () => {} }) {
   const cache = new Map(); // por estratégia
 
   const StrategyInfo = z.object({ id: z.string(), name: z.string(), available: z.boolean(), summary: z.string(), rules: z.string() });
@@ -237,6 +237,12 @@ export default async function backtestRoutes(app, { pool, cfg }) {
   let promCache = null;
   let promJob = null; // cálculo em curso, partilhado por pedidos simultâneos (memória)
 
+  /** Recalcula as Promessas (um só cálculo de cada vez, partilhado por quem o pedir). */
+  function refreshPromessas() {
+    promJob ??= computePromessas().then((c) => { promCache = c; }).finally(() => { promJob = null; });
+    return promJob;
+  }
+
   async function computePromessas() {
     const [instruments] = await pool.query(
       "SELECT id, symbol, name, exchange FROM instruments WHERE status = 'active' AND last_session IS NOT NULL ORDER BY id",
@@ -284,10 +290,9 @@ export default async function backtestRoutes(app, { pool, cfg }) {
       },
     },
   }, async (req) => {
-    if (!promCache || Date.now() - promCache.at > CACHE_MS) {
-      promJob ??= computePromessas().finally(() => { promJob = null; });
-      promCache = await promJob;
-    }
+    // Stale-while-revalidate: com resultado em cache (mesmo antigo) responde logo e recalcula em segundo plano.
+    if (!promCache) await refreshPromessas();
+    else if (Date.now() - promCache.at > CACHE_MS) refreshPromessas().catch((err) => app.log.warn({ err }, 'promessas: recálculo falhou'));
     let { items } = promCache;
     if (req.query.scope === 'watchlist') items = await onlyWatchlist(req.user.id, items);
     const stored = await readAnalysis('promessas_validation');
@@ -300,14 +305,15 @@ export default async function backtestRoutes(app, { pool, cfg }) {
   });
 
   /**
-   * Resultados das estratégias em todos os instrumentos, com cache de 10 minutos. As que faltam são calculadas
-   * numa só passagem pelo catálogo; pedidos simultâneos partilham o mesmo cálculo (sem cálculos em paralelo).
+   * Resultados das estratégias em todos os instrumentos. As desactualizadas (mais de 10 minutos) ou em falta são
+   * calculadas numa só passagem pelo catálogo, em worker threads; os cálculos são serializados (sem cálculos em
+   * paralelo, por causa da memória). force recalcula mesmo as recentes.
    */
   let running = Promise.resolve();
-  function ensure(strategies) {
-    const fresh = (st) => { const e = cache.get(st.id); return e && Date.now() - e.at <= CACHE_MS; };
+  const fresh = (st) => { const e = cache.get(st.id); return e && Date.now() - e.at <= CACHE_MS; };
+  function recompute(strategies, force = false) {
     const job = running.then(async () => {
-      const missing = strategies.filter((st) => !fresh(st));
+      const missing = force ? strategies : strategies.filter((st) => !fresh(st));
       if (missing.length) {
         const at = Date.now();
         const computed = await computeStrategiesParallel(pool, cfg.db, missing, app.log);
@@ -318,7 +324,22 @@ export default async function backtestRoutes(app, { pool, cfg }) {
     running = job.catch(() => {});
     return job;
   }
+  /**
+   * Stale-while-revalidate: com resultados em cache (mesmo antigos) responde de imediato e recalcula em segundo
+   * plano; só espera quando ainda não há nenhum (primeiro pedido, se o cálculo antecipado não terminou).
+   */
+  function ensure(strategies) {
+    if (strategies.every((st) => cache.has(st.id))) {
+      if (!strategies.every(fresh)) recompute(strategies).catch((err) => app.log.warn({ err }, 'estratégias: recálculo falhou'));
+      return Promise.resolve(strategies.map((st) => cache.get(st.id)));
+    }
+    return recompute(strategies);
+  }
   const results = async (strategy) => (await ensure([strategy]))[0];
+
+  // Cálculo antecipado: arranque e cada recolha concluída (services/warmup.js). Estratégias primeiro (as Promessas usam-nas).
+  warmup(() => recompute(AVAILABLE_STRATEGIES, true));
+  warmup(async () => { await refreshPromessas(); });
 
   async function watchlistIds(userId) {
     const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [userId]);

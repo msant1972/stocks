@@ -4,7 +4,7 @@ import { createPool } from './db.js';
 
 const cfg = loadConfig();
 const pool = createPool(cfg.db);
-const app = await buildApp({ pool, cfg });
+const app = await buildApp({ pool, cfg, warm: true });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
   process.once(signal, async () => {

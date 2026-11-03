@@ -2,12 +2,19 @@ import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { useMe, usePortfolio, useStatus } from '../../lib/queries.js';
+import { alertCondition } from '../../lib/alerts.js';
+import { useAlertEvents, useMe, usePortfolio, useStatus, useWatchlist } from '../../lib/queries.js';
+import { getStrategy } from '../../lib/strategy.js';
+import Sparkline from '../../components/finance/Sparkline.jsx';
 import { PnL, PriceChange, QuoteDate, SimulatedBadge } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 
+const chartLink = (id, strategy) => `/charts?instrumento=${id}${strategy ? `&estrategia=${strategy}` : ''}`;
+
 function PortfolioCard() {
   const { data: p, isPending, error, refetch } = usePortfolio();
+  const history = useQuery({ queryKey: ['portfolio', 'history'], queryFn: () => api.get('/portfolio/history'), staleTime: 5 * 60_000 });
+  const points = history.data?.points ?? [];
   return (
     <section className="card span-12" aria-labelledby="pf-title">
       <div className="card-head">
@@ -16,10 +23,21 @@ function PortfolioCard() {
       </div>
       {isPending ? <Loading rows={2} /> : error ? <ErrorState error={error} onRetry={refetch} /> : (
         <>
-          <p className="hero-value">{f.money(p.totalValue, p.currency)}</p>
-          <p className="small muted" style={{ marginTop: 4 }}>
-            {p.valuationDate ? `Valorizado ao último preço disponível (${f.date(p.valuationDate)})` : 'Sem posições: valor igual ao saldo disponível'}
-          </p>
+          <div className="spread" style={{ alignItems: 'flex-end' }}>
+            <div>
+              <p className="hero-value">{f.money(p.totalValue, p.currency)}</p>
+              <p className="small muted" style={{ marginTop: 4 }}>
+                {p.valuationDate ? `Valorizado ao último preço disponível (${f.date(p.valuationDate)})` : 'Sem posições: valor igual ao saldo disponível'}
+              </p>
+            </div>
+            {points.length > 1 && (
+              <div style={{ flex: '1 1 10rem', maxWidth: '14rem' }}>
+                <Sparkline values={points.map((x) => x.total)} tone={points.at(-1).total >= history.data.initialCapital ? 'positive' : 'negative'}
+                  label={`Evolução do valor da carteira desde ${f.date(points[0].date)}: de ${f.money(points[0].total)} para ${f.money(points.at(-1).total)}`} />
+                <p className="small muted">Desde {f.date(points[0].date)}</p>
+              </div>
+            )}
+          </div>
           <div className="stats">
             <div><p className="stat-label">Saldo virtual disponível</p><p className="stat-value">{f.money(p.cashBalance, p.currency)}</p></div>
             <div><p className="stat-label">Montante investido (custo)</p><p className="stat-value">{f.money(p.invested, p.currency)}</p></div>
@@ -41,6 +59,121 @@ const ZONES = [
   { key: 'below', label: 'Abaixo de −1%', color: 'var(--heat-down)' },
 ];
 
+const SIDE = { buy: { label: 'Compra', letter: 'C', tone: 'positive' }, add: { label: 'Reforço', letter: 'R', tone: '' }, sell: { label: 'Venda', letter: 'V', tone: 'negative' } };
+const SHOWN = 6;
+
+/** Sinais de compra, reforço e venda das estratégias, na última sessão, nos instrumentos da minha lista. */
+function SignalsTodayCard() {
+  const q = useQuery({ queryKey: ['signals', 'watchlist', 1], queryFn: () => api.get('/signals/watchlist?sessions=1'), staleTime: 5 * 60_000 });
+  const items = q.data?.items ?? [];
+  return (
+    <section className="card span-6" aria-labelledby="sg-title">
+      <div className="card-head">
+        <div>
+          <h2 id="sg-title" className="card-title">Sinais da última sessão</h2>
+          <p className="small muted">Nos instrumentos da minha lista{q.data?.latestSession ? ` (${f.date(q.data.latestSession)})` : ''}. Simulação.</p>
+        </div>
+        <Link to="/sinais" className="small">Ver sinais</Link>
+      </div>
+      {q.isPending ? <Loading rows={3} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : items.length === 0 ? (
+        <p className="small muted">Nenhuma estratégia deu sinais nos instrumentos da sua lista na última sessão.</p>
+      ) : (
+        <ul className="list">
+          {items.slice(0, SHOWN).map((s) => {
+            const side = SIDE[s.side];
+            return (
+              <li key={`${s.instrumentId}-${s.strategy}-${s.side}`} className="list-item" style={{ padding: '0.5rem 0' }}>
+                <div style={{ minWidth: 0 }}>
+                  <Link to={chartLink(s.instrumentId, s.strategy)} className="row-link">{s.symbol}</Link>
+                  <div className="small muted">{getStrategy(s.strategy)?.name ?? s.strategy}</div>
+                </div>
+                <span className={`num ${side.tone}`} style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{side.letter} · {side.label}</span>
+              </li>
+            );
+          })}
+          {items.length > SHOWN && <li className="small muted" style={{ paddingTop: '0.5rem' }}>e mais {items.length - SHOWN} em Sinais.</li>}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/** Alertas disparados mais recentes. */
+function RecentAlertsCard() {
+  const events = useAlertEvents();
+  const items = (events.data?.items ?? []).slice(0, 5);
+  return (
+    <section className="card span-6" aria-labelledby="al-title">
+      <div className="card-head">
+        <h2 id="al-title" className="card-title">Alertas recentes</h2>
+        <Link to="/alertas" className="small">Ver alertas</Link>
+      </div>
+      {events.isPending ? <Loading rows={3} /> : events.error ? <ErrorState error={events.error} onRetry={events.refetch} /> : items.length === 0 ? (
+        <p className="small muted">Ainda não disparou nenhum alerta. <Link to="/alertas">Criar um alerta</Link></p>
+      ) : (
+        <ul className="list">
+          {items.map((e) => (
+            <li key={e.id} className="list-item" style={{ padding: '0.5rem 0' }}>
+              <div style={{ minWidth: 0 }}>
+                <Link to={chartLink(e.instrumentId)} className="row-link">{e.symbol}</Link>
+                <div className="small muted">{alertCondition({ ...e, currency: 'EUR' })}</div>
+              </div>
+              <span className="small muted" style={{ whiteSpace: 'nowrap' }}>{f.shortDate(e.sessionDate)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function MoverList({ title, items }) {
+  return (
+    <div style={{ minWidth: 0 }}>
+      <h3 className="stat-label" style={{ fontWeight: 500, marginBottom: 4 }}>{title}</h3>
+      {items.length === 0 ? <p className="small muted">Nenhum.</p> : (
+        <ol className="list">
+          {items.map((i) => (
+            <li key={i.id} className="list-item" style={{ padding: '0.5rem 0' }}>
+              <div style={{ minWidth: 0 }}>
+                <Link to={chartLink(i.id)} className="row-link">{i.symbol}</Link>
+                <div className="small muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.name}</div>
+              </div>
+              <PriceChange value={i.latest.changePct} showLabel={false} />
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+/** Maiores subidas e descidas da última sessão nos instrumentos da minha lista. */
+function MoversCard() {
+  const wl = useWatchlist();
+  const withChange = (wl.data?.items ?? []).filter((i) => i.latest?.changePct != null);
+  const up = withChange.filter((i) => Number(i.latest.changePct) > 0).sort((a, b) => Number(b.latest.changePct) - Number(a.latest.changePct)).slice(0, 3);
+  const down = withChange.filter((i) => Number(i.latest.changePct) < 0).sort((a, b) => Number(a.latest.changePct) - Number(b.latest.changePct)).slice(0, 3);
+  return (
+    <section className="card span-12" aria-labelledby="mv-title">
+      <div className="card-head">
+        <h2 id="mv-title" className="card-title">Subidas e descidas da minha lista</h2>
+        <Link to="/charts" className="small">Ver gráficos</Link>
+      </div>
+      {wl.isPending ? <Loading rows={3} /> : wl.error ? <ErrorState error={wl.error} onRetry={wl.refetch} /> : withChange.length === 0 ? (
+        <EmptyState title="A sua lista está vazia" action={<Link className="button" to="/acompanhar">Acompanhar instrumentos</Link>}>
+          Adicione instrumentos para ver aqui as maiores subidas e descidas do dia.
+        </EmptyState>
+      ) : (
+        <div className="grid" style={{ gap: '1.5rem' }}>
+          <div className="span-6"><MoverList title="Maiores subidas" items={up} /></div>
+          <div className="span-6"><MoverList title="Maiores descidas" items={down} /></div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function MomentumList({ title, items }) {
   return (
     <div style={{ minWidth: 0 }}>
@@ -49,7 +182,7 @@ function MomentumList({ title, items }) {
         {items.map((e) => (
           <li key={e.instrumentId} className="list-item" style={{ padding: '0.5rem 0' }}>
             <div style={{ minWidth: 0 }}>
-              <Link to={`/instrumentos/${e.instrumentId}`} className="row-link">{e.symbol}</Link>
+              <Link to={chartLink(e.instrumentId)} className="row-link">{e.symbol}</Link>
               <div className="small muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.name}</div>
             </div>
             <PriceChange value={e.momentumPct} showLabel={false} />
@@ -126,7 +259,7 @@ function CrossTable({ title, tone, items, empty }) {
               {items.map((e) => (
                 <tr key={e.instrumentId}>
                   <td>
-                    <Link to={`/instrumentos/${e.instrumentId}`} className="row-link">{e.symbol}</Link>
+                    <Link to={chartLink(e.instrumentId)} className="row-link">{e.symbol}</Link>
                     <div className="small muted cx-name">{e.name}</div>
                   </td>
                   <td className="small" style={{ whiteSpace: 'nowrap' }}>
@@ -189,6 +322,9 @@ export default function OverviewPage() {
       </div>
       <div className="grid">
         <PortfolioCard />
+        <SignalsTodayCard />
+        <RecentAlertsCard />
+        <MoversCard />
         <MarketMomentumCard />
         <CrossoversCard />
       </div>

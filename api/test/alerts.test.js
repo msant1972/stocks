@@ -81,7 +81,7 @@ describe.skipIf(!hasTestDb)('regras de alerta', () => {
     const rule = (await ana.post('/alerts', { instrumentId: galp, kind: 'close_above', threshold: '5' })).json();
     await ctx.pool.query("INSERT INTO alert_events (rule_id, session_date, close) VALUES (?, '2026-10-16', '10.00')", [rule.id]);
     const ev = (await ana.get('/alerts/events')).json().items;
-    expect(ev[0]).toMatchObject({ ruleId: rule.id, symbol: 'GALP.LS', deliveryStatus: 'pending' });
+    expect(ev[0]).toMatchObject({ ruleId: rule.id, instrumentId: galp, symbol: 'GALP.LS', deliveryStatus: 'pending' });
     expect((await rui.get('/alerts/events')).json().items).toHaveLength(0);
   });
 

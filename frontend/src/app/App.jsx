@@ -12,7 +12,7 @@ const WatchlistPage = lazy(() => import('../features/watchlist/WatchlistPage.jsx
 const ChartsPage = lazy(() => import('../features/charts/ChartsPage.jsx'));
 const HeatmapPage = lazy(() => import('../features/heatmap/HeatmapPage.jsx'));
 const OrderbookPage = lazy(() => import('../features/orderbook/OrderbookPage.jsx'));
-const InstrumentPage = lazy(() => import('../features/instruments/InstrumentPage.jsx'));
+const InstrumentRedirect = lazy(() => import('../features/instruments/InstrumentRedirect.jsx'));
 const PortfolioPage = lazy(() => import('../features/portfolio/PortfolioPage.jsx'));
 const TradesPage = lazy(() => import('../features/trades/TradesPage.jsx'));
 const AlertsPage = lazy(() => import('../features/alerts/AlertsPage.jsx'));
@@ -46,7 +46,7 @@ export default function App() {
           <Route path="charts" element={<ChartsPage />} />
           <Route path="orderbook" element={<OrderbookPage />} />
           <Route path="heatmap" element={<HeatmapPage />} />
-          <Route path="instrumentos/:id" element={<InstrumentPage />} />
+          <Route path="instrumentos/:id" element={<InstrumentRedirect />} />
           <Route path="carteira" element={<PortfolioPage />} />
           <Route path="operacoes" element={<TradesPage />} />
           <Route path="sinais" element={<SignalsPage />} />

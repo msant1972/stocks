@@ -97,7 +97,7 @@ export async function deleteRule(pool, userId, id) {
 
 export async function listEvents(pool, userId, limit) {
   const [rows] = await pool.query(
-    `SELECT e.id, e.rule_id, r.kind, r.threshold, r.strategy, e.signal_side, i.symbol, e.session_date, e.close, e.change_pct,
+    `SELECT e.id, e.rule_id, r.instrument_id, r.kind, r.threshold, r.strategy, e.signal_side, i.symbol, e.session_date, e.close, e.change_pct,
             d.status AS delivery_status, d.finished_at AS delivered_at
        FROM alert_events e
        JOIN alert_rules r ON r.id = e.rule_id
@@ -108,7 +108,7 @@ export async function listEvents(pool, userId, limit) {
     [userId, limit],
   );
   return rows.map((r) => ({
-    id: Number(r.id), ruleId: Number(r.rule_id), kind: r.kind, threshold: trimZeros(r.threshold), strategy: r.strategy,
+    id: Number(r.id), ruleId: Number(r.rule_id), instrumentId: Number(r.instrument_id), kind: r.kind, threshold: trimZeros(r.threshold), strategy: r.strategy,
     signalSide: r.signal_side, symbol: r.symbol,
     sessionDate: r.session_date, close: r.close, changePct: r.change_pct,
     deliveryStatus: r.delivery_status ?? 'pending', deliveredAt: r.delivered_at?.toISOString() ?? null,

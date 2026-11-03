@@ -48,10 +48,11 @@ export function useTrades(filters = {}) {
 }
 
 /** Detalhe do instrumento; enquanto está «A validar», volta a consultar a cada 10 s. */
-export function useInstrument(id) {
+export function useInstrument(id, enabled = true) {
   return useQuery({
     queryKey: keys.instrument(id),
     queryFn: () => api.get(`/instruments/${id}`),
+    enabled: Boolean(id) && enabled,
     refetchInterval: (q) => (q.state.data?.status === 'pending' ? 10_000 : false),
   });
 }

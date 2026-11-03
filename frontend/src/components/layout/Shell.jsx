@@ -6,25 +6,52 @@ import * as f from '../../lib/format.js';
 import { useMe, useStatus } from '../../lib/queries.js';
 import Icon from '../ui/Icon.jsx';
 import { Loading } from '../feedback/states.jsx';
+import { Dialog } from '../ui/controls.jsx';
 
-const NAV = [
-  { to: '/', label: 'Visão geral', icon: 'overview', end: true },
-  { to: '/acompanhar', label: 'Acompanhar', icon: 'watch' },
-  { to: '/charts', label: 'Charts', icon: 'charts' },
-  { to: '/orderbook', label: 'Orderbook', icon: 'orderbook' },
-  { to: '/heatmap', label: 'HeatMap', icon: 'heatmap' },
-  { to: '/carteira', label: 'Carteira', icon: 'portfolio' },
-  { to: '/operacoes', label: 'Operações', icon: 'trades' },
-  { to: '/sinais', label: 'Sinais', icon: 'signals' },
-  { to: '/backtest', label: 'BackTest', icon: 'backtest' },
-  { to: '/comparar', label: 'Comparar', icon: 'compare' },
-  { to: '/winners-loosers', label: 'WinnersLoosers', icon: 'winners' },
-  { to: '/promessas', label: 'Promessas', icon: 'promise' },
-  { to: '/alertas', label: 'Alertas', icon: 'alerts' },
-  { to: '/utilizadores', label: 'Utilizadores', icon: 'users', admin: true },
-  { to: '/definicoes', label: 'Definições', icon: 'settings' },
+// Menu em secções; Utilizadores só aparece aos administradores.
+const NAV_GROUPS = [
+  { items: [{ to: '/', label: 'Visão geral', icon: 'overview', end: true }] },
+  {
+    title: 'Mercado',
+    items: [
+      { to: '/acompanhar', label: 'Acompanhar', icon: 'watch' },
+      { to: '/charts', label: 'Charts', icon: 'charts' },
+      { to: '/orderbook', label: 'Orderbook', icon: 'orderbook' },
+      { to: '/heatmap', label: 'HeatMap', icon: 'heatmap' },
+    ],
+  },
+  {
+    title: 'Carteira',
+    items: [
+      { to: '/carteira', label: 'Carteira', icon: 'portfolio' },
+      { to: '/operacoes', label: 'Operações', icon: 'trades' },
+      { to: '/alertas', label: 'Alertas', icon: 'alerts' },
+    ],
+  },
+  {
+    title: 'Estratégias',
+    items: [
+      { to: '/sinais', label: 'Sinais', icon: 'signals' },
+      { to: '/backtest', label: 'BackTest', icon: 'backtest' },
+      { to: '/comparar', label: 'Comparar', icon: 'compare' },
+      { to: '/winners-loosers', label: 'WinnersLoosers', icon: 'winners' },
+      { to: '/promessas', label: 'Promessas', icon: 'promise' },
+    ],
+  },
+  {
+    title: 'Conta',
+    items: [
+      { to: '/utilizadores', label: 'Utilizadores', icon: 'users', admin: true },
+      { to: '/definicoes', label: 'Definições', icon: 'settings' },
+    ],
+  },
 ];
-const MOBILE_NAV = NAV.filter((n) => ['/', '/acompanhar', '/heatmap', '/sinais', '/carteira', '/alertas'].includes(n.to));
+const visibleGroups = (isAdmin) => NAV_GROUPS
+  .map((g) => ({ ...g, items: g.items.filter((n) => !n.admin || isAdmin) }))
+  .filter((g) => g.items.length);
+// Atalhos da barra inferior em telemóvel; todos os módulos ficam no botão «Mais».
+const MOBILE_SHORTCUTS = ['/', '/acompanhar', '/charts', '/carteira', '/sinais'];
+const MOBILE_NAV = NAV_GROUPS.flatMap((g) => g.items).filter((n) => MOBILE_SHORTCUTS.includes(n.to));
 
 function DataStatus() {
   const { data } = useStatus();
@@ -65,11 +92,15 @@ function TopSearch() {
 export default function Shell() {
   const { data } = useMe();
   const [navOpen, setNavOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const location = useLocation();
   const qc = useQueryClient();
   const navigate = useNavigate();
 
-  useEffect(() => setNavOpen(false), [location.pathname]);
+  useEffect(() => { setNavOpen(false); setMoreOpen(false); }, [location.pathname]);
+  const groups = visibleGroups(data?.user.isAdmin);
+  // «Mais» fica destacado quando a página actual não é um dos atalhos.
+  const onShortcut = MOBILE_NAV.some((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)));
 
   async function logout() {
     await api.post('/auth/logout').catch(() => {});
@@ -85,10 +116,15 @@ export default function Shell() {
           <span className="brand-mark"><Icon name="trend" size={18} /></span>
           Stocks
         </Link>
-        {NAV.filter((n) => !n.admin || data?.user.isAdmin).map((n) => (
-          <NavLink key={n.to} to={n.to} end={n.end} className="nav-link">
-            <Icon name={n.icon} />{n.label}
-          </NavLink>
+        {groups.map((g) => (
+          <div key={g.title ?? 'inicio'} className="nav-group" role="group" aria-label={g.title}>
+            {g.title && <p className="nav-group-title" aria-hidden="true">{g.title}</p>}
+            {g.items.map((n) => (
+              <NavLink key={n.to} to={n.to} end={n.end} className="nav-link">
+                <Icon name={n.icon} />{n.label}
+              </NavLink>
+            ))}
+          </div>
         ))}
         <div className="sidebar-foot small muted">
           <p style={{ fontWeight: 500, color: 'var(--text)' }}>{data?.user.name}</p>
@@ -127,7 +163,30 @@ export default function Shell() {
             <Icon name={n.icon} size={22} />{n.label}
           </NavLink>
         ))}
+        <button type="button" data-active={!onShortcut} aria-haspopup="dialog" onClick={() => setMoreOpen(true)}>
+          <Icon name="more" size={22} />Mais
+        </button>
       </nav>
+
+      <Dialog open={moreOpen} onClose={() => setMoreOpen(false)} title="Todos os módulos">
+        <div className="more-sheet">
+          {groups.map((g) => (
+            <section key={g.title ?? 'inicio'} aria-label={g.title ?? 'Início'}>
+              {g.title && <h3 className="nav-group-title">{g.title}</h3>}
+              <div className="more-grid">
+                {g.items.map((n) => (
+                  <NavLink key={n.to} to={n.to} end={n.end} className="more-link">
+                    <Icon name={n.icon} size={22} />{n.label}
+                  </NavLink>
+                ))}
+              </div>
+            </section>
+          ))}
+          <button type="button" className="button button-ghost" onClick={logout} style={{ justifySelf: 'start', paddingLeft: 0 }}>
+            <Icon name="logout" size={18} />Terminar sessão
+          </button>
+        </div>
+      </Dialog>
     </div>
   );
 }

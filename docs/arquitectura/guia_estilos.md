@@ -120,7 +120,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Barra superior com pesquisa, estado dos dados e menu do utilizador.
 - Área principal com largura confortável e limite proposto de 1440 px.
 - Conteúdo em grelha de 12 colunas.
-- Menu lateral: Visão geral, Acompanhar, Charts, Orderbook, HeatMap, Carteira, Operações, Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Alertas, Utilizadores (só administradores) e Definições.
+- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap); **Carteira** (Carteira, Operações, Alertas); **Estratégias** (Sinais, BackTest, Comparar, WinnersLoosers, Promessas); **Conta** (Utilizadores, só administradores, e Definições). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
 
 ### Tablet — de 768 a 1199 px
 
@@ -132,7 +132,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 ### Telemóvel — abaixo de 768 px
 
 - Conteúdo numa coluna.
-- Navegação inferior com Visão geral, Acompanhar, HeatMap, Carteira, Sinais e Alertas.
+- Navegação inferior com Visão geral, Acompanhar, Charts, Carteira, Sinais e «Mais». «Mais» abre uma folha com todos os módulos, por secções e com «Terminar sessão», e fica destacado quando a página actual não é um dos atalhos.
 - Operações acessíveis na Carteira; Definições através do ícone na barra superior, onde ficam também o atalho para Utilizadores (administradores) e «Terminar sessão».
 - Modais complexos passam a ecrãs completos ou folhas inferiores acessíveis.
 - Respeitar áreas seguras do dispositivo e reservar espaço para a navegação fixa.
@@ -167,7 +167,9 @@ Hierarquia implementada:
 
 1. Título, indicação discreta «Ambiente de simulação» e data da última sessão das cotações.
 2. Cartão principal com valor da carteira e referência temporal da valorização.
-3. Resumo: saldo virtual, montante investido e resultado acumulado face ao capital inicial.
+3. Resumo: saldo virtual, montante investido e resultado acumulado face ao capital inicial, com uma mini-evolução do valor da carteira desde a criação (traço verde ou vermelho conforme esteja acima ou abaixo do capital inicial, com texto alternativo).
+3a. «Sinais da última sessão» (duas colunas em ecrã largo): sinais de compra (C), reforço (R) e venda (V) das estratégias nos instrumentos da minha lista, com a letra além da cor e ligação para o gráfico com essa estratégia; «Alertas recentes» (os 5 últimos, com a condição e a sessão).
+3b. «Subidas e descidas da minha lista»: as 3 maiores de cada lado na última sessão, com ligação para o gráfico.
 4. «Momento do mercado»: barra com a distribuição do SMA10/SMA200 na última sessão (acima de +1%, entre −1% e +1%, abaixo de −1%, com as cores do HeatMap e as contagens escritas) e duas listas com os 5 instrumentos mais fortes e mais fracos, com ligação a cada um.
 
 5. «Cruzamentos SMA10 / SMA50»: instrumentos cuja SMA10 cruzou a SMA50 nas últimas 5 sessões, em duas tabelas (ascendentes ▲ e descendentes ▼, com contagem), com data do cruzamento («há N sessões») e distância actual entre as médias; scroll próprio quando a lista é longa.
@@ -176,9 +178,12 @@ A lista de instrumentos acompanhados fica em Acompanhar e as operações recente
 
 Evitar chamar «rentabilidade» a um valor cujo método de cálculo ainda não foi definido. Cada resultado deve ter descrição clara do período e da base de cálculo.
 
-Não apresentar um gráfico de evolução da carteira antes de existir uma série histórica coerente que considere movimentos de saldo e operações. Até lá, usar resumo e histórico de operações.
+A evolução da carteira (mini-gráfico aqui, gráfico completo em Carteira) vem de uma série diária calculada a partir dos movimentos de saldo e das operações, por isso é sempre coerente com o histórico.
 
 ### 5.3. Acompanhamento e detalhe de instrumento
+
+O detalhe do instrumento vive no Charts (5.3a); `/instrumentos/:id` redirecciona para lá. Gráfico: selector «Linha / Velas» (as velas usam preços ajustados; vela vazia a verde = fechou acima da abertura, cheia a vermelho = abaixo, para não depender só da cor) e botão «Volume» (barras por sessão, verdes ou vermelhas conforme a vela, por baixo do preço e sincronizadas com ele e com o momento); ambos guardados no browser.
+
 
 - Botão «Catálogo» (com `aria-expanded`, destacado quando aberto) mostra ou esconde o catálogo partilhado. A escolha fica guardada no browser; sem escolha, o catálogo só aparece quando a lista está vazia. Uma pesquisa (incluindo a da barra de topo) abre-o sempre, e escondê-lo limpa a pesquisa. Escondido, não faz pedidos (nem ao livro da Euronext).
 - Pesquisa por designação, ticker e mercado no catálogo.
@@ -205,6 +210,7 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 
 ### 5.3a. Charts
 
+- Sítio único do instrumento: gráfico, ações (adicionar ou remover da lista, criar alerta, simular operação, livro de ofertas), menu «Estratégia», avisos (a validar, inválido, cobertura inferior a três anos, só simulável em EUR) e a lista à direita.
 - Inspirado nas plataformas de gráficos: o gráfico ocupa a área principal e a lista de acompanhamento fica à direita (abaixo do gráfico em ecrãs com menos de 1200 px), fixa ao fazer scroll.
 - Lista à escolha: «Lista» (acompanhamento), «Carteira» ou «Catálogo», com pesquisa por símbolo ou nome e ordenação (símbolo, maiores subidas, maiores descidas), no endereço (`?fonte=`, `?ordem=`).
 - Lista compacta: símbolo, último preço e variação; o instrumento mostrado fica destacado (fundo e barra de acento, `aria-current`). Clique, setas ↑/↓ na lista ou botões anterior/seguinte (com «n / total») mudam o instrumento sem sair da página.

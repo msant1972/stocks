@@ -35,4 +35,16 @@ describe.skipIf(!hasTestDb)('sinais da estratégia', () => {
     expect((await ana.get('/signals?sessions=1')).json().items).toHaveLength(1);
     expect((await ana.get('/signals?sessions=0')).statusCode).toBe(400);
   });
+
+  it('sinais de todas as estratégias, só nos instrumentos da minha lista', async () => {
+    const empty = (await ana.get('/signals/watchlist')).json();
+    expect(empty.items).toEqual([]);                                   // lista vazia
+    const [[{ id }]] = await ctx.pool.query("SELECT id FROM instruments WHERE symbol = 'COMPRA.LS'");
+    expect((await ana.post('/watchlist/items', { instrumentId: Number(id) })).statusCode).toBe(204);
+    const mine = (await ana.get('/signals/watchlist')).json();
+    expect(mine.sessions).toBe(1);
+    // A A-Momentum dá o sinal de compra construído no teste; cada item indica a sua estratégia.
+    expect(mine.items.find((i) => i.strategy === 'a-momentum')).toMatchObject({ symbol: 'COMPRA.LS', side: 'buy', sessionsAgo: 0 });
+    expect(mine.items.every((i) => i.symbol === 'COMPRA.LS')).toBe(true);
+  });
 });

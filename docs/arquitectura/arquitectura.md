@@ -89,11 +89,11 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 
 | Ecrã | Função |
 |---|---|
-| Visão geral | Valor da carteira, saldo e resultado; momento do mercado (distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos); cruzamentos da SMA10 com a SMA50 nas últimas 5 sessões, ascendentes e descendentes |
+| Visão geral | Painel do dia: valor da carteira, saldo e resultado com a mini-evolução desde a criação; sinais das estratégias na última sessão nos instrumentos da minha lista; alertas recentes; maiores subidas e descidas da lista; momento do mercado (distribuição do SMA10/SMA200 e os 5 mais fortes e mais fracos); cruzamentos da SMA10 com a SMA50 nas últimas 5 sessões, ascendentes e descendentes |
 | Acompanhar | Lista do utilizador e, com o botão «Catálogo», o catálogo partilhado (último fecho e sessão, volume, variação, melhor estratégia nos últimos 2 anos (com o resultado e ligação para o gráfico com ela aplicada), mid e desequilíbrio do livro Euronext com o botão «Mostrar OB», ISIN-MIC com edição directa; ordenação por instrumento, volume, variação e desequilíbrio), adicionar símbolos ou importar Excel/CSV (colunas `ticker` e `isin_mic`) com pré-visualização, botão «Validar agora» |
-| Charts | Gráfico do instrumento (o mesmo da página do instrumento, mais alto) com a lista de acompanhamento à direita: escolhe-se o instrumento na lista, com as setas ↑/↓ ou com os botões anterior/seguinte, sem mudar de página; a melhor estratégia de cada instrumento é aplicada por omissão e uma escolha no menu mantém-se entre instrumentos; os vizinhos na lista são pré-carregados. `?instrumento=` e `?estrategia=` no endereço |
+| Charts | O sítio único do instrumento: gráfico diário (linha ou velas com preços ajustados, volume por baixo, 1M a 2A com o último período e o tipo guardados no browser, indicadores opcionais, momento sincronizado, tabela de dados, menu «Estratégia» com a melhor do instrumento por omissão), ações (adicionar ou remover da lista, criar alerta, simular operação, livro de ofertas), avisos de validação e de cobertura dos dados, e à direita uma lista (acompanhamento, carteira ou catálogo, com pesquisa e ordenação) para passar de um instrumento a outro sem mudar de página, com as setas ↑/↓ ou os botões anterior/seguinte; os vizinhos são pré-carregados e um instrumento fora da lista também é mostrado. `?instrumento=`, `?estrategia=`, `?fonte=` e `?ordem=` no endereço |
 | Orderbook | Livro de ofertas Euronext (atraso 15 min) dos instrumentos com ISIN-MIC: melhor compra/venda, spread, mid, desequilíbrio, tabela com nº de ordens e totais, gráfico de profundidade cumulativa, actualização a cada 30 s |
-| Instrumento | Último fecho e variação, gráfico diário (1M a 2A, com o último período escolhido guardado no browser) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, menu «Estratégia» (Nenhuma, A-Momentum, B-Opus, C-AI, D-Reversão; por omissão a melhor estratégia do instrumento nos últimos 2 anos, marcada «(melhor)»; «Nenhuma» fica no endereço como `?estrategia=nenhuma`) |
+| Instrumento | `/instrumentos/:id` redirecciona para o Charts nesse instrumento (as ligações antigas e as dos outros módulos continuam a funcionar, com `?estrategia=`) |
 | HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5, 10 ou 20 sessões |
 | Carteira | Valor total, resultados realizado e não realizado, evolução do valor sessão a sessão desde a criação (com o capital inicial como referência), posições ao custo médio ponderado |
 | Comparar | As estratégias lado a lado nos últimos 2 anos (resultado, instrumentos com ganho e perda, capital máximo, resultado sobre o capital, tempo investido, operações, acerto, piores casos, cada ano, em quantos é a melhor), com comprar e manter como referência e o melhor valor de cada linha a negrito; filtro «Todos / A minha lista»; persistência dos ganhadores e perdedores (recálculo semanal) |
@@ -134,7 +134,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Comparar | `GET /strategies/compare?scope=all\|watchlist` (agregados do BackTest por estratégia, comprar e manter e persistência) |
 | Mapa de calor | `GET /heatmap?period=1\|5\|10\|20&scope=all\|watchlist&limit=20` |
 | Mercado | `GET /market/momentum?top=5` (distribuição do SMA10/SMA200 na última sessão e extremos), `GET /market/crossovers?sessions=5` (cruzamentos SMA10/SMA50: ascendente se SMA10 ≤ SMA50 na sessão anterior e > na seguinte, descendente o inverso; conta o mais recente por instrumento); cache 10 min |
-| Sinais | `GET /signals?strategy=a-momentum&sessions=5` (estratégia aplicada a todos os instrumentos activos; a A-Momentum com todo o histórico, a B-Opus na janela de 2 anos com aquecimento; preço e motivo da operação; cache 10 min por estratégia) |
+| Sinais | `GET /signals/watchlist?sessions=1` (sinais de todas as estratégias só nos instrumentos da lista do utilizador, para a Visão geral); `GET /signals?strategy=a-momentum&sessions=5` (estratégia aplicada a todos os instrumentos activos; a A-Momentum com todo o histórico, a B-Opus na janela de 2 anos com aquecimento; preço e motivo da operação; cache 10 min por estratégia) |
 | Estratégias e BackTest | `GET /strategies` (registo); `GET /strategies/best` (melhor estratégia de cada instrumento, a partir dos resultados do BackTest); `GET /backtest?strategy=a-momentum&scope=all\|watchlist` (estratégia em cada instrumento activo sobre os últimos 2 anos; cache 10 min por estratégia) |
 | WinnersLoosers | `GET /winners-losers?scope=all\|watchlist` (resultados do BackTest de todas as estratégias disponíveis, agrupados em gain, loss e mixed, com `inWatchlist` por utilizador; usa a cache do BackTest) |
 | Promessas | `GET /promessas?scope=all\|watchlist` (sinais por instrumento, um de cada vez, cache 10 min; `pastWinner` a partir do BackTest; tabela de validação) |
@@ -263,6 +263,12 @@ Biblioteca em `api/src/orderbook/` que implementa a [especificação](orderbook-
 3. A unit `stocks-fetcher-run.path` arranca o motor de imediato; o timer de 5 minutos é a rede de segurança.
 4. O motor valida, carrega três anos e calcula os indicadores; a interface vê o estado passar a «Activo» ou «Inválido».
 5. «Validar agora» volta a pôr na fila, sem espera, os pendentes (incluindo os que falharam) e sinaliza o motor.
+
+### 5.2a. Cálculos antecipados
+
+O BackTest, o Comparar, o WinnersLoosers, as Promessas, os Sinais, a melhor estratégia e os sinais da Visão geral dependem de cálculos sobre todo o catálogo (cerca de 3 s). Para abrirem de imediato:
+- **No arranque da API** e **sempre que uma recolha (diária ou horária) termina** (verificação a cada 2 minutos), as caches são recalculadas em segundo plano (`services/warmup.js`), uma de cada vez: estratégias (em worker threads), Promessas e sinais de cada estratégia.
+- **Stale-while-revalidate:** com resultado em cache, mesmo com mais de 10 minutos, o pedido responde logo e o recálculo corre em segundo plano; só o primeiro pedido, se o cálculo antecipado ainda não terminou, espera.
 
 ### 5.2. Actualizações e alertas
 

@@ -26,6 +26,7 @@ const PATHS = {
   winners: 'M4 20V10m5 10V4m6 16v-7m5 7V8M3 20h18',
   promise: 'M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7L12 3Z',
   compare: 'M4 20V9m5 11V4m5 16v-8m5 8V7M3 20h18M4 6l5-3 5 6 5-3',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
   charts: 'M7 3v3m0 12v3M5 6h4v12H5V6Zm10-1v4m0 8v4m-2-12h4v8h-4V9Z',
   heatmap: 'M3 4h10v9H3V4Zm12 0h6v5h-6V4Zm0 7h6v9h-6v-9ZM3 15h10v5H3v-5Z',
 };
