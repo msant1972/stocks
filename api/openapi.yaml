@@ -3542,6 +3542,20 @@ paths:
                   updatedAt:
                     nullable: true
                     type: string
+                  environment:
+                    nullable: true
+                    description: Ambiente do token; por agora só a simulação (sim)
+                    type: string
+                    enum:
+                      - sim
+                      - live
+                  expiresAt:
+                    nullable: true
+                    description: O token do portal dura 24 h
+                    type: string
+                  expired:
+                    type: boolean
+                    description: "Expirou ou a SAXO recusou-o: é preciso guardar um novo"
                   canEncrypt:
                     type: boolean
                     description: "false: a chave de cifra do servidor não está configurada e não é
@@ -3549,6 +3563,9 @@ paths:
                 required:
                   - configured
                   - updatedAt
+                  - environment
+                  - expiresAt
+                  - expired
                   - canEncrypt
                 additionalProperties: false
     put:
@@ -3582,6 +3599,20 @@ paths:
                   updatedAt:
                     nullable: true
                     type: string
+                  environment:
+                    nullable: true
+                    description: Ambiente do token; por agora só a simulação (sim)
+                    type: string
+                    enum:
+                      - sim
+                      - live
+                  expiresAt:
+                    nullable: true
+                    description: O token do portal dura 24 h
+                    type: string
+                  expired:
+                    type: boolean
+                    description: "Expirou ou a SAXO recusou-o: é preciso guardar um novo"
                   canEncrypt:
                     type: boolean
                     description: "false: a chave de cifra do servidor não está configurada e não é
@@ -3589,6 +3620,9 @@ paths:
                 required:
                   - configured
                   - updatedAt
+                  - environment
+                  - expiresAt
+                  - expired
                   - canEncrypt
                 additionalProperties: false
         "400":
@@ -3649,6 +3683,1631 @@ paths:
                 nullable: true
                 enum:
                   - null
+  /api/v1/saxo/connection:
+    get:
+      summary: Testar a ligação à SAXO Bank (conta e saldo)
+      tags:
+        - SAXO
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  environment:
+                    type: string
+                    enum:
+                      - sim
+                      - live
+                  accountId:
+                    type: string
+                  currency:
+                    type: string
+                  isTrial:
+                    type: boolean
+                  cashBalance:
+                    nullable: true
+                    type: number
+                  totalValue:
+                    nullable: true
+                    type: number
+                required:
+                  - environment
+                  - accountId
+                  - currency
+                  - isTrial
+                  - cashBalance
+                  - totalValue
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "502":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/saxo/orders/preview:
+    post:
+      summary: Pré-validar uma ordem (não envia nada)
+      tags:
+        - SAXO
+      description: Resolve o instrumento na SAXO, corre a pré-validação da SAXO e
+        devolve o resumo e um código de confirmação (5 minutos) ligado a estes
+        parâmetros. Se houver várias correspondências, 409 SAXO_AMBIGUOUS com os
+        candidatos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instrumentId:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                  maximum: 9007199254740991
+                side:
+                  type: string
+                  enum:
+                    - buy
+                    - sell
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 10000000
+                orderType:
+                  type: string
+                  enum:
+                    - market
+                    - limit
+                limitPrice:
+                  description: Obrigatório nas ordens limitadas
+                  type: string
+                  pattern: ^\d+(\.\d{1,6})?$
+              required:
+                - instrumentId
+                - side
+                - quantity
+                - orderType
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {}
+                additionalProperties: {}
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "502":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/saxo/instruments/{instrumentId}/match:
+    post:
+      summary: Escolher o instrumento da SAXO que corresponde ao da aplicação
+      tags:
+        - SAXO
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                uic:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                  maximum: 9007199254740991
+              required:
+                - uic
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: instrumentId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uic:
+                    type: number
+                  symbol:
+                    type: string
+                required:
+                  - uic
+                  - symbol
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "502":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/saxo/orders:
+    post:
+      summary: Enviar uma ordem pré-validada para a SAXO Bank
+      tags:
+        - SAXO
+      description: Exige o código de confirmação da pré-validação com os mesmos
+        parâmetros. Repetir a idempotencyKey devolve a ordem original.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                instrumentId:
+                  type: integer
+                  minimum: 0
+                  exclusiveMinimum: true
+                  maximum: 9007199254740991
+                side:
+                  type: string
+                  enum:
+                    - buy
+                    - sell
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 10000000
+                orderType:
+                  type: string
+                  enum:
+                    - market
+                    - limit
+                limitPrice:
+                  description: Obrigatório nas ordens limitadas
+                  type: string
+                  pattern: ^\d+(\.\d{1,6})?$
+                confirmation:
+                  type: string
+                  minLength: 10
+                  maxLength: 200
+                idempotencyKey:
+                  type: string
+                  minLength: 8
+                  maxLength: 64
+                  pattern: ^[A-Za-z0-9_-]+$
+              required:
+                - instrumentId
+                - side
+                - quantity
+                - orderType
+                - confirmation
+                - idempotencyKey
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      instrumentId:
+                        type: number
+                      symbol:
+                        nullable: true
+                        type: string
+                      name:
+                        nullable: true
+                        type: string
+                      environment:
+                        type: string
+                        enum:
+                          - sim
+                          - live
+                      saxoOrderId:
+                        nullable: true
+                        type: string
+                      side:
+                        type: string
+                        enum:
+                          - buy
+                          - sell
+                      quantity:
+                        type: number
+                      orderType:
+                        type: string
+                        enum:
+                          - market
+                          - limit
+                      limitPrice:
+                        nullable: true
+                        type: string
+                      appPrice:
+                        nullable: true
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - sending
+                          - working
+                          - ended
+                          - cancelled
+                          - rejected
+                          - unknown
+                      message:
+                        nullable: true
+                        type: string
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - id
+                      - instrumentId
+                      - symbol
+                      - name
+                      - environment
+                      - saxoOrderId
+                      - side
+                      - quantity
+                      - orderType
+                      - limitPrice
+                      - appPrice
+                      - status
+                      - message
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                  replayed:
+                    type: boolean
+                required:
+                  - order
+                  - replayed
+                additionalProperties: false
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      instrumentId:
+                        type: number
+                      symbol:
+                        nullable: true
+                        type: string
+                      name:
+                        nullable: true
+                        type: string
+                      environment:
+                        type: string
+                        enum:
+                          - sim
+                          - live
+                      saxoOrderId:
+                        nullable: true
+                        type: string
+                      side:
+                        type: string
+                        enum:
+                          - buy
+                          - sell
+                      quantity:
+                        type: number
+                      orderType:
+                        type: string
+                        enum:
+                          - market
+                          - limit
+                      limitPrice:
+                        nullable: true
+                        type: string
+                      appPrice:
+                        nullable: true
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - sending
+                          - working
+                          - ended
+                          - cancelled
+                          - rejected
+                          - unknown
+                      message:
+                        nullable: true
+                        type: string
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - id
+                      - instrumentId
+                      - symbol
+                      - name
+                      - environment
+                      - saxoOrderId
+                      - side
+                      - quantity
+                      - orderType
+                      - limitPrice
+                      - appPrice
+                      - status
+                      - message
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                  replayed:
+                    type: boolean
+                required:
+                  - order
+                  - replayed
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "502":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    get:
+      summary: Ordens enviadas à SAXO pela aplicação (com o estado actualizado)
+      tags:
+        - SAXO
+      parameters:
+        - schema:
+            default: 50
+            type: integer
+            minimum: 1
+            maximum: 200
+          in: query
+          name: limit
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: 0
+            maximum: 9007199254740991
+          in: query
+          name: offset
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                        instrumentId:
+                          type: number
+                        symbol:
+                          nullable: true
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        environment:
+                          type: string
+                          enum:
+                            - sim
+                            - live
+                        saxoOrderId:
+                          nullable: true
+                          type: string
+                        side:
+                          type: string
+                          enum:
+                            - buy
+                            - sell
+                        quantity:
+                          type: number
+                        orderType:
+                          type: string
+                          enum:
+                            - market
+                            - limit
+                        limitPrice:
+                          nullable: true
+                          type: string
+                        appPrice:
+                          nullable: true
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - sending
+                            - working
+                            - ended
+                            - cancelled
+                            - rejected
+                            - unknown
+                        message:
+                          nullable: true
+                          type: string
+                        createdAt:
+                          type: string
+                        updatedAt:
+                          type: string
+                      required:
+                        - id
+                        - instrumentId
+                        - symbol
+                        - name
+                        - environment
+                        - saxoOrderId
+                        - side
+                        - quantity
+                        - orderType
+                        - limitPrice
+                        - appPrice
+                        - status
+                        - message
+                        - createdAt
+                        - updatedAt
+                      additionalProperties: false
+                  total:
+                    type: number
+                  refreshError:
+                    nullable: true
+                    type: string
+                required:
+                  - items
+                  - total
+                  - refreshError
+                additionalProperties: false
+  /api/v1/saxo/portfolio:
+    get:
+      summary: "Carteira da conta SAXO: saldo e posições abertas"
+      tags:
+        - SAXO
+      description: "O SIM não tem preços de mercado: o valor e o resultado das
+        posições usam o último preço da aplicação."
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  environment:
+                    type: string
+                    enum:
+                      - sim
+                      - live
+                  accountId:
+                    type: string
+                  currency:
+                    type: string
+                  isTrial:
+                    type: boolean
+                  cashBalance:
+                    nullable: true
+                    type: number
+                  totalValue:
+                    nullable: true
+                    type: number
+                  positions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        positionId:
+                          type: string
+                        instrumentId:
+                          nullable: true
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        currency:
+                          type: string
+                        quantity:
+                          type: number
+                        openPrice:
+                          type: number
+                        price:
+                          nullable: true
+                          type: number
+                        marketValue:
+                          nullable: true
+                          type: number
+                        pnl:
+                          nullable: true
+                          type: number
+                      required:
+                        - positionId
+                        - instrumentId
+                        - symbol
+                        - name
+                        - currency
+                        - quantity
+                        - openPrice
+                        - price
+                        - marketValue
+                        - pnl
+                      additionalProperties: false
+                required:
+                  - environment
+                  - accountId
+                  - currency
+                  - isTrial
+                  - cashBalance
+                  - totalValue
+                  - positions
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "502":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/saxo/alerts:
+    get:
+      summary: "Alertas SAXO: avisos de ordens que já não estão abertas e preferência
+        de email"
+      tags:
+        - SAXO
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  emailEnabled:
+                    type: boolean
+                  canEmail:
+                    type: boolean
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                        orderId:
+                          type: number
+                        kind:
+                          type: string
+                          enum:
+                            - ended
+                        symbol:
+                          type: string
+                        side:
+                          type: string
+                          enum:
+                            - buy
+                            - sell
+                        quantity:
+                          type: number
+                        orderType:
+                          type: string
+                          enum:
+                            - market
+                            - limit
+                        limitPrice:
+                          nullable: true
+                          type: string
+                        saxoOrderId:
+                          nullable: true
+                          type: string
+                        createdAt:
+                          type: string
+                        emailedAt:
+                          nullable: true
+                          type: string
+                        read:
+                          type: boolean
+                      required:
+                        - id
+                        - orderId
+                        - kind
+                        - symbol
+                        - side
+                        - quantity
+                        - orderType
+                        - limitPrice
+                        - saxoOrderId
+                        - createdAt
+                        - emailedAt
+                        - read
+                      additionalProperties: false
+                required:
+                  - emailEnabled
+                  - canEmail
+                  - items
+                additionalProperties: false
+  /api/v1/saxo/alerts/settings:
+    put:
+      summary: Receber (ou não) email quando uma ordem SAXO deixa de estar aberta
+      tags:
+        - SAXO
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emailEnabled:
+                  type: boolean
+              required:
+                - emailEnabled
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  emailEnabled:
+                    type: boolean
+                required:
+                  - emailEnabled
+                additionalProperties: false
+  /api/v1/saxo/alerts/read:
+    post:
+      summary: Marcar todos os avisos como lidos
+      tags:
+        - SAXO
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+  /api/v1/saxo/orders/{id}:
+    delete:
+      summary: Cancelar uma ordem aberta
+      tags:
+        - SAXO
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                  instrumentId:
+                    type: number
+                  symbol:
+                    nullable: true
+                    type: string
+                  name:
+                    nullable: true
+                    type: string
+                  environment:
+                    type: string
+                    enum:
+                      - sim
+                      - live
+                  saxoOrderId:
+                    nullable: true
+                    type: string
+                  side:
+                    type: string
+                    enum:
+                      - buy
+                      - sell
+                  quantity:
+                    type: number
+                  orderType:
+                    type: string
+                    enum:
+                      - market
+                      - limit
+                  limitPrice:
+                    nullable: true
+                    type: string
+                  appPrice:
+                    nullable: true
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - sending
+                      - working
+                      - ended
+                      - cancelled
+                      - rejected
+                      - unknown
+                  message:
+                    nullable: true
+                    type: string
+                  createdAt:
+                    type: string
+                  updatedAt:
+                    type: string
+                required:
+                  - id
+                  - instrumentId
+                  - symbol
+                  - name
+                  - environment
+                  - saxoOrderId
+                  - side
+                  - quantity
+                  - orderType
+                  - limitPrice
+                  - appPrice
+                  - status
+                  - message
+                  - createdAt
+                  - updatedAt
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "502":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
   /api/v1/status:
     get:
       summary: "Estado dos dados: última sessão, recolhas e alertas"

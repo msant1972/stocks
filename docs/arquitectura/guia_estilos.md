@@ -120,7 +120,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Barra superior com pesquisa, estado dos dados e menu do utilizador.
 - Área principal com largura confortável e limite proposto de 1440 px.
 - Conteúdo em grelha de 12 colunas.
-- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap); **Carteira** (Carteira, Operações, Alertas); **Estratégias** (Sinais, BackTest, Comparar, WinnersLoosers, Promessas); **Conta** (Utilizadores, só administradores, e Definições). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
+- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap); **Carteira** (Carteira, Operações, Alertas); **SAXO** (Carteira SAXO, Ordens SAXO, Alertas SAXO: todas as integrações com a SAXO Bank); **Estratégias** (Sinais, BackTest, Comparar, WinnersLoosers, Promessas); **Conta** (Utilizadores, só administradores, e Definições). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
 
 ### Tablet — de 768 a 1199 px
 

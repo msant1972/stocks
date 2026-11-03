@@ -131,6 +131,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US33 | Evolução da carteira | — | Feito |
 | US37 | Cartão «SAXO Bank» com o token de cada utilizador, guardado cifrado | — | Feito |
 | US38 | Ordens para a conta de simulação da SAXO: testar ligação, resolução do instrumento, pré-validação, confirmação, envio, estado e cancelamento | — | Feito |
+| US41 | Ordens SAXO: preço limite validado contra o passo de preço do instrumento (`SAXO_TICK_SIZE`, com sugestão) e preço inicial arredondado | — | Feito |
 | US40 | Grupo «SAXO» no menu: Carteira SAXO, Ordens SAXO e Alertas SAXO (email quando uma ordem deixa de estar aberta) | — | Feito |
 | US39 | SAXO: OAuth com renovação automática (substitui o token de 24 h); conta real; streaming | — | Por fazer (precisa de chave e segredo da aplicação SAXO) |
 | US34 | Charts como sítio único do instrumento, com velas e volume (a página do instrumento redirecciona) | — | Feito |
@@ -149,7 +150,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Motor de alertas | pytest, mailer simulado | 18 |
 | Frontend (cálculos) | `node --test` | 33 |
 
-O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pull request, com MariaDB 10.11, e verifica que o contrato OpenAPI está actualizado. Os testes nunca contactam o Yahoo nem enviam emails. Cada funcionalidade de interface foi também verificada no browser (Chromium headless) em desktop e telemóvel, com uma cópia dos dados reais na base de testes.
+O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pull request, com MariaDB 10.11, e verifica que o contrato OpenAPI está actualizado. Os testes nunca contactam o Yahoo nem a SAXO nem enviam emails. Cada funcionalidade de interface foi também verificada no browser (Chromium headless) em desktop e telemóvel, com uma cópia dos dados reais na base de testes.
 
 ## 7. Riscos
 

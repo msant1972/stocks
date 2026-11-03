@@ -2,7 +2,7 @@
 
 Aplicação para acompanhar acções da Euronext (EUR), consultar o histórico diário (três anos guardados, dois mostrados), gerir uma carteira virtual com operações simuladas e receber alertas por email.
 
-A negociação é exclusivamente simulada: não há operações com dinheiro real nem integração com corretoras.
+A negociação da aplicação é exclusivamente simulada e nunca toca em dinheiro real. Opcionalmente, cada utilizador pode enviar ordens para a **conta de simulação (SIM) da SAXO Bank** (grupo «SAXO» do menu), sempre com pré-validação e confirmação; a conta real da SAXO está bloqueada por omissão.
 
 ## Módulos
 
@@ -24,6 +24,6 @@ A negociação é exclusivamente simulada: não há operações com dinheiro rea
 - [Análise e decisões](docs/arquitectura/analise_e_decisoes.md)
 - Especificações: [livro de ofertas](docs/arquitectura/orderbook-spec.md), [estratégia B-Opus](docs/arquitectura/B-Opus.md) (e [ablação](docs/arquitectura/b-opus-ablacao.md)), [estratégia C-AI](docs/arquitectura/C-AI.md), [estratégia D-Reversão](docs/arquitectura/D-Reversao.md), [Promessas](docs/arquitectura/promessas.md)
 
-Módulos da interface: Visão geral, Acompanhar, Charts, Orderbook, HeatMap, Carteira, Operações, Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Alertas, Utilizadores (administradores) e Definições.
+Módulos da interface: Visão geral, Acompanhar, Charts, Orderbook, HeatMap, Carteira, Operações, Alertas, Carteira SAXO, Ordens SAXO, Alertas SAXO, Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Utilizadores (administradores) e Definições.
 
 usar o /model opusplan

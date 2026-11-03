@@ -122,6 +122,8 @@ sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/eng
 
 Faz um pedido ao Yahoo por instrumento (alguns minutos para cerca de 300); os pedidos que falharem são repetidos pelo timer de 5 minutos. As sessões existentes são actualizadas, sem duplicados.
 
+**SAXO Bank.** O token de cada utilizador guarda-se em Definições (cifrado com `/etc/stocks/secret.key`; dura 24 h) e só serve para a conta de simulação: `STOCKS_SAXO_ALLOW_LIVE=false` (por omissão) recusa a conta real. A API vigia as ordens SAXO abertas a cada `STOCKS_SAXO_WATCH_SECONDS` (60; 0 desliga) e, quando uma deixa de estar aberta, corre `python -m alerts saxo` (usa o SMTP abaixo). Para ver os avisos pendentes sem enviar: `sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/engines/alerts && .venv/bin/python -m alerts saxo --dry-run'`.
+
 O SMTP configura-se em **Definições → Envio de email (SMTP)** (administradores), com botão para enviar um email de teste. As variáveis `STOCKS_SMTP_*` só são usadas se não houver configuração em Definições. Sem nenhuma das duas, os alertas correm em `--dry-run`: os emails aparecem só no `journalctl -u stocks-daily` e não são enviados.
 
 ## Cópias de segurança e recuperação
