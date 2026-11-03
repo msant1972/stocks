@@ -25,8 +25,15 @@ const NAV_GROUPS = [
     items: [
       { to: '/carteira', label: 'Carteira', icon: 'portfolio' },
       { to: '/operacoes', label: 'Operações', icon: 'trades' },
-      { to: '/saxo', label: 'Ordens SAXO', icon: 'trades' },
       { to: '/alertas', label: 'Alertas', icon: 'alerts' },
+    ],
+  },
+  {
+    title: 'SAXO',
+    items: [
+      { to: '/saxo/carteira', label: 'Carteira SAXO', icon: 'portfolio' },
+      { to: '/saxo/ordens', label: 'Ordens SAXO', icon: 'trades' },
+      { to: '/saxo/alertas', label: 'Alertas SAXO', icon: 'alerts' },
     ],
   },
   {

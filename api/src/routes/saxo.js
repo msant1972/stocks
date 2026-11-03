@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createThrottle } from '../saxo/client.js';
 import * as saxo from '../saxo/service.js';
+import { sendPendingEmails } from '../saxo/watcher.js';
 import { ErrorBody, Id } from '../schemas.js';
 
 const Side = z.enum(['buy', 'sell']);
@@ -89,7 +90,61 @@ export default async function saxoRoutes(app, { pool, cfg }) {
   }, async (req) => {
     let s;
     try { s = await session(req); } catch { s = { userId: req.user.id, client: null }; } // sem token válido, mostra o que está guardado
-    return saxo.listOrders(pool, s, req.query);
+    const r = await saxo.listOrders(pool, s, req.query);
+    if (r.ended) sendPendingEmails(cfg, req.log); // não espera: o aviso por email segue em segundo plano
+    return r;
+  });
+
+  app.get('/saxo/portfolio', {
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['SAXO'], summary: 'Carteira da conta SAXO: saldo e posições abertas',
+      description: 'O SIM não tem preços de mercado: o valor e o resultado das posições usam o último preço da aplicação.',
+      response: {
+        200: z.object({
+          environment: z.enum(['sim', 'live']), accountId: z.string(), currency: z.string(), isTrial: z.boolean(),
+          cashBalance: z.number().nullable(), totalValue: z.number().nullable(),
+          positions: z.array(z.object({
+            positionId: z.string(), instrumentId: z.number().nullable(), symbol: z.string(), name: z.string().nullable(), currency: z.string(),
+            quantity: z.number(), openPrice: z.number(), price: z.number().nullable(), marketValue: z.number().nullable(), pnl: z.number().nullable(),
+          })),
+        }), ...Errors,
+      },
+    },
+  }, async (req) => saxo.getPortfolio(pool, await session(req)));
+
+  app.get('/saxo/alerts', {
+    schema: {
+      tags: ['SAXO'], summary: 'Alertas SAXO: avisos de ordens que já não estão abertas e preferência de email',
+      response: {
+        200: z.object({
+          emailEnabled: z.boolean(), canEmail: z.boolean(),
+          items: z.array(z.object({
+            id: z.number(), orderId: z.number(), kind: z.literal('ended'), symbol: z.string(), side: Side, quantity: z.number(),
+            orderType: z.enum(['market', 'limit']), limitPrice: z.string().nullable(), saxoOrderId: z.string().nullable(),
+            createdAt: z.string(), emailedAt: z.string().nullable(), read: z.boolean(),
+          })),
+        }),
+      },
+    },
+  }, async (req) => ({ ...(await saxo.alertSettings(pool, req.user.id)), canEmail: Boolean(cfg.alertsPython), items: await saxo.listNotifications(pool, req.user.id) }));
+
+  app.put('/saxo/alerts/settings', {
+    schema: { tags: ['SAXO'], summary: 'Receber (ou não) email quando uma ordem SAXO deixa de estar aberta',
+      body: z.object({ emailEnabled: z.boolean() }), response: { 200: z.object({ emailEnabled: z.boolean() }) } },
+  }, async (req) => {
+    await pool.query(
+      'INSERT INTO saxo_alert_settings (user_id, email_enabled) VALUES (?, ?) ON DUPLICATE KEY UPDATE email_enabled = VALUES(email_enabled)',
+      [req.user.id, req.body.emailEnabled ? 1 : 0],
+    );
+    return { emailEnabled: req.body.emailEnabled };
+  });
+
+  app.post('/saxo/alerts/read', {
+    schema: { tags: ['SAXO'], summary: 'Marcar todos os avisos como lidos', response: { 204: z.null() } },
+  }, async (req, reply) => {
+    await pool.query('UPDATE saxo_notifications SET read_at = NOW(3) WHERE user_id = ? AND read_at IS NULL', [req.user.id]);
+    return reply.code(204).send(null);
   });
 
   app.delete('/saxo/orders/:id', {

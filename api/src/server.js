@@ -1,6 +1,7 @@
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { createPool } from './db.js';
+import { startOrderWatcher } from './saxo/watcher.js';
 
 const cfg = loadConfig();
 const pool = createPool(cfg.db);
@@ -16,3 +17,5 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
 }
 
 await app.listen({ host: cfg.host, port: cfg.port });
+const stopWatcher = startOrderWatcher(pool, cfg, app.log); // avisos das ordens SAXO que deixam de estar abertas
+app.addHook('onClose', async () => stopWatcher());

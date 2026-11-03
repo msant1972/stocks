@@ -296,24 +296,35 @@ export async function placeOrder(pool, cfg, session, p, { wait }) {
   return { order: await orderById(pool, userId, id), replayed: false };
 }
 
+/** Passa uma ordem aberta a «ended» e regista o aviso (uma só vez, mesmo com consultas em simultâneo). Devolve 1 se mudou. */
+async function markEnded(pool, userId, id) {
+  const [res] = await pool.query(
+    "UPDATE saxo_orders SET status = 'ended', message = 'já não está aberta na SAXO (executada, expirada ou cancelada)' WHERE id = ? AND status = 'working'", [id],
+  );
+  if (!res.affectedRows) return 0;
+  await pool.query("INSERT IGNORE INTO saxo_notifications (user_id, order_id, kind) VALUES (?, ?, 'ended')", [userId, id]);
+  return 1;
+}
+
 /** Ordens do utilizador; as abertas são confrontadas com as ordens abertas da SAXO (as que desapareceram passam a «ended»). */
 export async function listOrders(pool, session, { limit = 50, offset = 0 } = {}) {
   const userId = session.userId;
   let refreshError = null;
+  let ended = 0; // ordens que passaram a «ended» nesta consulta (geram aviso)
   const [open] = await pool.query("SELECT id, saxo_order_id FROM saxo_orders WHERE user_id = ? AND status = 'working'", [userId]);
   if (open.length && session.client) {
     try {
       const res = await session.client.get('/port/v1/orders/me');
       const live = new Set((res?.Data ?? []).map((o) => String(o.OrderId)));
       const gone = open.filter((o) => !live.has(String(o.saxo_order_id))).map((o) => o.id);
-      if (gone.length) await pool.query("UPDATE saxo_orders SET status = 'ended', message = 'já não está aberta na SAXO (executada, expirada ou cancelada)' WHERE id IN (?)", [gone]);
+      for (const id of gone) ended += await markEnded(pool, userId, id);
     } catch (err) {
       refreshError = err.message;
     }
   }
   const [rows] = await pool.query(`${ORDER_SELECT} WHERE o.user_id = ? ORDER BY o.id DESC LIMIT ? OFFSET ?`, [userId, limit, offset]);
   const [[{ total }]] = await pool.query('SELECT COUNT(*) AS total FROM saxo_orders WHERE user_id = ?', [userId]);
-  return { items: rows.map(mapOrder), total: Number(total), refreshError };
+  return { items: rows.map(mapOrder), total: Number(total), refreshError, ended };
 }
 
 export async function cancelOrder(pool, session, id) {
@@ -325,4 +336,59 @@ export async function cancelOrder(pool, session, id) {
   await pool.query("UPDATE saxo_orders SET status = 'cancelled', message = NULL WHERE id = ?", [id]);
   await audit(pool, session.userId, 'saxo.order_cancelled', 'saxo_order', id, { saxoOrderId: order.saxoOrderId });
   return orderById(pool, session.userId, id);
+}
+
+/** Carteira da conta SAXO: saldo e posições. O SIM não tem preços, por isso o valor usa o último preço da aplicação. */
+export async function getPortfolio(pool, session) {
+  const account = await pickAccount(session.client);
+  const bal = await session.client.get('/port/v1/balances/me');
+  const pos = await session.client.get('/port/v1/positions/me', { FieldGroups: 'PositionBase,PositionView,DisplayAndFormat' });
+  const rows = (pos?.Data ?? []).filter((p) => p.PositionBase?.Status !== 'Closed' && p.PositionBase?.AssetType === 'Stock');
+  const uics = [...new Set(rows.map((p) => Number(p.PositionBase.Uic)))];
+  const known = new Map();
+  if (uics.length) {
+    const [m] = await pool.query(
+      `SELECT s.uic, i.id, i.symbol, i.name, (SELECT q.close FROM daily_quotes q WHERE q.instrument_id = i.id ORDER BY q.session_date DESC LIMIT 1) AS price
+         FROM saxo_instruments s JOIN instruments i ON i.id = s.instrument_id WHERE s.uic IN (?) AND s.environment = ?`, [uics, session.environment],
+    );
+    for (const r of m) known.set(Number(r.uic), r);
+  }
+  const positions = rows.map((p) => {
+    const b = p.PositionBase;
+    const k = known.get(Number(b.Uic));
+    const price = k?.price == null ? null : Number(k.price);
+    const qty = Number(b.Amount);
+    const open = Number(b.OpenPrice);
+    return {
+      positionId: String(p.PositionId), instrumentId: k ? Number(k.id) : null, symbol: k?.symbol ?? p.DisplayAndFormat?.Symbol ?? String(b.Uic),
+      name: k?.name ?? p.DisplayAndFormat?.Description ?? null, currency: p.DisplayAndFormat?.Currency ?? account.currency,
+      quantity: qty, openPrice: open, price,
+      marketValue: price == null ? null : Number((qty * price).toFixed(2)),
+      pnl: price == null ? null : Number((qty * (price - open)).toFixed(2)),
+    };
+  });
+  return {
+    environment: session.environment, accountId: account.accountId, currency: account.currency, isTrial: account.isTrial,
+    cashBalance: bal?.CashBalance ?? null, totalValue: bal?.TotalValue ?? null, positions,
+  };
+}
+
+// --- Alertas SAXO ---
+
+export async function alertSettings(pool, userId) {
+  const [[r]] = await pool.query('SELECT email_enabled FROM saxo_alert_settings WHERE user_id = ?', [userId]);
+  return { emailEnabled: r ? Boolean(r.email_enabled) : true };
+}
+
+export async function listNotifications(pool, userId, limit = 50) {
+  const [rows] = await pool.query(
+    `SELECT n.id, n.order_id, n.kind, n.created_at, n.emailed_at, n.read_at, o.side, o.quantity, o.order_type, o.limit_price, o.saxo_order_id, i.symbol
+       FROM saxo_notifications n JOIN saxo_orders o ON o.id = n.order_id JOIN instruments i ON i.id = o.instrument_id
+      WHERE n.user_id = ? ORDER BY n.id DESC LIMIT ?`, [userId, limit],
+  );
+  return rows.map((r) => ({
+    id: Number(r.id), orderId: Number(r.order_id), kind: r.kind, symbol: r.symbol, side: r.side, quantity: Number(r.quantity), orderType: r.order_type,
+    limitPrice: r.limit_price == null ? null : String(r.limit_price), saxoOrderId: r.saxo_order_id,
+    createdAt: r.created_at.toISOString(), emailedAt: r.emailed_at?.toISOString() ?? null, read: Boolean(r.read_at),
+  }));
 }

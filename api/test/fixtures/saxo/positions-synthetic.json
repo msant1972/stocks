@@ -1,0 +1,34 @@
+{
+ "status": 200,
+ "body": {
+  "__count": 1,
+  "Data": [
+   {
+    "NetPositionId": "DBK__Stock",
+    "PositionId": "1000001",
+    "PositionBase": {
+     "AccountId": "0000000",
+     "Amount": 100,
+     "AssetType": "Stock",
+     "CanBeClosed": true,
+     "OpenPrice": 30.0,
+     "Status": "Open",
+     "Uic": 23737,
+     "ValueDate": "2026-11-05T00:00:00.000000Z"
+    },
+    "PositionView": {
+     "CurrentPrice": 0,
+     "Exposure": 0,
+     "ProfitLossOnTrade": 0
+    },
+    "DisplayAndFormat": {
+     "Currency": "EUR",
+     "Decimals": 3,
+     "Description": "Galp Energia SGPS SA",
+     "Format": "AllowDecimals",
+     "Symbol": "GALP:xlis"
+    }
+   }
+  ]
+ }
+}

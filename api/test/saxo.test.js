@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createSaxoClient, createThrottle } from '../src/saxo/client.js';
+import { watchOrders } from '../src/saxo/watcher.js';
 import { encryptSecret } from '../src/secrets.js';
 import { api, hasTestDb, login, makeInstrument, makeUser, setup, TEST_SECRET_KEY } from './helpers.js';
 
@@ -116,7 +117,7 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
   });
   beforeEach(async () => {
     await ctx.pool.query('SET FOREIGN_KEY_CHECKS = 0');
-    for (const t of ['saxo_orders', 'saxo_instruments', 'user_integration_tokens', 'daily_quotes', 'instruments', 'audit_log']) {
+    for (const t of ['saxo_notifications', 'saxo_alert_settings', 'saxo_orders', 'saxo_instruments', 'user_integration_tokens', 'daily_quotes', 'instruments', 'audit_log']) {
       await ctx.pool.query(`TRUNCATE TABLE ${t}`);
     }
     await ctx.pool.query('SET FOREIGN_KEY_CHECKS = 1');
@@ -310,6 +311,53 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     expect((await preview({ limitPrice: '9.5004' })).json().error.code).toBe('SAXO_TICK_SIZE');
     const [[r]] = await ctx.pool.query('SELECT tick_scheme FROM saxo_instruments');
     expect(r.tick_scheme).toContain('DefaultTickSize');
+  });
+
+  it('Carteira SAXO: saldo e posições valorizadas ao último preço da aplicação (o SIM não tem preços)', async () => {
+    useSaxo({ 'GET /port/v1/positions/me': fx('positions-synthetic') });
+    let res = await ana.get('/saxo/portfolio');
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ accountId: '0000000', cashBalance: 1000000, totalValue: 1000000 });
+    // Sem correspondência guardada: usa o símbolo da SAXO e não inventa valor.
+    expect(res.json().positions).toEqual([{
+      positionId: '1000001', instrumentId: null, symbol: 'GALP:xlis', name: 'Galp Energia SGPS SA', currency: 'EUR',
+      quantity: 100, openPrice: 30, price: null, marketValue: null, pnl: null,
+    }]);
+    await preview(); // guarda a correspondência (Uic 23737 → GALP.LS, último preço 10)
+    useSaxo({ 'GET /port/v1/positions/me': fx('positions-synthetic') });
+    res = await ana.get('/saxo/portfolio');
+    expect(res.json().positions[0]).toMatchObject({ instrumentId: galp, symbol: 'GALP.LS', price: 10, marketValue: 1000, pnl: -2000 });
+    useSaxo({ 'GET /port/v1/positions/me': fx('positions-empty') });
+    expect((await ana.get('/saxo/portfolio')).json().positions).toEqual([]);
+  });
+
+  it('Alertas SAXO: uma ordem que deixa de estar aberta gera um só aviso, mesmo com várias consultas', async () => {
+    await place();
+    expect((await ana.get('/saxo/alerts')).json()).toMatchObject({ emailEnabled: true, items: [] });
+    useSaxo({ 'GET /port/v1/orders/me': fx('orders-empty') });
+    expect((await ana.get('/saxo/orders')).json().items[0].status).toBe('ended');
+    await ana.get('/saxo/orders');
+    const a = (await ana.get('/saxo/alerts')).json();
+    expect(a.items).toHaveLength(1);
+    expect(a.items[0]).toMatchObject({ kind: 'ended', symbol: 'GALP.LS', side: 'buy', quantity: 10, limitPrice: '9.500000', saxoOrderId: '5041484162', read: false, emailedAt: null });
+    expect((await ana.post('/saxo/alerts/read')).statusCode).toBe(204);
+    expect((await ana.get('/saxo/alerts')).json().items[0].read).toBe(true);
+    expect((await rui.get('/saxo/alerts')).json().items).toEqual([]);
+  });
+
+  it('a vigia confronta as ordens abertas com a SAXO sem a página aberta', async () => {
+    await place();
+    useSaxo({ 'GET /port/v1/orders/me': fx('orders-empty') });
+    expect(await watchOrders(ctx.pool, ctx.cfg)).toBe(1);
+    expect(await watchOrders(ctx.pool, ctx.cfg)).toBe(0); // já não há ordens abertas: nem chama a SAXO
+    expect((await ana.get('/saxo/alerts')).json().items).toHaveLength(1);
+  });
+
+  it('a preferência de email guarda-se por utilizador', async () => {
+    expect((await ana.put('/saxo/alerts/settings', { emailEnabled: false })).json()).toEqual({ emailEnabled: false });
+    expect((await ana.get('/saxo/alerts')).json().emailEnabled).toBe(false);
+    expect((await rui.get('/saxo/alerts')).json().emailEnabled).toBe(true);
+    expect((await ana.put('/saxo/alerts/settings', { emailEnabled: 'sim' })).statusCode).toBe(400);
   });
 
   it('valida quantidade e preço limite', async () => {

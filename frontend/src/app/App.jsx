@@ -16,6 +16,8 @@ const InstrumentRedirect = lazy(() => import('../features/instruments/Instrument
 const PortfolioPage = lazy(() => import('../features/portfolio/PortfolioPage.jsx'));
 const TradesPage = lazy(() => import('../features/trades/TradesPage.jsx'));
 const SaxoOrdersPage = lazy(() => import('../features/saxo/SaxoOrdersPage.jsx'));
+const SaxoPortfolioPage = lazy(() => import('../features/saxo/SaxoPortfolioPage.jsx'));
+const SaxoAlertsPage = lazy(() => import('../features/saxo/SaxoAlertsPage.jsx'));
 const AlertsPage = lazy(() => import('../features/alerts/AlertsPage.jsx'));
 const SignalsPage = lazy(() => import('../features/signals/SignalsPage.jsx'));
 const ComparePage = lazy(() => import('../features/compare/ComparePage.jsx'));
@@ -50,7 +52,10 @@ export default function App() {
           <Route path="instrumentos/:id" element={<InstrumentRedirect />} />
           <Route path="carteira" element={<PortfolioPage />} />
           <Route path="operacoes" element={<TradesPage />} />
-          <Route path="saxo" element={<SaxoOrdersPage />} />
+          <Route path="saxo" element={<Navigate to="/saxo/ordens" replace />} />
+          <Route path="saxo/carteira" element={<SaxoPortfolioPage />} />
+          <Route path="saxo/ordens" element={<SaxoOrdersPage />} />
+          <Route path="saxo/alertas" element={<SaxoAlertsPage />} />
           <Route path="sinais" element={<SignalsPage />} />
           <Route path="backtest" element={<BacktestPage />} />
           <Route path="comparar" element={<ComparePage />} />

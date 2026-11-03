@@ -131,6 +131,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US33 | Evolução da carteira | — | Feito |
 | US37 | Cartão «SAXO Bank» com o token de cada utilizador, guardado cifrado | — | Feito |
 | US38 | Ordens para a conta de simulação da SAXO: testar ligação, resolução do instrumento, pré-validação, confirmação, envio, estado e cancelamento | — | Feito |
+| US40 | Grupo «SAXO» no menu: Carteira SAXO, Ordens SAXO e Alertas SAXO (email quando uma ordem deixa de estar aberta) | — | Feito |
 | US39 | SAXO: OAuth com renovação automática (substitui o token de 24 h); conta real; streaming | — | Por fazer (precisa de chave e segredo da aplicação SAXO) |
 | US34 | Charts como sítio único do instrumento, com velas e volume (a página do instrumento redirecciona) | — | Feito |
 | US35 | Cálculos antecipados e caches stale-while-revalidate: páginas de estratégias imediatas | — | Feito |

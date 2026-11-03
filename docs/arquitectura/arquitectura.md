@@ -98,6 +98,8 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Carteira | Valor total, resultados realizado e não realizado, evolução do valor sessão a sessão desde a criação (com o capital inicial como referência), posições ao custo médio ponderado |
 | Comparar | As estratégias lado a lado nos últimos 2 anos (resultado, instrumentos com ganho e perda, capital máximo, resultado sobre o capital, tempo investido, operações, acerto, piores casos, cada ano, em quantos é a melhor), com comprar e manter como referência e o melhor valor de cada linha a negrito; filtro «Todos / A minha lista»; persistência dos ganhadores e perdedores (recálculo semanal) |
 | Operações | Histórico filtrável por tipo, instrumento e datas |
+| Carteira SAXO | Saldo, valor total e posições abertas da conta de simulação da SAXO (valorizadas ao último preço da aplicação) |
+| Alertas SAXO | Avisos e interruptor de email para ordens SAXO que deixam de estar abertas |
 | Ordens SAXO | Ordens enviadas à conta de simulação da SAXO: estado actualizado, cancelamento, conta e saldo; faixa «Conta de simulação — não é dinheiro real» |
 | Sinais | Compras, reforços e vendas da estratégia escolhida (A-Momentum, B-Opus, C-AI ou D-Reversão) aplicada virtualmente a todos os instrumentos, nas últimas 1 a 10 sessões, com o motivo das vendas, filtro por tipo e botões Comprar e Vender (operação na carteira virtual) |
 | BackTest | Resultado da estratégia em cada instrumento nos últimos 2 anos (resultado em € e %, operações, taxa de acerto, posição aberta, comparação com comprar e manter), com resumo, filtro «Todos / A minha lista», pesquisa e ordenação; o símbolo abre o gráfico com a estratégia aplicada |
@@ -141,7 +143,7 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | Promessas | `GET /promessas?scope=all\|watchlist` (sinais por instrumento, um de cada vez, cache 10 min; `pastWinner` a partir do BackTest; tabela de validação) |
 | Estado | `GET /status` |
 | Integrações | `GET/PUT/DELETE /me/integrations/saxo` (token da SAXO Bank do utilizador: o estado diz se existe, quando foi guardado, o ambiente e a validade de 24 h; o token nunca é devolvido; 409 `NO_SECRET_KEY` sem a chave de cifra) |
-| SAXO | `GET /saxo/connection` (conta e saldo da simulação); `POST /saxo/orders/preview` (resolve o instrumento, pré-valida na SAXO e devolve um código de confirmação de 5 min ligado aos parâmetros); `POST /saxo/instruments/{id}/match` (escolha manual quando há várias correspondências); `POST /saxo/orders` (envia com o código e uma `idempotencyKey`); `GET /saxo/orders` (com o estado confrontado com a SAXO); `DELETE /saxo/orders/{id}` (cancela). Erros `SAXO_*` (sem token, token expirado, conta real bloqueada, limite de pedidos, duplicado, recusada, indisponível) |
+| SAXO | `GET /saxo/portfolio` (saldo e posições da conta SIM, valorizadas ao último preço da aplicação); `GET /saxo/alerts`, `PUT /saxo/alerts/settings`, `POST /saxo/alerts/read` (avisos de ordens que já não estão abertas e preferência de email); `GET /saxo/connection` (conta e saldo da simulação); `POST /saxo/orders/preview` (resolve o instrumento, pré-valida na SAXO e devolve um código de confirmação de 5 min ligado aos parâmetros); `POST /saxo/instruments/{id}/match` (escolha manual quando há várias correspondências); `POST /saxo/orders` (envia com o código e uma `idempotencyKey`); `GET /saxo/orders` (com o estado confrontado com a SAXO); `DELETE /saxo/orders/{id}` (cancela). Erros `SAXO_*` (sem token, token expirado, conta real bloqueada, limite de pedidos, duplicado, recusada, indisponível) |
 | Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}`, `GET/PUT /admin/smtp`, `POST /admin/smtp/test` |
 | Saúde | `GET /health/live`, `GET /health/ready` (fora de `/api/v1`) |
 
@@ -180,6 +182,7 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 | `users`, `sessions` | Contas (hash scrypt, perfil de administrador, desactivação, segredo TOTP cifrado e último passo aceite) e sessões (só o SHA-256 do token; fase `mfa_setup`, `mfa_verify` ou `full`; códigos errados) |
 | `user_integration_tokens` | Token de cada utilizador à SAXO Bank (`provider = 'saxo'`), cifrado com AES-256-GCM e a chave do servidor, como a palavra-passe SMTP; nunca devolvido pela API. Guarda o ambiente (`sim`), a validade (24 h) e se a SAXO o recusou |
 | `saxo_instruments` | Correspondência instrumento da aplicação → instrumento da SAXO (Uic, símbolo, bolsa, tipos de ordem, quantidade mínima), preenchida na primeira ordem |
+| `saxo_notifications` / `saxo_alert_settings` | Avisos «a ordem já não está aberta» (um por ordem, com data de envio do email) e a preferência de email de cada utilizador (ligada por omissão) |
 | `saxo_orders` | Ordens enviadas à SAXO por cada utilizador (lado, quantidade, tipo, preço limite, preço da aplicação, id na SAXO, estado `sending/working/ended/cancelled/rejected/unknown`), com chave de idempotência única por utilizador |
 | `user_recovery_codes` | Códigos de recuperação do 2.º factor (só o SHA-256), cada um de uso único |
 | `watchlist_items` | Uma lista por utilizador sobre o catálogo |
@@ -266,6 +269,7 @@ Biblioteca em `api/src/orderbook/` que implementa a [especificação](orderbook-
 - **Ambientes:** SIM `https://gateway.saxobank.com/sim/openapi`. A conta real (`/openapi`) está bloqueada por `STOCKS_SAXO_ALLOW_LIVE=false`: com um token `live`, todas as chamadas dão 409 `SAXO_LIVE_BLOCKED` sem contactar a SAXO. O token do portal só serve para SIM e dura 24 h; a validade é guardada e um 401 marca-o como recusado.
 - **Factos do SIM (spike de 3 nov. 2026, fixtures em `api/test/fixtures/saxo/`):** conta em EUR com 1 000 000 €; símbolos `RAIZ:mic`; a pesquisa por palavra-chave aceita o ISIN; `ExchangeId` → MIC por `/ref/v1/exchanges`; sem preços de mercado; *precheck* e envio partilham 1 pedido/s.
 - **Testes:** `api/test/saxo.test.js` usa um servidor SAXO falso montado com as fixtures reais (`cfg.saxo.fetchImpl`); nenhum teste chama a SAXO.
+- **Menu:** grupo «SAXO» com Carteira SAXO (`/saxo/carteira`), Ordens SAXO (`/saxo/ordens`) e Alertas SAXO (`/saxo/alertas`); concentra todas as integrações com a SAXO.
 - **Por fazer:** OAuth (Authorization Code Grant com renovação atómica do refresh token), que exige chave e segredo de uma aplicação SAXO; posições da conta; streaming; conta real.
 
 ## 5. Fluxos de funcionamento
@@ -347,7 +351,8 @@ A página **BackTest** aplica a estratégia escolhida (A-Momentum por omissão) 
 1. O utilizador guarda o token de 24 h em Definições («Testar ligação» mostra a conta e o saldo da simulação). Nos Charts e nos Sinais aparece «Enviar à SAXO».
 2. **Pré-validar:** a API resolve o instrumento (pesquisa por ISIN e MIC na SAXO; símbolo `RAIZ:mic`; várias correspondências → o utilizador escolhe), escolhe a conta activa em EUR, corre o *precheck* da SAXO e devolve o resumo com um código assinado (HMAC, 5 min) ligado a instrumento, lado, quantidade, tipo e preço.
 3. **Confirmar e enviar:** a API verifica o código (qualquer alteração aos parâmetros é recusada), grava a ordem como `sending`, envia (`ManualOrder`, validade do dia, `x-request-id` = chave de idempotência) e passa-a a `working`. Pedidos de ordens são espaçados 1,1 s por utilizador (a SAXO aceita 1 por segundo, partilhado pelo *precheck* e pelo envio); um 429 espera e repete uma vez; um 409 (ordem idêntica em 15 s) nunca é repetido. Sem resposta da SAXO, a ordem fica `unknown` para o utilizador confirmar na SAXO.
-4. **Ordens SAXO:** lista as ordens com o estado confrontado com as ordens abertas da SAXO (as que desaparecem passam a `ended`) e permite cancelar as abertas.
+4. **Alertas SAXO:** a API vigia (a cada 60 s, `STOCKS_SAXO_WATCH_SECONDS`, só se houver ordens abertas) as ordens `working` contra as abertas da SAXO; as que desaparecem passam a `ended`, geram um aviso (único por ordem) e disparam `python -m alerts saxo`, que envia um email por utilizador com os avisos pendentes (falha certa volta a tentar durante 2 dias; resultado incerto nunca se reenvia). Não distingue executada de expirada ou cancelada fora da aplicação: pede para confirmar na SAXO.
+5. **Ordens SAXO:** lista as ordens com o estado confrontado com as ordens abertas da SAXO (as que desaparecem passam a `ended`) e permite cancelar as abertas.
 
 O preço limite tem de respeitar o passo de preço do instrumento (`TickSizeScheme` dos detalhes, guardado em `saxo_instruments.tick_scheme`): se não respeitar, 422 `SAXO_TICK_SIZE` com o valor válido mais próximo, que a interface oferece num botão. O valor mostrado vem do preço da aplicação: a conta de simulação da SAXO não tem preços de mercado. Um 401 marca o token como expirado.
 

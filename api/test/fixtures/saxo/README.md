@@ -9,3 +9,6 @@ tem `{ status, body }`. Notas do spike:
 - `Keywords` da pesquisa aceita o ISIN (`instruments-isin.json`).
 - Preços sem acesso no SIM: `PriceTypeBid/Ask = NoAccess` (`infoprices-galp.json`).
 - `precheck` e envio partilham o limite de 1 pedido/s (`rate-limited.json`); o cancelamento tem 3/s.
+
+- `positions-empty.json` é real (a conta SIM não tinha posições). `positions-synthetic.json` é **construído à mão** segundo a documentação da SAXO
+  (PositionBase/PositionView/DisplayAndFormat), para testar a Carteira SAXO; no SIM sem preços `CurrentPrice` vem a 0.

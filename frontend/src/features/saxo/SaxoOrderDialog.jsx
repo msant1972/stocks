@@ -115,7 +115,7 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
           </dl>
           <p className="small muted">É uma ordem do dia: se não for executada, expira no fim da sessão. Pode cancelá-la em «Ordens SAXO».</p>
           <div className="modal-actions">
-            <Link className="button" to="/saxo" onClick={onClose}>Ver ordens SAXO</Link>
+            <Link className="button" to="/saxo/ordens" onClick={onClose}>Ver ordens SAXO</Link>
             <Button variant="primary" onClick={onClose}>Concluir</Button>
           </div>
         </>

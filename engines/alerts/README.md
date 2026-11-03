@@ -53,6 +53,7 @@ python -m alerts run             # avalia e envia
 python -m alerts run --dry-run-if-unconfigured   # como run, mas em --dry-run se não houver SMTP (usado pela recolha diária)
 python -m alerts test --to ana@exemplo.pt        # email de teste (também disponível em Definições)
 python -m alerts ops [--dry-run]                 # aviso operacional aos administradores (stocks-ops.timer, dias úteis às 21:00)
+python -m alerts saxo [--dry-run]                # avisos de ordens SAXO que já não estão abertas (disparado pela API)
 ```
 
 ## Testes
