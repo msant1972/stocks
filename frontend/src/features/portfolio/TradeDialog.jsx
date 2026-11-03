@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage, newIdempotencyKey } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { keys } from '../../lib/queries.js';
+import { STRATEGY_BUDGET } from '../../lib/strategy.js';
+import { budgetQuantity } from '../../lib/trade.js';
 import { Button, Dialog, Field, Notice, Segmented } from '../../components/ui/controls.jsx';
 
 function useDebounced(value, ms) {
@@ -19,8 +21,15 @@ function useDebounced(value, ms) {
  * Compra ou venda simulada (guia, secção 5.5). O total mostrado é uma pré-visualização: o servidor
  * volta a validar preço, saldo e quantidade, e pede nova confirmação se a cotação tiver mudado.
  */
-export default function TradeDialog({ open, onClose, instrument, initialSide = 'buy', initialQuantity = 1, quantityNote = null }) {
+export default function TradeDialog({ open, onClose, instrument, initialSide = 'buy', initialQuantity = null, quantityNote = null }) {
   const qc = useQueryClient();
+  // Sem quantidade pedida, a compra começa com o equivalente ao orçamento das estratégias (15 000 €) ao último preço.
+  const price = Number(instrument?.latest?.close);
+  const budgeted = initialQuantity == null && initialSide === 'buy' && price > 0;
+  const startQuantity = initialQuantity ?? (initialSide === 'buy' ? budgetQuantity(price) : 1);
+  const start = useRef(startQuantity);
+  start.current = startQuantity; // lido só ao abrir, para uma cotação nova não apagar o que o utilizador escreveu
+  const defaultNote = quantityNote ?? (budgeted ? `≈ ${f.money(STRATEGY_BUDGET, 'EUR', 0)} (orçamento por compra) ao último preço disponível.` : null);
   const [side, setSide] = useState(initialSide);
   const [qtyText, setQtyText] = useState('1');
   const [key, setKey] = useState(newIdempotencyKey);
@@ -31,9 +40,9 @@ export default function TradeDialog({ open, onClose, instrument, initialSide = '
 
   useEffect(() => {
     if (open) {
-      setSide(initialSide); setQtyText(String(Math.max(1, initialQuantity || 1))); setReceipt(null); setError(null); setNotice(null); setKey(newIdempotencyKey());
+      setSide(initialSide); setQtyText(String(Math.max(1, start.current || 1))); setReceipt(null); setError(null); setNotice(null); setKey(newIdempotencyKey());
     }
-  }, [open, initialSide, initialQuantity]);
+  }, [open, initialSide, initialQuantity, instrument?.id]);
 
   const qty = /^\d+$/.test(qtyText) ? Number(qtyText) : null;
   const qtyError = qtyText !== '' && (qty == null || qty < 1) ? 'Indique um número inteiro de unidades, a partir de 1.' : null;
@@ -117,7 +126,7 @@ export default function TradeDialog({ open, onClose, instrument, initialSide = '
           </div>
 
           <Field label="Quantidade (unidades)" error={qtyError}
-            help={[side === initialSide ? quantityNote : null, side === 'sell' && p ? `Após a venda ficará com ${f.quantity(Math.max(p.quantityAfter, 0))} unidades.` : null].filter(Boolean).join(' ') || null}>
+            help={[side === initialSide ? defaultNote : null, side === 'sell' && p ? `Após a venda ficará com ${f.quantity(Math.max(p.quantityAfter, 0))} unidades.` : null].filter(Boolean).join(' ') || null}>
             {(props) => (
               <input {...props} className="input num" inputMode="numeric" autoComplete="off"
                 value={qtyText} onChange={(e) => changeQty(e.target.value)} />

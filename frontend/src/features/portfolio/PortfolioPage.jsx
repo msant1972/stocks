@@ -127,7 +127,7 @@ export default function PortfolioPage() {
                   </thead>
                   <tbody>
                     {p.positions.map((pos) => {
-                      const instrument = { id: pos.instrumentId, symbol: pos.symbol, name: pos.name, currency: p.currency };
+                      const instrument = { id: pos.instrumentId, symbol: pos.symbol, name: pos.name, currency: p.currency, latest: pos.price ? { close: pos.price } : null };
                       return (
                         <tr key={pos.instrumentId}>
                           <td>

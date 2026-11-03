@@ -240,6 +240,7 @@ Formulário apresentado num modal em desktop e numa vista ampla em telemóvel.
 Conteúdo obrigatório:
 
 - Título «Simular compra» ou «Simular venda».
+- Quantidade inicial da compra: as unidades inteiras que cabem no orçamento das estratégias (15 000 €) ao último preço disponível (com a nota «≈ 15 000 €…»), e não 1; os Sinais continuam a indicar a quantidade da sua própria nota. A venda começa em 1 (ou em todas as unidades, nos Sinais).
 - Instrumento e moeda.
 - Quantidade e validação de valores permitidos.
 - Último preço disponível e data correspondente (durante a sessão, um valor provisório).
