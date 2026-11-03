@@ -22,6 +22,9 @@ test('preço limite inicial = último preço sem zeros à direita', () => {
   assert.equal(defaultLimit('10.000000'), '10');
   assert.equal(defaultLimit('15.285000'), '15.285');
   assert.equal(defaultLimit(null), '');
+  assert.equal(defaultLimit('30.459999'), '30.46');
+  assert.equal(defaultLimit(107.199997), '107.2');
+  assert.equal(defaultLimit('0.1234567'), '0.1235');
 });
 
 test('espera até 1,1 s entre a pré-validação e o envio', () => {
