@@ -17,7 +17,7 @@ WITH_PROXY=1
 step() { echo; echo "==> $*"; }
 
 step "Dependências do sistema"
-PKGS=(nodejs npm mariadb-server mariadb-client python3-venv rsync)
+PKGS=(nodejs npm mariadb-server mariadb-client python3-venv rsync fail2ban)
 (( WITH_PROXY )) && PKGS+=(caddy)
 missing=()
 for p in "${PKGS[@]}"; do dpkg -s "$p" >/dev/null 2>&1 || missing+=("$p"); done
@@ -29,6 +29,14 @@ step "Afinação do servidor (MariaDB e swap)"
 if ! cmp -s "$SRC/deploy/mariadb/60-stocks.cnf" /etc/mysql/mariadb.conf.d/60-stocks.cnf; then
   install -m 644 "$SRC/deploy/mariadb/60-stocks.cnf" /etc/mysql/mariadb.conf.d/60-stocks.cnf
   systemctl restart mariadb
+fi
+# fail2ban: bloqueia temporariamente os IPs que falham o login SSH (deploy/fail2ban/stocks.local); o IP do
+# administrador deve ficar num ficheiro à parte, /etc/fail2ban/jail.d/stocks-ignoreip.local (ver deploy/README.md).
+install -d /etc/fail2ban/jail.d
+if ! cmp -s "$SRC/deploy/fail2ban/stocks.local" /etc/fail2ban/jail.d/stocks.local; then
+  install -m 644 "$SRC/deploy/fail2ban/stocks.local" /etc/fail2ban/jail.d/stocks.local
+  systemctl enable --now fail2ban >/dev/null 2>&1
+  systemctl restart fail2ban
 fi
 # Swap de 2 GB como margem contra falta de memória (só se o sistema não tiver nenhuma).
 if [[ -z "$(swapon --show --noheadings)" ]]; then

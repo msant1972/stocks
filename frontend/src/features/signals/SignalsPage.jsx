@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
-import { api } from '../../lib/api.js';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { usePortfolio } from '../../lib/queries.js';
+import { keys, useAlerts, usePortfolio } from '../../lib/queries.js';
 import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { PriceChange } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
+import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Field, Notice, Segmented } from '../../components/ui/controls.jsx';
 import TradeDialog from '../portfolio/TradeDialog.jsx';
 
@@ -28,6 +29,28 @@ export default function SignalsPage() {
   const sessions = PERIODS.includes(params.get('sessoes')) ? params.get('sessoes') : '5';
   const [trade, setTrade] = useState(null); // { instrument, side, quantity, note }
   const portfolio = usePortfolio();
+  const alerts = useAlerts();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [alertBusy, setAlertBusy] = useState(null);
+  const [alertError, setAlertError] = useState(null);
+  // Instrumentos que já têm um alerta de sinal desta estratégia.
+  const alerted = new Set((alerts.data?.items ?? []).filter((r) => r.kind === 'signal' && r.strategy === strategyId).map((r) => r.instrumentId));
+
+  /** Cria o alerta de sinal da estratégia escolhida neste instrumento (o email chega no resumo após a recolha diária). */
+  async function notifyMe(i) {
+    setAlertBusy(i.instrumentId);
+    setAlertError(null);
+    try {
+      await api.post('/alerts', { instrumentId: i.instrumentId, kind: 'signal', strategy: strategyId });
+      await qc.invalidateQueries({ queryKey: keys.alerts });
+      toast(`Alerta criado: sinais da ${strategy.name} em ${i.symbol}`);
+    } catch (err) {
+      setAlertError(errorMessage(err));
+    } finally {
+      setAlertBusy(null);
+    }
+  }
   const q = useQuery({
     queryKey: ['signals', strategyId, sessions],
     queryFn: () => api.get(`/signals?strategy=${strategyId}&sessions=${sessions}`),
@@ -78,8 +101,9 @@ export default function SignalsPage() {
       <div className="stack">
         <Notice>
           Estratégia {strategy.name}: {strategy.rules}
-          Os sinais resultam de uma simulação sobre dados diários; não são recomendações de investimento. Os botões abrem uma operação na sua carteira virtual.
+          Os sinais resultam de uma simulação sobre dados diários; não são recomendações de investimento. Comprar e Vender abrem uma operação na sua carteira virtual; «Avisar-me» cria um alerta que lhe envia um email quando a estratégia der um sinal neste instrumento.
         </Notice>
+        {alertError && <Notice tone="error">{alertError}</Notice>}
 
         <section className="card" aria-labelledby="sig-title">
           <div className="card-head">
@@ -128,6 +152,10 @@ export default function SignalsPage() {
                         </td>
                         <td className="r">{i.momentumPct == null ? '—' : <PriceChange value={i.momentumPct} showLabel={false} />}</td>
                         <td className="r" style={{ whiteSpace: 'nowrap' }}>
+                          <Button size="small" onClick={() => notifyMe(i)} busy={alertBusy === i.instrumentId} disabled={alerted.has(i.instrumentId)}
+                            title={alerted.has(i.instrumentId) ? `Já tem um alerta de sinais da ${strategy.name} neste instrumento (ver Alertas)` : `Receber um email quando a ${strategy.name} der um sinal neste instrumento`}>
+                            {alerted.has(i.instrumentId) ? 'Com alerta' : 'Avisar-me'}<span className="visually-hidden"> {i.symbol}</span>
+                          </Button>{' '}
                           <Button size="small" onClick={() => setTrade({
                             instrument, side: 'buy',
                             // Orçamento da estratégia ao último preço (o que a operação vai usar).

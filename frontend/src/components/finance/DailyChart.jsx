@@ -1,7 +1,8 @@
-import { useId, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as f from '../../lib/format.js';
 import { adjustedOhlc } from '../../lib/candles.js';
+import { chartShortcut } from '../../lib/chartKeys.js';
 import { momentum, niceTicks } from '../../lib/momentum.js';
 import { getStrategy } from '../../lib/strategy.js';
 import StrategyPanel from './StrategyPanel.jsx';
@@ -95,37 +96,36 @@ function useStageHeight(minHeight = 400, bottom = 20) {
   return [setEl, height];
 }
 
-function ChartTooltip({ active, payload, currency, selected, candles }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload;
+/**
+ * Valores da sessão sob o cursor (ou da última sessão, sem cursor), como nas plataformas de gráficos: abertura,
+ * máximo, mínimo e fecho ajustados, variação face à sessão anterior, volume, médias visíveis e momento. Regista em
+ * hoverRef a função que muda a sessão, para o cursor dos gráficos o actualizar sem os redesenhar.
+ */
+function Readout({ data, currency, visible, showMomentum, hoverRef }) {
+  const [date, setDate] = useState(null);
+  useEffect(() => {
+    hoverRef.current = setDate;
+    return () => { hoverRef.current = null; };
+  }, [hoverRef]);
+  const found = date ? data.findIndex((d) => d.date === date) : -1;
+  const idx = found >= 0 ? found : data.length - 1;
+  const d = data[idx];
+  const prev = idx > 0 ? data[idx - 1] : null;
+  const change = prev && prev.value ? (d.value / prev.value - 1) * 100 : null;
+  const tone = change == null ? '' : change >= 0 ? 'positive' : 'negative';
+  const cell = (label, value) => <span>{label} <strong className="num">{value == null ? '—' : f.price(value, currency)}</strong></span>;
   return (
-    <div className="card" style={{ padding: '0.5rem 0.75rem', boxShadow: 'var(--shadow-overlay)', minWidth: '11rem' }}>
-      <div className="small muted">{f.date(p.date)}</div>
-      {candles && [['Abertura', p.o], ['Máximo', p.h], ['Mínimo', p.l]].map(([label, v]) => (
-        <div key={label} className="spread small" style={{ gap: '1rem' }}><span>{label}</span><span className="num">{f.price(v, currency)}</span></div>
+    <div className="chart-readout small" aria-hidden="true">
+      <strong>{f.date(d.date)}</strong>
+      {cell('A', d.o)}{cell('Máx', d.h)}{cell('Mín', d.l)}{cell('F', d.c)}
+      {change != null && <span className={`num ${tone}`} style={{ fontWeight: 600 }}>{f.pct(change.toFixed(2))}</span>}
+      {d.volume != null && <span>Vol <strong className="num">{f.compact(d.volume)}</strong></span>}
+      {visible.map((i) => (
+        <span key={i.key} className="row" style={{ gap: 4 }}>
+          <span className="swatch" style={{ background: i.color }} />{i.label} <strong className="num">{d[i.key] == null ? '—' : f.price(d[i.key], currency)}</strong>
+        </span>
       ))}
-      <div className="spread" style={{ gap: '1rem' }}>
-        <span className="row small" style={{ gap: 6 }}><span className="swatch" style={{ background: 'var(--series-price)' }} />Fecho aj.</span>
-        <span className="num" style={{ fontWeight: 600 }}>{f.price(p.value, currency)}</span>
-      </div>
-      {INDICATORS.filter((i) => selected.includes(i.key)).map((i) => (
-        <div key={i.key} className="spread small" style={{ gap: '1rem' }}>
-          <span className="row" style={{ gap: 6 }}><span className="swatch" style={{ background: i.color }} />{i.label}</span>
-          <span className="num">{p[i.key] == null ? '—' : f.price(p[i.key], currency)}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function VolumeTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload;
-  return (
-    <div className="card" style={{ padding: '0.5rem 0.75rem', boxShadow: 'var(--shadow-overlay)' }}>
-      <div className="small muted">{f.date(p.date)}</div>
-      <div className="num" style={{ fontWeight: 600 }}>{p.volume == null ? '—' : f.quantity(p.volume)}</div>
-      <div className="small muted">acções negociadas</div>
+      {showMomentum && d.wave != null && <span>Momento <strong className="num">{pctLabel(d.wave)}</strong> <span className="muted">({trendLabel(d.rising)})</span></span>}
     </div>
   );
 }
@@ -147,26 +147,6 @@ function Candle({ x, y, width, height, payload }) {
       <line x1={cx} x2={cx} y1={y} y2={y + Math.max(height, 1)} stroke={color} strokeWidth={1.25} />
       <rect x={cx - bodyWidth / 2} y={top} width={bodyWidth} height={Math.max(1.5, bottom - top)} fill={up ? 'var(--surface)' : color} stroke={color} strokeWidth={1.25} />
     </g>
-  );
-}
-
-function MomentumTooltip({ active, payload }) {
-  if (!active || !payload?.length) return null;
-  const p = payload[0].payload;
-  return (
-    <div className="card" style={{ padding: '0.5rem 0.75rem', boxShadow: 'var(--shadow-overlay)', minWidth: '12rem' }}>
-      <div className="small muted">{f.date(p.date)}</div>
-      <div className="spread small" style={{ gap: '1rem' }}>
-        <span className="row" style={{ gap: 6 }}>
-          <span className="swatch" style={{ background: p.rising ? 'var(--positive)' : 'var(--negative)', height: 8 }} />SMA10/SMA200
-        </span>
-        <span className="num">{pctLabel(p.wave)}{p.wave != null && <span className="muted"> · {trendLabel(p.rising)}</span>}</span>
-      </div>
-      <div className="spread small" style={{ gap: '1rem' }}>
-        <span className="row" style={{ gap: 6 }}><span className="swatch" style={{ background: 'var(--series-price)' }} />SMA8/SMA125</span>
-        <span className="num">{pctLabel(p.wave125)}</span>
-      </div>
-    </div>
   );
 }
 
@@ -262,6 +242,30 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
       .filter((d) => d.date >= from);
   }, [quotes, range, mom]);
 
+  // Cursor dos gráficos → leitura de valores (ver Readout); sem estado aqui, para o cursor não redesenhar os gráficos.
+  const hoverRef = useRef(null);
+  const onHover = useCallback((st) => { if (st?.activeLabel != null) hoverRef.current?.(st.activeLabel); }, []);
+  const onLeave = useCallback(() => hoverRef.current?.(null), []);
+  const hoverProps = { onMouseMove: onHover, onTouchMove: onHover, onMouseLeave: onLeave };
+
+  // Atalhos: 1–5 período, 6–0 médias, T velas/linha, V volume, M momento (fora dos campos de texto e sem modificadores).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t instanceof HTMLElement && (t.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName))) return;
+      const action = chartShortcut(e.key);
+      if (!action) return;
+      if (action.type === 'range') setRange(RANGES[action.index].value);
+      else if (action.type === 'average') toggle(INDICATORS[action.index].key);
+      else if (action.type === 'candles') setTypeState((cur) => { const next = cur === 'velas' ? 'linha' : 'velas'; try { localStorage.setItem(TYPE_KEY, next); } catch { /* só nesta sessão */ } return next; });
+      else if (action.type === 'volume') toggleVolume();
+      else toggleMomentum();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   if (!data.length) return null;
   const visible = INDICATORS.filter((i) => selected.includes(i.key));
   // O eixo das datas só aparece no painel de baixo.
@@ -298,7 +302,8 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
       <div className="legend-chips" role="group" aria-label="Indicadores no gráfico">
         <span className="legend-chip static"><span className="swatch" style={{ background: 'var(--series-price)' }} />{candles ? 'Velas (preços ajustados)' : 'Fecho ajustado'}</span>
         {INDICATORS.map((i) => (
-          <button key={i.key} type="button" className="legend-chip" aria-pressed={selected.includes(i.key)} title={i.title} onClick={() => toggle(i.key)}>
+          <button key={i.key} type="button" className="legend-chip" aria-pressed={selected.includes(i.key)} title={`${i.title} (tecla ${'67890'[INDICATORS.indexOf(i)]})`}
+            aria-keyshortcuts={'67890'[INDICATORS.indexOf(i)]} onClick={() => toggle(i.key)}>
             <span className="swatch" style={{ background: i.color }} />{i.label}
           </button>
         ))}
@@ -311,11 +316,13 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
         </button>
       </div>
 
+      <Readout data={data} currency={currency} visible={visible} showMomentum={showMomentum} hoverRef={hoverRef} />
+
       {/* Painéis (preço, volume e momento) a ocupar a altura da janela; o texto, a estratégia e os dados ficam por baixo. */}
       <div className="chart-stage" ref={stageRef} style={stageHeight ? { height: stageHeight } : undefined}>
         <div className="chart-pane chart-pane-price" role="img" aria-labelledby={`${tableId}-summary`}>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} syncId="historico" margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <ComposedChart data={data} syncId="historico" margin={{ top: 8, right: 8, bottom: 0, left: 0 }} {...hoverProps}>
               <defs>
                 <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--series-price)" stopOpacity={0.16} />
@@ -331,7 +338,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
                 domain={[lo - pad, hi + pad]} width={64} tickLine={false} axisLine={false}
                 tickFormatter={(v) => f.number(v)} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
               />
-              <Tooltip content={<ChartTooltip currency={currency} selected={selected} candles={candles} />} cursor={{ stroke: 'var(--control-border)' }} />
+              <Tooltip content={() => null} cursor={{ stroke: 'var(--control-border)' }} />
               {candles
                 ? <Bar dataKey="range" shape={<Candle />} maxBarSize={14} isAnimationActive={false} />
                 : <Area type="linear" dataKey="value" stroke="var(--series-price)" strokeWidth={2} fill="url(#chartFill)" isAnimationActive={false} />}
@@ -358,11 +365,11 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
           <div className="chart-pane chart-pane-volume" role="img"
             aria-label={`Volume de ${symbol}: ${last.volume == null ? 'sem dados' : `${f.quantity(last.volume)} acções na última sessão`}.`}>
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+              <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }} {...hoverProps}>
                 <XAxis dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false} hide={lastPane !== 'volume'}
                   tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
                 <YAxis width={64} tickLine={false} axisLine={false} tickCount={3} tickFormatter={f.compact} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                <Tooltip content={<VolumeTooltip />} cursor={{ stroke: 'var(--control-border)' }} />
+                <Tooltip content={() => null} cursor={{ stroke: 'var(--control-border)' }} />
                 <Bar dataKey="volume" isAnimationActive={false}>
                   {data.map((d) => <Cell key={d.date} fill={d.c >= d.o ? 'var(--heat-up)' : 'var(--heat-down)'} fillOpacity={0.45} />)}
                 </Bar>
@@ -388,14 +395,14 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
             <div className="chart-pane-fill" role="img"
               aria-label={`Momento de ${symbol}: SMA10/SMA200 em ${pctLabel(last.wave)}, ${trendLabel(last.rising)}; SMA8/SMA125 em ${pctLabel(last.wave125)}.`}>
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }} {...hoverProps}>
                   <CartesianGrid stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false}
                     tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
                   <YAxis width={64} tickLine={false} axisLine={false} ticks={momentumTicks}
                     domain={[momentumTicks[0], momentumTicks.at(-1)]} interval={0}
                     tickFormatter={(v) => `${f.number(v).replace(/,00$/, '')}%`} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                  <Tooltip content={<MomentumTooltip />} cursor={{ stroke: 'var(--control-border)' }} />
+                  <Tooltip content={() => null} cursor={{ stroke: 'var(--control-border)' }} />
                   <Bar dataKey="wave" isAnimationActive={false}>
                     {data.map((d) => (
                       <Cell key={d.date} fill={d.rising ? 'var(--positive)' : 'var(--negative)'} fillOpacity={0.3} />
@@ -423,6 +430,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
       {strategyResult && <StrategyPanel strategy={strat} result={strategyResult} currency={currency || 'EUR'} symbol={symbol} />}
 
       <p className="small muted">
+        Atalhos de teclado: 1–5 período · 6–0 médias (EMA9, SMA10, SMA50, SMA125, SMA200) · T velas ou linha · V volume · M momento · ↑ ↓ muda de instrumento.{' '}
         Eixo vertical em {currency || 'EUR'} ({candles ? 'preços ajustados; vela vazia a verde = fechou acima da abertura, cheia a vermelho = abaixo' : 'fecho ajustado'}); a escala não começa em zero. As médias são calculadas sobre o fecho ajustado.
         {partial.map((i) => (
           <span key={i.key}> {i.label} {i.firstDate ? `disponível a partir de ${f.date(i.firstDate)}` : 'sem sessões suficientes neste período'}.</span>

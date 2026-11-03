@@ -359,3 +359,7 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
   border: 1px solid var(--border); border-radius: var(--radius-control); color: var(--text); text-decoration: none; font-weight: 500;
 }
 .more-link[aria-current="page"] { border-color: var(--accent); color: var(--accent); }
+
+/* Leitura dos valores da sessão sob o cursor, por cima dos painéis do gráfico. */
+.chart-readout { display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem 1rem; min-height: 1.5rem; }
+.chart-readout .num { font-variant-numeric: tabular-nums; }

@@ -109,6 +109,17 @@ export default function ChartsPage() {
     if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
   };
 
+  // ↑ ↓ mudam de instrumento com o foco no corpo da página (a lista tem o seu próprio tratamento das setas).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.shiftKey || e.target !== document.body) return;
+      if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
+      if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
   async function toggleWatch() {
     setBusy(true);
     setActionError(null);

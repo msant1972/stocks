@@ -1,0 +1,14 @@
+# fail2ban para o SSH do servidor da aplicação Stocks (instalado pelo deploy/install.sh em /etc/fail2ban/jail.d/).
+# Bloqueia durante 1 hora o IP que falhe 5 vezes em 10 minutos; os bloqueios repetidos duplicam, até uma semana.
+# Para não se bloquear a si próprio, acrescente o seu IP num ficheiro à parte (não versionado), por exemplo
+# /etc/fail2ban/jail.d/stocks-ignoreip.local:   [DEFAULT]  ignoreip = 127.0.0.1/8 ::1 <o-seu-ip>
+[DEFAULT]
+bantime = 1h
+findtime = 10m
+maxretry = 5
+bantime.increment = true
+bantime.maxtime = 1w
+
+[sshd]
+enabled = true
+backend = systemd

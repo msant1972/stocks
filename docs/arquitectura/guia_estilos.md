@@ -211,6 +211,8 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 ### 5.3a. Charts
 
 - Ocupa a largura toda do ecrã (sem a coluna central limitada das outras páginas) e a altura da janela: os painéis do gráfico (preço, volume e momento) dividem a altura que resta por baixo da barra de ferramentas, calculada no browser e recalculada ao redimensionar a janela ou quando os avisos acima mudam de altura (mínimo de 400 px; em ecrãs baixos a página faz scroll). O eixo das datas aparece só no painel de baixo. A lista à direita tem a altura da janela, com scroll próprio. O texto de resumo, a estratégia e os dados em tabela ficam por baixo dos painéis.
+- Linha de mira: o cursor desenha uma linha vertical sincronizada nos três painéis e a leitura por cima deles mostra os valores dessa sessão (abertura, máximo, mínimo e fecho ajustados, variação face à sessão anterior, volume, médias visíveis e momento); sem cursor, mostra a última sessão. Substitui as caixas flutuantes (também em toque); o resumo textual e a tabela de dados continuam a ser a alternativa acessível.
+- Atalhos de teclado (fora de campos de texto, sem modificadores): 1–5 período, 6–0 médias (EMA9, SMA10, SMA50, SMA125, SMA200), T velas ou linha, V volume, M momento; ↑ ↓ mudam de instrumento com o foco no corpo da página, ou na lista. Anunciados nos botões (`aria-keyshortcuts`, `title`) e numa nota por baixo do gráfico.
 - Sítio único do instrumento: gráfico, ações (adicionar ou remover da lista, criar alerta, simular operação, livro de ofertas), menu «Estratégia», avisos (a validar, inválido, cobertura inferior a três anos, só simulável em EUR) e a lista à direita.
 - Inspirado nas plataformas de gráficos: o gráfico ocupa a área principal e a lista de acompanhamento fica à direita (abaixo do gráfico em ecrãs com menos de 1200 px), fixa ao fazer scroll.
 - Lista à escolha: «Lista» (acompanhamento), «Carteira» ou «Catálogo», com pesquisa por símbolo ou nome e ordenação (símbolo, maiores subidas, maiores descidas), no endereço (`?fonte=`, `?ordem=`).
@@ -302,7 +304,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 
 - Menu «Estratégia» (A-Momentum por omissão, B-Opus, C-AI, D-Reversão; `?estrategia=`). Lista dos sinais da estratégia (compra C, reforço R, venda V com o motivo, com etiqueta de cor e letra) em todos os instrumentos, ordenados do mais recente.
 - Filtro por tipo com contagens e período (última sessão a últimas 10 sessões), guardados no URL.
-- Cada linha: sessão («há N sessões»), sinal, instrumento, preço do sinal, variação desde o sinal (com o último fecho), SMA10/SMA200 actual e botões «Comprar» e «Vender»; «Vender» desactivado quando o instrumento não está na carteira.
+- Cada linha: sessão («há N sessões»), sinal, instrumento, preço do sinal, variação desde o sinal (com o último fecho), SMA10/SMA200 actual e botões «Avisar-me» (cria um alerta de sinal da estratégia escolhida nesse instrumento; passa a «Com alerta», desactivado, quando já existe), «Comprar» e «Vender»; «Vender» desactivado quando o instrumento não está na carteira.
 - «Comprar» abre a operação com a quantidade que cabe em 15 000 € ao último fecho; «Vender» abre-a com todas as unidades em carteira. A quantidade continua editável e o modal mostra uma nota com a origem do valor.
 - Aviso com as regras e a indicação de que são resultados de uma simulação, não recomendações.
 

@@ -166,3 +166,16 @@ VPS com 4 vCPU, 8 GB de RAM e 100 GB de disco SSD. O `install.sh` aplica a afina
 | Backups | 30 dias de dumps (antes 14) | O disco tem espaço de sobra |
 
 Uso típico: MariaDB ~1,2 GB, API ~150 MB (picos de ~500 MB com os workers), motores Python ~150 MB enquanto correm; ficam ~5 GB livres. O motor de recolha continua a pedir um símbolo de cada vez ao Yahoo, de propósito: pedidos em paralelo aumentam o risco de limitação (HTTP 429) e a recolha completa já demora só ~1,5 minutos.
+
+## Protecção do SSH (fail2ban)
+
+O servidor aceita login SSH por palavra-passe (decisão do administrador) e está exposto a milhares de tentativas automáticas por dia (8 446 falhadas num dia, a 3 nov. 2026, com nomes como `root`, `ubuntu` ou `admin`). O `fail2ban` (`deploy/fail2ban/stocks.local`, instalado pelo `install.sh`) bloqueia durante 1 hora o IP que falhe 5 vezes em 10 minutos, e os bloqueios repetidos duplicam, até uma semana. Usa regras `nftables` próprias, independentes da `ufw`.
+
+Para não se bloquear a si próprio, ponha o seu IP num ficheiro à parte (não versionado):
+
+```bash
+printf '[DEFAULT]\nignoreip = 127.0.0.1/8 ::1 <o-seu-ip>\n' | sudo tee /etc/fail2ban/jail.d/stocks-ignoreip.local
+sudo systemctl restart fail2ban
+sudo fail2ban-client status sshd        # IPs bloqueados e contagens
+sudo fail2ban-client set sshd unbanip <ip>
+```
