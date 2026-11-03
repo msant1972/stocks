@@ -152,7 +152,7 @@ export default function Shell() {
             </Link>
           </div>
         </header>
-        <main id="conteudo" className="content" tabIndex={-1}>
+        <main id="conteudo" className={`content${location.pathname.startsWith('/charts') ? ' content-wide' : ''}`} tabIndex={-1}>
           <Suspense fallback={<Loading rows={6} />}><Outlet /></Suspense>
         </main>
       </div>

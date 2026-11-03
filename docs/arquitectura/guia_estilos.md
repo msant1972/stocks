@@ -210,6 +210,7 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 
 ### 5.3a. Charts
 
+- Ocupa a largura toda do ecrã (sem a coluna central limitada das outras páginas) e a altura da janela: os painéis do gráfico (preço, volume e momento) dividem a altura que resta por baixo da barra de ferramentas, calculada no browser e recalculada ao redimensionar a janela ou quando os avisos acima mudam de altura (mínimo de 400 px; em ecrãs baixos a página faz scroll). O eixo das datas aparece só no painel de baixo. A lista à direita tem a altura da janela, com scroll próprio. O texto de resumo, a estratégia e os dados em tabela ficam por baixo dos painéis.
 - Sítio único do instrumento: gráfico, ações (adicionar ou remover da lista, criar alerta, simular operação, livro de ofertas), menu «Estratégia», avisos (a validar, inválido, cobertura inferior a três anos, só simulável em EUR) e a lista à direita.
 - Inspirado nas plataformas de gráficos: o gráfico ocupa a área principal e a lista de acompanhamento fica à direita (abaixo do gráfico em ecrãs com menos de 1200 px), fixa ao fazer scroll.
 - Lista à escolha: «Lista» (acompanhamento), «Carteira» ou «Catálogo», com pesquisa por símbolo ou nome e ordenação (símbolo, maiores subidas, maiores descidas), no endereço (`?fonte=`, `?ordem=`).

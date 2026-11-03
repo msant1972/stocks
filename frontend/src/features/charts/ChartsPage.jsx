@@ -184,7 +184,7 @@ export default function ChartsPage() {
               {current.latest && <> · <QuoteDate date={current.latest.date} /></>}
             </p>
           </div>
-          <div className="row">
+          <div className="row charts-actions">
             <Button size="small" variant="ghost" className="icon-button" onClick={() => move(-1)} title="Instrumento anterior (↑)">
               <span style={{ display: 'inline-flex', transform: 'rotate(180deg)' }}><Icon name="chevron" size={18} /></span><span className="visually-hidden">Instrumento anterior</span>
             </Button>
@@ -192,17 +192,14 @@ export default function ChartsPage() {
             <Button size="small" variant="ghost" className="icon-button" onClick={() => move(1)} title="Instrumento seguinte (↓)">
               <Icon name="chevron" size={18} /><span className="visually-hidden">Instrumento seguinte</span>
             </Button>
+            <StrategySelect value={strategy} onChange={(id) => setParam('estrategia', id ?? 'nenhuma')} allowNone best={bestId} disabled={current.status !== 'active'} />
+            <Button onClick={toggleWatch} busy={busy} disabled={current.status === 'invalid' && !current.inWatchlist}>
+              {current.inWatchlist ? 'Remover da lista' : 'Adicionar à lista'}
+            </Button>
+            <Button onClick={() => setAlerting(true)} disabled={current.status === 'invalid'}>Criar alerta</Button>
+            {current.isinMic && <Link className="button" to={`/orderbook?instrumento=${current.id}`}>Livro de ofertas</Link>}
+            <Button variant="primary" onClick={() => setTrading(true)} disabled={!tradable}>Simular operação</Button>
           </div>
-        </div>
-
-        <div className="row charts-actions">
-          <StrategySelect value={strategy} onChange={(id) => setParam('estrategia', id ?? 'nenhuma')} allowNone best={bestId} disabled={current.status !== 'active'} />
-          <Button onClick={toggleWatch} busy={busy} disabled={current.status === 'invalid' && !current.inWatchlist}>
-            {current.inWatchlist ? 'Remover da lista' : 'Adicionar à lista'}
-          </Button>
-          <Button onClick={() => setAlerting(true)} disabled={current.status === 'invalid'}>Criar alerta</Button>
-          {current.isinMic && <Link className="button" to={`/orderbook?instrumento=${current.id}`}>Livro de ofertas</Link>}
-          <Button variant="primary" onClick={() => setTrading(true)} disabled={!tradable}>Simular operação</Button>
         </div>
 
         <div className="stack" style={{ gap: '0.75rem' }}>

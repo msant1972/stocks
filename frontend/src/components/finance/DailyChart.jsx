@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useLayoutEffect, useMemo, useState } from 'react';
 import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as f from '../../lib/format.js';
 import { adjustedOhlc } from '../../lib/candles.js';
@@ -70,6 +70,30 @@ function cutoff(lastDate, months) {
 }
 
 const num = (v) => (v == null ? null : Number(v));
+
+/**
+ * Altura dos painéis do gráfico (preço, volume e momento): o que resta da janela por baixo do ponto onde começam,
+ * para o gráfico ocupar o ecrã sem obrigar a fazer scroll. Recalculada ao redimensionar a janela ou quando o
+ * conteúdo acima muda de altura (avisos, linhas que quebram). minHeight evita painéis demasiado baixos em ecrãs pequenos.
+ */
+function useStageHeight(minHeight = 400, bottom = 20) {
+  const [el, setEl] = useState(null);
+  const [height, setHeight] = useState(null);
+  useLayoutEffect(() => {
+    if (!el) return undefined;
+    const fit = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      const h = Math.max(minHeight, Math.floor(window.innerHeight - top - bottom));
+      setHeight((cur) => (cur === h ? cur : h));
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(document.body);
+    window.addEventListener('resize', fit);
+    return () => { observer.disconnect(); window.removeEventListener('resize', fit); };
+  }, [el, minHeight, bottom]);
+  return [setEl, height];
+}
 
 function ChartTooltip({ active, payload, currency, selected, candles }) {
   if (!active || !payload?.length) return null;
@@ -184,6 +208,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
   const [type, setTypeState] = useState(readType);
   const [showVolume, setShowVolume] = useState(readVolume);
   const tableId = useId();
+  const [stageRef, stageHeight] = useStageHeight();
   const candles = type === 'velas';
   const setType = (value) => {
     setTypeState(value);
@@ -239,6 +264,8 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
 
   if (!data.length) return null;
   const visible = INDICATORS.filter((i) => selected.includes(i.key));
+  // O eixo das datas só aparece no painel de baixo.
+  const lastPane = showMomentum ? 'momentum' : showVolume ? 'volume' : 'price';
   const first = data[0];
   const last = data.at(-1);
   const change = first.value ? ((last.value - first.value) / first.value) * 100 : null;
@@ -259,7 +286,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
     .filter((i) => i.firstDate !== first.date);
 
   return (
-    <div className="stack" style={{ gap: '1rem' }}>
+    <div className="stack" style={{ gap: '0.625rem' }}>
       <div className="spread">
         <div className="row">
           <Segmented label="Período do gráfico" options={RANGES} value={range} onChange={setRange} />
@@ -284,111 +311,114 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
         </button>
       </div>
 
+      {/* Painéis (preço, volume e momento) a ocupar a altura da janela; o texto, a estratégia e os dados ficam por baixo. */}
+      <div className="chart-stage" ref={stageRef} style={stageHeight ? { height: stageHeight } : undefined}>
+        <div className="chart-pane chart-pane-price" role="img" aria-labelledby={`${tableId}-summary`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={data} syncId="historico" margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--series-price)" stopOpacity={0.16} />
+                  <stop offset="100%" stopColor="var(--series-price)" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="var(--border)" vertical={false} />
+              <XAxis
+                dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false} hide={lastPane !== 'price'}
+                tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+              />
+              <YAxis
+                domain={[lo - pad, hi + pad]} width={64} tickLine={false} axisLine={false}
+                tickFormatter={(v) => f.number(v)} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
+              />
+              <Tooltip content={<ChartTooltip currency={currency} selected={selected} candles={candles} />} cursor={{ stroke: 'var(--control-border)' }} />
+              {candles
+                ? <Bar dataKey="range" shape={<Candle />} maxBarSize={14} isAnimationActive={false} />
+                : <Area type="linear" dataKey="value" stroke="var(--series-price)" strokeWidth={2} fill="url(#chartFill)" isAnimationActive={false} />}
+              {visible.map((i) => (
+                <Line key={i.key} type="linear" dataKey={i.key} stroke={i.color} strokeWidth={1.75} dot={false}
+                  activeDot={{ r: 4, stroke: 'var(--surface)', strokeWidth: 2 }} connectNulls={false} isAnimationActive={false} />
+              ))}
+              {stopLevel != null && (
+                <ReferenceLine y={stopLevel} stroke="var(--negative)" strokeDasharray="5 4" ifOverflow="extendDomain"
+                  label={{ value: 'Stop', position: 'insideBottomRight', fill: 'var(--negative)', fontSize: 12 }} />
+              )}
+              {strategyResult?.signals.filter((s) => s.date >= first.date).map((s) => {
+                const point = data.find((d) => d.date === s.date);
+                return point && (
+                  <ReferenceDot key={`${s.side}-${s.date}-${s.reason ?? ''}`} x={s.date} y={point.value} r={0} ifOverflow="extendDomain"
+                    shape={(props) => <SignalMarker {...props} side={s.side} />} />
+                );
+              })}
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+
+        {showVolume && (
+          <div className="chart-pane chart-pane-volume" role="img"
+            aria-label={`Volume de ${symbol}: ${last.volume == null ? 'sem dados' : `${f.quantity(last.volume)} acções na última sessão`}.`}>
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                <XAxis dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false} hide={lastPane !== 'volume'}
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <YAxis width={64} tickLine={false} axisLine={false} tickCount={3} tickFormatter={f.compact} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <Tooltip content={<VolumeTooltip />} cursor={{ stroke: 'var(--control-border)' }} />
+                <Bar dataKey="volume" isAnimationActive={false}>
+                  {data.map((d) => <Cell key={d.date} fill={d.c >= d.o ? 'var(--heat-up)' : 'var(--heat-down)'} fillOpacity={0.45} />)}
+                </Bar>
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {showMomentum && (
+          <section aria-labelledby={`${tableId}-mom`} className="chart-pane chart-pane-momentum">
+            <div className="row small" style={{ gap: '1rem' }}>
+              <h3 id={`${tableId}-mom`} style={{ fontSize: '0.9375rem', fontWeight: 600 }}>Momento</h3>
+              <span className="row" style={{ gap: 6 }}>
+                <span className="swatch" style={{ background: last.rising ? 'var(--positive)' : 'var(--negative)', height: 8 }} />
+                SMA10/SMA200 <span className="num" style={{ fontWeight: 600 }}>{pctLabel(last.wave)}</span>
+                {last.wave != null && <span className="muted">({trendLabel(last.rising)})</span>}
+              </span>
+              <span className="row" style={{ gap: 6 }}>
+                <span className="swatch" style={{ background: 'var(--series-price)' }} />
+                SMA8/SMA125 <span className="num" style={{ fontWeight: 600 }}>{pctLabel(last.wave125)}</span>
+              </span>
+            </div>
+            <div className="chart-pane-fill" role="img"
+              aria-label={`Momento de ${symbol}: SMA10/SMA200 em ${pctLabel(last.wave)}, ${trendLabel(last.rising)}; SMA8/SMA125 em ${pctLabel(last.wave125)}.`}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                  <CartesianGrid stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false}
+                    tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                  <YAxis width={64} tickLine={false} axisLine={false} ticks={momentumTicks}
+                    domain={[momentumTicks[0], momentumTicks.at(-1)]} interval={0}
+                    tickFormatter={(v) => `${f.number(v).replace(/,00$/, '')}%`} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                  <Tooltip content={<MomentumTooltip />} cursor={{ stroke: 'var(--control-border)' }} />
+                  <Bar dataKey="wave" isAnimationActive={false}>
+                    {data.map((d) => (
+                      <Cell key={d.date} fill={d.rising ? 'var(--positive)' : 'var(--negative)'} fillOpacity={0.3} />
+                    ))}
+                  </Bar>
+                  <ReferenceLine y={0} stroke="var(--control-border)" strokeWidth={3} />
+                  <Line type="linear" dataKey="wave125" stroke="var(--series-price)" strokeWidth={1.5} dot={false}
+                    activeDot={{ r: 4, stroke: 'var(--surface)', strokeWidth: 2 }} isAnimationActive={false} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        )}
+      </div>
+
       <p className="small muted" id={`${tableId}-summary`}>
         {symbol}: de {f.price(first.value, currency)} em {f.date(first.date)} para {f.price(last.value, currency)} em {f.date(last.date)}
         {change != null && <> ({f.pct(change.toFixed(2))})</>}. Mínimo {f.price(min, currency)}, máximo {f.price(max, currency)}.
         {coverageStart > requestedStart && <> Dados disponíveis apenas desde {f.date(coverageStart)}.</>}
         {visible.map((i) => last[i.key] != null && <span key={i.key}> {i.label} em {f.price(last[i.key], currency)}.</span>)}
         {showMomentum && last.wave != null && <> Momento SMA10/SMA200 em {pctLabel(last.wave)} ({trendLabel(last.rising)}).</>}
+        {showMomentum && <> Momento: área SMA10/SMA200 − 1, verde quando sobe face às duas sessões anteriores e vermelha caso contrário; linha SMA8/SMA125 − 1; em percentagem, sobre o fecho ajustado.</>}
       </p>
-
-      <div className="chart-box" role="img" aria-labelledby={`${tableId}-summary`}>
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} syncId="historico" margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <defs>
-              <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--series-price)" stopOpacity={0.16} />
-                <stop offset="100%" stopColor="var(--series-price)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid stroke="var(--border)" vertical={false} />
-            <XAxis
-              dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false}
-              tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
-            />
-            <YAxis
-              domain={[lo - pad, hi + pad]} width={64} tickLine={false} axisLine={false}
-              tickFormatter={(v) => f.number(v)} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
-            />
-            <Tooltip content={<ChartTooltip currency={currency} selected={selected} candles={candles} />} cursor={{ stroke: 'var(--control-border)' }} />
-            {candles
-              ? <Bar dataKey="range" shape={<Candle />} maxBarSize={14} isAnimationActive={false} />
-              : <Area type="linear" dataKey="value" stroke="var(--series-price)" strokeWidth={2} fill="url(#chartFill)" isAnimationActive={false} />}
-            {visible.map((i) => (
-              <Line key={i.key} type="linear" dataKey={i.key} stroke={i.color} strokeWidth={1.75} dot={false}
-                activeDot={{ r: 4, stroke: 'var(--surface)', strokeWidth: 2 }} connectNulls={false} isAnimationActive={false} />
-            ))}
-            {stopLevel != null && (
-              <ReferenceLine y={stopLevel} stroke="var(--negative)" strokeDasharray="5 4" ifOverflow="extendDomain"
-                label={{ value: 'Stop', position: 'insideBottomRight', fill: 'var(--negative)', fontSize: 12 }} />
-            )}
-            {strategyResult?.signals.filter((s) => s.date >= first.date).map((s) => {
-              const point = data.find((d) => d.date === s.date);
-              return point && (
-                <ReferenceDot key={`${s.side}-${s.date}-${s.reason ?? ''}`} x={s.date} y={point.value} r={0} ifOverflow="extendDomain"
-                  shape={(props) => <SignalMarker {...props} side={s.side} />} />
-              );
-            })}
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-      {showVolume && (
-        <div className="chart-volume" role="img"
-          aria-label={`Volume de ${symbol}: ${last.volume == null ? 'sem dados' : `${f.quantity(last.volume)} acções na última sessão`}.`}>
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <XAxis dataKey="date" hide />
-              <YAxis width={64} tickLine={false} axisLine={false} tickCount={3} tickFormatter={f.compact} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-              <Tooltip content={<VolumeTooltip />} cursor={{ stroke: 'var(--control-border)' }} />
-              <Bar dataKey="volume" isAnimationActive={false}>
-                {data.map((d) => <Cell key={d.date} fill={d.c >= d.o ? 'var(--heat-up)' : 'var(--heat-down)'} fillOpacity={0.45} />)}
-              </Bar>
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-      {showMomentum && (
-        <section aria-labelledby={`${tableId}-mom`} className="stack" style={{ gap: '0.5rem' }}>
-          <div className="row small" style={{ gap: '1rem' }}>
-            <h3 id={`${tableId}-mom`} style={{ fontSize: '0.9375rem', fontWeight: 600 }}>Momento</h3>
-            <span className="row" style={{ gap: 6 }}>
-              <span className="swatch" style={{ background: last.rising ? 'var(--positive)' : 'var(--negative)', height: 8 }} />
-              SMA10/SMA200 <span className="num" style={{ fontWeight: 600 }}>{pctLabel(last.wave)}</span>
-              {last.wave != null && <span className="muted">({trendLabel(last.rising)})</span>}
-            </span>
-            <span className="row" style={{ gap: 6 }}>
-              <span className="swatch" style={{ background: 'var(--series-price)' }} />
-              SMA8/SMA125 <span className="num" style={{ fontWeight: 600 }}>{pctLabel(last.wave125)}</span>
-            </span>
-          </div>
-          <div className="chart-box-small" role="img"
-            aria-label={`Momento de ${symbol}: SMA10/SMA200 em ${pctLabel(last.wave)}, ${trendLabel(last.rising)}; SMA8/SMA125 em ${pctLabel(last.wave125)}.`}>
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-                <CartesianGrid stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false}
-                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                <YAxis width={64} tickLine={false} axisLine={false} ticks={momentumTicks}
-                  domain={[momentumTicks[0], momentumTicks.at(-1)]} interval={0}
-                  tickFormatter={(v) => `${f.number(v).replace(/,00$/, '')}%`} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                <Tooltip content={<MomentumTooltip />} cursor={{ stroke: 'var(--control-border)' }} />
-                <Bar dataKey="wave" isAnimationActive={false}>
-                  {data.map((d) => (
-                    <Cell key={d.date} fill={d.rising ? 'var(--positive)' : 'var(--negative)'} fillOpacity={0.3} />
-                  ))}
-                </Bar>
-                <ReferenceLine y={0} stroke="var(--control-border)" strokeWidth={3} />
-                <Line type="linear" dataKey="wave125" stroke="var(--series-price)" strokeWidth={1.5} dot={false}
-                  activeDot={{ r: 4, stroke: 'var(--surface)', strokeWidth: 2 }} isAnimationActive={false} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-          <p className="small muted">
-            Área: SMA10/SMA200 − 1, verde quando sobe face às duas sessões anteriores e vermelha caso contrário.
-            Linha: SMA8/SMA125 − 1. Em percentagem, sobre o fecho ajustado.
-          </p>
-        </section>
-      )}
 
       {strategyResult && <StrategyPanel strategy={strat} result={strategyResult} currency={currency || 'EUR'} symbol={symbol} />}
 
