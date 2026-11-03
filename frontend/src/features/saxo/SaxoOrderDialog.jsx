@@ -167,6 +167,9 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
               ))}
             </div>
           )}
+          {error?.code === 'SAXO_TICK_SIZE' && error.details?.suggested && (
+            <Button onClick={() => edit(setLimitText)(error.details.suggested)}>Usar {error.details.suggested}</Button>
+          )}
           {error && !candidates && (
             <Notice tone="error">
               {errorMessage(error)}

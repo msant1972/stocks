@@ -349,7 +349,7 @@ A página **BackTest** aplica a estratégia escolhida (A-Momentum por omissão) 
 3. **Confirmar e enviar:** a API verifica o código (qualquer alteração aos parâmetros é recusada), grava a ordem como `sending`, envia (`ManualOrder`, validade do dia, `x-request-id` = chave de idempotência) e passa-a a `working`. Pedidos de ordens são espaçados 1,1 s por utilizador (a SAXO aceita 1 por segundo, partilhado pelo *precheck* e pelo envio); um 429 espera e repete uma vez; um 409 (ordem idêntica em 15 s) nunca é repetido. Sem resposta da SAXO, a ordem fica `unknown` para o utilizador confirmar na SAXO.
 4. **Ordens SAXO:** lista as ordens com o estado confrontado com as ordens abertas da SAXO (as que desaparecem passam a `ended`) e permite cancelar as abertas.
 
-O valor mostrado vem do preço da aplicação: a conta de simulação da SAXO não tem preços de mercado. Um 401 marca o token como expirado.
+O preço limite tem de respeitar o passo de preço do instrumento (`TickSizeScheme` dos detalhes, guardado em `saxo_instruments.tick_scheme`): se não respeitar, 422 `SAXO_TICK_SIZE` com o valor válido mais próximo, que a interface oferece num botão. O valor mostrado vem do preço da aplicação: a conta de simulação da SAXO não tem preços de mercado. Um 401 marca o token como expirado.
 
 ### 5.6. Gestão de utilizadores
 
