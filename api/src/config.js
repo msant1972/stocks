@@ -38,5 +38,14 @@ export function loadConfig(env = process.env) {
     secretKey: loadSecretKey({ STOCKS_SECRET_KEY_FILE: '/etc/stocks/secret.key', ...env }),
     // Python do motor de alertas, usado para enviar o email de teste com o mesmo código dos alertas.
     alertsPython: env.STOCKS_ALERTS_PYTHON || null,
+    // Ligação à SAXO Bank. Só a conta de simulação (SIM); a conta real fica recusada até STOCKS_SAXO_ALLOW_LIVE=true.
+    saxo: {
+      allowLive: env.STOCKS_SAXO_ALLOW_LIVE === 'true',
+      simUrl: env.STOCKS_SAXO_SIM_URL || 'https://gateway.saxobank.com/sim/openapi',
+      liveUrl: env.STOCKS_SAXO_LIVE_URL || 'https://gateway.saxobank.com/openapi',
+      timeoutMs: Number(env.STOCKS_SAXO_TIMEOUT_MS || 10_000),
+      orderSpacingMs: 1100, // a SAXO só aceita 1 pedido/s a /trade/v2/orders (pré-validação e envio partilham o limite)
+      fetchImpl: null, // só para testes
+    },
   };
 }

@@ -11,6 +11,7 @@ import { EmptyState, ErrorState, Loading } from '../../components/feedback/state
 import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Field, Notice, Segmented } from '../../components/ui/controls.jsx';
 import TradeDialog from '../portfolio/TradeDialog.jsx';
+import SaxoOrderDialog, { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
 
 const SIDES = {
   buy: { label: 'Compra', letter: 'C', cls: 'badge-positive' },
@@ -28,6 +29,8 @@ export default function SignalsPage() {
   const side = ['buy', 'add', 'sell'].includes(params.get('tipo')) ? params.get('tipo') : 'all';
   const sessions = PERIODS.includes(params.get('sessoes')) ? params.get('sessoes') : '5';
   const [trade, setTrade] = useState(null); // { instrument, side, quantity, note }
+  const [saxoTrade, setSaxoTrade] = useState(null); // { instrument, side, quantity }
+  const saxo = useSaxoStatus();
   const portfolio = usePortfolio();
   const alerts = useAlerts();
   const qc = useQueryClient();
@@ -171,6 +174,14 @@ export default function SignalsPage() {
                             title={qty === 0 ? 'Não tem este instrumento na carteira' : `Tem ${f.quantity(qty)} unidades`}>
                             Vender<span className="visually-hidden"> {i.symbol}</span>
                           </Button>
+                          {saxo.data?.configured && (
+                            <>{' '}
+                              <Button size="small" onClick={() => setSaxoTrade({ instrument, side: 'buy', quantity: Math.max(1, Math.floor(budget / Number(i.lastClose))) })}
+                                title="Enviar uma ordem de compra para a conta de simulação da SAXO Bank">
+                                Enviar à SAXO<span className="visually-hidden"> {i.symbol}</span>
+                              </Button>
+                            </>
+                          )}
                         </td>
                       </tr>
                     );
@@ -184,6 +195,7 @@ export default function SignalsPage() {
 
       <TradeDialog open={!!trade} onClose={() => setTrade(null)} instrument={trade?.instrument} initialSide={trade?.side}
         initialQuantity={trade?.quantity} quantityNote={trade?.note} />
+      <SaxoOrderDialog open={!!saxoTrade} onClose={() => setSaxoTrade(null)} instrument={saxoTrade?.instrument} initialSide={saxoTrade?.side} initialQuantity={saxoTrade?.quantity} />
     </>
   );
 }

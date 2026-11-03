@@ -15,6 +15,7 @@ const OrderbookPage = lazy(() => import('../features/orderbook/OrderbookPage.jsx
 const InstrumentRedirect = lazy(() => import('../features/instruments/InstrumentRedirect.jsx'));
 const PortfolioPage = lazy(() => import('../features/portfolio/PortfolioPage.jsx'));
 const TradesPage = lazy(() => import('../features/trades/TradesPage.jsx'));
+const SaxoOrdersPage = lazy(() => import('../features/saxo/SaxoOrdersPage.jsx'));
 const AlertsPage = lazy(() => import('../features/alerts/AlertsPage.jsx'));
 const SignalsPage = lazy(() => import('../features/signals/SignalsPage.jsx'));
 const ComparePage = lazy(() => import('../features/compare/ComparePage.jsx'));
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="instrumentos/:id" element={<InstrumentRedirect />} />
           <Route path="carteira" element={<PortfolioPage />} />
           <Route path="operacoes" element={<TradesPage />} />
+          <Route path="saxo" element={<SaxoOrdersPage />} />
           <Route path="sinais" element={<SignalsPage />} />
           <Route path="backtest" element={<BacktestPage />} />
           <Route path="comparar" element={<ComparePage />} />

@@ -18,7 +18,7 @@ Os três pendentes da versão 1 foram fechados pelo administrador a 18 out. 2026
 
 ### 2.1. Requisitos (todos cumpridos)
 
-- Negociação exclusivamente simulada e acompanhamento de acções; sem operações reais nem corretoras.
+- Negociação exclusivamente simulada e acompanhamento de acções; sem operações reais. Opcionalmente, envio de ordens para a conta de simulação (SIM) da SAXO Bank.
 - Histórico de três anos por instrumento (dois mostrados nos gráficos), com granularidade diária.
 - Alertas por email com no máximo uma notificação por hora, cumprido com um resumo por utilizador após cada recolha diária e um intervalo mínimo de 60 minutos.
 - Cinco módulos: interface React, API Node.js, MariaDB, motor de recolha Python e motor de alertas Python.
@@ -37,7 +37,7 @@ Detalhe em [Análise e decisões](analise_e_decisoes.md).
 
 ### 2.3. Fora do âmbito (mantém-se)
 
-- Negociação real, pagamentos, corretoras e custódia.
+- Negociação real (a conta real da SAXO fica bloqueada), pagamentos e custódia.
 - Cotações em tempo real e alertas intradiários (a recolha horária guarda só a vela provisória do dia).
 - Negociação automática: a estratégia só é simulada no histórico e não executa operações.
 - Aplicações móveis nativas, carteiras multimoeda, vendas a descoberto e tratamento completo de dividendos e desdobramentos.
@@ -129,7 +129,9 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US31 | Alertas de sinais das estratégias | — | Feito |
 | US32 | Revalidação semanal das Promessas e da persistência dos ganhadores | — | Feito |
 | US33 | Evolução da carteira | — | Feito |
-| US37 | Cartão «SAXO Bank» com o token de cada utilizador, guardado cifrado (ainda não usado) | — | Feito |
+| US37 | Cartão «SAXO Bank» com o token de cada utilizador, guardado cifrado | — | Feito |
+| US38 | Ordens para a conta de simulação da SAXO: testar ligação, resolução do instrumento, pré-validação, confirmação, envio, estado e cancelamento | — | Feito |
+| US39 | SAXO: OAuth com renovação automática (substitui o token de 24 h); conta real; streaming | — | Por fazer (precisa de chave e segredo da aplicação SAXO) |
 | US34 | Charts como sítio único do instrumento, com velas e volume (a página do instrumento redirecciona) | — | Feito |
 | US35 | Cálculos antecipados e caches stale-while-revalidate: páginas de estratégias imediatas | — | Feito |
 | US36 | Visão geral como painel do dia; menu em secções e botão «Mais» em telemóvel | — | Feito |

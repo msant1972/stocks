@@ -12,6 +12,7 @@ import Icon from '../../components/ui/Icon.jsx';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
 import TradeDialog from '../portfolio/TradeDialog.jsx';
+import SaxoOrderDialog, { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
 import AlertDialog from '../alerts/AlertDialog.jsx';
 
 // O gráfico (Recharts) só é carregado quando é preciso.
@@ -43,6 +44,8 @@ export default function ChartsPage() {
   const sortKey = SORTS[params.get('ordem')] ? params.get('ordem') : 'simbolo';
   const [search, setSearch] = useState('');
   const [trading, setTrading] = useState(false);
+  const [saxoOrder, setSaxoOrder] = useState(false);
+  const saxo = useSaxoStatus();
   const [alerting, setAlerting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState(null);
@@ -209,6 +212,7 @@ export default function ChartsPage() {
             </Button>
             <Button onClick={() => setAlerting(true)} disabled={current.status === 'invalid'}>Criar alerta</Button>
             {current.isinMic && <Link className="button" to={`/orderbook?instrumento=${current.id}`}>Livro de ofertas</Link>}
+            {saxo.data?.configured && <Button onClick={() => setSaxoOrder(true)} disabled={!tradable} title="Enviar uma ordem para a conta de simulação da SAXO Bank">Enviar à SAXO</Button>}
             <Button variant="primary" onClick={() => setTrading(true)} disabled={!tradable}>Simular operação</Button>
           </div>
         </div>
@@ -269,6 +273,7 @@ export default function ChartsPage() {
       </aside>
 
       <TradeDialog open={trading} onClose={() => setTrading(false)} instrument={current} />
+      <SaxoOrderDialog open={saxoOrder} onClose={() => setSaxoOrder(false)} instrument={current} />
       <AlertDialog open={alerting} onClose={() => setAlerting(false)} instrument={current} onDone={toast} />
     </div>
   );

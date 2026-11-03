@@ -6,7 +6,7 @@ Estado: versão 1 em produção em https://stocks.graus.pt (actualizado a 2 nov.
 
 A aplicação permite acompanhar acções, consultar o histórico diário com indicadores técnicos e momento, simular uma estratégia de momento no histórico, ver o mapa de calor e o momento do mercado, gerir uma carteira virtual, simular compras e vendas e receber alertas por email.
 
-A negociação é exclusivamente simulada. Não há operações com dinheiro real, integração com corretoras nem execução de ordens em bolsa.
+A negociação da aplicação (carteira, saldo, operações, estratégias) é exclusivamente simulada e nunca toca em dinheiro real. Opcionalmente, cada utilizador pode enviar ordens para a **conta de simulação (SIM) da SAXO Bank**, com o seu token (secção 4.7): é uma ligação separada, sempre com pré-validação e confirmação, que não altera a carteira virtual. A conta real da SAXO está recusada por omissão (`STOCKS_SAXO_ALLOW_LIVE=false`) e só se activa por decisão expressa.
 
 Este documento descreve a arquitectura implementada. O módulo de livro de ofertas segue a [especificação euronext-orderbook](orderbook-spec.md). As decisões que lhe deram origem estão em [Análise e decisões](analise_e_decisoes.md); a execução, em [Plano de implementação](plano_implementacao.md); a interface, no [Guia de estilos](guia_estilos.md); a operação do servidor, em [deploy/README.md](../../deploy/README.md).
 
@@ -98,6 +98,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Carteira | Valor total, resultados realizado e não realizado, evolução do valor sessão a sessão desde a criação (com o capital inicial como referência), posições ao custo médio ponderado |
 | Comparar | As estratégias lado a lado nos últimos 2 anos (resultado, instrumentos com ganho e perda, capital máximo, resultado sobre o capital, tempo investido, operações, acerto, piores casos, cada ano, em quantos é a melhor), com comprar e manter como referência e o melhor valor de cada linha a negrito; filtro «Todos / A minha lista»; persistência dos ganhadores e perdedores (recálculo semanal) |
 | Operações | Histórico filtrável por tipo, instrumento e datas |
+| Ordens SAXO | Ordens enviadas à conta de simulação da SAXO: estado actualizado, cancelamento, conta e saldo; faixa «Conta de simulação — não é dinheiro real» |
 | Sinais | Compras, reforços e vendas da estratégia escolhida (A-Momentum, B-Opus, C-AI ou D-Reversão) aplicada virtualmente a todos os instrumentos, nas últimas 1 a 10 sessões, com o motivo das vendas, filtro por tipo e botões Comprar e Vender (operação na carteira virtual) |
 | BackTest | Resultado da estratégia em cada instrumento nos últimos 2 anos (resultado em € e %, operações, taxa de acerto, posição aberta, comparação com comprar e manter), com resumo, filtro «Todos / A minha lista», pesquisa e ordenação; o símbolo abre o gráfico com a estratégia aplicada |
 | WinnersLoosers | Instrumentos em que todas as estratégias disponíveis ganham, e em que todas perdem, nos últimos 2 anos: resumo (quantos e soma), filtro «Todos / A minha lista», pesquisa e duas tabelas ordenáveis com o resultado de cada estratégia, o total e comprar e manter; cada resultado abre o gráfico com essa estratégia; ícone por linha e botões em massa para adicionar os ganhadores à lista de acompanhamento e remover os perdedores |
@@ -105,7 +106,7 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Alertas | Regras com pré-visualização em linguagem natural (preço, variação diária ou sinal de compra/reforço/venda de uma estratégia), activação e eventos com o estado do envio |
 | Entrar | Palavra-passe e, a seguir, código de 6 dígitos ou código de recuperação; no primeiro login, configuração do 2.º factor com QR code, chave manual e 10 códigos de recuperação |
 | Utilizadores | Só administradores: listar (com o estado do 2.º factor), adicionar, redefinir palavra-passe, repor o 2.º factor e remover contas |
-| Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, cartão «SAXO Bank» com o campo «Token» (guardado cifrado, nunca mostrado de novo; por agora não é usado), autenticação em dois passos (códigos de recuperação, trocar de aplicação), terminar sessão; para administradores, configuração SMTP com email de teste |
+| Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, cartão «SAXO Bank» com o campo «Token» (guardado cifrado, nunca mostrado de novo; mostra a validade de 24 h, «Testar ligação» e o distintivo «Simulação (SIM)»), autenticação em dois passos (códigos de recuperação, trocar de aplicação), terminar sessão; para administradores, configuração SMTP com email de teste |
 
 Regras da interface:
 - Os valores monetários chegam como strings decimais e só passam a número para apresentação. Formatação pt-PT («12 345,67 €», «16 out. 2026»).
@@ -139,7 +140,8 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | WinnersLoosers | `GET /winners-losers?scope=all\|watchlist` (resultados do BackTest de todas as estratégias disponíveis, agrupados em gain, loss e mixed, com `inWatchlist` por utilizador; usa a cache do BackTest) |
 | Promessas | `GET /promessas?scope=all\|watchlist` (sinais por instrumento, um de cada vez, cache 10 min; `pastWinner` a partir do BackTest; tabela de validação) |
 | Estado | `GET /status` |
-| Integrações | `GET/PUT/DELETE /me/integrations/saxo` (token da SAXO Bank do utilizador: o estado diz se existe e quando foi guardado, o token nunca é devolvido; 409 `NO_SECRET_KEY` sem a chave de cifra) |
+| Integrações | `GET/PUT/DELETE /me/integrations/saxo` (token da SAXO Bank do utilizador: o estado diz se existe, quando foi guardado, o ambiente e a validade de 24 h; o token nunca é devolvido; 409 `NO_SECRET_KEY` sem a chave de cifra) |
+| SAXO | `GET /saxo/connection` (conta e saldo da simulação); `POST /saxo/orders/preview` (resolve o instrumento, pré-valida na SAXO e devolve um código de confirmação de 5 min ligado aos parâmetros); `POST /saxo/instruments/{id}/match` (escolha manual quando há várias correspondências); `POST /saxo/orders` (envia com o código e uma `idempotencyKey`); `GET /saxo/orders` (com o estado confrontado com a SAXO); `DELETE /saxo/orders/{id}` (cancela). Erros `SAXO_*` (sem token, token expirado, conta real bloqueada, limite de pedidos, duplicado, recusada, indisponível) |
 | Administração | `GET/POST /admin/users`, `PUT /admin/users/{id}/password`, `DELETE /admin/users/{id}`, `GET/PUT /admin/smtp`, `POST /admin/smtp/test` |
 | Saúde | `GET /health/live`, `GET /health/ready` (fora de `/api/v1`) |
 
@@ -176,7 +178,9 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 | `fetch_jobs` | Fila de recolha: tipo (inicial ou incremental), estado, tentativas, próxima tentativa, último erro |
 | `job_runs` | Execuções da recolha diária e dos alertas, para diagnóstico |
 | `users`, `sessions` | Contas (hash scrypt, perfil de administrador, desactivação, segredo TOTP cifrado e último passo aceite) e sessões (só o SHA-256 do token; fase `mfa_setup`, `mfa_verify` ou `full`; códigos errados) |
-| `user_integration_tokens` | Token de cada utilizador à SAXO Bank (`provider = 'saxo'`), cifrado com AES-256-GCM e a chave do servidor, como a palavra-passe SMTP; nunca devolvido pela API |
+| `user_integration_tokens` | Token de cada utilizador à SAXO Bank (`provider = 'saxo'`), cifrado com AES-256-GCM e a chave do servidor, como a palavra-passe SMTP; nunca devolvido pela API. Guarda o ambiente (`sim`), a validade (24 h) e se a SAXO o recusou |
+| `saxo_instruments` | Correspondência instrumento da aplicação → instrumento da SAXO (Uic, símbolo, bolsa, tipos de ordem, quantidade mínima), preenchida na primeira ordem |
+| `saxo_orders` | Ordens enviadas à SAXO por cada utilizador (lado, quantidade, tipo, preço limite, preço da aplicação, id na SAXO, estado `sending/working/ended/cancelled/rejected/unknown`), com chave de idempotência única por utilizador |
 | `user_recovery_codes` | Códigos de recuperação do 2.º factor (só o SHA-256), cada um de uso único |
 | `watchlist_items` | Uma lista por utilizador sobre o catálogo |
 | `portfolios`, `cash_movements` | Carteira em EUR com capital inicial e saldo; movimentos de saldo |
@@ -256,6 +260,14 @@ Biblioteca em `api/src/orderbook/` que implementa a [especificação](orderbook-
 - **Configuração:** `EURONEXT_BASE_URL`, `EURONEXT_LANG`, `EURONEXT_TIMEOUT_MS`, `EURONEXT_USER_AGENT`.
 - **Decisões face à especificação:** o CLI aceita também `--layout ladder`; o fuso de Dublin aplica-se a `XDUB` e a `XMSM` (o MIC da Euronext Dublin). Continua em aberto (especificação §13) se o carimbo vem na hora do mercado ou na de Paris.
 
+### 4.7. Ligação à SAXO Bank (simulação)
+
+- **Código:** `api/src/saxo/` (`client.js`: cliente HTTP com tempo limite, 401/403/409/429/5xx tipados e espaçamento de 1 ordem/s por utilizador; `service.js`: sessão, conta, resolução de instrumentos, pré-validação, envio, lista, cancelamento) e `api/src/routes/saxo.js`. O browser nunca fala com a SAXO e o token nunca sai do servidor, nem é registado em logs, erros ou auditoria.
+- **Ambientes:** SIM `https://gateway.saxobank.com/sim/openapi`. A conta real (`/openapi`) está bloqueada por `STOCKS_SAXO_ALLOW_LIVE=false`: com um token `live`, todas as chamadas dão 409 `SAXO_LIVE_BLOCKED` sem contactar a SAXO. O token do portal só serve para SIM e dura 24 h; a validade é guardada e um 401 marca-o como recusado.
+- **Factos do SIM (spike de 3 nov. 2026, fixtures em `api/test/fixtures/saxo/`):** conta em EUR com 1 000 000 €; símbolos `RAIZ:mic`; a pesquisa por palavra-chave aceita o ISIN; `ExchangeId` → MIC por `/ref/v1/exchanges`; sem preços de mercado; *precheck* e envio partilham 1 pedido/s.
+- **Testes:** `api/test/saxo.test.js` usa um servidor SAXO falso montado com as fixtures reais (`cfg.saxo.fetchImpl`); nenhum teste chama a SAXO.
+- **Por fazer:** OAuth (Authorization Code Grant com renovação atómica do refresh token), que exige chave e segredo de uma aplicação SAXO; posições da conta; streaming; conta real.
+
 ## 5. Fluxos de funcionamento
 
 ### 5.1. Adicionar um instrumento
@@ -330,6 +342,15 @@ A página **BackTest** aplica a estratégia escolhida (A-Momentum por omissão) 
 3. A API bloqueia a carteira, valida instrumento, moeda, idade da cotação, saldo ou quantidade, e grava tudo numa transacção.
 4. A interface mostra um recibo com o preço efectivamente aplicado.
 
+### 5.5b. Ordem para a SAXO Bank (simulação)
+
+1. O utilizador guarda o token de 24 h em Definições («Testar ligação» mostra a conta e o saldo da simulação). Nos Charts e nos Sinais aparece «Enviar à SAXO».
+2. **Pré-validar:** a API resolve o instrumento (pesquisa por ISIN e MIC na SAXO; símbolo `RAIZ:mic`; várias correspondências → o utilizador escolhe), escolhe a conta activa em EUR, corre o *precheck* da SAXO e devolve o resumo com um código assinado (HMAC, 5 min) ligado a instrumento, lado, quantidade, tipo e preço.
+3. **Confirmar e enviar:** a API verifica o código (qualquer alteração aos parâmetros é recusada), grava a ordem como `sending`, envia (`ManualOrder`, validade do dia, `x-request-id` = chave de idempotência) e passa-a a `working`. Pedidos de ordens são espaçados 1,1 s por utilizador (a SAXO aceita 1 por segundo, partilhado pelo *precheck* e pelo envio); um 429 espera e repete uma vez; um 409 (ordem idêntica em 15 s) nunca é repetido. Sem resposta da SAXO, a ordem fica `unknown` para o utilizador confirmar na SAXO.
+4. **Ordens SAXO:** lista as ordens com o estado confrontado com as ordens abertas da SAXO (as que desaparecem passam a `ended`) e permite cancelar as abertas.
+
+O valor mostrado vem do preço da aplicação: a conta de simulação da SAXO não tem preços de mercado. Um 401 marca o token como expirado.
+
 ### 5.6. Gestão de utilizadores
 
 Um administrador cria contas (com carteira e capital inicial), redefine palavras-passe (o que termina as sessões do utilizador), repõe a autenticação em dois passos de quem perdeu o telemóvel e os códigos de recuperação, e remove contas com todos os dados. Não pode remover a própria conta, e a aplicação nunca fica sem administradores activos. Tudo fica na auditoria. O CLI `api/src/cli.js` faz o mesmo a partir do servidor; `reset-mfa` é também o recurso de um administrador sem acesso ao 2.º factor.
@@ -394,7 +415,7 @@ Riscos aceites ou pendentes:
 
 | Critério | Estado |
 |---|---|
-| A aplicação não envia ordens para corretoras | Cumprido |
+| A aplicação só envia ordens para a conta de simulação da SAXO (a real está bloqueada) e só com pré-validação e confirmação | Cumprido (testado) |
 | Ao adicionar um instrumento, carrega até três anos de histórico diário | Cumprido |
 | Instrumentos inexistentes ou não cotados em EUR ficam inválidos, com o motivo | Cumprido |
 | Repetir uma recolha não cria cotações duplicadas | Cumprido (testado) |

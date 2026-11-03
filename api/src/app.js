@@ -19,6 +19,7 @@ import watchlistRoutes from './routes/watchlist.js';
 import portfolioRoutes from './routes/portfolio.js';
 import alertRoutes from './routes/alerts.js';
 import integrationRoutes from './routes/integrations.js';
+import saxoRoutes from './routes/saxo.js';
 import statusRoutes from './routes/status.js';
 import heatmapRoutes from './routes/heatmap.js';
 import adminRoutes from './routes/admin.js';
@@ -137,6 +138,7 @@ export async function buildApp({ pool, cfg, logger = true, warm = false }) {
     await api.register(portfolioRoutes, opts);
     await api.register(alertRoutes, opts);
     await api.register(integrationRoutes, opts);
+    await api.register(saxoRoutes, opts);
     await api.register(statusRoutes, opts);
     await api.register(heatmapRoutes, opts);
     await api.register(adminRoutes, opts);
