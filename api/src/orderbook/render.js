@@ -27,7 +27,7 @@ export function renderText(book, stats = computeStats(book), opts = {}) {
   const intFmt = new Intl.NumberFormat(locale, { maximumFractionDigits: 0, useGrouping: 'always' });
   const num2 = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const p = (s) => priceFmt.format(Number(s));
-  const q = (n) => intFmt.format(n).replace(/ | /g, ' ');
+  const q = (n) => intFmt.format(n).replace(/\u202f|\u00a0/g, ' ');
 
   const bids = book.bids.slice(0, levels);
   const asks = book.asks.slice(0, levels);

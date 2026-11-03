@@ -4,12 +4,14 @@ import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { keys, useWatchlist } from '../../lib/queries.js';
 import { Button, Dialog, Field, Notice } from '../../components/ui/controls.jsx';
+import { AVAILABLE_STRATEGIES, DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
 
 const KINDS = [
   { value: 'close_above', label: 'Fecho acima de um valor', unit: '€' },
   { value: 'close_below', label: 'Fecho abaixo de um valor', unit: '€' },
   { value: 'change_up', label: 'Subida diária de pelo menos', unit: '%' },
   { value: 'change_down', label: 'Descida diária de pelo menos', unit: '%' },
+  { value: 'signal', label: 'Sinal de uma estratégia (compra, reforço ou venda)', unit: null },
 ];
 
 /** Criar ou editar uma regra. instrument fixa o instrumento; rule activa o modo de edição. */
@@ -19,6 +21,7 @@ export default function AlertDialog({ open, onClose, instrument, rule, onDone })
   const [instrumentId, setInstrumentId] = useState('');
   const [kind, setKind] = useState('close_above');
   const [threshold, setThreshold] = useState('');
+  const [strategy, setStrategy] = useState(DEFAULT_STRATEGY_ID);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -26,7 +29,8 @@ export default function AlertDialog({ open, onClose, instrument, rule, onDone })
     if (!open) return;
     setInstrumentId(String(rule?.instrumentId ?? instrument?.id ?? ''));
     setKind(rule?.kind ?? 'close_above');
-    setThreshold(rule ? rule.threshold.replace('.', ',') : '');
+    setThreshold(rule?.threshold ? rule.threshold.replace('.', ',') : '');
+    setStrategy(rule?.strategy ?? DEFAULT_STRATEGY_ID);
     setError(null);
     setBusy(false);
   }, [open, rule, instrument]);
@@ -34,17 +38,19 @@ export default function AlertDialog({ open, onClose, instrument, rule, onDone })
   const options = wl.data?.items.filter((i) => i.status !== 'invalid') ?? [];
   const selected = instrument ?? options.find((i) => String(i.id) === instrumentId) ?? (rule && { symbol: rule.symbol, currency: rule.currency });
   const normalised = threshold.trim().replace(/\s/g, '').replace(',', '.');
-  const valid = /^\d{1,12}(\.\d{1,6})?$/.test(normalised) && Number(normalised) > 0;
+  const isSignal = kind === 'signal';
+  const valid = isSignal ? Boolean(getStrategy(strategy)) : /^\d{1,12}(\.\d{1,6})?$/.test(normalised) && Number(normalised) > 0;
   const unit = KINDS.find((k) => k.value === kind).unit;
-  const sentence = valid ? f.describeRule(kind, normalised, selected?.symbol, selected?.currency || 'EUR') : null;
+  const sentence = valid ? f.describeRule(kind, normalised, selected?.symbol, selected?.currency || 'EUR', getStrategy(strategy)?.name) : null;
+  const body = isSignal ? { kind, strategy } : { kind, threshold: normalised };
 
   async function save(e) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      if (rule) await api.patch(`/alerts/${rule.id}`, { kind, threshold: normalised });
-      else await api.post('/alerts', { instrumentId: Number(instrumentId), kind, threshold: normalised });
+      if (rule) await api.patch(`/alerts/${rule.id}`, body);
+      else await api.post('/alerts', { instrumentId: Number(instrumentId), ...body });
       qc.invalidateQueries({ queryKey: keys.alerts });
       onDone?.(rule ? 'Regra actualizada' : 'Alerta criado');
       onClose();
@@ -76,14 +82,25 @@ export default function AlertDialog({ open, onClose, instrument, rule, onDone })
             </select>
           )}
         </Field>
-        <Field label={`Valor (${unit === '€' ? 'EUR' : '%'})`} error={threshold && !valid ? 'Indique um número positivo, ex.: 15,50.' : null}>
-          {(p) => <input {...p} className="input num" inputMode="decimal" value={threshold} onChange={(e) => setThreshold(e.target.value)} placeholder={unit === '€' ? '15,50' : '3'} />}
-        </Field>
+        {isSignal ? (
+          <Field label="Estratégia" help="As mesmas regras da página do instrumento, do BackTest e dos Sinais.">
+            {(p) => (
+              <select {...p} className="select" value={strategy} onChange={(e) => setStrategy(e.target.value)}>
+                {AVAILABLE_STRATEGIES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            )}
+          </Field>
+        ) : (
+          <Field label={`Valor (${unit === '€' ? 'EUR' : '%'})`} error={threshold && !valid ? 'Indique um número positivo, ex.: 15,50.' : null}>
+            {(p) => <input {...p} className="input num" inputMode="decimal" value={threshold} onChange={(e) => setThreshold(e.target.value)} placeholder={unit === '€' ? '15,50' : '3'} />}
+          </Field>
+        )}
         {sentence && <p className="notice" aria-live="polite">{sentence}</p>}
         <p className="small muted">
           As condições são avaliadas com cotações diárias, não em tempo real. Os alertas disparados são enviados num único email de resumo,
           após a actualização diária das cotações.
           {(kind === 'close_above' || kind === 'close_below') && ' Um alerta de valor é enviado quando a condição passa a verificar-se, e não todos os dias enquanto se mantém.'}
+          {isSignal && ' Os sinais são calculados sobre os fechos definitivos; é uma simulação e não uma recomendação.'}
         </p>
         {error && <Notice tone="error">{error}</Notice>}
         <div className="modal-actions">

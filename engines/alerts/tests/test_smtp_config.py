@@ -1,7 +1,7 @@
 import base64
 
 from alerts.__main__ import cmd_test
-from alerts.config import resolve_smtp, smtp_from_db, SmtpSettings
+from alerts.config import SmtpSettings, resolve_smtp, smtp_from_db
 from alerts.secrets import decrypt, load_key
 
 # Vector gerado por api/src/secrets.js (chave = 32 bytes 0x07, iv = 12 bytes 0x01): garante que a API

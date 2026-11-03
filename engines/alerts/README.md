@@ -52,6 +52,7 @@ python -m alerts run --dry-run   # mostra os resumos no terminal; não envia nem
 python -m alerts run             # avalia e envia
 python -m alerts run --dry-run-if-unconfigured   # como run, mas em --dry-run se não houver SMTP (usado pela recolha diária)
 python -m alerts test --to ana@exemplo.pt        # email de teste (também disponível em Definições)
+python -m alerts ops [--dry-run]                 # aviso operacional aos administradores (stocks-ops.timer, dias úteis às 21:00)
 ```
 
 ## Testes
@@ -59,3 +60,7 @@ python -m alerts test --to ana@exemplo.pt        # email de teste (também dispo
 ```bash
 STOCKS_TEST_DB_PASSWORD=... pytest   # base stocks_test; mailer simulado, nunca envia emails
 ```
+
+## Alertas de sinais
+
+As regras `signal` (com `strategy`, sem limite) avisam quando a estratégia indicada dá um sinal de compra, reforço ou venda numa sessão definitiva. Os sinais são calculados pelo registo JavaScript das estratégias (`scripts/strategy-signals.mjs`, corrido com `node` a partir de `api/`; `STOCKS_NODE` muda o executável), só quando há regras de sinal activas.

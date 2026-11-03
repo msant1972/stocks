@@ -1,0 +1,9 @@
+[Unit]
+Description=Stocks — recálculo semanal das análises, ao sábado às 09:00 de Lisboa (bolsas fechadas)
+
+[Timer]
+OnCalendar=Sat 09:00 Europe/Lisbon
+Persistent=true
+
+[Install]
+WantedBy=timers.target

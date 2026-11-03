@@ -11,8 +11,9 @@ export default async function alertRoutes(app, { pool }) {
     schema: {
       tags: ['Alertas'], summary: 'Criar regra de alerta',
       description: 'close_above/close_below: limite em EUR, notificado quando a condição passa a verificar-se. '
-        + 'change_up/change_down: variação percentual face à sessão anterior, avaliada em cada sessão.',
-      body: z.object({ instrumentId: Id, kind: AlertKind, threshold: PositiveDecimalInput }),
+        + 'change_up/change_down: variação percentual face à sessão anterior, avaliada em cada sessão. '
+        + 'signal: sinal de compra, reforço ou venda da estratégia indicada em strategy (sem threshold), numa sessão definitiva.',
+      body: z.object({ instrumentId: Id, kind: AlertKind, threshold: PositiveDecimalInput.optional(), strategy: z.string().max(32).optional() }),
       response: { 201: AlertRule, 404: ErrorBody, 409: ErrorBody },
     },
   }, async (req, reply) => reply.code(201).send(await createRule(pool, req.user.id, req.body)));
@@ -21,7 +22,7 @@ export default async function alertRoutes(app, { pool }) {
     schema: {
       tags: ['Alertas'], summary: 'Editar, activar ou desactivar regra',
       params: z.object({ id: Id }),
-      body: z.object({ kind: AlertKind.optional(), threshold: PositiveDecimalInput.optional(), active: z.boolean().optional() }),
+      body: z.object({ kind: AlertKind.optional(), threshold: PositiveDecimalInput.optional(), strategy: z.string().max(32).optional(), active: z.boolean().optional() }),
       response: { 200: AlertRule, 404: ErrorBody },
     },
   }, async (req) => updateRule(pool, req.user.id, req.params.id, req.body));
@@ -40,7 +41,8 @@ export default async function alertRoutes(app, { pool }) {
       response: {
         200: z.object({
           items: z.array(z.object({
-            id: z.number(), ruleId: z.number(), kind: AlertKind, threshold: Decimal, symbol: z.string(),
+            id: z.number(), ruleId: z.number(), kind: AlertKind, threshold: NullableDecimal, strategy: z.string().nullable(),
+            signalSide: z.enum(['buy', 'add', 'sell']).nullable(), symbol: z.string(),
             sessionDate: IsoDate, close: Decimal, changePct: NullableDecimal,
             deliveryStatus: z.enum(['pending', 'sending', 'sent', 'failed', 'uncertain']), deliveredAt: z.string().nullable(),
           })),

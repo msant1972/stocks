@@ -17,7 +17,7 @@ export const parseEuronextNumber = (value) => {
 };
 
 const intOrNull = (text) => {
-  const t = String(text ?? '').replace(/[,\s ]/g, '');
+  const t = String(text ?? '').replace(/[,\s\u00a0]/g, '');
   return /^\d+$/.test(t) ? Number(t) : null;
 };
 

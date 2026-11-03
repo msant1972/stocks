@@ -1,0 +1,17 @@
+[Unit]
+Description=Stocks — recálculo das análises (validação das Promessas, persistência dos ganhadores)
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=stocks-svc
+Group=stocks-svc
+EnvironmentFile=/etc/stocks/stocks.env
+WorkingDirectory=/opt/stocks/api
+ExecStart=/usr/bin/node ../scripts/analysis-revalidation.mjs
+TimeoutStartSec=30min
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

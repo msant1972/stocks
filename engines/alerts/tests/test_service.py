@@ -166,3 +166,38 @@ def test_sessao_que_chegou_tarde_e_avaliada_na_execucao_seguinte(conn, db, setti
     r = run(conn, settings, mailer)
     assert (r.events, r.sent) == (1, 1)
     assert db.one("SELECT change_pct FROM alert_events")["change_pct"] == 10
+
+
+def test_regra_de_sinal_avisa_nas_sessoes_com_sinal_da_estrategia(conn, db, settings, mailer):
+    ana = db.user("ana@exemplo.pt")
+    galp = db.instrument("GALP.LS")
+    db.exec("INSERT INTO alert_rules (user_id, instrument_id, kind, strategy) VALUES (%s, %s, 'signal', 'c-ai')", (ana, galp))
+    d0 = db.quote(galp, "14.00", days_ago=3)
+    d1 = db.quote(galp, "14.50", days_ago=2)
+    d2 = db.quote(galp, "15.00", days_ago=1)
+    calls = []
+
+    def signals():
+        calls.append(1)
+        return {(galp, "c-ai"): {d1.isoformat(): "buy"}, (galp, "b-opus"): {d2.isoformat(): "sell"}}
+
+    r = run(conn, settings, mailer, signals=signals)
+    # Regra nova: só a última sessão (d2), sem sinal da C-AI.
+    assert (r.events, len(calls)) == (0, 1)
+    db.exec("UPDATE alert_rules SET last_evaluated_session = %s", (d0,))
+    r = run(conn, settings, mailer, signals=signals)
+    assert (r.events, r.sent) == (1, 1)                     # o sinal de compra de d1
+    assert db.one("SELECT signal_side, session_date FROM alert_events") == {"signal_side": "buy", "session_date": d1}
+    assert "sinal de compra da C-AI" in mailer.sent[0].get_body(preferencelist=("plain",)).get_content()
+
+
+def test_sem_regras_de_sinal_nao_calcula_sinais(conn, db, settings, mailer):
+    ana = db.user("ana@exemplo.pt")
+    galp = db.instrument("GALP.LS")
+    db.rule(ana, galp, "close_above", "15")
+    db.quote(galp, "16.00", days_ago=1)
+
+    def signals():
+        raise AssertionError("não devia ser chamado")
+
+    assert run(conn, settings, mailer, signals=signals).events == 1

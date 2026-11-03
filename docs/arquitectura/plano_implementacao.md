@@ -80,7 +80,9 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Promessas | Lista dos instrumentos com sinais de continuarem ou passarem a ganhadores nos 12 meses seguintes, com a regra validada em 5 janelas do passado ([promessas.md](promessas.md)) |
 | WinnersLoosers | Página com os instrumentos em que as três estratégias ganham e em que as três perdem (24 out. 2026: 102 e 80), a partir dos resultados do BackTest |
 | Estratégia D-Reversão | Reversão à média definida a partir da análise dos perdedores do WinnersLoosers ([D-Reversao.md](D-Reversao.md)): compra com z < −2,5 face à média de 20 sessões, vende com RSI2 > 70 ou ao fim de 10 sessões; +250 k€ no catálogo, +42 k€ nos perdedores das outras três |
-| Charts | Gráfico do instrumento com a lista de acompanhamento à direita, para ver todos os gráficos sem mudar de página |
+| Charts | Gráfico do instrumento com a lista de acompanhamento à direita, para ver todos os gráficos sem mudar de página; lista da carteira ou do catálogo, pesquisa e ordenação |
+| Comparar estratégias, alertas de sinais, evolução da carteira | Quadro comparativo das estratégias; alertas quando uma estratégia dá sinal; gráfico do valor da carteira (3 nov. 2026) |
+| Operação e qualidade | Aviso operacional diário aos administradores; revalidação semanal das análises; ESLint, Ruff e auditoria de dependências no CI com as versões da produção; páginas do frontend carregadas a pedido (ficheiro principal de 761 KB para 316 KB) |
 | Melhor estratégia por instrumento | Coluna em Acompanhar e estratégia aplicada por omissão na página do instrumento (`GET /strategies/best`) |
 | Estratégia C-AI | Especificada a partir da análise de todos os instrumentos ([C-AI.md](C-AI.md)) e implementada: entrada acima da SMA200 com M2 > 0, stop chandelier de 5 × ATR, reforços a +10% só com M2 > 2 (até 5); +1 491 k€, 182 com ganho e 106 com perda |
 | Estratégia B-Opus | Tendência e momentum por instrumento (SMA50/SMA200, M1, M2, liquidez), decisão semanal, execução na abertura seguinte, reforços a +10% (até 5), stop chandelier de 4 × ATR (versão B, +841 k€ contra +126 k€ das regras originais); no instrumento, BackTest e Sinais; ablação em `b-opus-ablacao.md` |
@@ -120,7 +122,12 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US23 | Estratégia C-AI (especificação a partir da análise do catálogo e implementação) | — | Feito |
 | US26 | Estratégia D-Reversão (análise dos perdedores, especificação e implementação) | — | Feito |
 | US27 | Melhor estratégia por instrumento em Acompanhar e por omissão na página do instrumento | — | Feito |
-| US28 | Módulo Charts (gráficos da lista sem mudar de página) | — | Feito |
+| US28 | Módulo Charts (gráficos da lista sem mudar de página; fonte lista/carteira/catálogo, pesquisa e ordenação) | — | Feito |
+| US29 | Aviso operacional aos administradores | — | Feito |
+| US30 | Página Comparar estratégias | — | Feito |
+| US31 | Alertas de sinais das estratégias | — | Feito |
+| US32 | Revalidação semanal das Promessas e da persistência dos ganhadores | — | Feito |
+| US33 | Evolução da carteira | — | Feito |
 | US24 | Módulo WinnersLoosers | — | Feito |
 | US25 | Módulo Promessas | — | Feito (regra validada em 5 janelas; revalidar à medida que o histórico cresce) |
 | US19 | ISIN-MIC no catálogo e módulo Orderbook | — | Feito; ISIN-MIC preenchido a 20 out. 2026 a partir de `ISIN.xlsx` em 162 dos 171 instrumentos Euronext (faltam 9 que não constam do ficheiro) |
@@ -162,11 +169,11 @@ Concluído a 18 out. 2026 (SMTP, carteira a 1 M€, cópia externa e restauro). 
 
 ### P1 — robustez
 
-3. Teste de restauro a partir do autobackup do VPS (a cópia fora do servidor existe desde 2 nov. 2026; o último restauro testado foi no servidor anterior).
-4. Análise estática (ESLint, Ruff) e auditoria de dependências (`npm audit`, `pip-audit`) no CI.
+3. ~~Teste de restauro~~ do dump feito a 3 nov. 2026 no servidor actual; falta experimentar a recuperação de um ficheiro no painel do autobackup.
+4. ~~Análise estática (ESLint, Ruff) e auditoria de dependências (`npm audit`, `pip-audit`) no CI~~ (3 nov. 2026, com o CI nas versões da produção).
 5. Ambiente de testes separado da produção (outra máquina ou contentores), e trabalho por ramos com pull requests.
 6. Contas de BD por componente (API e motores com permissões mínimas).
-7. Alerta operacional ao administrador quando a recolha diária ou os alertas falham (`job_runs` em `failed`).
+7. ~~Alerta operacional ao administrador~~ (3 nov. 2026: `stocks-ops.timer`).
 8. Medição de desempenho com o volume real e registo dos controlos OWASP ASVS aplicados.
 9. Teste automático de memória para os cálculos sobre todo o catálogo (BackTest, WinnersLoosers, Promessas, Sinais) com um heap limitado.
 
@@ -188,7 +195,7 @@ Lista de verificação da versão 1:
 - [x] Migrações aplicadas com dbmate pelo `install.sh`.
 - [x] Testes de saldo, concorrência e isolamento aprovados.
 - [x] Testes de resumo único e desduplicação de alertas aprovados.
-- [ ] Monitorização com alerta operacional (hoje: `journalctl`, `/status` e Definições).
+- [x] Monitorização com alerta operacional (email diário aos administradores quando há problemas).
 - [x] Backup externo: autobackup do VPS.
 - [ ] Restauro demonstrado no servidor actual (feito no servidor anterior a 18 out. 2026).
 - [x] Envio real de email verificado (email de teste pelo SMTP da OVH).
@@ -209,6 +216,6 @@ A versão 1 considera-se concluída quando permite:
 - acompanhar instrumentos com histórico diário até dois anos — **cumprido**;
 - simular compras e vendas com integridade de saldo e posições — **cumprido**;
 - gerir alertas por email com um resumo por utilizador após cada recolha diária — **cumprido**;
-- operar com monitorização e recuperação testadas — **recuperação testada; falta o alerta operacional ao administrador (P1)**.
+- operar com monitorização e recuperação testadas — **cumprido** (aviso operacional desde 3 nov. 2026; restauro do dump testado).
 
 A aplicação comunica de forma inequívoca que não executa operações reais e que usa dados diários, não cotações em tempo real.

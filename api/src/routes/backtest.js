@@ -17,7 +17,19 @@ const Row = z.object({
   realized: Money, unrealized: Money, total: Money,
   totalPct: z.number().describe('Total sobre o capital máximo investido, em %'),
   buyHoldPnl: Money.nullable(), buyHoldPct: z.number().nullable(),
+  investedSessions: z.number().describe('Sessões da janela com posição aberta'),
+  firstYear: Money.describe('Resultado das vendas feitas no 1.º ano da janela'),
+  secondYear: Money.describe('Resultado das vendas do 2.º ano e da posição aberta'),
 });
+
+/** Sessões da janela com posição e resultado de cada ano (1.º ano: vendas até mid; 2.º: o resto, com a posição aberta). */
+function exposure(r, window, mid) {
+  const spans = r.trades.map((t) => [t.buyDate, t.sellDate]);
+  if (r.open) spans.push([r.open.buyDate, '9999-12-31']);
+  const invested = window.filter((x) => spans.some(([a, z]) => x.date >= a && x.date < z)).length;
+  const firstYear = Math.round(r.trades.filter((t) => t.sellDate < mid).reduce((a, t) => a + t.pnl, 0) * 100) / 100;
+  return { invested, firstYear, secondYear: Math.round((r.summary.total - firstYear) * 100) / 100 };
+}
 
 /**
  * Aplica estratégias do registo (shared/strategies/, as mesmas da página do instrumento) a cada instrumento
@@ -48,6 +60,8 @@ async function computeStrategies(pool, strategies) {
       if (!q.length) continue;
       const r = st.run(q, { from });
       const s = r.summary;
+      const window = q.filter((x) => x.date >= from);
+      const e = exposure(r, window, yearsBefore(inst.last_session, st.windowYears - 1));
       out.get(st.id).push({
         instrumentId: Number(inst.id), symbol: inst.symbol, name: inst.name, exchange: inst.exchange,
         fromDate: r.firstDate, toDate: q.at(-1).date, sessions: q.filter((x) => x.date >= from).length,
@@ -56,6 +70,7 @@ async function computeStrategies(pool, strategies) {
         totalPct: Math.round(s.totalPct * 100) / 100,
         buyHoldPnl: s.buyHold?.pnl ?? null,
         buyHoldPct: s.buyHold ? Math.round(s.buyHold.pnlPct * 100) / 100 : null,
+        investedSessions: e.invested, firstYear: e.firstYear, secondYear: e.secondYear,
       });
     }
   }
@@ -96,6 +111,83 @@ export default async function backtestRoutes(app, { pool }) {
     let { items } = entry;
     if (req.query.scope === 'watchlist') items = await onlyWatchlist(req.user.id, items);
     return { strategy: info(strategy), years: strategy.windowYears, budget: strategy.budget, computedAt: new Date(entry.at).toISOString(), items };
+  });
+
+  // ---------- Comparação das estratégias (página «Comparar») ----------
+
+  const StrategyStats = z.object({
+    id: z.string(), name: z.string(),
+    total: Money, gain: z.number().describe('Instrumentos com ganho'), loss: z.number().describe('Instrumentos com perda'),
+    peakCost: Money.describe('Soma do capital máximo investido em cada instrumento'),
+    returnOnPeakPct: z.number().describe('Resultado sobre o capital máximo investido, em %'),
+    positions: z.number().describe('Operações (fechadas e abertas)'), winRate: z.number().nullable().describe('Operações fechadas com ganho, em %'),
+    investedPct: z.number().nullable().describe('Tempo com posição aberta, em % das sessões'),
+    worst: Money.nullable(), worst10: Money,
+    firstYear: Money.nullable(), secondYear: Money.nullable(),
+    bestIn: z.number().nullable().describe('Instrumentos em que é a melhor estratégia (só nas estratégias)'),
+  });
+  app.get('/strategies/compare', {
+    schema: {
+      tags: ['Estratégia'], summary: 'Comparação das estratégias disponíveis nos últimos 2 anos, com comprar e manter como referência',
+      description: 'Agrega os resultados do BackTest de cada estratégia (cache de 10 minutos). O 1.º ano conta as vendas feitas '
+        + 'nesse ano; o 2.º, as restantes e a posição aberta. buyHold: 15 000 € no início da janela, mantidos até ao fim.',
+      querystring: z.object({ scope: z.enum(['all', 'watchlist']).default('all') }),
+      response: {
+        200: z.object({
+          computedAt: z.string(), years: z.number(), budget: z.number(), instruments: z.number(), items: z.array(StrategyStats), buyHold: StrategyStats,
+          persistence: z.object({
+            computedAt: z.string(), anchor: IsoDate,
+            groups: z.array(z.object({ group: z.enum(['gain', 'mixed', 'loss']), n: z.number(), gain: z.number(), mixed: z.number(), loss: z.number(), avgStrategies: z.number(), avgBuyHold: z.number() })),
+          }).nullable().describe('Ganhadores e perdedores do 1.º ano: o que aconteceu no 2.º (recálculo semanal; null se ainda não correu)'),
+        }),
+      },
+    },
+  }, async (req) => {
+    const computed = await ensure(AVAILABLE_STRATEGIES);
+    const ids = req.query.scope === 'watchlist' ? await watchlistIds(req.user.id) : null;
+    const rowsOf = (k) => computed[k].items.filter((it) => !ids || ids.has(it.instrumentId));
+    const sum = (a) => Math.round(a.reduce((x, v) => x + v, 0) * 100) / 100;
+    const stats = (id, name, rows, value, extra) => {
+      const totals = rows.map(value).sort((a, b) => a - b);
+      const peak = sum(rows.map((r) => extra.peak(r)));
+      return {
+        id, name, total: sum(totals), gain: totals.filter((v) => v > 0).length, loss: totals.filter((v) => v < 0).length,
+        peakCost: peak, returnOnPeakPct: peak > 0 ? Math.round((sum(totals) / peak) * 10000) / 100 : 0,
+        worst: totals.length ? totals[0] : null, worst10: sum(totals.slice(0, 10)), ...extra.fields(rows),
+      };
+    };
+    const best = new Map();
+    AVAILABLE_STRATEGIES.forEach((st, k) => {
+      for (const it of rowsOf(k)) if (!best.has(it.instrumentId) || it.total > best.get(it.instrumentId).total) best.set(it.instrumentId, { id: st.id, total: it.total });
+    });
+    const items = AVAILABLE_STRATEGIES.map((st, k) => {
+      const rows = rowsOf(k);
+      const closed = sum(rows.map((r) => r.closed));
+      const sessions = sum(rows.map((r) => r.sessions));
+      return stats(st.id, st.name, rows, (r) => r.total, {
+        peak: (r) => r.peakCost,
+        fields: () => ({
+          positions: closed + rows.filter((r) => r.openPosition).length,
+          winRate: closed ? Math.round((sum(rows.map((r) => r.wins)) / closed) * 1000) / 10 : null,
+          investedPct: sessions ? Math.round((sum(rows.map((r) => r.investedSessions)) / sessions) * 1000) / 10 : null,
+          firstYear: sum(rows.map((r) => r.firstYear)), secondYear: sum(rows.map((r) => r.secondYear)),
+          bestIn: [...best.values()].filter((b) => b.id === st.id && b.total > 0).length,
+        }),
+      });
+    });
+    // Comprar e manter: a referência calculada pela C-AI (ou pela primeira estratégia), que começa no início da janela.
+    const refIdx = Math.max(0, AVAILABLE_STRATEGIES.findIndex((s) => s.id === 'c-ai'));
+    const ref = rowsOf(refIdx).filter((r) => r.buyHoldPnl != null);
+    const buyHold = stats('buy-hold', 'Comprar e manter', ref, (r) => r.buyHoldPnl, {
+      peak: (r) => (r.buyHoldPct ? r.buyHoldPnl / (r.buyHoldPct / 100) : 0),
+      fields: () => ({ positions: ref.length, winRate: null, investedPct: 100, firstYear: null, secondYear: null, bestIn: null }),
+    });
+    const oldest = Math.min(...computed.map((e) => e.at));
+    return {
+      computedAt: new Date(oldest).toISOString(), years: AVAILABLE_STRATEGIES[0].windowYears, budget: AVAILABLE_STRATEGIES[0].budget,
+      instruments: new Set(computed.flatMap((e) => e.items.map((i) => i.instrumentId)).filter((id) => !ids || ids.has(id))).size,
+      items, buyHold, persistence: await readAnalysis('winner_persistence').then((r) => r && { computedAt: r.computedAt, anchor: r.anchor, groups: r.groups }),
+    };
   });
 
   // ---------- Melhor estratégia de cada instrumento (página Acompanhar e omissão na página do instrumento) ----------
@@ -191,6 +283,12 @@ export default async function backtestRoutes(app, { pool }) {
     { from: '2026-01-23', to: '2026-07-23', catalogWinners: 25, catalogReturn: 9, topWinners: 57, topReturn: 19 },
     { from: '2026-01-23', to: '2026-10-23', catalogWinners: 21, catalogReturn: 6, topWinners: 27, topReturn: 11 },
   ];
+  /** Resultado gravado por scripts/analysis-revalidation.mjs (stocks-analysis.timer), ou null se ainda não correu. */
+  async function readAnalysis(name) {
+    const [[r]] = await pool.query('SELECT data, computed_at FROM analysis_results WHERE name = ?', [name]);
+    return r ? { ...JSON.parse(r.data), computedAt: r.computed_at.toISOString() } : null;
+  }
+
   let promCache = null;
   let promJob = null; // cálculo em curso, partilhado por pedidos simultâneos (memória)
 
@@ -230,6 +328,7 @@ export default async function backtestRoutes(app, { pool }) {
           computedAt: z.string(), asOf: IsoDate.nullable(), topN: z.number(),
           counts: z.object({ eligible: z.number(), ranked: z.number() }),
           validation: z.array(z.object({ from: IsoDate, to: IsoDate, catalogWinners: z.number(), catalogReturn: z.number(), topWinners: z.number(), topReturn: z.number() })),
+          validatedAt: z.string().nullable().describe('Data do último recálculo semanal da validação (null: validação inicial de 24 out. 2026)'),
           items: z.array(z.object({
             instrumentId: z.number(), symbol: z.string(), name: z.string().nullable(), exchange: z.string().nullable(),
             rank: z.number(), score: z.number(), date: IsoDate, close: z.number(),
@@ -246,9 +345,12 @@ export default async function backtestRoutes(app, { pool }) {
     }
     let { items } = promCache;
     if (req.query.scope === 'watchlist') items = await onlyWatchlist(req.user.id, items);
+    const stored = await readAnalysis('promessas_validation');
     return {
       computedAt: new Date(promCache.at).toISOString(), asOf: promCache.asOf, topN: promessas.TOP_N,
-      counts: { eligible: promCache.items.length, ranked: promCache.ranked }, validation: VALIDATION, items,
+      counts: { eligible: promCache.items.length, ranked: promCache.ranked },
+      validation: stored?.windows.map(({ from, to, catalogWinners, catalogReturn, topWinners, topReturn }) => ({ from, to, catalogWinners, catalogReturn, topWinners, topReturn })) ?? VALIDATION,
+      validatedAt: stored?.computedAt ?? null, items,
     };
   });
 

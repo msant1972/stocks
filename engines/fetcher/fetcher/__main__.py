@@ -10,9 +10,9 @@
   python -m fetcher backfill                  completa o histórico dos activos até STOCKS_HISTORY_YEARS e processa
 """
 import argparse
-from datetime import date, timedelta
 import logging
 import sys
+from datetime import date, timedelta
 
 from . import db
 from .config import load_settings

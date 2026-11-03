@@ -19,6 +19,8 @@ systemd timers ─▶ motor de recolha (cargas iniciais a cada 5 min; actualiza�
 | `stocks-intraday.timer` | dias úteis, de hora a hora das 08:23 às 17:23 de Lisboa | Actualização das cotações durante a sessão, sem alertas (`fetcher update --intraday`) |
 | `stocks-daily.timer` | dias úteis, 19:01 de Lisboa | Actualização com os fechos definitivos e, a seguir, alertas ([bin/daily.sh](bin/daily.sh)) |
 | `stocks-backup.timer` | diariamente, 03:30 UTC | `mariadb-dump` para `/var/backups/stocks`, guardado durante 14 dias |
+| `stocks-ops.timer` | dias úteis, 21:00 de Lisboa | Aviso operacional por email aos administradores (`alerts ops`): execuções falhadas ou presas, recolha diária em falta, instrumentos com recolha falhada, dados parados; no máximo um email por dia |
+| `stocks-analysis.timer` | sábado, 09:00 de Lisboa | Recalcula a validação das Promessas e a persistência dos ganhadores (`scripts/analysis-revalidation.mjs`, tabela `analysis_results`) |
 
 Os serviços correm com o utilizador de sistema `stocks-svc` (sem login nem sudo), com o sistema de ficheiros só de leitura (`ProtectSystem=strict`). A configuração e os segredos ficam em `/etc/stocks/stocks.env` (`root:stocks-svc`, modo 640). A chave que cifra os segredos guardados na BD (palavra-passe SMTP) fica em `/etc/stocks/secret.key`, criada pelo `install.sh` e nunca substituída: perdê-la obriga a voltar a introduzir a palavra-passe SMTP.
 
@@ -94,6 +96,13 @@ Carregar a lista oficial da Euronext (`ISIN.xlsx`) para a tabela `euronext_isins
 sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/api && node ../scripts/isin-mic-from-xlsx.mjs --apply'
 ```
 
+Ver o aviso operacional sem o enviar, ou forçar o recálculo das análises:
+
+```bash
+sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/engines/alerts && .venv/bin/python -m alerts ops --dry-run'
+sudo systemctl start stocks-analysis
+```
+
 ## Operação
 
 ```bash
@@ -122,7 +131,7 @@ Cópias:
 1. **Dumps diários** (`stocks-backup.timer`, 03:30 UTC) em `/var/backups/stocks`, guardados 14 dias. São consistentes, porque são feitos com `mariadb-dump --single-transaction`.
 2. **Cópia fora do servidor:** autobackup do VPS, feito pelo fornecedor (frequência e retenção definidas no painel do fornecedor). Protege contra a perda do servidor e inclui os dumps do ponto 1, a configuração e a chave `/etc/stocks/secret.key`. Numa recuperação a partir do autobackup, restaure o dump mais recente (procedimento abaixo) em vez de confiar nos ficheiros do MariaDB copiados com o servidor ligado.
 
-O restauro foi testado a 18 out. 2026, no servidor anterior; falta testá-lo a partir do autobackup do servidor actual. Repita o teste periodicamente, por exemplo uma vez por trimestre.
+O restauro do dump foi testado a 3 nov. 2026 no servidor actual: dump novo restaurado em `stocks_restore` em 7 s, com as mesmas contagens em todas as tabelas e os mesmos saldos. Falta experimentar a recuperação de um ficheiro a partir do autobackup, no painel do fornecedor. Repita o teste periodicamente, por exemplo uma vez por trimestre.
 
 Restaurar, depois de parar a API e os timers:
 
@@ -139,3 +148,7 @@ Teste o restauro periodicamente numa base separada, por exemplo `stocks_restore`
 1. `git checkout <versão anterior>` e `sudo deploy/install.sh`.
 2. As migrações não são revertidas automaticamente. Se a versão anterior não for compatível com o esquema actual, avalie `dbmate rollback`; se for preciso restaurar uma cópia, aceite e reconcilie as escritas posteriores.
 3. Valide saldos, posições, recolhas e alertas antes de retomar os timers.
+
+## Dependências e CI
+
+O CI corre, em cada componente, a análise estática (ESLint na API e no frontend, Ruff nos motores), a auditoria de dependências (`npm audit --audit-level=high`, `pip-audit`) e os testes, com as versões da produção (MariaDB 11.8, Python 3.14, Node 22). Na API, `overrides` no `package.json` forçam versões corrigidas do `glob` (via `@fastify/static`) e do `uuid` (via ExcelJS). Ficam alertas moderados no `minimatch` antigo usado pelo `archiver` do ExcelJS (só ao gerar o modelo Excel, com padrões fixos do código): a correcção exigiria descer o ExcelJS para a versão 3.

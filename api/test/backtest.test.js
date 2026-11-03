@@ -130,6 +130,22 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
     expect(wl.items.every((i) => typeof i.inWatchlist === 'boolean')).toBe(true);
   });
 
+  it('comparação: agrega os resultados do BackTest de cada estratégia', async () => {
+    const cmp = (await ana.get('/strategies/compare')).json();
+    expect(cmp.items.map((x) => x.id)).toEqual(['a-momentum', 'b-opus', 'c-ai', 'd-reversao']);
+    for (const st of cmp.items) {
+      const rows = (await ana.get(`/backtest?strategy=${st.id}`)).json().items;
+      expect(st.total).toBeCloseTo(rows.reduce((a, r) => a + r.total, 0), 2);
+      expect(st.gain).toBe(rows.filter((r) => r.total > 0).length);
+      expect(st.firstYear + st.secondYear).toBeCloseTo(st.total, 2);
+      expect(st.investedPct).toBeGreaterThanOrEqual(0);
+      expect(st.investedPct).toBeLessThanOrEqual(100);
+    }
+    expect(cmp.buyHold).toMatchObject({ id: 'buy-hold', investedPct: 100, firstYear: null });
+    const mine = (await ana.get('/strategies/compare?scope=watchlist')).json();
+    expect(mine.instruments).toBeLessThanOrEqual(cmp.instruments);
+  });
+
   it('melhor estratégia de cada instrumento: a de maior resultado no BackTest', async () => {
     const best = (await ana.get('/strategies/best')).json();
     const ids = (await ana.get('/strategies')).json().items.filter((x) => x.available).map((x) => x.id);

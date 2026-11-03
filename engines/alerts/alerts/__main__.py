@@ -4,6 +4,7 @@
   python -m alerts run --dry-run                mostra os resumos no terminal sem enviar nem gravar nada
   python -m alerts run --dry-run-if-unconfigured  como run, mas em --dry-run se não houver SMTP configurado
   python -m alerts test --to ana@exemplo.pt     envia um email de teste com a configuração SMTP actual
+  python -m alerts ops [--dry-run]              aviso operacional aos administradores (falhas, dados parados)
 
 A configuração SMTP vem de Definições (tabela smtp_settings); na sua falta, das variáveis STOCKS_SMTP_*.
 """
@@ -12,6 +13,7 @@ import logging
 import sys
 from email.message import EmailMessage
 
+from . import ops
 from .config import load_settings, resolve_smtp
 from .mailer import PrintMailer, SendFailed, SendUncertain, SmtpMailer
 from .secrets import load_key
@@ -56,6 +58,8 @@ def main(argv=None) -> int:
                        help="usar --dry-run quando não houver configuração SMTP")
     p_test = sub.add_parser("test", help="enviar um email de teste")
     p_test.add_argument("--to", required=True)
+    p_ops = sub.add_parser("ops", help="aviso operacional aos administradores (falhas, dados parados)")
+    p_ops.add_argument("--dry-run", action="store_true", help="mostrar o aviso sem enviar")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
@@ -70,6 +74,19 @@ def main(argv=None) -> int:
             return 2
         if args.command == "test":
             return cmd_test(smtp, args.to)
+        if args.command == "ops":
+            problems = ops.check(conn)
+            for p in problems:
+                print(f"problema: {p}")
+            if not problems:
+                print("verificação operacional: sem problemas")
+                return 0
+            dry = args.dry_run or smtp is None
+            mailer = PrintMailer(sys.stdout) if dry else SmtpMailer(smtp)
+            settings = settings.__class__(**{**settings.__dict__, "smtp": smtp})
+            sent = ops.notify(conn, settings, mailer, problems, dry_run=dry)
+            print(f"{'[dry-run] ' if dry else ''}avisos enviados: {sent}")
+            return 1
 
         dry_run = args.dry_run
         if smtp is None and not dry_run:

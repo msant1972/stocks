@@ -40,7 +40,7 @@ test('ajustamento: OHLC multiplicados por adjClose/close; execução e resultado
 });
 
 test('ATR de Wilder, Efficiency Ratio e M2 com valores calculados à mão', () => {
-  const bars = [10, 11, 12, 11, 13].map((c, i) => ({ H: c + 1, L: c - 1, C: c }));
+  const bars = [10, 11, 12, 11, 13].map((c) => ({ H: c + 1, L: c - 1, C: c }));
   // TR: 2, max(2,|12−10|,|10−10|)=2, 2, max(2,|12−12|,|10−12|)=2, max(2,|14−11|,|12−11|)=3
   assert.deepEqual(atrWilder(bars, 3), [null, null, 2, 2, 2 + (3 - 2) / 3]);
   // |13 − 11| / (|12−11| + |11−12| + |13−11|) = 2 / 4

@@ -56,11 +56,12 @@ export const Trade = z.object({
   quoteDate: IsoDate, realizedPnl: NullableDecimal, requestedAt: z.string(),
 });
 
-export const AlertKind = z.enum(['close_above', 'close_below', 'change_up', 'change_down']);
+export const AlertKind = z.enum(['close_above', 'close_below', 'change_up', 'change_down', 'signal']);
 
 export const AlertRule = z.object({
   id: z.number(), instrumentId: z.number(), symbol: z.string(), name: z.string().nullable(),
-  currency: z.string().nullable(), kind: AlertKind, threshold: Decimal, active: z.boolean(),
+  currency: z.string().nullable(), kind: AlertKind, threshold: NullableDecimal,
+  strategy: z.string().nullable().describe('Regras «signal»: id da estratégia (ex.: c-ai)'), active: z.boolean(),
   lastEvaluatedSession: IsoDate.nullable(), lastEventSession: IsoDate.nullable(), lastSentAt: z.string().nullable(),
   createdAt: z.string(), updatedAt: z.string(),
 });

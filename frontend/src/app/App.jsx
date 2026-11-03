@@ -1,3 +1,4 @@
+import { lazy } from 'react';
 import { Navigate, Route, Routes, useLocation } from 'react-router';
 import { useMe } from '../lib/queries.js';
 import '../lib/theme.js'; // acompanha o tema do sistema quando a opção é «Sistema»
@@ -5,20 +6,23 @@ import Shell from '../components/layout/Shell.jsx';
 import { ToastProvider } from '../components/feedback/Toast.jsx';
 import LoginPage from '../features/auth/LoginPage.jsx';
 import OverviewPage from '../features/overview/OverviewPage.jsx';
-import WatchlistPage from '../features/watchlist/WatchlistPage.jsx';
-import ChartsPage from '../features/charts/ChartsPage.jsx';
-import HeatmapPage from '../features/heatmap/HeatmapPage.jsx';
-import OrderbookPage from '../features/orderbook/OrderbookPage.jsx';
-import InstrumentPage from '../features/instruments/InstrumentPage.jsx';
-import PortfolioPage from '../features/portfolio/PortfolioPage.jsx';
-import TradesPage from '../features/trades/TradesPage.jsx';
-import AlertsPage from '../features/alerts/AlertsPage.jsx';
-import SignalsPage from '../features/signals/SignalsPage.jsx';
-import BacktestPage from '../features/backtest/BacktestPage.jsx';
-import WinnersLosersPage from '../features/winners/WinnersLosersPage.jsx';
-import PromessasPage from '../features/promessas/PromessasPage.jsx';
-import SettingsPage from '../features/settings/SettingsPage.jsx';
-import UsersPage from '../features/users/UsersPage.jsx';
+
+// As restantes páginas são carregadas só quando abertas (o Shell mostra a espera dentro do layout).
+const WatchlistPage = lazy(() => import('../features/watchlist/WatchlistPage.jsx'));
+const ChartsPage = lazy(() => import('../features/charts/ChartsPage.jsx'));
+const HeatmapPage = lazy(() => import('../features/heatmap/HeatmapPage.jsx'));
+const OrderbookPage = lazy(() => import('../features/orderbook/OrderbookPage.jsx'));
+const InstrumentPage = lazy(() => import('../features/instruments/InstrumentPage.jsx'));
+const PortfolioPage = lazy(() => import('../features/portfolio/PortfolioPage.jsx'));
+const TradesPage = lazy(() => import('../features/trades/TradesPage.jsx'));
+const AlertsPage = lazy(() => import('../features/alerts/AlertsPage.jsx'));
+const SignalsPage = lazy(() => import('../features/signals/SignalsPage.jsx'));
+const ComparePage = lazy(() => import('../features/compare/ComparePage.jsx'));
+const BacktestPage = lazy(() => import('../features/backtest/BacktestPage.jsx'));
+const WinnersLosersPage = lazy(() => import('../features/winners/WinnersLosersPage.jsx'));
+const PromessasPage = lazy(() => import('../features/promessas/PromessasPage.jsx'));
+const SettingsPage = lazy(() => import('../features/settings/SettingsPage.jsx'));
+const UsersPage = lazy(() => import('../features/users/UsersPage.jsx'));
 
 function RequireSession({ children }) {
   const me = useMe();
@@ -47,6 +51,7 @@ export default function App() {
           <Route path="operacoes" element={<TradesPage />} />
           <Route path="sinais" element={<SignalsPage />} />
           <Route path="backtest" element={<BacktestPage />} />
+          <Route path="comparar" element={<ComparePage />} />
           <Route path="winners-loosers" element={<WinnersLosersPage />} />
           <Route path="promessas" element={<PromessasPage />} />
           <Route path="alertas" element={<AlertsPage />} />

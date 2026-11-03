@@ -5,8 +5,8 @@ from datetime import date
 import pymysql
 import pymysql.cursors
 
-from .config import Settings
 from . import indicators
+from .config import Settings
 from .models import DailyQuote, InstrumentInfo
 
 # Um pedido em 'running' há mais do que isto é considerado abandonado (processo terminado a meio).
@@ -134,7 +134,7 @@ def update_indicators(cur, instrument_id: int) -> int:
     if not rows:
         return 0
     values = indicators.compute([r["price"] for r in rows])
-    changed = [(v, r) for v, r in zip(values, rows) if v != tuple(r[c] for c in indicators.COLUMNS)]
+    changed = [(v, r) for v, r in zip(values, rows, strict=True) if v != tuple(r[c] for c in indicators.COLUMNS)]
     if changed:
         sets = ", ".join(f"{c} = %s" for c in indicators.COLUMNS)
         cur.executemany(

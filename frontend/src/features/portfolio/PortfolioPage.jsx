@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { api } from '../../lib/api.js';
 import { Link } from 'react-router';
 import * as f from '../../lib/format.js';
 import { usePortfolio, useWatchlist } from '../../lib/queries.js';
@@ -6,6 +8,27 @@ import { PnL, QuoteDate, SimulatedBadge } from '../../components/finance/finance
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Dialog, Field } from '../../components/ui/controls.jsx';
 import TradeDialog from './TradeDialog.jsx';
+
+// O gráfico (Recharts) só é carregado quando é preciso.
+const PortfolioHistoryChart = lazy(() => import('../../components/finance/PortfolioHistoryChart.jsx'));
+
+/** Evolução do valor da carteira, sessão a sessão, desde a criação. */
+function History() {
+  const h = useQuery({ queryKey: ['portfolio', 'history'], queryFn: () => api.get('/portfolio/history') });
+  return (
+    <section className="card" aria-labelledby="hist-title">
+      <div className="card-head">
+        <h2 id="hist-title" className="card-title">Evolução da carteira</h2>
+      </div>
+      {h.isPending ? <Loading rows={5} /> : h.error ? <ErrorState error={h.error} onRetry={h.refetch} /> :
+        h.data.points.length < 2 ? <EmptyState title="Ainda sem histórico">A evolução aparece a partir da segunda sessão desde a criação da carteira.</EmptyState> : (
+          <Suspense fallback={<Loading rows={5} label="A carregar o gráfico…" />}>
+            <PortfolioHistoryChart history={h.data} />
+          </Suspense>
+        )}
+    </section>
+  );
+}
 
 /** Escolha do instrumento antes de abrir a simulação de compra. */
 function PickInstrument({ open, onClose, onPick }) {
@@ -76,6 +99,8 @@ export default function PortfolioPage() {
               </div>
             </div>
           </section>
+
+          <History />
 
           <section className="card" aria-labelledby="pos-title">
             <div className="card-head">

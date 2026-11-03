@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-24.04
     services:
       mariadb:
-        image: mariadb:10.11
+        image: mariadb:11.8
         env:
           MARIADB_ROOT_PASSWORD: root
           MARIADB_DATABASE: stocks_test
@@ -33,6 +33,10 @@ jobs:
           cache: npm
           cache-dependency-path: api/package-lock.json
       - run: npm ci
+      - name: Análise estática (ESLint)
+        run: npm run lint
+      - name: Auditoria de dependências (falha só com gravidade alta ou crítica)
+        run: npm audit --omit=dev --audit-level=high
       - run: npm test
         env:
           STOCKS_TEST_DB_PASSWORD: stocks

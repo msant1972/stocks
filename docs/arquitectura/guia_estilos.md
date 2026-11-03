@@ -120,7 +120,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Barra superior com pesquisa, estado dos dados e menu do utilizador.
 - Área principal com largura confortável e limite proposto de 1440 px.
 - Conteúdo em grelha de 12 colunas.
-- Menu lateral: Visão geral, Acompanhar, Charts, Orderbook, HeatMap, Carteira, Operações, Sinais, BackTest, WinnersLoosers, Promessas, Alertas, Utilizadores (só administradores) e Definições.
+- Menu lateral: Visão geral, Acompanhar, Charts, Orderbook, HeatMap, Carteira, Operações, Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Alertas, Utilizadores (só administradores) e Definições.
 
 ### Tablet — de 768 a 1199 px
 
@@ -206,6 +206,7 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 ### 5.3a. Charts
 
 - Inspirado nas plataformas de gráficos: o gráfico ocupa a área principal e a lista de acompanhamento fica à direita (abaixo do gráfico em ecrãs com menos de 1200 px), fixa ao fazer scroll.
+- Lista à escolha: «Lista» (acompanhamento), «Carteira» ou «Catálogo», com pesquisa por símbolo ou nome e ordenação (símbolo, maiores subidas, maiores descidas), no endereço (`?fonte=`, `?ordem=`).
 - Lista compacta: símbolo, último preço e variação; o instrumento mostrado fica destacado (fundo e barra de acento, `aria-current`). Clique, setas ↑/↓ na lista ou botões anterior/seguinte (com «n / total») mudam o instrumento sem sair da página.
 - Cabeçalho do gráfico: símbolo, último preço, variação, nome, bolsa e data da cotação; menu «Estratégia» (por omissão a melhor de cada instrumento, «(melhor)» no menu; uma escolha explícita mantém-se ao mudar de instrumento) e «Abrir instrumento».
 - Enquanto chegam as cotações do novo instrumento, o gráfico anterior fica esbatido (`aria-busy`); os vizinhos na lista são pré-carregados.
@@ -220,6 +221,8 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 - Instrumento e mercado identificados sem ambiguidade.
 - Acção «Simular compra» em destaque moderado.
 - Compra e venda com igual clareza; não usar estímulos visuais para incentivar operações frequentes.
+
+Evolução da carteira: gráfico do valor total sessão a sessão desde a criação, com o capital inicial a tracejado como referência e um resumo textual (de quanto para quanto, resultado face ao capital inicial); tooltip com o valor das posições, o saldo e o resultado. Sem histórico suficiente (menos de duas sessões), estado vazio.
 
 ### 5.5. Simular compra ou venda
 
@@ -251,7 +254,7 @@ Após sucesso, mostrar um recibo simples com preço efectivamente aplicado, quan
 
 - Listagem com instrumento, condição, estado e último envio.
 - Interruptor acessível para activar/desactivar.
-- Formulário simples com pré-visualização da condição em linguagem natural.
+- Formulário simples com pré-visualização da condição em linguagem natural. A condição «Sinal de uma estratégia» substitui o valor pelo menu das estratégias e avisa nos sinais de compra, reforço ou venda (fechos definitivos).
 - Texto «Os alertas disparados são enviados num único email de resumo, após a actualização diária das cotações.»
 - Ajuda «As condições são avaliadas com cotações diárias, não em tempo real.»
 - Distinguir «Activo», «Pausado», «A aguardar dados» e «Falha de envio» apenas quando existirem estados correspondentes no backend.
@@ -303,6 +306,13 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Tabela ordenável (resultado em € por omissão, do maior para o menor): instrumento, resultado, %, operações (reforços entre parênteses), acerto (ganhos/fechadas e %), posição aberta, comprar e manter (€ e %), diferença. Ordenação no endereço (`?ordem=edge&sentido=desc`).
 - O símbolo abre a página do instrumento com a estratégia aplicada (`?estrategia=<id>`, com a mesma estratégia), para ver as operações no gráfico.
 - Texto com as regras, a hora do cálculo e o aviso de simulação. Em telemóvel, acesso pelo botão «BackTest» em Sinais.
+
+### 5.11a2. Comparar estratégias
+
+- Quadro com as estratégias em colunas (o nome liga ao BackTest dessa estratégia) e comprar e manter numa última coluna, em itálico e esbatida, como referência; linhas: resultado total, instrumentos com ganho/perda, capital máximo investido, resultado sobre o capital, tempo investido, operações, acerto, pior instrumento, soma dos 10 piores, 1.º e 2.º ano e «melhor estratégia em». O melhor valor de cada linha entre as estratégias fica a negrito (e anunciado como «melhor» aos leitores de ecrã).
+- Filtro «Todos / A minha lista» (`?lista=1`). Nota sobre o capital (A-Momentum investe mais), comprar e manter num período de subida e a execução da A-Momentum ao fecho.
+- «Os ganhadores e os perdedores de um ano continuam a sê-lo no seguinte?» expansível, com a persistência recalculada semanalmente.
+- Em telemóvel, acesso pelo botão no BackTest.
 
 ### 5.11b. WinnersLoosers
 

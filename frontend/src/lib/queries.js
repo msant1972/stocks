@@ -88,6 +88,11 @@ export function useQuotes(id, enabled, from) {
   });
 }
 
+/** Catálogo inteiro (até 500 instrumentos), ordenado por símbolo; ex.: lista do Charts. */
+export const useCatalog = (enabled = true) => useQuery({
+  queryKey: ['instruments', 'all'], queryFn: () => api.get('/instruments?limit=500&sort=symbol'), enabled, staleTime: 5 * 60_000,
+});
+
 /** Catálogo (50 primeiros). sort 'symbol', 'volume' ou 'change' ordena o catálogo inteiro no servidor. */
 export function useInstrumentSearch(q, { sort = 'symbol', dir = 'asc' } = {}, enabled = true) {
   return useQuery({

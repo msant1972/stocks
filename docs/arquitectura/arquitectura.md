@@ -25,7 +25,7 @@ Este documento descreve a arquitectura implementada. O módulo de livro de ofert
 | Histórico | Carga inicial de três anos (para a SMA200 estar completa nos dois anos mostrados); actualização diária; as cotações nunca são apagadas |
 | Indicadores | EMA9, SMA10, SMA50, SMA125 e SMA200 por sessão, guardados na BD; momento SMA10/SMA200 e SMA8/SMA125 |
 | Recolha | Nos dias úteis, de hora a hora entre as 08h23 e as 17h23 de Lisboa (sessão em curso, valores provisórios com cerca de 20 min de atraso do Yahoo) e às 19h00, depois do fecho das bolsas europeias (17h30 CET), com os fechos definitivos |
-| Alertas | Email; um resumo por utilizador após cada recolha diária, nunca mais do que um email por hora |
+| Alertas | Email; um resumo por utilizador após cada recolha diária, nunca mais do que um email por hora; condições de preço, de variação diária e sinais de uma estratégia |
 | Simulação | Último preço não ajustado disponível (durante a sessão, a vela provisória da recolha horária; depois do fecho, o fecho do dia); sem comissões; quantidades inteiras; sem posições curtas; custo médio ponderado |
 | Capital virtual | 1 000 000 EUR por omissão nas contas novas (configurável por conta); sem reposição |
 | Estratégias | Registo de estratégias simuladas no histórico, por instrumento (secção 5.4): A-Momentum, B-Opus, C-AI e D-Reversão; a melhor de cada instrumento aparece em Acompanhar e é a aplicada por omissão na página do instrumento. Não executam operações nem alteram a carteira |
@@ -95,13 +95,14 @@ Aplicação de página única em React, servida pela API em produção e pelo Vi
 | Orderbook | Livro de ofertas Euronext (atraso 15 min) dos instrumentos com ISIN-MIC: melhor compra/venda, spread, mid, desequilíbrio, tabela com nº de ordens e totais, gráfico de profundidade cumulativa, actualização a cada 30 s |
 | Instrumento | Último fecho e variação, gráfico diário (1M a 2A, com o último período escolhido guardado no browser) com indicadores opcionais, gráfico de momento sincronizado, tabela de dados, criar alerta, simular operação, menu «Estratégia» (Nenhuma, A-Momentum, B-Opus, C-AI, D-Reversão; por omissão a melhor estratégia do instrumento nos últimos 2 anos, marcada «(melhor)»; «Nenhuma» fica no endereço como `?estrategia=nenhuma`) |
 | HeatMap | Mapa de calor dos 20 instrumentos com maior valor negociado (catálogo ou lista): tamanho pelo valor negociado, cor pela variação; período de 1, 5, 10 ou 20 sessões |
-| Carteira | Valor total, resultados realizado e não realizado, posições ao custo médio ponderado |
+| Carteira | Valor total, resultados realizado e não realizado, evolução do valor sessão a sessão desde a criação (com o capital inicial como referência), posições ao custo médio ponderado |
+| Comparar | As estratégias lado a lado nos últimos 2 anos (resultado, instrumentos com ganho e perda, capital máximo, resultado sobre o capital, tempo investido, operações, acerto, piores casos, cada ano, em quantos é a melhor), com comprar e manter como referência e o melhor valor de cada linha a negrito; filtro «Todos / A minha lista»; persistência dos ganhadores e perdedores (recálculo semanal) |
 | Operações | Histórico filtrável por tipo, instrumento e datas |
 | Sinais | Compras, reforços e vendas da estratégia escolhida (A-Momentum, B-Opus, C-AI ou D-Reversão) aplicada virtualmente a todos os instrumentos, nas últimas 1 a 10 sessões, com o motivo das vendas, filtro por tipo e botões Comprar e Vender (operação na carteira virtual) |
 | BackTest | Resultado da estratégia em cada instrumento nos últimos 2 anos (resultado em € e %, operações, taxa de acerto, posição aberta, comparação com comprar e manter), com resumo, filtro «Todos / A minha lista», pesquisa e ordenação; o símbolo abre o gráfico com a estratégia aplicada |
 | WinnersLoosers | Instrumentos em que todas as estratégias disponíveis ganham, e em que todas perdem, nos últimos 2 anos: resumo (quantos e soma), filtro «Todos / A minha lista», pesquisa e duas tabelas ordenáveis com o resultado de cada estratégia, o total e comprar e manter; cada resultado abre o gráfico com essa estratégia; ícone por linha e botões em massa para adicionar os ganhadores à lista de acompanhamento e remover os perdedores |
 | Promessas | Instrumentos que nos últimos 3 meses mostram os sinais que no passado anunciaram ganhadores nos 12 meses seguintes ([método e validação](promessas.md)): elegíveis com a tendência intacta, pontuação 0–100 (M2, volatilidade baixa, SMA200 a subir), top 30 ou todos, se foram ganhadores nas 3 estratégias, e a validação histórica com aviso |
-| Alertas | Regras com pré-visualização em linguagem natural, activação e eventos com o estado do envio |
+| Alertas | Regras com pré-visualização em linguagem natural (preço, variação diária ou sinal de compra/reforço/venda de uma estratégia), activação e eventos com o estado do envio |
 | Entrar | Palavra-passe e, a seguir, código de 6 dígitos ou código de recuperação; no primeiro login, configuração do 2.º factor com QR code, chave manual e 10 códigos de recuperação |
 | Utilizadores | Só administradores: listar (com o estado do 2.º factor), adicionar, redefinir palavra-passe, repor o 2.º factor e remover contas |
 | Definições | Tema, transparência, regras da simulação, estado dos dados, palavra-passe, autenticação em dois passos (códigos de recuperação, trocar de aplicação), terminar sessão; para administradores, configuração SMTP com email de teste |
@@ -128,7 +129,9 @@ API REST em Fastify, com prefixo `/api/v1`. Cada rota declara esquemas Zod para 
 | ISIN-MIC e livro de ofertas | `PUT /instruments/{id}/isin-mic`, `GET /instruments?withIsinMic=true`, `GET /instruments/{id}/orderbook`, `GET /instruments/orderbook-summary?ids=…` (mid e desequilíbrio de até 50 instrumentos) |
 | Lista | `GET /watchlist`, `POST /watchlist/items`, `DELETE /watchlist/items/{id}` |
 | Carteira e operações | `GET /portfolio`, `GET /portfolio/positions`, `GET /simulated-trades/preview`, `POST /simulated-trades`, `GET /simulated-trades` |
-| Alertas | `GET/POST /alerts`, `PATCH/DELETE /alerts/{id}`, `GET /alerts/events` |
+| Alertas | `GET/POST /alerts` (`kind` = close_above, close_below, change_up, change_down ou signal com `strategy`), `PATCH/DELETE /alerts/{id}`, `GET /alerts/events` |
+| Carteira (histórico) | `GET /portfolio/history` (saldo, posições e total em cada sessão desde a criação, calculado das operações) |
+| Comparar | `GET /strategies/compare?scope=all\|watchlist` (agregados do BackTest por estratégia, comprar e manter e persistência) |
 | Mapa de calor | `GET /heatmap?period=1\|5\|10\|20&scope=all\|watchlist&limit=20` |
 | Mercado | `GET /market/momentum?top=5` (distribuição do SMA10/SMA200 na última sessão e extremos), `GET /market/crossovers?sessions=5` (cruzamentos SMA10/SMA50: ascendente se SMA10 ≤ SMA50 na sessão anterior e > na seguinte, descendente o inverso; conta o mais recente por instrumento); cache 10 min |
 | Sinais | `GET /signals?strategy=a-momentum&sessions=5` (estratégia aplicada a todos os instrumentos activos; a A-Momentum com todo o histórico, a B-Opus na janela de 2 anos com aquecimento; preço e motivo da operação; cache 10 min por estratégia) |
@@ -180,6 +183,7 @@ MariaDB 11.8 (mínimo 10.6, por causa de `SKIP LOCKED`), InnoDB, `utf8mb4`. O es
 | `alert_rules`, `alert_events` | Regras e eventos detectados (únicos por regra e sessão) |
 | `email_deliveries` | Resumos enviados e o seu estado (`sending`, `sent`, `failed`, `uncertain`) |
 | `smtp_settings` | Configuração SMTP global (servidor, porta, segurança, utilizador, palavra-passe cifrada, remetente) |
+| `analysis_results` | Resultados das análises recalculadas semanalmente (JSON por nome): `promessas_validation` e `winner_persistence` |
 | `audit_log` | Acções relevantes, sem palavras-passe, tokens ou credenciais |
 
 Remover um utilizador apaga em cascata as sessões, os códigos de recuperação, a carteira, as operações, as posições, a lista, os alertas e os envios; a auditoria mantém-se.
@@ -228,6 +232,10 @@ Após cada recolha diária, para cada utilizador:
 - **Edição de regras:** criar, editar ou reactivar uma regra repõe o estado da avaliação.
 - **Configuração SMTP:** lida da tabela `smtp_settings` (Definições), com a palavra-passe decifrada com a chave do servidor; na falta dela, das variáveis `STOCKS_SMTP_*`; sem nenhuma, corre em `--dry-run`, mostra os resumos no registo e não grava nada.
 - **Email de teste:** `python -m alerts test --to …`, chamado pela API em Definições, usa exactamente o mesmo código de envio.
+
+**Alertas de sinais** (`kind = 'signal'`, com `strategy`): avisam quando a estratégia indicada dá um sinal de compra, reforço ou venda no instrumento, numa sessão definitiva. Como as estratégias estão em JavaScript, o motor de alertas chama `scripts/strategy-signals.mjs` (Node, a partir de `api/`), que corre o registo das estratégias como `GET /signals`, só sobre velas definitivas, para os pares (instrumento, estratégia) das regras activas; só é chamado quando há regras de sinal. O evento guarda o lado do sinal (`alert_events.signal_side`) e entra no mesmo resumo por email.
+
+**Aviso operacional** (`python -m alerts ops`, `stocks-ops.timer`, dias úteis às 21:00 de Lisboa, independente da recolha diária): verifica execuções falhadas nas últimas 24 h ou presas há mais de 3 h, a recolha diária do dia em falta, instrumentos activos com a recolha falhada e dados parados há 2 ou mais dias úteis; havendo problemas, envia um email aos administradores activos, no máximo um por dia (`email_deliveries` com o assunto «Stocks: aviso operacional»).
 
 Os alertas apenas notificam; nunca desencadeiam operações.
 
@@ -361,6 +369,8 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança para a fila de recolha |
 | `stocks-intraday.timer` | dias úteis, de hora a hora das 08h23 às 17h23 de Lisboa | Actualização das cotações durante a sessão (provisória), sem alertas |
 | `stocks-daily.timer` | dias úteis, 19h01 de Lisboa (ao minuto 1, para não coincidir com o timer de 5 minutos) | Recolha diária com os fechos definitivos, seguida dos alertas |
+| `stocks-ops.timer` | dias úteis, 21h00 de Lisboa | Aviso operacional aos administradores (falhas, recolha em falta, dados parados) |
+| `stocks-analysis.timer` | sábado, 09h00 de Lisboa | Recálculo da validação das Promessas e da persistência dos ganhadores (`analysis_results`) |
 | `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é o autobackup do VPS, feito pelo fornecedor |
 
 Testes automáticos em cada componente: API com Vitest contra uma BD de testes (103, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (33: 11 da B-Opus, 5 da C-AI e 3 das Promessas). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
@@ -400,7 +410,6 @@ Riscos aceites ou pendentes:
 | Ambiente de testes separado | Hoje partilha o servidor de produção |
 | Execução da estratégia | Ao fecho do próprio dia do sinal (optimista); a execução ao fecho do dia seguinte seria mais realista |
 | Livro de ofertas | Endpoint interno da Euronext, sem garantia de estabilidade; dados sujeitos aos termos de uso da Euronext (a página mostra sempre a fonte e o atraso) |
-| Alerta operacional | Falhas da recolha ou dos alertas só ficam em `job_runs` e no `journalctl`; não há notificação ao administrador |
 
 ## 10. Base documental
 

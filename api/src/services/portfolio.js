@@ -67,3 +67,58 @@ export async function portfolioSummary(pool, userId) {
     positions,
   };
 }
+
+/**
+ * Evolução diária da carteira: em cada sessão desde a criação, saldo + posições ao fecho não ajustado dessa sessão
+ * (ou ao último fecho anterior). Calculada a partir dos movimentos de saldo e das operações, por isso é sempre
+ * coerente com o histórico. Valores em número (só para o gráfico).
+ */
+export async function portfolioHistory(pool, userId) {
+  const [[p]] = await pool.query('SELECT id, initial_capital, created_at FROM portfolios WHERE user_id = ?', [userId]);
+  if (!p) throw notFound('Carteira');
+  const [moves] = await pool.query(
+    'SELECT DATE(created_at) AS d, amount FROM cash_movements WHERE portfolio_id = ? ORDER BY created_at, id', [p.id],
+  );
+  const [trades] = await pool.query(
+    `SELECT DATE(requested_at) AS d, instrument_id, side, quantity, amount FROM simulated_trades
+      WHERE portfolio_id = ? ORDER BY requested_at, id`, [p.id],
+  );
+  const start = moves[0]?.d ?? p.created_at.toISOString().slice(0, 10);
+  const ids = [...new Set(trades.map((t) => Number(t.instrument_id)))];
+  const [sessions] = await pool.query(
+    'SELECT DISTINCT session_date AS d FROM daily_quotes WHERE session_date >= ? ORDER BY session_date', [start],
+  );
+  const closes = new Map(ids.map((id) => [id, []]));
+  if (ids.length) {
+    const [rows] = await pool.query(
+      'SELECT instrument_id, session_date AS d, close FROM daily_quotes WHERE instrument_id IN (?) AND session_date >= ? ORDER BY session_date',
+      [ids, start],
+    );
+    for (const r of rows) closes.get(Number(r.instrument_id)).push([r.d, Number(r.close)]);
+  }
+  const dates = [...new Set([start, ...sessions.map((s) => s.d)])].sort();
+  const toDate = (d) => (d instanceof Date ? d.toISOString().slice(0, 10) : d);
+  const qty = new Map();
+  const cursor = new Map(ids.map((id) => [id, -1]));
+  let cash = 0; let mi = 0; let ti = 0; let invested = 0;
+  const points = [];
+  for (const d of dates) {
+    while (mi < moves.length && toDate(moves[mi].d) <= d) cash += Number(moves[mi++].amount);
+    while (ti < trades.length && toDate(trades[ti].d) <= d) {
+      const t = trades[ti++]; const id = Number(t.instrument_id);
+      qty.set(id, (qty.get(id) ?? 0) + (t.side === 'buy' ? t.quantity : -t.quantity));
+      invested += t.side === 'buy' ? Number(t.amount) : -Number(t.amount);
+    }
+    let market = 0;
+    for (const [id, q] of qty) {
+      if (!q) continue;
+      const series = closes.get(id); let k = cursor.get(id);
+      while (k + 1 < series.length && series[k + 1][0] <= d) k += 1;
+      cursor.set(id, k);
+      if (k >= 0) market += q * series[k][1];
+    }
+    const r2 = (v) => Math.round(v * 100) / 100;
+    points.push({ date: d, cash: r2(cash), marketValue: r2(market), total: r2(cash + market), netInvested: r2(invested) });
+  }
+  return { initialCapital: Number(p.initial_capital), points };
+}

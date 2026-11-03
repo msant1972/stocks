@@ -1,6 +1,10 @@
 """Avaliação das regras e envio dos resumos."""
+import json
 import logging
+import os
+import subprocess
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import pymysql
 import pymysql.cursors
@@ -8,7 +12,7 @@ import pymysql.cursors
 from .config import Settings
 from .digest import DigestEvent, build_message
 from .mailer import SendFailed, SendUncertain
-from .rules import evaluate
+from .rules import change_pct, evaluate
 
 log = logging.getLogger(__name__)
 
@@ -67,11 +71,28 @@ def recover_stale_deliveries(conn, tx: Tx, settings: Settings) -> int:
     return n
 
 
+# Raiz da aplicação (/opt/stocks ou o repositório): o script dos sinais corre a partir de api/.
+APP_ROOT = Path(__file__).resolve().parents[3]
+
+
+def strategy_signals() -> dict:
+    """Sinais das estratégias para as regras «signal» activas, calculados pelo registo JavaScript das estratégias
+    (scripts/strategy-signals.mjs). Devolve {(instrument_id, strategy): {data: lado}}."""
+    proc = subprocess.run(
+        [os.environ.get("STOCKS_NODE", "node"), str(APP_ROOT / "scripts" / "strategy-signals.mjs")],
+        cwd=APP_ROOT / "api", capture_output=True, text=True, timeout=600, check=True,
+    )
+    out = {}
+    for item in json.loads(proc.stdout or "[]"):
+        out[(item["instrumentId"], item["strategy"])] = {s["date"]: s["side"] for s in item["signals"]}
+    return out
+
+
 # Numa recuperação (ex.: um fecho que chegou depois da execução anterior) avaliam-se no máximo estas sessões.
 MAX_CATCH_UP_SESSIONS = 10
 
 
-def evaluate_rules(conn, tx: Tx) -> tuple[int, int]:
+def evaluate_rules(conn, tx: Tx, signals=strategy_signals) -> tuple[int, int]:
     """Avalia cada regra activa sobre as sessões definitivas do instrumento ainda não avaliadas.
 
     As velas provisórias (recolha horária, durante a sessão) são ignoradas. Uma regra nova é avaliada só na
@@ -90,7 +111,17 @@ def evaluate_rules(conn, tx: Tx) -> tuple[int, int]:
             """
         )
         ids = [r["id"] for r in cur.fetchall()]
+        cur.execute("SELECT COUNT(*) AS n FROM alert_rules WHERE kind = 'signal' AND active")
+        has_signal_rules = cur.fetchone()["n"] > 0
     tx.commit()
+    # Os sinais só são calculados (pelo registo JavaScript das estratégias) quando há regras de sinal activas.
+    sig = {}
+    if has_signal_rules and ids:
+        try:
+            sig = signals()
+        except (OSError, subprocess.SubprocessError, ValueError):
+            log.exception("sinais das estratégias: erro ao calcular; as regras de sinal ficam para a próxima execução")
+            sig = None
 
     evaluated = events = 0
     for rule_id in ids:
@@ -98,12 +129,12 @@ def evaluate_rules(conn, tx: Tx) -> tuple[int, int]:
             with conn.cursor() as cur:
                 # O bloqueio da regra impede que duas execuções avaliem a mesma regra em simultâneo.
                 cur.execute(
-                    "SELECT id, instrument_id, kind, threshold, last_state, last_evaluated_session "
+                    "SELECT id, instrument_id, kind, threshold, strategy, last_state, last_evaluated_session "
                     "FROM alert_rules WHERE id = %s AND active FOR UPDATE",
                     (rule_id,),
                 )
                 rule = cur.fetchone()
-                if rule is None:
+                if rule is None or (rule["kind"] == "signal" and sig is None):
                     tx.rollback()
                     continue
                 # Sessões definitivas mais recentes (por ordem decrescente), mais uma para a variação da primeira.
@@ -124,15 +155,19 @@ def evaluate_rules(conn, tx: Tx) -> tuple[int, int]:
                 for i in pending:
                     latest = quotes[i]
                     previous = quotes[i - 1]["close"] if i > 0 else None
-                    ev = evaluate(rule["kind"], rule["threshold"], latest["close"], previous, state)
-                    if ev.fire:
+                    if rule["kind"] == "signal":
+                        side = sig.get((rule["instrument_id"], rule["strategy"]), {}).get(latest["session_date"].isoformat())
+                        fire, pct = side is not None, change_pct(latest["close"], previous)
+                    else:
+                        ev = evaluate(rule["kind"], rule["threshold"], latest["close"], previous, state)
+                        fire, pct, side, state = ev.fire, ev.change_pct, None, ev.state
+                    if fire:
                         cur.execute(
-                            "INSERT IGNORE INTO alert_events (rule_id, session_date, close, previous_close, change_pct) "
-                            "VALUES (%s, %s, %s, %s, %s)",
-                            (rule_id, latest["session_date"], latest["close"], previous, ev.change_pct),
+                            "INSERT IGNORE INTO alert_events (rule_id, session_date, close, previous_close, change_pct, signal_side) "
+                            "VALUES (%s, %s, %s, %s, %s, %s)",
+                            (rule_id, latest["session_date"], latest["close"], previous, pct, side),
                         )
                         events += cur.rowcount
-                    state = ev.state
                 # updated_at = updated_at: a avaliação não conta como edição da regra pelo utilizador.
                 cur.execute(
                     "UPDATE alert_rules SET last_state = %s, last_evaluated_session = %s, updated_at = updated_at "
@@ -148,7 +183,7 @@ def evaluate_rules(conn, tx: Tx) -> tuple[int, int]:
 
 
 PENDING_EVENTS = """
-    SELECT e.id, e.session_date, e.close, e.change_pct, r.kind, r.threshold, i.symbol, i.name
+    SELECT e.id, e.session_date, e.close, e.change_pct, e.signal_side, r.kind, r.threshold, r.strategy, i.symbol, i.name
       FROM alert_events e
       JOIN alert_rules r ON r.id = e.rule_id
       JOIN instruments i ON i.id = r.instrument_id
@@ -198,7 +233,7 @@ def deliver(conn, tx: Tx, settings: Settings, mailer, result: RunResult) -> None
                 tx.rollback()
                 continue
             events = [DigestEvent(r["symbol"], r["name"], r["kind"], r["threshold"], r["session_date"],
-                                  r["close"], r["change_pct"]) for r in rows]
+                                  r["close"], r["change_pct"], r["strategy"], r["signal_side"]) for r in rows]
             sender = settings.smtp.sender if settings.smtp else "stocks@localhost"
             msg = build_message(sender, user["email"], user["name"], events, settings.app_url)
             cur.execute(
@@ -255,13 +290,13 @@ def finish_run(conn, run_id: int, ok: bool, detail: str) -> None:
     conn.commit()
 
 
-def run(conn, settings: Settings, mailer, dry_run: bool = False) -> RunResult:
+def run(conn, settings: Settings, mailer, dry_run: bool = False, signals=strategy_signals) -> RunResult:
     tx = Tx(conn, dry_run)
     result = RunResult()
     run_id = None if dry_run else start_run(conn, "alerts")
     try:
         result.recovered = recover_stale_deliveries(conn, tx, settings)
-        result.rules_evaluated, result.events = evaluate_rules(conn, tx)
+        result.rules_evaluated, result.events = evaluate_rules(conn, tx, signals)
         deliver(conn, tx, settings, mailer, result)
     except Exception as exc:
         conn.rollback()

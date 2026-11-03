@@ -21,5 +21,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - name: Análise estática (ESLint)
+        run: npm run lint
+      - name: Auditoria de dependências (falha só com gravidade alta ou crítica)
+        run: npm audit --omit=dev --audit-level=high
       - run: npm test
       - run: npm run build

@@ -99,11 +99,17 @@ export const ALERT_KIND_LABEL = {
   close_below: 'Fecho abaixo de',
   change_up: 'Subida diária de pelo menos',
   change_down: 'Descida diária de pelo menos',
+  signal: 'Sinal da estratégia',
 };
 
+export const SIGNAL_SIDE_LABEL = { buy: 'compra', add: 'reforço', sell: 'venda' };
+
 /** Pré-visualização da condição em linguagem natural (guia, secção 5.7). */
-export function describeRule(kind, threshold, symbol, currency = 'EUR') {
+export function describeRule(kind, threshold, symbol, currency = 'EUR', strategyName = null) {
   const name = symbol || '[instrumento]';
+  if (kind === 'signal') {
+    return strategyName ? `Avisar quando a ${strategyName} der um sinal de compra, reforço ou venda em ${name} (fecho definitivo).` : null;
+  }
   if (!threshold) return null;
   switch (kind) {
     case 'close_above': return `Avisar quando o fecho diário de ${name} for superior a ${money(threshold, currency)}.`;

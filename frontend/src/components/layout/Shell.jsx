@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { useMe, useStatus } from '../../lib/queries.js';
 import Icon from '../ui/Icon.jsx';
+import { Loading } from '../feedback/states.jsx';
 
 const NAV = [
   { to: '/', label: 'Visão geral', icon: 'overview', end: true },
@@ -16,6 +17,7 @@ const NAV = [
   { to: '/operacoes', label: 'Operações', icon: 'trades' },
   { to: '/sinais', label: 'Sinais', icon: 'signals' },
   { to: '/backtest', label: 'BackTest', icon: 'backtest' },
+  { to: '/comparar', label: 'Comparar', icon: 'compare' },
   { to: '/winners-loosers', label: 'WinnersLoosers', icon: 'winners' },
   { to: '/promessas', label: 'Promessas', icon: 'promise' },
   { to: '/alertas', label: 'Alertas', icon: 'alerts' },
@@ -115,7 +117,7 @@ export default function Shell() {
           </div>
         </header>
         <main id="conteudo" className="content" tabIndex={-1}>
-          <Outlet />
+          <Suspense fallback={<Loading rows={6} />}><Outlet /></Suspense>
         </main>
       </div>
 

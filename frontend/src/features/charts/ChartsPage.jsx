@@ -1,12 +1,12 @@
-import { lazy, Suspense, useEffect, useRef } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useBestStrategies, useQuotes, useWatchlist } from '../../lib/queries.js';
+import { keys, useBestStrategies, useCatalog, usePortfolio, useQuotes, useWatchlist } from '../../lib/queries.js';
 import { PriceChange, QuoteDate } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
-import { Button } from '../../components/ui/controls.jsx';
+import { Button, Segmented } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
@@ -21,18 +21,36 @@ const quotesFromFor = (strategyId, lastSession) => {
 };
 
 /**
- * Charts: o gráfico de um instrumento e, à direita, a lista de acompanhamento para passar de um instrumento a outro
- * sem mudar de página (clique, setas ↑/↓ ou os botões anterior/seguinte). ?instrumento=<id> e ?estrategia=<id>
- * ficam no endereço; sem estratégia escolhida, aplica-se a melhor de cada instrumento.
+ * Charts: o gráfico de um instrumento e, à direita, uma lista para passar de um instrumento a outro sem mudar de
+ * página (clique, setas ↑/↓ ou os botões anterior/seguinte). A lista pode ser a de acompanhamento, a carteira ou o
+ * catálogo, com pesquisa e ordenação. ?instrumento, ?estrategia, ?fonte e ?ordem ficam no endereço; sem estratégia
+ * escolhida, aplica-se a melhor de cada instrumento.
  */
+const SOURCES = [{ value: 'lista', label: 'Lista' }, { value: 'carteira', label: 'Carteira' }, { value: 'catalogo', label: 'Catálogo' }];
+const SORTS = {
+  simbolo: { label: 'Símbolo', cmp: (a, b) => a.symbol.localeCompare(b.symbol) },
+  sobe: { label: 'Maiores subidas', cmp: (a, b) => (Number(b.latest?.changePct ?? -Infinity) - Number(a.latest?.changePct ?? -Infinity)) || a.symbol.localeCompare(b.symbol) },
+  desce: { label: 'Maiores descidas', cmp: (a, b) => (Number(a.latest?.changePct ?? Infinity) - Number(b.latest?.changePct ?? Infinity)) || a.symbol.localeCompare(b.symbol) },
+};
 export default function ChartsPage() {
   const [params, setParams] = useSearchParams();
+  const source = SOURCES.some((s) => s.value === params.get('fonte')) ? params.get('fonte') : 'lista';
+  const sortKey = SORTS[params.get('ordem')] ? params.get('ordem') : 'simbolo';
+  const [search, setSearch] = useState('');
   const watchlist = useWatchlist();
+  const catalog = useCatalog(source !== 'lista');
+  const portfolio = usePortfolio();
   const bestMap = useBestStrategies();
   const qc = useQueryClient();
   const listRef = useRef(null);
 
-  const items = (watchlist.data?.items ?? []).filter((i) => i.status === 'active');
+  const base = source === 'lista' ? watchlist : catalog;
+  const held = new Set((portfolio.data?.positions ?? []).map((p) => p.instrumentId));
+  const needle = search.trim().toLowerCase();
+  const items = (base.data?.items ?? [])
+    .filter((i) => i.status === 'active' && (source !== 'carteira' || held.has(i.id)))
+    .filter((i) => !needle || i.symbol.toLowerCase().includes(needle) || i.name?.toLowerCase().includes(needle))
+    .sort(SORTS[sortKey].cmp);
   const requested = Number(params.get('instrumento'));
   const index = Math.max(0, items.findIndex((i) => i.id === requested));
   const current = items[index];
@@ -70,21 +88,38 @@ export default function ChartsPage() {
       const from = quotesFromFor(strategyFor(n), n.lastSession);
       qc.prefetchQuery({ queryKey: keys.quotes(n.id, from), queryFn: () => api.get(`/instruments/${n.id}/quotes${from ? `?from=${from}` : ''}`) });
     }
-  }); // eslint-disable-line react-hooks/exhaustive-deps
+  });
 
   const onListKey = (e) => {
     if (e.key === 'ArrowDown') { e.preventDefault(); move(1); }
     if (e.key === 'ArrowUp') { e.preventDefault(); move(-1); }
   };
 
-  if (watchlist.isPending) return <Loading rows={8} />;
-  if (watchlist.error) return <ErrorState error={watchlist.error} onRetry={watchlist.refetch} />;
+  const listControls = (
+    <div className="stack" style={{ gap: '0.5rem' }}>
+      <Segmented label="Lista" value={source} onChange={(v) => setParam('fonte', v)} options={SOURCES} />
+      <div className="row" style={{ gap: '0.5rem', flexWrap: 'nowrap' }}>
+        <label className="visually-hidden" htmlFor="charts-search">Pesquisar na lista</label>
+        <input id="charts-search" className="input" type="search" placeholder="Pesquisar" value={search} onChange={(e) => setSearch(e.target.value)} style={{ minWidth: 0 }} />
+        <label className="visually-hidden" htmlFor="charts-sort">Ordenar</label>
+        <select id="charts-sort" className="select" value={sortKey} onChange={(e) => setParam('ordem', e.target.value)} style={{ width: 'auto' }}>
+          {Object.entries(SORTS).map(([k, s]) => <option key={k} value={k}>{s.label}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+
+  if (base.isPending) return <Loading rows={8} />;
+  if (base.error) return <ErrorState error={base.error} onRetry={base.refetch} />;
   if (!current) {
+    const empty = needle ? `Nada encontrado para «${search.trim()}»`
+      : source === 'carteira' ? 'A carteira não tem posições' : source === 'catalogo' ? 'O catálogo não tem instrumentos activos' : 'A sua lista não tem instrumentos activos';
     return (
       <>
         <div className="page-head"><h1 className="page-title">Charts</h1></div>
-        <EmptyState title="A sua lista não tem instrumentos activos" action={<Link className="button" to="/acompanhar">Ir para Acompanhar</Link>}>
-          Os gráficos mostram os instrumentos da sua lista de acompanhamento.
+        <div className="card stack" style={{ maxWidth: '28rem', marginBottom: '1rem' }}>{listControls}</div>
+        <EmptyState title={empty} action={source === 'lista' && !needle ? <Link className="button" to="/acompanhar">Ir para Acompanhar</Link> : null}>
+          Escolha outra lista ou outra pesquisa.
         </EmptyState>
       </>
     );
@@ -133,11 +168,12 @@ export default function ChartsPage() {
 
       <aside className="card charts-side" aria-labelledby="charts-list-title">
         <div className="card-head">
-          <h2 id="charts-list-title" className="card-title">A minha lista</h2>
+          <h2 id="charts-list-title" className="card-title">{SOURCES.find((s) => s.value === source).label}</h2>
           <span className="small muted">{items.length}</span>
         </div>
+        {listControls}
         <div className="charts-list-head small muted" aria-hidden="true"><span>Instrumento</span><span className="r">Último</span><span className="r">Var.</span></div>
-        <ul className="charts-list" ref={listRef} onKeyDown={onListKey} aria-label="Instrumentos da lista (setas para mudar)">
+        <ul className="charts-list" ref={listRef} onKeyDown={onListKey} aria-label={`Instrumentos (${SOURCES.find((s) => s.value === source).label}; setas para mudar)`}>
           {items.map((i) => (
             <li key={i.id}>
               <button type="button" data-id={i.id} className="charts-item" aria-current={i.id === current.id ? 'true' : undefined} onClick={() => select(i)}

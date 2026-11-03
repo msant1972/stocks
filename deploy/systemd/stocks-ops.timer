@@ -1,0 +1,9 @@
+[Unit]
+Description=Stocks — verificação operacional nos dias úteis às 21:00 de Lisboa (depois da recolha diária)
+
+[Timer]
+OnCalendar=Mon..Fri 21:00 Europe/Lisbon
+Persistent=true
+
+[Install]
+WantedBy=timers.target

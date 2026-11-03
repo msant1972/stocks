@@ -78,7 +78,7 @@ export default function PromessasPage() {
                     <p className="stat-label">Resultado no passado</p>
                     <p className="small">
                       Aplicada em {data.validation.length} datas anteriores, só com os dados de cada data, os {data.topN} primeiros tiveram em média{' '}
-                      <strong>{Math.round(avg('topWinners'))}%</strong> de ganhadores nas três estratégias (catálogo: {Math.round(avg('catalogWinners'))}%) e{' '}
+                      <strong>{Math.round(avg('topWinners'))}%</strong> de ganhadores em todas as estratégias (catálogo: {Math.round(avg('catalogWinners'))}%) e{' '}
                       <strong>{fmtPct(avg('topReturn'), 0)}</strong> de rendimento (catálogo: {fmtPct(avg('catalogReturn'), 0)}).
                     </p>
                   </div>
@@ -91,7 +91,7 @@ export default function PromessasPage() {
                         <tr>
                           <th scope="col">Lista feita em</th>
                           <th scope="col">Resultado até</th>
-                          <th scope="col" className="r">Ganhadores nas 3: top {data.topN}</th>
+                          <th scope="col" className="r">Ganhadores em todas: top {data.topN}</th>
                           <th scope="col" className="r">Catálogo</th>
                           <th scope="col" className="r">Rendimento: top {data.topN}</th>
                           <th scope="col" className="r">Catálogo</th>
@@ -112,8 +112,10 @@ export default function PromessasPage() {
                     </table>
                   </div>
                   <p className="muted" style={{ marginTop: '0.5rem' }}>
-                    Na lista de abril de 2026 a vantagem quase desapareceu: os ganhadores do período anterior inverteram. Com três anos de dados,
-                    estas janelas sobrepõem-se e não substituem uma validação mais longa.
+                    {data.validatedAt
+                      ? `Recalculada semanalmente com o histórico disponível (última vez: ${f.dateTime(data.validatedAt)}), com todas as estratégias disponíveis.`
+                      : 'Validação inicial (24 out. 2026), com as três estratégias de então; na lista de abril de 2026 a vantagem quase desapareceu.'}{' '}
+                    As janelas sobrepõem-se e não substituem uma validação mais longa.
                   </p>
                 </details>
               </section>

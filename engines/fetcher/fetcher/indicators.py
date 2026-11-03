@@ -48,4 +48,4 @@ def ema(closes: list[Decimal], period: int) -> list[Decimal | None]:
 def compute(closes: list[Decimal]) -> list[tuple[Decimal | None, ...]]:
     """Para cada sessão, os valores pela ordem de COLUMNS."""
     series = [ema(closes, EMA_PERIOD)] + [sma(closes, p) for p in SMA_PERIODS]
-    return list(zip(*series)) if closes else []
+    return list(zip(*series, strict=True)) if closes else []

@@ -28,7 +28,7 @@ def _settings(**overrides) -> Settings:
 def _up_statements(path: pathlib.Path) -> list[str]:
     text = path.read_text(encoding="utf-8")
     up = text.split("-- migrate:up", 1)[1].split("-- migrate:down", 1)[0]
-    lines = [l for l in up.splitlines() if not l.strip().startswith("--")]
+    lines = [line for line in up.splitlines() if not line.strip().startswith("--")]
     return [s.strip() for s in "\n".join(lines).split(";") if s.strip()]
 
 

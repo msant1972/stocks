@@ -55,6 +55,20 @@ describe.skipIf(!hasTestDb)('regras de alerta', () => {
     expect((await ana.post('/alerts', { instrumentId: 99999, kind: 'close_above', threshold: '1' })).statusCode).toBe(404);
   });
 
+  it('alertas de sinal: exigem uma estratégia disponível e não têm limite', async () => {
+    expect((await ana.post('/alerts', { instrumentId: galp, kind: 'signal' })).json().error.code).toBe('INVALID_STRATEGY');
+    expect((await ana.post('/alerts', { instrumentId: galp, kind: 'signal', strategy: 'x-y' })).json().error.code).toBe('INVALID_STRATEGY');
+    expect((await ana.post('/alerts', { instrumentId: galp, kind: 'close_above' })).json().error.code).toBe('THRESHOLD_REQUIRED');
+    const created = await ana.post('/alerts', { instrumentId: galp, kind: 'signal', strategy: 'c-ai', threshold: '10' });
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({ kind: 'signal', strategy: 'c-ai', threshold: null });
+    // Passar a alerta de preço exige o limite e esquece a estratégia.
+    expect((await ana.patch(`/alerts/${created.json().id}`, { kind: 'close_below' })).statusCode).toBe(400);
+    const changed = await ana.patch(`/alerts/${created.json().id}`, { kind: 'close_below', threshold: '9' });
+    expect(changed.json()).toMatchObject({ kind: 'close_below', threshold: '9', strategy: null });
+    expect((await ana.del(`/alerts/${created.json().id}`)).statusCode).toBe(204);
+  });
+
   it('um utilizador não vê nem altera as regras de outro', async () => {
     const rule = (await ana.post('/alerts', { instrumentId: galp, kind: 'change_up', threshold: '5' })).json();
     expect((await rui.get('/alerts')).json().items).toHaveLength(0);

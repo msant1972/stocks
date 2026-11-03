@@ -167,7 +167,7 @@ export async function readSymbolFile(filename, buffer) {
       rows.push({ line: number, cells: row.values.slice(1).map(cellText) });
     });
   } else if (lower.endsWith('.csv')) {
-    const text = buffer.toString('utf8').replace(/^﻿/, '');
+    const text = buffer.toString('utf8').replace(/^\ufeff/, '');
     rows = text.split(/\r?\n/).map((l, i) => ({ line: i + 1, cells: l.split(/[;,]/).map((c) => c.trim().replace(/^"|"$/g, '')) }))
       .filter((r) => r.cells.some((c) => c));
   } else {

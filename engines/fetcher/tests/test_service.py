@@ -171,6 +171,7 @@ def test_regista_execucao_da_actualizacao(conn):
 def test_actualizacao_horaria_e_registada_a_parte(conn, monkeypatch):
     """`update --intraday` corre como a diária mas fica registada como fetch_intraday."""
     from fetcher import __main__ as cli
+
     from .conftest import FakeProvider, _settings
 
     monkeypatch.setattr(cli, "load_settings", _settings)
@@ -188,6 +189,7 @@ def test_actualizacao_horaria_e_registada_a_parte(conn, monkeypatch):
 def test_vela_do_dia_e_provisoria_durante_a_sessao(conn, settings):
     """Antes das 18:00 de Lisboa a sessão de hoje fica provisória; a recolha depois do fecho torna-a definitiva."""
     from datetime import datetime
+
     from fetcher.service import MARKET_TZ
 
     today = date(2026, 10, 15)  # quinta-feira

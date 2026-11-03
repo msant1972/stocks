@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-24.04
     services:
       mariadb:
-        image: mariadb:10.11
+        image: mariadb:11.8
         env:
           MARIADB_ROOT_PASSWORD: root
           MARIADB_DATABASE: stocks_test
@@ -29,8 +29,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - run: pip install -e '.[dev]'
+          python-version: "3.14"
+      - run: pip install -e '.[dev]' pip-audit
+      - name: Análise estática (Ruff)
+        run: ruff check .
+      - name: Auditoria de dependências
+        run: pip freeze --exclude-editable > /tmp/req.txt && pip-audit -r /tmp/req.txt
       - run: pytest -v
         env:
           STOCKS_TEST_DB_PASSWORD: stocks

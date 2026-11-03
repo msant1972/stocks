@@ -17,6 +17,8 @@ class DigestEvent:
     session_date: date
     close: Decimal
     change_pct: Decimal | None
+    strategy: str | None = None      # regras «signal»: id da estratégia
+    signal_side: str | None = None   # 'buy', 'add' ou 'sell'
 
 
 def fmt_date(d: date) -> str:
@@ -45,9 +47,16 @@ def fmt_pct(value: Decimal) -> str:
     return f"{'+' if value > 0 else ''}{fmt_number(value)}%"
 
 
+# Nomes das estratégias do registo (shared/strategies/index.js), para os emails.
+STRATEGY_NAMES = {"a-momentum": "A-Momentum", "b-opus": "B-Opus", "c-ai": "C-AI", "d-reversao": "D-Reversão"}
+SIDE_LABEL = {"buy": "compra", "add": "reforço", "sell": "venda"}
+
+
 def describe(e: DigestEvent) -> str:
     """Frase com a condição e o valor observado."""
-    if e.kind == "close_above":
+    if e.kind == "signal":
+        cond = f"sinal de {SIDE_LABEL.get(e.signal_side, e.signal_side)} da {STRATEGY_NAMES.get(e.strategy, e.strategy)}"
+    elif e.kind == "close_above":
         cond = f"fecho acima de {fmt_eur(e.threshold)}"
     elif e.kind == "close_below":
         cond = f"fecho abaixo de {fmt_eur(e.threshold)}"
@@ -74,7 +83,8 @@ def build_message(sender: str, recipient: str, user_name: str, events: list[Dige
     latest = max(e.session_date for e in events)
     subject = f"Stocks: {n} {'alerta' if n == 1 else 'alertas'} · sessão de {fmt_date(latest)}"
 
-    lines = [f"Olá {user_name},", "", f"{'Disparou' if n == 1 else 'Dispararam'} {n} {'alerta' if n == 1 else 'alertas'} após a actualização das cotações:", ""]
+    intro = f"{'Disparou' if n == 1 else 'Dispararam'} {n} {'alerta' if n == 1 else 'alertas'} após a actualização das cotações:"
+    lines = [f"Olá {user_name},", "", intro, ""]
     for e in events:
         label = f"{e.symbol}" + (f" — {e.name}" if e.name else "")
         lines += [f"• {label}", f"  {describe(e)}", ""]

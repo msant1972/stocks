@@ -3003,9 +3003,15 @@ paths:
                             - close_below
                             - change_up
                             - change_down
+                            - signal
                         threshold:
+                          nullable: true
                           type: string
                           description: 'Valor decimal em texto, ex.: "1234.50"'
+                        strategy:
+                          nullable: true
+                          description: "Regras «signal»: id da estratégia (ex.: c-ai)"
+                          type: string
                         active:
                           type: boolean
                         lastEvaluatedSession:
@@ -3033,6 +3039,7 @@ paths:
                         - currency
                         - kind
                         - threshold
+                        - strategy
                         - active
                         - lastEvaluatedSession
                         - lastEventSession
@@ -3049,7 +3056,9 @@ paths:
         - Alertas
       description: "close_above/close_below: limite em EUR, notificado quando a
         condição passa a verificar-se. change_up/change_down: variação
-        percentual face à sessão anterior, avaliada em cada sessão."
+        percentual face à sessão anterior, avaliada em cada sessão. signal:
+        sinal de compra, reforço ou venda da estratégia indicada em strategy
+        (sem threshold), numa sessão definitiva."
       requestBody:
         required: true
         content:
@@ -3069,14 +3078,17 @@ paths:
                     - close_below
                     - change_up
                     - change_down
+                    - signal
                 threshold:
                   anyOf:
                     - type: string
                     - type: number
+                strategy:
+                  type: string
+                  maxLength: 32
               required:
                 - instrumentId
                 - kind
-                - threshold
       responses:
         "201":
           description: Default Response
@@ -3104,9 +3116,15 @@ paths:
                       - close_below
                       - change_up
                       - change_down
+                      - signal
                   threshold:
+                    nullable: true
                     type: string
                     description: 'Valor decimal em texto, ex.: "1234.50"'
+                  strategy:
+                    nullable: true
+                    description: "Regras «signal»: id da estratégia (ex.: c-ai)"
+                    type: string
                   active:
                     type: boolean
                   lastEvaluatedSession:
@@ -3134,6 +3152,7 @@ paths:
                   - currency
                   - kind
                   - threshold
+                  - strategy
                   - active
                   - lastEvaluatedSession
                   - lastEventSession
@@ -3204,10 +3223,14 @@ paths:
                     - close_below
                     - change_up
                     - change_down
+                    - signal
                 threshold:
                   anyOf:
                     - type: string
                     - type: number
+                strategy:
+                  type: string
+                  maxLength: 32
                 active:
                   type: boolean
       parameters:
@@ -3246,9 +3269,15 @@ paths:
                       - close_below
                       - change_up
                       - change_down
+                      - signal
                   threshold:
+                    nullable: true
                     type: string
                     description: 'Valor decimal em texto, ex.: "1234.50"'
+                  strategy:
+                    nullable: true
+                    description: "Regras «signal»: id da estratégia (ex.: c-ai)"
+                    type: string
                   active:
                     type: boolean
                   lastEvaluatedSession:
@@ -3276,6 +3305,7 @@ paths:
                   - currency
                   - kind
                   - threshold
+                  - strategy
                   - active
                   - lastEvaluatedSession
                   - lastEventSession
@@ -3388,9 +3418,21 @@ paths:
                             - close_below
                             - change_up
                             - change_down
+                            - signal
                         threshold:
+                          nullable: true
                           type: string
                           description: 'Valor decimal em texto, ex.: "1234.50"'
+                        strategy:
+                          nullable: true
+                          type: string
+                        signalSide:
+                          nullable: true
+                          type: string
+                          enum:
+                            - buy
+                            - add
+                            - sell
                         symbol:
                           type: string
                         sessionDate:
@@ -3420,6 +3462,8 @@ paths:
                         - ruleId
                         - kind
                         - threshold
+                        - strategy
+                        - signalSide
                         - symbol
                         - sessionDate
                         - close
@@ -4965,6 +5009,15 @@ paths:
                         buyHoldPct:
                           nullable: true
                           type: number
+                        investedSessions:
+                          type: number
+                          description: Sessões da janela com posição aberta
+                        firstYear:
+                          type: number
+                          description: Resultado das vendas feitas no 1.º ano da janela
+                        secondYear:
+                          type: number
+                          description: Resultado das vendas do 2.º ano e da posição aberta
                       required:
                         - instrumentId
                         - symbol
@@ -4984,6 +5037,9 @@ paths:
                         - totalPct
                         - buyHoldPnl
                         - buyHoldPct
+                        - investedSessions
+                        - firstYear
+                        - secondYear
                       additionalProperties: false
                 required:
                   - strategy
@@ -4991,6 +5047,190 @@ paths:
                   - budget
                   - computedAt
                   - items
+                additionalProperties: false
+  /api/v1/strategies/compare:
+    get:
+      summary: Comparação das estratégias disponíveis nos últimos 2 anos, com comprar
+        e manter como referência
+      tags:
+        - Estratégia
+      description: "Agrega os resultados do BackTest de cada estratégia (cache de 10
+        minutos). O 1.º ano conta as vendas feitas nesse ano; o 2.º, as
+        restantes e a posição aberta. buyHold: 15 000 € no início da janela,
+        mantidos até ao fim."
+      parameters:
+        - schema:
+            default: all
+            type: string
+            enum:
+              - all
+              - watchlist
+          in: query
+          name: scope
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  computedAt:
+                    type: string
+                  years:
+                    type: number
+                  budget:
+                    type: number
+                  instruments:
+                    type: number
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        total:
+                          type: number
+                          description: EUR, 2 casas
+                        gain:
+                          type: number
+                          description: Instrumentos com ganho
+                        loss:
+                          type: number
+                          description: Instrumentos com perda
+                        peakCost:
+                          type: number
+                          description: Soma do capital máximo investido em cada instrumento
+                        returnOnPeakPct:
+                          type: number
+                          description: Resultado sobre o capital máximo investido, em %
+                        positions:
+                          type: number
+                          description: Operações (fechadas e abertas)
+                        winRate:
+                          nullable: true
+                          description: Operações fechadas com ganho, em %
+                          type: number
+                        investedPct:
+                          nullable: true
+                          description: Tempo com posição aberta, em % das sessões
+                          type: number
+                        worst:
+                          nullable: true
+                          type: number
+                          description: EUR, 2 casas
+                        worst10:
+                          type: number
+                          description: EUR, 2 casas
+                        firstYear:
+                          nullable: true
+                          type: number
+                          description: EUR, 2 casas
+                        secondYear:
+                          nullable: true
+                          type: number
+                          description: EUR, 2 casas
+                        bestIn:
+                          nullable: true
+                          description: Instrumentos em que é a melhor estratégia (só nas estratégias)
+                          type: number
+                      required:
+                        - id
+                        - name
+                        - total
+                        - gain
+                        - loss
+                        - peakCost
+                        - returnOnPeakPct
+                        - positions
+                        - winRate
+                        - investedPct
+                        - worst
+                        - worst10
+                        - firstYear
+                        - secondYear
+                        - bestIn
+                      additionalProperties: false
+                  buyHold:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      total:
+                        type: number
+                        description: EUR, 2 casas
+                      gain:
+                        type: number
+                        description: Instrumentos com ganho
+                      loss:
+                        type: number
+                        description: Instrumentos com perda
+                      peakCost:
+                        type: number
+                        description: Soma do capital máximo investido em cada instrumento
+                      returnOnPeakPct:
+                        type: number
+                        description: Resultado sobre o capital máximo investido, em %
+                      positions:
+                        type: number
+                        description: Operações (fechadas e abertas)
+                      winRate:
+                        nullable: true
+                        description: Operações fechadas com ganho, em %
+                        type: number
+                      investedPct:
+                        nullable: true
+                        description: Tempo com posição aberta, em % das sessões
+                        type: number
+                      worst:
+                        nullable: true
+                        type: number
+                        description: EUR, 2 casas
+                      worst10:
+                        type: number
+                        description: EUR, 2 casas
+                      firstYear:
+                        nullable: true
+                        type: number
+                        description: EUR, 2 casas
+                      secondYear:
+                        nullable: true
+                        type: number
+                        description: EUR, 2 casas
+                      bestIn:
+                        nullable: true
+                        description: Instrumentos em que é a melhor estratégia (só nas estratégias)
+                        type: number
+                    required:
+                      - id
+                      - name
+                      - total
+                      - gain
+                      - loss
+                      - peakCost
+                      - returnOnPeakPct
+                      - positions
+                      - winRate
+                      - investedPct
+                      - worst
+                      - worst10
+                      - firstYear
+                      - secondYear
+                      - bestIn
+                    additionalProperties: false
+                required:
+                  - computedAt
+                  - years
+                  - budget
+                  - instruments
+                  - items
+                  - buyHold
                 additionalProperties: false
   /api/v1/strategies/best:
     get:

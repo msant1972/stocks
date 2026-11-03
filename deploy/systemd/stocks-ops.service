@@ -1,0 +1,19 @@
+[Unit]
+Description=Stocks — aviso operacional aos administradores (falhas, recolha em falta, dados parados)
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=stocks-svc
+Group=stocks-svc
+EnvironmentFile=/etc/stocks/stocks.env
+WorkingDirectory=/opt/stocks/engines/alerts
+# Código 1 quando encontra problemas: não é uma falha do serviço.
+ExecStart=/opt/stocks/engines/alerts/.venv/bin/python -m alerts ops
+SuccessExitStatus=1
+TimeoutStartSec=10min
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Decimal, ErrorBody, Id, IsoDate, NullableDecimal, Trade } from '../schemas.js';
-import { portfolioSummary } from '../services/portfolio.js';
+import { portfolioHistory, portfolioSummary } from '../services/portfolio.js';
 import { executeTrade, listTrades, previewTrade } from '../services/trading.js';
 
 const Position = z.object({
@@ -23,6 +23,20 @@ export default async function portfolioRoutes(app, { pool, cfg }) {
   app.get('/portfolio', {
     schema: { tags: ['Carteira'], summary: 'Resumo da carteira virtual e posições', response: { 200: Portfolio } },
   }, async (req) => portfolioSummary(pool, req.user.id));
+
+  app.get('/portfolio/history', {
+    schema: {
+      tags: ['Carteira'], summary: 'Evolução diária do valor da carteira virtual',
+      description: 'Em cada sessão desde a criação da carteira: saldo, valor das posições ao fecho dessa sessão e total. '
+        + 'Calculada a partir dos movimentos de saldo e das operações. Números (EUR, 2 casas), só para o gráfico.',
+      response: {
+        200: z.object({
+          initialCapital: z.number(),
+          points: z.array(z.object({ date: IsoDate, cash: z.number(), marketValue: z.number(), total: z.number(), netInvested: z.number() })),
+        }),
+      },
+    },
+  }, async (req) => portfolioHistory(pool, req.user.id));
 
   app.get('/portfolio/positions', {
     schema: { tags: ['Carteira'], summary: 'Posições abertas', response: { 200: z.object({ items: z.array(Position) }) } },
