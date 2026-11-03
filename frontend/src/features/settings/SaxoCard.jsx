@@ -80,7 +80,7 @@ export default function SaxoCard() {
       {q.isPending ? <p className="small muted">A carregar…</p> : q.error ? <Notice tone="error">{errorMessage(q.error)}</Notice> : (
         <form className="stack" style={{ gap: '1rem', maxWidth: '36rem' }} noValidate onSubmit={save}>
           <Field label="Token" error={clean && !valid ? 'O token não pode ter espaços nem caracteres especiais.' : null}
-            help={s.configured ? `Definido em ${f.dateTime(s.updatedAt)} · ${expiry}. Escreva um novo para o substituir.` : 'Cole aqui o token da SAXO Bank.'}>
+            help={s.configured ? `Definido em ${f.dateTime(s.updatedAt)}${expiry ? ` · ${expiry}` : ''}. Escreva um novo para o substituir.` : 'Cole aqui o token da SAXO Bank.'}>
             {(p) => (
               <input {...p} className="input" type="password" name="saxo-token" autoComplete="off" spellCheck={false}
                 value={token} onChange={(e) => setToken(e.target.value)} placeholder={s.configured ? '••••••••••••' : ''} />
