@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AVAILABLE_STRATEGIES, DEFAULT_STRATEGY_ID, getStrategy, STRATEGIES } from '../../../shared/strategies/index.js';
 import { IsoDate } from '../schemas.js';
-import { yearsBefore } from './instruments.js';
+import { computeStrategiesParallel } from '../services/strategyRuns.js';
 import * as promessas from '../../../shared/promessas.js';
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
@@ -22,62 +22,7 @@ const Row = z.object({
   secondYear: Money.describe('Resultado das vendas do 2.º ano e da posição aberta'),
 });
 
-/** Sessões da janela com posição e resultado de cada ano (1.º ano: vendas até mid; 2.º: o resto, com a posição aberta). */
-function exposure(r, window, mid) {
-  const spans = r.trades.map((t) => [t.buyDate, t.sellDate]);
-  if (r.open) spans.push([r.open.buyDate, '9999-12-31']);
-  const invested = window.filter((x) => spans.some(([a, z]) => x.date >= a && x.date < z)).length;
-  const firstYear = Math.round(r.trades.filter((t) => t.sellDate < mid).reduce((a, t) => a + t.pnl, 0) * 100) / 100;
-  return { invested, firstYear, secondYear: Math.round((r.summary.total - firstYear) * 100) / 100 };
-}
-
-/**
- * Aplica estratégias do registo (shared/strategies/, as mesmas da página do instrumento) a cada instrumento
- * activo, sobre os mesmos dados que essa página carrega: os últimos windowYears anos até à última sessão do
- * instrumento, mais os warmupYears de aquecimento que cada estratégia pedir (a estratégia só actua a partir do
- * início da janela). Por isso os valores coincidem com os do gráfico.
- *
- * Processa um instrumento de cada vez (uma consulta por instrumento, com as cotações descartadas a seguir), para
- * a memória não crescer com o catálogo: carregar todas as cotações de uma vez esgotava a memória da API.
- * Devolve Map(id da estratégia → linhas).
- */
-async function computeStrategies(pool, strategies) {
-  const histYears = Math.max(...strategies.map((st) => st.windowYears + st.warmupYears));
-  const [instruments] = await pool.query(
-    "SELECT id, symbol, name, exchange, last_session FROM instruments WHERE status = 'active' AND last_session IS NOT NULL ORDER BY id",
-  );
-  const out = new Map(strategies.map((st) => [st.id, []]));
-  for (const inst of instruments) {
-    const [quotes] = await pool.query(
-      `SELECT session_date AS date, open, high, low, close, adj_close AS adjClose, volume, sma10, sma125, sma200
-         FROM daily_quotes WHERE instrument_id = ? AND session_date >= ? ORDER BY session_date`,
-      [inst.id, yearsBefore(inst.last_session, histYears)],
-    );
-    for (const st of strategies) {
-      const histFrom = yearsBefore(inst.last_session, st.windowYears + st.warmupYears);
-      const from = yearsBefore(inst.last_session, st.windowYears);
-      const q = quotes.filter((r) => r.date >= histFrom); // a mesma janela que GET /instruments/{id}/quotes?from=
-      if (!q.length) continue;
-      const r = st.run(q, { from });
-      const s = r.summary;
-      const window = q.filter((x) => x.date >= from);
-      const e = exposure(r, window, yearsBefore(inst.last_session, st.windowYears - 1));
-      out.get(st.id).push({
-        instrumentId: Number(inst.id), symbol: inst.symbol, name: inst.name, exchange: inst.exchange,
-        fromDate: r.firstDate, toDate: q.at(-1).date, sessions: q.filter((x) => x.date >= from).length,
-        closed: s.closed, wins: s.wins, reinforcements: s.reinforcements, openPosition: r.open != null,
-        peakCost: s.peakCost, realized: s.realized, unrealized: s.unrealized, total: s.total,
-        totalPct: Math.round(s.totalPct * 100) / 100,
-        buyHoldPnl: s.buyHold?.pnl ?? null,
-        buyHoldPct: s.buyHold ? Math.round(s.buyHold.pnlPct * 100) / 100 : null,
-        investedSessions: e.invested, firstYear: e.firstYear, secondYear: e.secondYear,
-      });
-    }
-  }
-  return out;
-}
-
-export default async function backtestRoutes(app, { pool }) {
+export default async function backtestRoutes(app, { pool, cfg }) {
   const cache = new Map(); // por estratégia
 
   const StrategyInfo = z.object({ id: z.string(), name: z.string(), available: z.boolean(), summary: z.string(), rules: z.string() });
@@ -365,7 +310,7 @@ export default async function backtestRoutes(app, { pool }) {
       const missing = strategies.filter((st) => !fresh(st));
       if (missing.length) {
         const at = Date.now();
-        const computed = await computeStrategies(pool, missing);
+        const computed = await computeStrategiesParallel(pool, cfg.db, missing, app.log);
         for (const st of missing) cache.set(st.id, { at, items: computed.get(st.id) });
       }
       return strategies.map((st) => cache.get(st.id));

@@ -10,6 +10,8 @@ Group=stocks-svc
 EnvironmentFile=/etc/stocks/stocks.env
 Environment=STOCKS_FETCH_TRIGGER_FILE=/var/lib/stocks/fetch-request
 Environment=STOCKS_ALERTS_PYTHON=/opt/stocks/engines/alerts/.venv/bin/python
+# Heap do processo principal; os cálculos das estratégias correm em worker threads (um por núcleo), dentro do MemoryMax.
+Environment=NODE_OPTIONS=--max-old-space-size=1024
 WorkingDirectory=/opt/stocks/api
 ExecStart=/usr/bin/node src/server.js
 Restart=on-failure
@@ -28,7 +30,7 @@ RestrictSUIDSGID=true
 LockPersonality=true
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 CapabilityBoundingSet=
-MemoryMax=512M
+MemoryMax=1536M
 
 [Install]
 WantedBy=multi-user.target

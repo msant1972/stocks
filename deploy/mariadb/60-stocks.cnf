@@ -1,0 +1,13 @@
+# Afinação do MariaDB para o servidor da aplicação Stocks (VPS com 4 vCPU, 8 GB de RAM, 100 GB de disco SSD).
+# Instalado pelo deploy/install.sh em /etc/mysql/mariadb.conf.d/; o MariaDB é reiniciado quando o ficheiro muda.
+[mysqld]
+# Os dados ocupam ~50 MB e crescem ~17 MB por ano: 1 GB guarda tudo em memória com folga, deixando RAM para a
+# API (até 1,5 GB), os workers das estratégias e os motores Python.
+innodb_buffer_pool_size = 1G
+innodb_log_file_size    = 256M
+# Disco SSD.
+innodb_io_capacity      = 1000
+innodb_io_capacity_max  = 2000
+# Tabelas temporárias das consultas de janela (HeatMap, cruzamentos) em memória.
+tmp_table_size          = 64M
+max_heap_table_size     = 64M

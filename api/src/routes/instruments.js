@@ -30,13 +30,9 @@ export const INSTRUMENT_SELECT = `
 
 const MAX_QUOTE_ROWS = 1500;
 
-/** 'AAAA-MM-DD' recuado n anos; 29 de Fevereiro passa a 28. */
-export function yearsBefore(date, n) {
-  const [y, m, d] = date.split('-').map(Number);
-  const t = new Date(Date.UTC(y - n, m - 1, d));
-  if (t.getUTCMonth() !== m - 1) t.setUTCDate(0);
-  return t.toISOString().slice(0, 10);
-}
+import { yearsBefore } from '../dates.js';
+
+export { yearsBefore };
 
 export default async function instrumentRoutes(app, { pool, cfg }) {
   app.get('/instruments', {

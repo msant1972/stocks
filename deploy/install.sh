@@ -24,6 +24,20 @@ for p in "${PKGS[@]}"; do dpkg -s "$p" >/dev/null 2>&1 || missing+=("$p"); done
 if (( ${#missing[@]} )); then apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${missing[@]}"; fi
 command -v dbmate >/dev/null || { echo "falta o dbmate em /usr/local/bin (ver deploy/README.md)" >&2; exit 1; }
 
+step "Afinação do servidor (MariaDB e swap)"
+# MariaDB afinado para o servidor (deploy/mariadb/60-stocks.cnf); reinicia só quando o ficheiro muda.
+if ! cmp -s "$SRC/deploy/mariadb/60-stocks.cnf" /etc/mysql/mariadb.conf.d/60-stocks.cnf; then
+  install -m 644 "$SRC/deploy/mariadb/60-stocks.cnf" /etc/mysql/mariadb.conf.d/60-stocks.cnf
+  systemctl restart mariadb
+fi
+# Swap de 2 GB como margem contra falta de memória (só se o sistema não tiver nenhuma).
+if [[ -z "$(swapon --show --noheadings)" ]]; then
+  fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap -q /swapfile && swapon /swapfile
+  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+fi
+sysctl -q -w vm.swappiness=10
+echo 'vm.swappiness=10' > /etc/sysctl.d/60-stocks.conf
+
 step "Utilizador de sistema e pastas"
 id stocks-svc >/dev/null 2>&1 || useradd --system --user-group --home-dir "$APP" --shell /usr/sbin/nologin stocks-svc
 install -d -m 755 "$APP"

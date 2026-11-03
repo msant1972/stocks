@@ -1,6 +1,6 @@
 # Implantação
 
-Toda a aplicação corre num único servidor Ubuntu, `stocks.graus.pt`. Desde 2 nov. 2026 é um VPS com Ubuntu (26.04), instalado de raiz com este procedimento.
+Toda a aplicação corre num único servidor Ubuntu, `stocks.graus.pt`. Desde 2 nov. 2026 é um VPS com Ubuntu (26.04), **4 vCPU, 8 GB de RAM e 100 GB de disco SSD**, instalado de raiz com este procedimento (afinação na secção «Recursos do servidor»).
 
 ```text
 Internet ──HTTPS──▶ Caddy (:443, certificado automático)
@@ -18,7 +18,7 @@ systemd timers ─▶ motor de recolha (cargas iniciais a cada 5 min; actualiza�
 | `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança: processa os pedidos que ficarem na fila |
 | `stocks-intraday.timer` | dias úteis, de hora a hora das 08:23 às 17:23 de Lisboa | Actualização das cotações durante a sessão, sem alertas (`fetcher update --intraday`) |
 | `stocks-daily.timer` | dias úteis, 19:01 de Lisboa | Actualização com os fechos definitivos e, a seguir, alertas ([bin/daily.sh](bin/daily.sh)) |
-| `stocks-backup.timer` | diariamente, 03:30 UTC | `mariadb-dump` para `/var/backups/stocks`, guardado durante 14 dias |
+| `stocks-backup.timer` | diariamente, 03:30 UTC | `mariadb-dump` para `/var/backups/stocks`, guardado durante 30 dias |
 | `stocks-ops.timer` | dias úteis, 21:00 de Lisboa | Aviso operacional por email aos administradores (`alerts ops`): execuções falhadas ou presas, recolha diária em falta, instrumentos com recolha falhada, dados parados; no máximo um email por dia |
 | `stocks-analysis.timer` | sábado, 09:00 de Lisboa | Recalcula a validação das Promessas e a persistência dos ganhadores (`scripts/analysis-revalidation.mjs`, tabela `analysis_results`) |
 
@@ -128,7 +128,7 @@ O SMTP configura-se em **Definições → Envio de email (SMTP)** (administrador
 
 Cópias:
 
-1. **Dumps diários** (`stocks-backup.timer`, 03:30 UTC) em `/var/backups/stocks`, guardados 14 dias. São consistentes, porque são feitos com `mariadb-dump --single-transaction`.
+1. **Dumps diários** (`stocks-backup.timer`, 03:30 UTC) em `/var/backups/stocks`, guardados 30 dias (cerca de 10 MB cada). São consistentes, porque são feitos com `mariadb-dump --single-transaction`.
 2. **Cópia fora do servidor:** autobackup do VPS, feito pelo fornecedor (frequência e retenção definidas no painel do fornecedor). Protege contra a perda do servidor e inclui os dumps do ponto 1, a configuração e a chave `/etc/stocks/secret.key`. Numa recuperação a partir do autobackup, restaure o dump mais recente (procedimento abaixo) em vez de confiar nos ficheiros do MariaDB copiados com o servidor ligado.
 
 O restauro do dump foi testado a 3 nov. 2026 no servidor actual: dump novo restaurado em `stocks_restore` em 7 s, com as mesmas contagens em todas as tabelas e os mesmos saldos. Falta experimentar a recuperação de um ficheiro a partir do autobackup, no painel do fornecedor. Repita o teste periodicamente, por exemplo uma vez por trimestre.
@@ -152,3 +152,17 @@ Teste o restauro periodicamente numa base separada, por exemplo `stocks_restore`
 ## Dependências e CI
 
 O CI corre, em cada componente, a análise estática (ESLint na API e no frontend, Ruff nos motores), a auditoria de dependências (`npm audit --audit-level=high`, `pip-audit`) e os testes, com as versões da produção (MariaDB 11.8, Python 3.14, Node 22). Na API, `overrides` no `package.json` forçam versões corrigidas do `glob` (via `@fastify/static`) e do `uuid` (via ExcelJS). Ficam alertas moderados no `minimatch` antigo usado pelo `archiver` do ExcelJS (só ao gerar o modelo Excel, com padrões fixos do código): a correcção exigiria descer o ExcelJS para a versão 3.
+
+## Recursos do servidor
+
+VPS com 4 vCPU, 8 GB de RAM e 100 GB de disco SSD. O `install.sh` aplica a afinação (idempotente):
+
+| Componente | Configuração | Porquê |
+|---|---|---|
+| MariaDB | `deploy/mariadb/60-stocks.cnf` → `/etc/mysql/mariadb.conf.d/`: `innodb_buffer_pool_size = 1G`, `innodb_log_file_size = 256M`, `innodb_io_capacity = 1000`, tabelas temporárias de 64 MB | Os dados (~50 MB, +17 MB/ano) ficam todos em memória; reiniciado só quando o ficheiro muda |
+| API | `MemoryMax=1536M`, `NODE_OPTIONS=--max-old-space-size=1024` | Margem para os cálculos sobre todo o catálogo |
+| Estratégias | Worker threads, um por núcleo (`api/src/services/strategyRuns.js`): o catálogo é dividido entre os workers | O cálculo das 4 estratégias passou de 4,9 s para 3,1 s e deixou de bloquear a API (BackTest, Comparar, WinnersLoosers, Promessas, melhor estratégia) |
+| Swap | `/swapfile` de 2 GB (só se não houver swap), `vm.swappiness=10` | Margem contra falta de memória, sem trocar para disco em uso normal |
+| Backups | 30 dias de dumps (antes 14) | O disco tem espaço de sobra |
+
+Uso típico: MariaDB ~1,2 GB, API ~150 MB (picos de ~500 MB com os workers), motores Python ~150 MB enquanto correm; ficam ~5 GB livres. O motor de recolha continua a pedir um símbolo de cada vez ao Yahoo, de propósito: pedidos em paralelo aumentam o risco de limitação (HTTP 429) e a recolha completa já demora só ~1,5 minutos.

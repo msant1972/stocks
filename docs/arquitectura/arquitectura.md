@@ -45,7 +45,7 @@ A aplicação mantém os cinco módulos do desenho original:
 | 4 | Motor de recolha | Python 3, yfinance, PyMySQL | `engines/fetcher/` |
 | 5 | Motor de alertas | Python 3, PyMySQL, smtplib, cryptography | `engines/alerts/` |
 
-Tudo corre num único servidor Ubuntu (`stocks.graus.pt`, um VPS com Ubuntu desde 2 nov. 2026). O Caddy termina o HTTPS e encaminha para a API, que serve também o frontend compilado na mesma origem. Os motores Python são processos de curta duração lançados pelo systemd.
+Tudo corre num único servidor Ubuntu (`stocks.graus.pt`, um VPS com Ubuntu, 4 vCPU, 8 GB de RAM e 100 GB de disco, desde 2 nov. 2026). O Caddy termina o HTTPS e encaminha para a API, que serve também o frontend compilado na mesma origem. Os motores Python são processos de curta duração lançados pelo systemd.
 
 ```mermaid
 flowchart LR
@@ -371,7 +371,7 @@ Instalação e actualização com `sudo deploy/install.sh`, que é idempotente: 
 | `stocks-daily.timer` | dias úteis, 19h01 de Lisboa (ao minuto 1, para não coincidir com o timer de 5 minutos) | Recolha diária com os fechos definitivos, seguida dos alertas |
 | `stocks-ops.timer` | dias úteis, 21h00 de Lisboa | Aviso operacional aos administradores (falhas, recolha em falta, dados parados) |
 | `stocks-analysis.timer` | sábado, 09h00 de Lisboa | Recálculo da validação das Promessas e da persistência dos ganhadores (`analysis_results`) |
-| `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 14 dias); a cópia fora do servidor é o autobackup do VPS, feito pelo fornecedor |
+| `stocks-backup.timer` | diariamente, 03h30 UTC | `mariadb-dump` para `/var/backups/stocks` (modo 600, 30 dias); a cópia fora do servidor é o autobackup do VPS, feito pelo fornecedor |
 
 Testes automáticos em cada componente: API com Vitest contra uma BD de testes (103, incluindo 10 da autenticação em dois passos com os vectores do RFC 6238 e 23 do módulo de livro de ofertas com fixtures; o teste de contrato com rede só corre com `EURONEXT_CONTRACT=1`), motor de recolha (22) e motor de alertas (18) com pytest e fornecedor ou mailer simulados, e cálculos do frontend com `node --test` (33: 11 da B-Opus, 5 da C-AI e 3 das Promessas). O CI no GitHub Actions corre-os com MariaDB 10.11 em cada push para `main`. Os testes nunca contactam o Yahoo nem enviam emails.
 
@@ -379,7 +379,7 @@ Riscos aceites ou pendentes:
 - **Servidor único:** indisponibilidade conjunta da aplicação, da BD e dos motores; mitigado por dumps diários da BD e pelo autobackup do VPS (cópia fora do servidor, feita pelo fornecedor). Falta testar o restauro a partir do autobackup.
 - **Fonte não oficial:** o yfinance pode mudar ou ser limitado pelo Yahoo; a versão está fixada e o adaptador é substituível.
 - **Ambientes:** desenvolvimento e produção partilham o servidor e a base `stocks`; os testes usam a base `stocks_test`.
-- **Memória da API:** o serviço tem `MemoryMax=512M` (heap do Node de cerca de 256 MB). A 24 out. 2026, o WinnersLoosers calculava as três estratégias em paralelo com todas as cotações em memória, esgotou o heap e a API reiniciou em ciclo (502) durante alguns minutos. Corrigido: o BackTest, o WinnersLoosers, as Promessas e os Sinais percorrem o catálogo um instrumento de cada vez e partilham os cálculos entre pedidos simultâneos (pico medido de 44 MB com sete pedidos em simultâneo). Novos cálculos sobre todo o catálogo devem seguir o mesmo modelo.
+- **Memória e CPU da API:** o serviço tem `MemoryMax=1536M` e heap de 1 GB (até 3 nov. 2026: 512 MB). Os cálculos das estratégias sobre todo o catálogo correm em worker threads, um por núcleo, com o catálogo dividido entre eles, e não bloqueiam a API (4,9 s → 3,1 s). Antes: A 24 out. 2026, o WinnersLoosers calculava as três estratégias em paralelo com todas as cotações em memória, esgotou o heap e a API reiniciou em ciclo (502) durante alguns minutos. Corrigido: o BackTest, o WinnersLoosers, as Promessas e os Sinais percorrem o catálogo um instrumento de cada vez e partilham os cálculos entre pedidos simultâneos (pico medido de 44 MB com sete pedidos em simultâneo). Novos cálculos sobre todo o catálogo devem seguir o mesmo modelo.
 
 ## 8. Critérios de aceitação
 
