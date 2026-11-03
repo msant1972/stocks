@@ -1,0 +1,25 @@
+{
+ "status": 200,
+ "body": {
+  "AssetType": "Stock",
+  "DisplayAndFormat": {
+   "Currency": "EUR",
+   "Decimals": 3,
+   "Description": "Galp Energia SGPS SA",
+   "Format": "Normal",
+   "OrderDecimals": 3,
+   "Symbol": "GALP:xlis"
+  },
+  "LastUpdated": "0001-01-01T00:00:00.000000Z",
+  "PriceSource": "LISB",
+  "Quote": {
+   "Amount": 0,
+   "ErrorCode": "None",
+   "PriceSource": "LISB",
+   "PriceSourceType": "Firm",
+   "PriceTypeAsk": "NoAccess",
+   "PriceTypeBid": "NoAccess"
+  },
+  "Uic": 23737
+ }
+}

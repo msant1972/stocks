@@ -1,0 +1,125 @@
+{
+ "status": 200,
+ "body": {
+  "Data": [
+   {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Banco Santander SA",
+    "ExchangeId": "SIBE",
+    "GroupId": 1367,
+    "Identifier": 2827,
+    "IssuerCountry": "ES",
+    "PrimaryListing": 2827,
+    "SummaryType": "Instrument",
+    "Symbol": "SAN:xmce",
+    "TradableAs": [
+     "Stock"
+    ]
+   },
+   {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Banco Santander SA",
+    "ExchangeId": "FSE",
+    "GroupId": 1367,
+    "Identifier": 46285,
+    "IssuerCountry": "ES",
+    "PrimaryListing": 2827,
+    "SummaryType": "Instrument",
+    "Symbol": "BSD2:xetr",
+    "TradableAs": [
+     "Stock"
+    ]
+   },
+   {
+    "AssetType": "Stock",
+    "CurrencyCode": "USD",
+    "Description": "Banco Santander SA - ADR",
+    "ExchangeId": "NYSE",
+    "GroupId": 1367,
+    "Identifier": 195942,
+    "IssuerCountry": "ES",
+    "SummaryType": "Instrument",
+    "Symbol": "SAN:xnys",
+    "TradableAs": [
+     "Stock"
+    ]
+   },
+   {
+    "AssetType": "Stock",
+    "CurrencyCode": "GBP",
+    "Description": "Banco Santander SA",
+    "ExchangeId": "LSE_SETS",
+    "GroupId": 1367,
+    "Identifier": 35133,
+    "IssuerCountry": "ES",
+    "PrimaryListing": 2827,
+    "SummaryType": "Instrument",
+    "Symbol": "BNC:xlon",
+    "TradableAs": [
+     "Stock"
+    ]
+   },
+   {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Banco Santander SA",
+    "ExchangeId": "MIL",
+    "GroupId": 1367,
+    "Identifier": 17383303,
+    "IssuerCountry": "ES",
+    "PrimaryListing": 2827,
+    "SummaryType": "Instrument",
+    "Symbol": "SANT:xmil",
+    "TradableAs": [
+     "Stock"
+    ]
+   },
+   {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Banco Santander SA - ADR",
+    "ExchangeId": "FFT",
+    "GroupId": 1367,
+    "Identifier": 7256249,
+    "IssuerCountry": "ES",
+    "SummaryType": "Instrument",
+    "Symbol": "BSDK:xfra",
+    "TradableAs": [
+     "Stock"
+    ]
+   },
+   {
+    "AssetType": "Stock",
+    "CurrencyCode": "USD",
+    "Description": "Banco Santander (Brasil) - ADR",
+    "ExchangeId": "NYSE",
+    "GroupId": 3496,
+    "Identifier": 40052,
+    "IssuerCountry": "BR",
+    "PrimaryListing": 40052,
+    "SummaryType": "Instrument",
+    "Symbol": "BSBR:xnys",
+    "TradableAs": [
+     "Stock"
+    ]
+   },
+   {
+    "AssetType": "Stock",
+    "CurrencyCode": "USD",
+    "Description": "Banco Santander Chile - ADR",
+    "ExchangeId": "NYSE",
+    "GroupId": 7076,
+    "Identifier": 161170,
+    "IssuerCountry": "CL",
+    "PrimaryListing": 161170,
+    "SummaryType": "Instrument",
+    "Symbol": "BSAC:xnys",
+    "TradableAs": [
+     "Stock"
+    ]
+   }
+  ]
+ }
+}

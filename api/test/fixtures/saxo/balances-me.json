@@ -1,0 +1,66 @@
+{
+ "status": 200,
+ "body": {
+  "CalculationReliability": "Ok",
+  "CashBalance": 1000000,
+  "CashBlocked": 0,
+  "CashBlockedFromWithdrawal": 0,
+  "ChangesScheduled": false,
+  "ClosedPositionsCount": 0,
+  "CollateralAvailable": 1000000,
+  "CollateralCreditValue": {
+   "Line": 1000000,
+   "UtilizationPct": 0
+  },
+  "CorporateActionUnrealizedAmounts": 0,
+  "CostToClosePositions": 0,
+  "Currency": "EUR",
+  "CurrencyDecimals": 2,
+  "FinancingAccruals": 0,
+  "InitialMargin": {
+   "CollateralAvailable": 1000000,
+   "CollateralCreditValue": {
+    "Line": 1000000,
+    "UtilizationPct": 0
+   },
+   "MarginAvailable": 1000000,
+   "MarginCollateralNotAvailable": 0,
+   "MarginCollateralNotAvailableIncludingCostToClosePositions": 0,
+   "MarginUsedByCurrentPositions": 0,
+   "MarginUtilizationPct": 0,
+   "NetEquityForMargin": 1000000,
+   "OtherCollateralDeduction": 0
+  },
+  "IsPortfolioMarginModelSimple": true,
+  "MarginAndCollateralUtilizationPct": 0,
+  "MarginAvailableForTrading": 1000000,
+  "MarginCollateralNotAvailable": 0,
+  "MarginCollateralNotAvailableDetail": {
+   "InitialFxHaircut": 0,
+   "MaintenanceFxHaircut": 0
+  },
+  "MarginCollateralNotAvailableIncludingCostToClosePositions": 0,
+  "MarginExposureCoveragePct": 0,
+  "MarginNetExposure": 0,
+  "MarginUsedByCurrentPositions": 0,
+  "MarginUtilizationPct": 0,
+  "NetEquityForMargin": 1000000,
+  "NetPositionsCount": 0,
+  "NonMarginPositionsValue": 0,
+  "OpenIpoOrdersCount": 0,
+  "OpenPositionsCount": 0,
+  "OptionPremiumsMarketValue": 0,
+  "OrdersCount": 0,
+  "OtherCollateral": 0,
+  "SettlementValue": 0,
+  "SpendingPowerDetail": {},
+  "TotalValue": 1000000,
+  "TransactionsNotBooked": 0,
+  "TriggerOrdersCount": 0,
+  "UnrealizedMarginClosedProfitLoss": 0,
+  "UnrealizedMarginOpenProfitLoss": 0,
+  "UnrealizedMarginProfitLoss": 0,
+  "UnrealizedPositionsValue": 0,
+  "UnrealizedPositionsValueExcludingCostToClosePositions": 0
+ }
+}

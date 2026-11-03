@@ -1,0 +1,9 @@
+{
+ "status": 200,
+ "body": {
+  "EstimatedCashRequired": 46.12,
+  "EstimatedCashRequiredCurrency": "EUR",
+  "InstrumentToAccountConversionRate": 1,
+  "PreCheckResult": "Ok"
+ }
+}

@@ -1,0 +1,40 @@
+{
+ "status": 200,
+ "body": {
+  "__count": 1,
+  "Data": [
+   {
+    "AccountId": "0000000",
+    "Amount": 1,
+    "AssetType": "Stock",
+    "BuySell": "Buy",
+    "CorrelationKey": "14884496-cad6-4bc0-809a-d1cdafe37677",
+    "CurrentPrice": 0,
+    "CurrentPriceDelayMinutes": 15,
+    "CurrentPriceType": "None",
+    "Duration": {
+     "DurationType": "DayOrder"
+    },
+    "Exchange": {
+     "Description": "Euronext Lisbon",
+     "ExchangeId": "LISB",
+     "IsOpen": false,
+     "TimeZoneId": "1"
+    },
+    "IsMarketOpen": false,
+    "MarketState": "Closed",
+    "NonTradableReason": "None",
+    "OpenOrderType": "Limit",
+    "OrderAmountType": "Quantity",
+    "OrderId": "5041484162",
+    "OrderRelation": "StandAlone",
+    "OrderTime": "2026-11-03T21:58:00.745800Z",
+    "Price": 10.005,
+    "RelatedOpenOrders": [],
+    "Status": "Working",
+    "TradingStatus": "Tradable",
+    "Uic": 23737
+   }
+  ]
+ }
+}

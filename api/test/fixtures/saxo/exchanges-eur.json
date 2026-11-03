@@ -1,0 +1,482 @@
+{
+ "status": 200,
+ "body": {
+  "Data": [
+   {
+    "AllDay": false,
+    "CountryCode": "DE",
+    "Currency": "EUR",
+    "ExchangeId": "FSE",
+    "ExchangeSessions": [
+     {
+      "EndTime": "2026-11-04T07:50:00.000000Z",
+      "StartTime": "2026-11-03T16:35:00.000000Z",
+      "State": "Closed"
+     },
+     {
+      "EndTime": "2026-11-04T08:00:00.000000Z",
+      "StartTime": "2026-11-04T07:50:00.000000Z",
+      "State": "OpeningAuction"
+     },
+     {
+      "EndTime": "2026-11-04T12:00:00.000000Z",
+      "StartTime": "2026-11-04T08:00:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T12:02:00.000000Z",
+      "StartTime": "2026-11-04T12:00:00.000000Z",
+      "State": "Auction"
+     },
+     {
+      "EndTime": "2026-11-04T16:30:00.000000Z",
+      "StartTime": "2026-11-04T12:02:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:35:00.000000Z",
+      "StartTime": "2026-11-04T16:30:00.000000Z",
+      "State": "CallAuctionTrading"
+     },
+     {
+      "EndTime": "2026-11-05T07:50:00.000000Z",
+      "StartTime": "2026-11-04T16:35:00.000000Z",
+      "State": "Closed"
+     }
+    ],
+    "IsoMic": "XETR",
+    "Mic": "XETR",
+    "Name": "Utilizador de Teste",
+    "OperatingMic": "XETR",
+    "PriceSourceName": "Deutsche Börse",
+    "TimeZone": 4,
+    "TimeZoneAbbreviation": "CET",
+    "TimeZoneOffset": "01:00:00"
+   },
+   {
+    "AllDay": false,
+    "CountryCode": "FI",
+    "Currency": "EUR",
+    "ExchangeId": "HSE",
+    "ExchangeSessions": [
+     {
+      "EndTime": "2026-11-04T07:00:00.000000Z",
+      "StartTime": "2026-11-03T16:30:00.000000Z",
+      "State": "Closed"
+     },
+     {
+      "EndTime": "2026-11-04T07:45:00.000000Z",
+      "StartTime": "2026-11-04T07:00:00.000000Z",
+      "State": "PreTrading"
+     },
+     {
+      "EndTime": "2026-11-04T08:00:00.000000Z",
+      "StartTime": "2026-11-04T07:45:00.000000Z",
+      "State": "OpeningAuction"
+     },
+     {
+      "EndTime": "2026-11-04T16:25:00.000000Z",
+      "StartTime": "2026-11-04T08:00:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:30:00.000000Z",
+      "StartTime": "2026-11-04T16:25:00.000000Z",
+      "State": "CallAuctionTrading"
+     },
+     {
+      "EndTime": "2026-11-05T07:00:00.000000Z",
+      "StartTime": "2026-11-04T16:30:00.000000Z",
+      "State": "Closed"
+     }
+    ],
+    "IsoMic": "XHEL",
+    "Mic": "XHEL",
+    "Name": "Utilizador de Teste",
+    "OperatingMic": "XHEL",
+    "PriceSourceName": "Nasdaq",
+    "TimeZone": 14,
+    "TimeZoneAbbreviation": "EET",
+    "TimeZoneOffset": "02:00:00"
+   },
+   {
+    "AllDay": false,
+    "CountryCode": "IT",
+    "Currency": "EUR",
+    "ExchangeId": "MIL",
+    "ExchangeSessions": [
+     {
+      "EndTime": "2026-11-04T07:00:00.000000Z",
+      "StartTime": "2026-11-03T16:40:00.000000Z",
+      "State": "Closed"
+     },
+     {
+      "EndTime": "2026-11-04T07:15:00.000000Z",
+      "StartTime": "2026-11-04T07:00:00.000000Z",
+      "State": "PreTrading"
+     },
+     {
+      "EndTime": "2026-11-04T08:00:00.000000Z",
+      "StartTime": "2026-11-04T07:15:00.000000Z",
+      "State": "OpeningAuction"
+     },
+     {
+      "EndTime": "2026-11-04T16:30:00.000000Z",
+      "StartTime": "2026-11-04T08:00:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:35:00.000000Z",
+      "StartTime": "2026-11-04T16:30:00.000000Z",
+      "State": "CallAuctionTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:40:00.000000Z",
+      "StartTime": "2026-11-04T16:35:00.000000Z",
+      "State": "TradingAtLast"
+     },
+     {
+      "EndTime": "2026-11-05T07:00:00.000000Z",
+      "StartTime": "2026-11-04T16:40:00.000000Z",
+      "State": "Closed"
+     }
+    ],
+    "IsoMic": "MTAA",
+    "Mic": "XMIL",
+    "Name": "Utilizador de Teste",
+    "OperatingMic": "XMIL",
+    "PriceSourceName": "Borsa Italiana",
+    "TimeZone": 4,
+    "TimeZoneAbbreviation": "CET",
+    "TimeZoneOffset": "01:00:00"
+   },
+   {
+    "AllDay": false,
+    "CountryCode": "FR",
+    "Currency": "EUR",
+    "ExchangeId": "PAR",
+    "ExchangeSessions": [
+     {
+      "EndTime": "2026-11-04T06:30:00.000000Z",
+      "StartTime": "2026-11-03T16:40:00.000000Z",
+      "State": "Closed"
+     },
+     {
+      "EndTime": "2026-11-04T08:00:00.000000Z",
+      "StartTime": "2026-11-04T06:30:00.000000Z",
+      "State": "OpeningAuction"
+     },
+     {
+      "EndTime": "2026-11-04T16:30:01.000000Z",
+      "StartTime": "2026-11-04T08:00:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:35:01.000000Z",
+      "StartTime": "2026-11-04T16:30:01.000000Z",
+      "State": "CallAuctionTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:40:00.000000Z",
+      "StartTime": "2026-11-04T16:35:01.000000Z",
+      "State": "TradingAtLast"
+     },
+     {
+      "EndTime": "2026-11-05T06:30:00.000000Z",
+      "StartTime": "2026-11-04T16:40:00.000000Z",
+      "State": "Closed"
+     }
+    ],
+    "IsoMic": "XPAR",
+    "Mic": "XPAR",
+    "Name": "Utilizador de Teste",
+    "OperatingMic": "XPAR",
+    "PriceSourceName": "Euronext",
+    "TimeZone": 4,
+    "TimeZoneAbbreviation": "CET",
+    "TimeZoneOffset": "01:00:00"
+   },
+   {
+    "AllDay": false,
+    "CountryCode": "ES",
+    "Currency": "EUR",
+    "ExchangeId": "SIBE",
+    "ExchangeSessions": [
+     {
+      "EndTime": "2026-11-04T07:30:00.000000Z",
+      "StartTime": "2026-11-03T16:35:00.000000Z",
+      "State": "Closed"
+     },
+     {
+      "EndTime": "2026-11-04T08:00:00.000000Z",
+      "StartTime": "2026-11-04T07:30:00.000000Z",
+      "State": "PreTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:30:00.000000Z",
+      "StartTime": "2026-11-04T08:00:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:35:00.000000Z",
+      "StartTime": "2026-11-04T16:30:00.000000Z",
+      "State": "CallAuctionTrading"
+     },
+     {
+      "EndTime": "2026-11-05T07:30:00.000000Z",
+      "StartTime": "2026-11-04T16:35:00.000000Z",
+      "State": "Closed"
+     }
+    ],
+    "IsoMic": "XMAD",
+    "Mic": "XMCE",
+    "Name": "Utilizador de Teste",
+    "OperatingMic": "BMEX",
+    "PriceSourceName": "BME Market Data",
+    "TimeZone": 4,
+    "TimeZoneAbbreviation": "CET",
+    "TimeZoneOffset": "01:00:00"
+   },
+   {
+    "AllDay": false,
+    "CountryCode": "NL",
+    "Currency": "EUR",
+    "ExchangeId": "AMS",
+    "ExchangeSessions": [
+     {
+      "EndTime": "2026-11-04T06:30:00.000000Z",
+      "StartTime": "2026-11-03T16:40:00.000000Z",
+      "State": "Closed"
+     },
+     {
+      "EndTime": "2026-11-04T08:00:00.000000Z",
+      "StartTime": "2026-11-04T06:30:00.000000Z",
+      "State": "OpeningAuction"
+     },
+     {
+      "EndTime": "2026-11-04T16:30:01.000000Z",
+      "StartTime": "2026-11-04T08:00:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:35:01.000000Z",
+      "StartTime": "2026-11-04T16:30:01.000000Z",
+      "State": "CallAuctionTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:40:00.000000Z",
+      "StartTime": "2026-11-04T16:35:01.000000Z",
+      "State": "TradingAtLast"
+     },
+     {
+      "EndTime": "2026-11-05T06:30:00.000000Z",
+      "StartTime": "2026-11-04T16:40:00.000000Z",
+      "State": "Closed"
+     }
+    ],
+    "IsoMic": "XAMS",
+    "Mic": "XAMS",
+    "Name": "Utilizador de Teste",
+    "OperatingMic": "XAMS",
+    "PriceSourceName": "Euronext",
+    "TimeZone": 4,
+    "TimeZoneAbbreviation": "CET",
+    "TimeZoneOffset": "01:00:00"
+   },
+   {
+    "AllDay": false,
+    "CountryCode": "PT",
+    "Currency": "EUR",
+    "ExchangeId": "LISB",
+    "ExchangeSessions": [
+     {
+      "EndTime": "2026-11-04T06:30:00.000000Z",
+      "StartTime": "2026-11-03T16:40:00.000000Z",
+      "State": "Closed"
+     },
+     {
+      "EndTime": "2026-11-04T08:00:00.000000Z",
+      "StartTime": "2026-11-04T06:30:00.000000Z",
+      "State": "OpeningAuction"
+     },
+     {
+      "EndTime": "2026-11-04T16:30:01.000000Z",
+      "StartTime": "2026-11-04T08:00:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:35:01.000000Z",
+      "StartTime": "2026-11-04T16:30:01.000000Z",
+      "State": "CallAuctionTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:40:00.000000Z",
+      "StartTime": "2026-11-04T16:35:01.000000Z",
+      "State": "TradingAtLast"
+     },
+     {
+      "EndTime": "2026-11-05T06:30:00.000000Z",
+      "StartTime": "2026-11-04T16:40:00.000000Z",
+      "State": "Closed"
+     }
+    ],
+    "IsoMic": "XLIS",
+    "Mic": "XLIS",
+    "Name": "Utilizador de Teste",
+    "OperatingMic": "XLIS",
+    "PriceSourceName": "Euronext",
+    "TimeZone": 1,
+    "TimeZoneAbbreviation": "GMT",
+    "TimeZoneOffset": "00:00:00"
+   },
+   {
+    "AllDay": false,
+    "CountryCode": "BE",
+    "Currency": "EUR",
+    "ExchangeId": "BRU",
+    "ExchangeSessions": [
+     {
+      "EndTime": "2026-11-04T06:30:00.000000Z",
+      "StartTime": "2026-11-03T16:40:00.000000Z",
+      "State": "Closed"
+     },
+     {
+      "EndTime": "2026-11-04T08:00:00.000000Z",
+      "StartTime": "2026-11-04T06:30:00.000000Z",
+      "State": "OpeningAuction"
+     },
+     {
+      "EndTime": "2026-11-04T16:30:01.000000Z",
+      "StartTime": "2026-11-04T08:00:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:35:01.000000Z",
+      "StartTime": "2026-11-04T16:30:01.000000Z",
+      "State": "CallAuctionTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:40:00.000000Z",
+      "StartTime": "2026-11-04T16:35:01.000000Z",
+      "State": "TradingAtLast"
+     },
+     {
+      "EndTime": "2026-11-05T06:30:00.000000Z",
+      "StartTime": "2026-11-04T16:40:00.000000Z",
+      "State": "Closed"
+     }
+    ],
+    "IsoMic": "XBRU",
+    "Mic": "XBRU",
+    "Name": "Utilizador de Teste",
+    "OperatingMic": "XBRU",
+    "PriceSourceName": "Euronext",
+    "TimeZone": 4,
+    "TimeZoneAbbreviation": "CET",
+    "TimeZoneOffset": "01:00:00"
+   },
+   {
+    "AllDay": false,
+    "CountryCode": "IE",
+    "Currency": "EUR",
+    "ExchangeId": "ISE",
+    "ExchangeSessions": [
+     {
+      "EndTime": "2026-11-04T06:15:00.000000Z",
+      "StartTime": "2026-11-03T16:40:00.000000Z",
+      "State": "Closed"
+     },
+     {
+      "EndTime": "2026-11-04T06:30:00.000000Z",
+      "StartTime": "2026-11-04T06:15:00.000000Z",
+      "State": "PreTrading"
+     },
+     {
+      "EndTime": "2026-11-04T08:00:00.000000Z",
+      "StartTime": "2026-11-04T06:30:00.000000Z",
+      "State": "OpeningAuction"
+     },
+     {
+      "EndTime": "2026-11-04T16:28:01.000000Z",
+      "StartTime": "2026-11-04T08:00:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:30:01.000000Z",
+      "StartTime": "2026-11-04T16:28:01.000000Z",
+      "State": "CallAuctionTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:40:00.000000Z",
+      "StartTime": "2026-11-04T16:30:01.000000Z",
+      "State": "TradingAtLast"
+     },
+     {
+      "EndTime": "2026-11-05T06:15:00.000000Z",
+      "StartTime": "2026-11-04T16:40:00.000000Z",
+      "State": "Closed"
+     }
+    ],
+    "IsoMic": "XMSM",
+    "Mic": "XDUB",
+    "Name": "Utilizador de Teste",
+    "OperatingMic": "XDUB",
+    "PriceSourceName": "Euronext",
+    "TimeZone": 1,
+    "TimeZoneAbbreviation": "GMT",
+    "TimeZoneOffset": "00:00:00"
+   },
+   {
+    "AllDay": false,
+    "CountryCode": "AT",
+    "Currency": "EUR",
+    "ExchangeId": "VIE",
+    "ExchangeSessions": [
+     {
+      "EndTime": "2026-11-04T07:00:01.000000Z",
+      "StartTime": "2026-11-03T16:35:00.000000Z",
+      "State": "Closed"
+     },
+     {
+      "EndTime": "2026-11-04T08:01:00.000000Z",
+      "StartTime": "2026-11-04T07:00:01.000000Z",
+      "State": "PreTrading"
+     },
+     {
+      "EndTime": "2026-11-04T11:00:00.000000Z",
+      "StartTime": "2026-11-04T08:01:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T11:03:00.000000Z",
+      "StartTime": "2026-11-04T11:00:00.000000Z",
+      "State": "Break"
+     },
+     {
+      "EndTime": "2026-11-04T16:30:00.000000Z",
+      "StartTime": "2026-11-04T11:03:00.000000Z",
+      "State": "AutomatedTrading"
+     },
+     {
+      "EndTime": "2026-11-04T16:35:00.000000Z",
+      "StartTime": "2026-11-04T16:30:00.000000Z",
+      "State": "CallAuctionTrading"
+     },
+     {
+      "EndTime": "2026-11-05T07:00:01.000000Z",
+      "StartTime": "2026-11-04T16:35:00.000000Z",
+      "State": "Closed"
+     }
+    ],
+    "IsoMic": "WBAH",
+    "Mic": "XWBO",
+    "Name": "Utilizador de Teste",
+    "OperatingMic": "XWBO",
+    "PriceSourceName": "Vienna Exchange",
+    "TimeZone": 4,
+    "TimeZoneAbbreviation": "CET",
+    "TimeZoneOffset": "01:00:00"
+   }
+  ]
+ }
+}

@@ -1,0 +1,22 @@
+{
+ "status": 200,
+ "body": {
+  "Data": [
+   {
+    "AssetType": "Stock",
+    "CurrencyCode": "EUR",
+    "Description": "Galp Energia SGPS SA",
+    "ExchangeId": "LISB",
+    "GroupId": 2294,
+    "Identifier": 23737,
+    "IssuerCountry": "PT",
+    "PrimaryListing": 23737,
+    "SummaryType": "Instrument",
+    "Symbol": "GALP:xlis",
+    "TradableAs": [
+     "Stock"
+    ]
+   }
+  ]
+ }
+}

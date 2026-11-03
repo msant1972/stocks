@@ -1,0 +1,43 @@
+{
+ "status": 200,
+ "body": {
+  "Active": true,
+  "ClientKey": "<ClientKey>",
+  "Culture": "en-GB",
+  "Language": "en",
+  "LastLoginStatus": "Successful",
+  "LastLoginTime": "2026-01-01T00:00:00.000000Z",
+  "LegalAssetTypes": [
+   "FxSpot",
+   "FxForwards",
+   "ContractFutures",
+   "Stock",
+   "StockOption",
+   "Bond",
+   "FuturesOption",
+   "StockIndexOption",
+   "CfdOnStock",
+   "CfdOnIndex",
+   "StockIndex",
+   "CfdOnEtf",
+   "CfdOnEtc",
+   "CfdOnEtn",
+   "CfdOnFund",
+   "CfdOnRights",
+   "CfdOnCompanyWarrant",
+   "Etf",
+   "Etc",
+   "Etn",
+   "Fund",
+   "FxSwap",
+   "Rights",
+   "IpoOnStock",
+   "CompanyWarrant"
+  ],
+  "MarketDataViaOpenApiTermsAccepted": false,
+  "Name": "Utilizador de Teste",
+  "TimeZoneId": 26,
+  "UserId": "0000000",
+  "UserKey": "<UserKey>"
+ }
+}
