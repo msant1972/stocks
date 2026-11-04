@@ -120,13 +120,27 @@ export function sectorComparison(row, close, peers) {
 const availableFrom = (year) => `${year + 1}-04-01`;
 
 /**
+ * Resultado por acção de um ano: o diluído do Yahoo, salvo quando difere mais de 50 % do resultado líquido a dividir
+ * pelo número de acções (há anos com valores claramente errados no Yahoo); nesse caso usa-se o segundo.
+ */
+export function annualEps(f) {
+  const diluted = n(f.dilutedEps);
+  const ni = n(f.netIncome);
+  const shares = pos(n(f.shares));
+  const perShare = ni != null && shares ? ni / shares : null;
+  if (diluted == null) return perShare;
+  if (perShare != null && perShare > 0 && diluted > 0 && Math.abs(diluted / perShare - 1) > 0.5) return perShare;
+  return diluted;
+}
+
+/**
  * 2. P/E face à própria história: P/E de cada sessão com o último resultado diluído por acção anual já conhecido.
  * `closes` = [{ date: 'AAAA-MM-DD', close }] por ordem. Só com as contas na moeda da cotação.
  */
 export function peHistory(row, financials, closes) {
   const out = { verdict: null, current: null, median: null, p25: null, p75: null, points: 0, series: [] };
   if (!sameCurrency(row)) return { ...out, reason: 'currency' };
-  const eps = (financials ?? []).filter((f) => n(f.dilutedEps) != null).map((f) => ({ from: availableFrom(f.year), eps: n(f.dilutedEps) }))
+  const eps = (financials ?? []).map((f) => ({ from: availableFrom(f.year), eps: annualEps(f) })).filter((e) => e.eps != null)
     .sort((a, b) => a.from.localeCompare(b.from));
   if (eps.length === 0) return { ...out, reason: 'no-eps' };
   const series = [];

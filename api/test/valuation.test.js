@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  analystTargets, cheapness, currentMetrics, dcfValue, graham, overallVerdict, peHistory, reverseDcf, revenueGrowth,
+  analystTargets, annualEps, cheapness, currentMetrics, dcfValue, graham, overallVerdict, peHistory, reverseDcf, revenueGrowth,
   sectorComparison, valuation,
 } from '../src/valuation.js';
 
@@ -87,6 +87,16 @@ describe('P/E face à própria história', () => {
     expect(peHistory(GALP, fin, rising.slice(0, 100))).toMatchObject({ verdict: null, reason: 'short' });
     expect(peHistory({ ...GALP, financial_currency: 'USD' }, fin, rising)).toMatchObject({ verdict: null, reason: 'currency' });
     expect(peHistory(GALP, [{ year: 2022, dilutedEps: -1 }], rising).points).toBe(0);
+  });
+});
+
+describe('resultado por acção anual', () => {
+  it('usa o diluído, salvo quando é incoerente com o resultado líquido / acções', () => {
+    expect(annualEps({ dilutedEps: 2.89, netIncome: 7074e6, shares: 3025e6 })).toBe(2.89);
+    expect(annualEps({ dilutedEps: 92.12, netIncome: 2.13e9, shares: 1e9 })).toBeCloseTo(2.13);
+    expect(annualEps({ dilutedEps: null, netIncome: 2e9, shares: 1e9 })).toBe(2);
+    expect(annualEps({ dilutedEps: -1, netIncome: 2e9, shares: 1e9 })).toBe(-1);
+    expect(annualEps({ netIncome: 2e9 })).toBeNull();
   });
 });
 

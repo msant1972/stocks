@@ -9,7 +9,7 @@ import {
   UnexpectedFormatError, UpstreamError,
 } from '../orderbook/index.js';
 import { latestQuotes } from '../services/quotes.js';
-import { valuation } from '../valuation.js';
+import { annualEps, valuation } from '../valuation.js';
 
 export function mapInstrument(r, quotes) {
   const id = Number(r.id);
@@ -266,7 +266,7 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     const peerQuotes = await latestQuotes(pool, peerRows.map((r) => r.instrument_id));
     const peers = peerRows.filter((r) => peerQuotes.has(Number(r.instrument_id)))
       .map((r) => ({ row: r, close: peerQuotes.get(Number(r.instrument_id)).close }));
-    const firstYear = financials.find((f) => f.dilutedEps != null)?.year;
+    const firstYear = financials.find((f) => annualEps(f) != null)?.year;
     const [closes] = firstYear ? await pool.query(
       'SELECT session_date AS date, close FROM daily_quotes WHERE instrument_id = ? AND session_date >= ? ORDER BY session_date',
       [id, `${firstYear + 1}-04-01`],
