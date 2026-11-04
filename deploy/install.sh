@@ -115,6 +115,14 @@ systemctl enable --now stocks-fetcher-run.timer stocks-fetcher-run.path stocks-d
 systemctl enable stocks-api.service
 systemctl restart stocks-api.service
 
+# Reforço do serviço do Caddy (deploy/caddy/hardening.conf), se estiver instalado; reinicia só quando o ficheiro muda.
+if command -v caddy >/dev/null && ! cmp -s "$APP/deploy/caddy/hardening.conf" /etc/systemd/system/caddy.service.d/hardening.conf; then
+  install -d /etc/systemd/system/caddy.service.d
+  install -m 644 "$APP/deploy/caddy/hardening.conf" /etc/systemd/system/caddy.service.d/hardening.conf
+  systemctl daemon-reload
+  systemctl restart caddy
+fi
+
 if (( WITH_PROXY )); then
   step "Proxy HTTPS (Caddy)"
   # Hash do script de tema embutido no index.html, para a Content-Security-Policy o permitir.

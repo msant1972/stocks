@@ -176,6 +176,14 @@ O servidor aceita login SSH por palavra-passe (decisão do administrador) e est�
 
 Desde 4 nov. 2026, `deploy/ssh/10-stocks.conf` (instalado pelo `install.sh` em `/etc/ssh/sshd_config.d/`, validado com `sshd -t` antes de recarregar) proíbe o login directo do `root` (`PermitRootLogin no`: entra-se como `stocks` e usa-se `sudo`), reduz as tentativas por ligação para 3 e o tempo para autenticar para 30 s, e desliga o reencaminhamento de X11. O acesso por palavra-passe mantém-se. Para voltar a permitir o `root`, apagar a linha `PermitRootLogin` desse ficheiro e correr o `install.sh`.
 
+### Outras afinações do servidor (4 nov. 2026)
+
+- O serviço do Caddy tem protecção reforçada no systemd (`deploy/caddy/hardening.conf`, instalado pelo `install.sh` em `/etc/systemd/system/caddy.service.d/`): só escreve em `/var/lib/caddy` e `/var/log/caddy`, só tem a capacidade de abrir as portas 80 e 443 e não vê o resto do sistema (`systemd-analyze security caddy`: 1,7, antes 8,8).
+- Serviços sem uso num VPS desligados: `ModemManager` e `fwupd` (mascarados), `udisks2`, `multipathd` e o temporizador `fwupd-refresh`. Para os repor: `sudo systemctl unmask ModemManager fwupd && sudo systemctl enable --now <serviço>`.
+- `/home/stocks` com permissões 750 (só o utilizador `stocks` vê o repositório).
+- O `install.sh` deixa `node_modules` e `frontend/dist` em `/opt/stocks` sempre de `root`.
+- A conta `ubuntu` da imagem (sem palavra-passe nem chaves, nunca usada) foi apagada, com a regra de `sudo` do cloud-init (`/etc/sudoers.d/90-cloud-init-users`). O cloud-init está desligado e não a recria.
+
 Para não se bloquear a si próprio, ponha o seu IP num ficheiro à parte (não versionado):
 
 ```bash
