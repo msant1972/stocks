@@ -11,3 +11,15 @@ innodb_io_capacity_max  = 2000
 # Tabelas temporárias das consultas de janela (HeatMap, cruzamentos) em memória.
 tmp_table_size          = 64M
 max_heap_table_size     = 64M
+# A aplicação nunca usa LOAD DATA LOCAL: fica desligado.
+local_infile            = 0
+# Consultas com mais de 1 s, para diagnóstico (rodado pelo logrotate do pacote, como /var/log/mysql/*.log).
+slow_query_log          = 1
+slow_query_log_file     = /var/log/mysql/mariadb-slow.log
+long_query_time         = 1
+# O máximo usado tem sido ~12 (pools da API e motores Python); 50 limita a memória num pico anormal.
+max_connections         = 50
+# As tabelas usam utf8mb4_unicode_ci (definido em cada migração). O MariaDB 11.8 usa por omissão
+# utf8mb4_uca1400_ai_ci: uma tabela criada sem colação explícita daria «Illegal mix of collations» nas junções.
+character_set_server    = utf8mb4
+collation_server        = utf8mb4_unicode_ci
