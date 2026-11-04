@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { listOrders, openSession } from './service.js';
+import { refreshDueTokens } from './tokens.js';
 
 let sending = false;
 
@@ -37,7 +38,7 @@ export async function watchOrders(pool, cfg, log = null) {
 export function startOrderWatcher(pool, cfg, log = null) {
   const every = cfg.saxo.watchSeconds * 1000;
   if (!(every > 0)) return () => {};
-  const timer = setInterval(() => { watchOrders(pool, cfg, log).catch((e) => log?.warn?.({ err: e.message }, 'saxo: vigia falhou')); }, every);
+  const timer = setInterval(() => { refreshDueTokens(pool, cfg, log).then(() => watchOrders(pool, cfg, log)).catch((e) => log?.warn?.({ err: e.message }, 'saxo: vigia falhou')); }, every);
   timer.unref();
   return () => clearInterval(timer);
 }

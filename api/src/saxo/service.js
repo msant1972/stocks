@@ -7,6 +7,7 @@ import { ageInDays } from '../services/quotes.js';
 import { createSaxoClient, errorText } from './client.js';
 import * as E from './errors.js';
 import { isOnTick, nearestTick, tickFor } from './ticks.js';
+import { refreshUserToken } from './tokens.js';
 
 const PROVIDER = 'saxo';
 const CONFIRM_TTL_MS = 5 * 60_000;
@@ -14,12 +15,19 @@ const exchangeCache = new Map(); // baseUrl -> { at, map: ExchangeId -> MIC }
 
 /** Cliente da SAXO para o token do utilizador, ou o erro que explica porque não há (sem token, expirado, LIVE). */
 export async function openSession(pool, cfg, userId) {
-  const [[row]] = await pool.query(
-    'SELECT token_enc, environment, expires_at, rejected_at FROM user_integration_tokens WHERE user_id = ? AND provider = ?',
+  const load = async () => (await pool.query(
+    'SELECT token_enc, environment, auth_kind, expires_at, rejected_at FROM user_integration_tokens WHERE user_id = ? AND provider = ?',
     [userId, PROVIDER],
-  );
+  ))[0][0];
+  let row = await load();
   if (!row) throw E.noToken();
   if (row.environment === 'live' && !cfg.saxo.allowLive) throw E.liveBlocked();
+  // Ligação OAuth: o access token dura minutos; renova-se (de forma atómica) quando está a acabar.
+  if (row.auth_kind === 'oauth' && !row.rejected_at && (!row.expires_at || row.expires_at.getTime() < Date.now() + 30_000)) {
+    await refreshUserToken(pool, cfg, userId);
+    row = await load();
+    if (!row) throw E.noToken();
+  }
   if (row.rejected_at || (row.expires_at && row.expires_at.getTime() < Date.now())) throw E.tokenExpired();
   let token;
   try { token = decryptSecret(cfg.secretKey, row.token_enc); } catch { throw E.noToken(); }

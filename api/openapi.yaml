@@ -3526,7 +3526,7 @@ paths:
                 additionalProperties: false
   /api/v1/me/integrations/saxo:
     get:
-      summary: Estado do token da SAXO Bank (nunca o devolve)
+      summary: Estado da ligação à SAXO Bank (nunca devolve segredos)
       tags:
         - Conta
       responses:
@@ -3544,32 +3544,64 @@ paths:
                     type: string
                   environment:
                     nullable: true
-                    description: Ambiente do token; por agora só a simulação (sim)
+                    description: Ambiente da ligação; por agora só a simulação (sim)
                     type: string
                     enum:
                       - sim
                       - live
+                  kind:
+                    nullable: true
+                    description: "oauth: ligada pela aplicação SAXO, com renovação automática;
+                      manual: token de 24 h colado"
+                    type: string
+                    enum:
+                      - oauth
+                      - manual
                   expiresAt:
                     nullable: true
-                    description: O token do portal dura 24 h
+                    description: "Só nas ligações manuais: o token do portal dura 24 h"
                     type: string
                   expired:
                     type: boolean
-                    description: "Expirou ou a SAXO recusou-o: é preciso guardar um novo"
+                    description: "Expirou ou a SAXO recusou-o: é preciso ligar de novo"
                   canEncrypt:
                     type: boolean
                     description: "false: a chave de cifra do servidor não está configurada e não é
-                      possível guardar o token"
+                      possível guardar segredos"
+                  app:
+                    nullable: true
+                    description: Aplicação SAXO guardada (o segredo nunca é devolvido)
+                    type: object
+                    properties:
+                      appKey:
+                        type: string
+                      hasSecret:
+                        type: boolean
+                    required:
+                      - appKey
+                      - hasSecret
+                    additionalProperties: false
+                  redirectUri:
+                    nullable: true
+                    description: URL de retorno que tem de estar registado na aplicação SAXO
+                    type: string
+                  canConnect:
+                    type: boolean
                 required:
                   - configured
                   - updatedAt
                   - environment
+                  - kind
                   - expiresAt
                   - expired
                   - canEncrypt
+                  - app
+                  - redirectUri
+                  - canConnect
                 additionalProperties: false
     put:
-      summary: Guardar o token da SAXO Bank (cifrado; substitui o anterior)
+      summary: Guardar o token de 24 h da SAXO Bank (cifrado; substitui a ligação
+        anterior)
       tags:
         - Conta
       requestBody:
@@ -3601,29 +3633,60 @@ paths:
                     type: string
                   environment:
                     nullable: true
-                    description: Ambiente do token; por agora só a simulação (sim)
+                    description: Ambiente da ligação; por agora só a simulação (sim)
                     type: string
                     enum:
                       - sim
                       - live
+                  kind:
+                    nullable: true
+                    description: "oauth: ligada pela aplicação SAXO, com renovação automática;
+                      manual: token de 24 h colado"
+                    type: string
+                    enum:
+                      - oauth
+                      - manual
                   expiresAt:
                     nullable: true
-                    description: O token do portal dura 24 h
+                    description: "Só nas ligações manuais: o token do portal dura 24 h"
                     type: string
                   expired:
                     type: boolean
-                    description: "Expirou ou a SAXO recusou-o: é preciso guardar um novo"
+                    description: "Expirou ou a SAXO recusou-o: é preciso ligar de novo"
                   canEncrypt:
                     type: boolean
                     description: "false: a chave de cifra do servidor não está configurada e não é
-                      possível guardar o token"
+                      possível guardar segredos"
+                  app:
+                    nullable: true
+                    description: Aplicação SAXO guardada (o segredo nunca é devolvido)
+                    type: object
+                    properties:
+                      appKey:
+                        type: string
+                      hasSecret:
+                        type: boolean
+                    required:
+                      - appKey
+                      - hasSecret
+                    additionalProperties: false
+                  redirectUri:
+                    nullable: true
+                    description: URL de retorno que tem de estar registado na aplicação SAXO
+                    type: string
+                  canConnect:
+                    type: boolean
                 required:
                   - configured
                   - updatedAt
                   - environment
+                  - kind
                   - expiresAt
                   - expired
                   - canEncrypt
+                  - app
+                  - redirectUri
+                  - canConnect
                 additionalProperties: false
         "400":
           description: Default Response
@@ -3670,7 +3733,7 @@ paths:
                   - error
                 additionalProperties: false
     delete:
-      summary: Remover o token da SAXO Bank
+      summary: Desligar da SAXO Bank (remove os tokens; a aplicação SAXO fica guardada)
       tags:
         - Conta
       responses:
@@ -3683,6 +3746,199 @@ paths:
                 nullable: true
                 enum:
                   - null
+  /api/v1/me/integrations/saxo/app:
+    put:
+      summary: Guardar a aplicação SAXO (chave e segredo; o segredo fica cifrado)
+      tags:
+        - Conta
+      description: Sem `appSecret`, mantém o segredo já guardado (só se a chave for a
+        mesma).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                appKey:
+                  type: string
+                  pattern: ^[A-Za-z0-9_-]{8,64}$
+                appSecret:
+                  type: string
+                  minLength: 8
+                  maxLength: 256
+                  pattern: ^[\x21-\x7e]+$
+              required:
+                - appKey
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  configured:
+                    type: boolean
+                  updatedAt:
+                    nullable: true
+                    type: string
+                  environment:
+                    nullable: true
+                    description: Ambiente da ligação; por agora só a simulação (sim)
+                    type: string
+                    enum:
+                      - sim
+                      - live
+                  kind:
+                    nullable: true
+                    description: "oauth: ligada pela aplicação SAXO, com renovação automática;
+                      manual: token de 24 h colado"
+                    type: string
+                    enum:
+                      - oauth
+                      - manual
+                  expiresAt:
+                    nullable: true
+                    description: "Só nas ligações manuais: o token do portal dura 24 h"
+                    type: string
+                  expired:
+                    type: boolean
+                    description: "Expirou ou a SAXO recusou-o: é preciso ligar de novo"
+                  canEncrypt:
+                    type: boolean
+                    description: "false: a chave de cifra do servidor não está configurada e não é
+                      possível guardar segredos"
+                  app:
+                    nullable: true
+                    description: Aplicação SAXO guardada (o segredo nunca é devolvido)
+                    type: object
+                    properties:
+                      appKey:
+                        type: string
+                      hasSecret:
+                        type: boolean
+                    required:
+                      - appKey
+                      - hasSecret
+                    additionalProperties: false
+                  redirectUri:
+                    nullable: true
+                    description: URL de retorno que tem de estar registado na aplicação SAXO
+                    type: string
+                  canConnect:
+                    type: boolean
+                required:
+                  - configured
+                  - updatedAt
+                  - environment
+                  - kind
+                  - expiresAt
+                  - expired
+                  - canEncrypt
+                  - app
+                  - redirectUri
+                  - canConnect
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    delete:
+      summary: Remover a aplicação SAXO (e a ligação OAuth)
+      tags:
+        - Conta
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+  /api/v1/me/integrations/saxo/connect:
+    post:
+      summary: "Iniciar a ligação à SAXO: devolve o endereço de autorização para onde
+        enviar o browser"
+      tags:
+        - Conta
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                required:
+                  - url
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
   /api/v1/saxo/connection:
     get:
       summary: Testar a ligação à SAXO Bank (conta e saldo)

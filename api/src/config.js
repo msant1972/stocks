@@ -41,6 +41,7 @@ export function loadConfig(env = process.env) {
     // Ligação à SAXO Bank. Só a conta de simulação (SIM); a conta real fica recusada até STOCKS_SAXO_ALLOW_LIVE=true.
     saxo: {
       allowLive: env.STOCKS_SAXO_ALLOW_LIVE === 'true',
+      authUrl: env.STOCKS_SAXO_SIM_AUTH_URL || 'https://sim.logonvalidation.net', // servidor de autorização (SIM)
       simUrl: env.STOCKS_SAXO_SIM_URL || 'https://gateway.saxobank.com/sim/openapi',
       liveUrl: env.STOCKS_SAXO_LIVE_URL || 'https://gateway.saxobank.com/openapi',
       timeoutMs: Number(env.STOCKS_SAXO_TIMEOUT_MS || 10_000),

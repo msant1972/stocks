@@ -1,15 +1,22 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createSaxoClient, createThrottle } from '../src/saxo/client.js';
+import { signState } from '../src/saxo/oauth.js';
+import { refreshDueTokens } from '../src/saxo/tokens.js';
 import { watchOrders } from '../src/saxo/watcher.js';
-import { encryptSecret } from '../src/secrets.js';
+import { decryptSecret, encryptSecret } from '../src/secrets.js';
 import { api, hasTestDb, login, makeInstrument, makeUser, setup, TEST_SECRET_KEY } from './helpers.js';
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', 'saxo');
 const fx = (name) => JSON.parse(fs.readFileSync(path.join(dir, `${name}.json`), 'utf8'));
 const TOKEN = 'token-secreto-da-saxo-123';
+
+const parseBody = (b) => {
+  if (!b) return null;
+  try { return JSON.parse(b); } catch { return Object.fromEntries(new URLSearchParams(b)); }
+};
 
 /** Servidor SAXO falso a partir das fixtures reais. `over` substitui respostas por "METODO /caminho". */
 function fakeSaxo(over = {}) {
@@ -29,7 +36,7 @@ function fakeSaxo(over = {}) {
   const fetchImpl = async (url, init) => {
     const u = new URL(url);
     const key = `${init.method} ${u.pathname.replace('/sim/openapi', '')}`;
-    calls.push({ key, headers: init.headers, body: init.body ? JSON.parse(init.body) : null, query: Object.fromEntries(u.searchParams) });
+    calls.push({ key, headers: init.headers, body: parseBody(init.body), query: Object.fromEntries(u.searchParams) });
     let r = routes[key];
     if (typeof r === 'function') r = r(calls.filter((c) => c.key === key).length);
     if (!r) return new Response('{}', { status: 404 });
@@ -117,7 +124,7 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
   });
   beforeEach(async () => {
     await ctx.pool.query('SET FOREIGN_KEY_CHECKS = 0');
-    for (const t of ['saxo_notifications', 'saxo_alert_settings', 'saxo_orders', 'saxo_instruments', 'user_integration_tokens', 'daily_quotes', 'instruments', 'audit_log']) {
+    for (const t of ['user_saxo_apps', 'saxo_notifications', 'saxo_alert_settings', 'saxo_orders', 'saxo_instruments', 'user_integration_tokens', 'daily_quotes', 'instruments', 'audit_log']) {
       await ctx.pool.query(`TRUNCATE TABLE ${t}`);
     }
     await ctx.pool.query('SET FOREIGN_KEY_CHECKS = 1');
@@ -379,6 +386,177 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     expect((await ana.get('/saxo/alerts')).json().emailEnabled).toBe(false);
     expect((await rui.get('/saxo/alerts')).json().emailEnabled).toBe(true);
     expect((await ana.put('/saxo/alerts/settings', { emailEnabled: 'sim' })).statusCode).toBe(400);
+  });
+
+  describe('ligação OAuth (Authorization Code)', () => {
+    const APP = { appKey: 'chave-da-app-0123', appSecret: 'segredo-da-app-9876' };
+    const tok = (n) => ({ status: 200, body: { access_token: `acesso-${n}`, token_type: 'Bearer', expires_in: 1200, refresh_token: `refresh-${n}`, refresh_token_expires_in: 2400 } });
+    const tokenCalls = (f) => f.calls.filter((c) => c.key === 'POST /token');
+    const saveApp = () => ana.put('/me/integrations/saxo/app', APP);
+    const stateFrom = async () => signState(ctx.cfg, anaId); // o endpoint «connect» tem limite de pedidos; é testado à parte
+    const callback = (query) => ctx.app.inject({ method: 'GET', url: `/api/v1/integrations/saxo/callback?${new URLSearchParams(query)}` });
+    /** Liga por OAuth como o browser: connect → (SAXO) → callback com o state. */
+    const putApp = () => ctx.pool.query('REPLACE INTO user_saxo_apps (user_id, app_key, app_secret_enc) VALUES (?, ?, ?)', [anaId, APP.appKey, encryptSecret(TEST_SECRET_KEY, APP.appSecret)]);
+    async function connect(f) {
+      await putApp(); // directo na BD: o PUT tem limite de pedidos por minuto
+      const res = await callback({ code: 'codigo-1', state: await stateFrom() });
+      expect(res.headers.location).toBe('/definicoes?saxo=ok');
+      return f;
+    }
+    beforeEach(async () => {
+      ctx.cfg.publicOrigin = 'https://stocks.test';
+      await ctx.pool.query('DELETE FROM user_integration_tokens');
+    });
+    afterEach(() => { ctx.cfg.publicOrigin = ''; });
+
+    it('guarda a aplicação cifrada, sem nunca devolver o segredo', async () => {
+      const res = await saveApp();
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({ app: { appKey: APP.appKey, hasSecret: true }, redirectUri: 'https://stocks.test/api/v1/integrations/saxo/callback', canConnect: true });
+      expect(res.body).not.toContain(APP.appSecret);
+      const [[row]] = await ctx.pool.query('SELECT app_secret_enc FROM user_saxo_apps');
+      expect(row.app_secret_enc).toMatch(/^v1:/);
+      expect(decryptSecret(TEST_SECRET_KEY, row.app_secret_enc)).toBe(APP.appSecret);
+      // Sem segredo mantém o guardado (mesma chave); outra chave exige segredo.
+      expect((await ana.put('/me/integrations/saxo/app', { appKey: APP.appKey })).statusCode).toBe(200);
+      expect((await ana.put('/me/integrations/saxo/app', { appKey: 'outra-chave-0001' })).json().error.code).toBe('SECRET_REQUIRED');
+      const [audits] = await ctx.pool.query("SELECT detail FROM audit_log WHERE action = 'integration.app_set'");
+      expect(JSON.stringify(audits)).not.toContain(APP.appSecret);
+      expect((await rui.get('/me/integrations/saxo')).json().app).toBeNull();
+    });
+
+    it('«Ligar» devolve o endereço de autorização com chave, URL de retorno e state', async () => {
+      expect((await ana.post('/me/integrations/saxo/connect', {})).json().error.code).toBe('NO_SAXO_APP');
+      await saveApp();
+      const u = new URL((await ana.post('/me/integrations/saxo/connect', {})).json().url);
+      expect(u.origin + u.pathname).toBe('https://sim.logonvalidation.net/authorize');
+      expect(Object.fromEntries(u.searchParams)).toMatchObject({
+        response_type: 'code', client_id: APP.appKey, redirect_uri: 'https://stocks.test/api/v1/integrations/saxo/callback',
+      });
+      expect(u.searchParams.get('state')).toMatch(/^\d+\.\d+\./);
+      expect(u.href).not.toContain(APP.appSecret);
+    });
+
+    it('o retorno troca o código por tokens (cifrados) e fica ligado com renovação automática', async () => {
+      const f = useSaxo({ 'POST /token': tok(1) });
+      await connect(f);
+      const call = tokenCalls(f)[0];
+      expect(call.headers.Authorization).toBe(`Basic ${Buffer.from(`${APP.appKey}:${APP.appSecret}`).toString('base64')}`);
+      expect(call.body).toEqual({ grant_type: 'authorization_code', code: 'codigo-1', redirect_uri: 'https://stocks.test/api/v1/integrations/saxo/callback' });
+      const [[row]] = await ctx.pool.query('SELECT * FROM user_integration_tokens');
+      expect(row).toMatchObject({ auth_kind: 'oauth', environment: 'sim', rejected_at: null });
+      expect(decryptSecret(TEST_SECRET_KEY, row.token_enc)).toBe('acesso-1');
+      expect(decryptSecret(TEST_SECRET_KEY, row.refresh_token_enc)).toBe('refresh-1');
+      expect(row.token_enc).not.toContain('acesso-1');
+      const s = (await ana.get('/me/integrations/saxo')).json();
+      expect(s).toMatchObject({ configured: true, kind: 'oauth', expired: false, expiresAt: null });
+      expect(JSON.stringify(s)).not.toMatch(/acesso-1|refresh-1/);
+      // E já se pode usar.
+      useSaxo({ 'POST /token': tok(2) });
+      expect((await ana.get('/saxo/connection')).statusCode).toBe(200);
+    });
+
+    it('recusa retornos com state inválido, adulterado, expirado ou sem código; nada é trocado', async () => {
+      const f = useSaxo({ 'POST /token': tok(1) });
+      await putApp();
+      const good = await stateFrom();
+      const [id, exp, nonce, mac] = good.split('.');
+      const cases = [
+        { code: 'x', state: 'lixo' }, { code: 'x' }, { code: 'x', state: `${id}.${exp}.${nonce}.${mac.slice(0, -2)}aa` },
+        { code: 'x', state: `${Number(id) + 1}.${exp}.${nonce}.${mac}` }, { code: 'x', state: `${id}.${Date.now() - 1000}.${nonce}.${mac}` },
+      ];
+      for (const q of cases) {
+        const res = await callback(q);
+        expect(res.headers.location, JSON.stringify(q)).toMatch(/^\/definicoes\?saxo=erro&motivo=/);
+      }
+      expect((await callback({ state: good, error: 'access_denied' })).headers.location).toContain('recusada');
+      expect((await callback({ state: good })).headers.location).toContain('saxo=erro');
+      expect(tokenCalls(f)).toHaveLength(0);
+      expect((await ana.get('/me/integrations/saxo')).json().configured).toBe(false);
+    });
+
+    it('um código recusado pela SAXO não liga nada e a mensagem não traz o segredo', async () => {
+      useSaxo({ 'POST /token': { status: 400, body: { error: 'invalid_grant', error_description: 'code expired' } } });
+      await putApp();
+      const res = await callback({ code: 'velho', state: await stateFrom() });
+      const loc = decodeURIComponent(res.headers.location);
+      expect(loc).toContain('saxo=erro');
+      expect(loc).toContain('invalid_grant');
+      expect(loc).not.toContain(APP.appSecret);
+      expect((await ana.get('/me/integrations/saxo')).json().configured).toBe(false);
+    });
+
+    it('renova o access token quando expira, com o refresh token, e guarda os dois novos', async () => {
+      await connect(useSaxo({ 'POST /token': tok(1) }));
+      await ctx.pool.query('UPDATE user_integration_tokens SET expires_at = NOW(3) - INTERVAL 1 MINUTE');
+      const f = useSaxo({ 'POST /token': tok(2) });
+      expect((await ana.get('/saxo/connection')).statusCode).toBe(200);
+      expect(tokenCalls(f)).toHaveLength(1);
+      expect(tokenCalls(f)[0].body).toEqual({ grant_type: 'refresh_token', refresh_token: 'refresh-1' });
+      expect(f.calls.find((c) => c.key === 'GET /port/v1/accounts/me').headers.Authorization).toBe('Bearer acesso-2');
+      const [[row]] = await ctx.pool.query('SELECT token_enc, refresh_token_enc FROM user_integration_tokens');
+      expect(decryptSecret(TEST_SECRET_KEY, row.token_enc)).toBe('acesso-2');
+      expect(decryptSecret(TEST_SECRET_KEY, row.refresh_token_enc)).toBe('refresh-2');
+      // Ainda válido: não renova outra vez.
+      const g = useSaxo({ 'POST /token': tok(3) });
+      await ana.get('/saxo/connection');
+      expect(tokenCalls(g)).toHaveLength(0);
+    });
+
+    it('pedidos em simultâneo gastam o refresh token uma só vez (troca atómica)', async () => {
+      await connect(useSaxo({ 'POST /token': tok(1) }));
+      await ctx.pool.query('UPDATE user_integration_tokens SET expires_at = NOW(3) - INTERVAL 1 MINUTE');
+      let n = 1;
+      const f = useSaxo({ 'POST /token': () => tok(++n) });
+      const results = await Promise.all([ana.get('/saxo/connection'), ana.get('/saxo/connection'), ana.get('/saxo/connection')]);
+      expect(results.map((r) => r.statusCode)).toEqual([200, 200, 200]);
+      expect(tokenCalls(f)).toHaveLength(1);
+    });
+
+    it('refresh token recusado: a ligação fica marcada como expirada e não insiste', async () => {
+      await connect(useSaxo({ 'POST /token': tok(1) }));
+      await ctx.pool.query('UPDATE user_integration_tokens SET expires_at = NOW(3) - INTERVAL 1 MINUTE');
+      const f = useSaxo({ 'POST /token': { status: 400, body: { error: 'invalid_grant' } } });
+      expect((await ana.get('/saxo/connection')).json().error.code).toBe('SAXO_TOKEN_EXPIRED');
+      expect((await ana.get('/saxo/connection')).json().error.code).toBe('SAXO_TOKEN_EXPIRED');
+      expect(tokenCalls(f)).toHaveLength(1);
+      expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({ configured: true, expired: true });
+    });
+
+    it('falha de rede ou 5xx na renovação não gasta a ligação: tenta-se de novo depois', async () => {
+      await connect(useSaxo({ 'POST /token': tok(1) }));
+      await ctx.pool.query('UPDATE user_integration_tokens SET expires_at = NOW(3) - INTERVAL 1 MINUTE');
+      useSaxo({ 'POST /token': { status: 503, body: {} } });
+      expect((await ana.get('/saxo/connection')).json().error.code).toBe('SAXO_UNAVAILABLE');
+      expect((await ana.get('/me/integrations/saxo')).json().expired).toBe(false);
+      useSaxo({ 'POST /token': tok(2) });
+      expect((await ana.get('/saxo/connection')).statusCode).toBe(200);
+    });
+
+    it('a renovação antecipada mantém viva a ligação mesmo sem uso', async () => {
+      await connect(useSaxo({ 'POST /token': tok(1) }));
+      await ctx.pool.query('UPDATE user_integration_tokens SET expires_at = NOW(3) + INTERVAL 2 MINUTE');
+      const f = useSaxo({ 'POST /token': tok(2) });
+      expect(await refreshDueTokens(ctx.pool, ctx.cfg)).toBe(1);
+      expect(tokenCalls(f)).toHaveLength(1);
+      expect(await refreshDueTokens(ctx.pool, ctx.cfg)).toBe(0); // agora tem 20 min
+    });
+
+    it('desligar remove os tokens mas mantém a aplicação; remover a aplicação remove a ligação', async () => {
+      await connect(useSaxo({ 'POST /token': tok(1) }));
+      expect((await ana.del('/me/integrations/saxo')).statusCode).toBe(204);
+      expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({ configured: false, app: { appKey: APP.appKey } });
+      await connect(useSaxo({ 'POST /token': tok(1) }));
+      expect((await ana.del('/me/integrations/saxo/app')).statusCode).toBe(204);
+      expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({ configured: false, app: null });
+    });
+
+    it('guardar um token de 24 h substitui a ligação OAuth', async () => {
+      await connect(useSaxo({ 'POST /token': tok(1) }));
+      expect((await ana.put('/me/integrations/saxo', { token: TOKEN })).json()).toMatchObject({ kind: 'manual', expired: false });
+      const [[row]] = await ctx.pool.query('SELECT refresh_token_enc FROM user_integration_tokens');
+      expect(row.refresh_token_enc).toBeNull();
+    });
   });
 
   it('valida quantidade e preço limite', async () => {

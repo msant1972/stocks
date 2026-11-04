@@ -24,7 +24,7 @@ describe.skipIf(!hasTestDb)('token da SAXO Bank', () => {
   });
 
   it('começa sem token', async () => {
-    expect((await ana.get('/me/integrations/saxo')).json()).toEqual({ configured: false, updatedAt: null, canEncrypt: true, environment: null, expiresAt: null, expired: false });
+    expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({ configured: false, updatedAt: null, canEncrypt: true, environment: null, kind: null, expiresAt: null, expired: false, app: null });
   });
 
   it('guarda o token cifrado e nunca o devolve', async () => {

@@ -1,70 +1,105 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { expiryText } from '../../lib/saxo.js';
 import { Button, Field, Notice } from '../../components/ui/controls.jsx';
 
+const KEY_RE = /^[A-Za-z0-9_-]{8,64}$/;
+const SECRET_RE = /^[\x21-\x7e]{8,256}$/;
+
 /**
- * Token de acesso do utilizador à SAXO Bank. Fica cifrado no servidor e nunca é mostrado de novo: a interface só sabe
- * se existe, quando foi guardado e quando expira (o token do portal dura 24 h). Serve para enviar ordens para a
- * conta de simulação (SIM) da SAXO; a conta real não está activada.
+ * Ligação à SAXO Bank (conta de simulação). Chave e segredo da aplicação SAXO (criada no portal, grant type «Code») ficam
+ * guardados no servidor, o segredo cifrado e nunca mostrado de novo. «Ligar à SAXO» leva ao login da SAXO e volta com a
+ * autorização; a partir daí os tokens renovam-se sozinhos. Alternativa: colar o token de 24 h do portal.
  */
 export default function SaxoCard() {
   const qc = useQueryClient();
+  const [params, setParams] = useSearchParams();
   const q = useQuery({ queryKey: ['integration-saxo'], queryFn: () => api.get('/me/integrations/saxo') });
+  const [appKey, setAppKey] = useState('');
+  const [appSecret, setAppSecret] = useState('');
   const [token, setToken] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [testing, setTesting] = useState(false);
+  const [busy, setBusy] = useState(null); // 'app' | 'connect' | 'test' | 'disconnect' | 'token'
   const [result, setResult] = useState(null); // { tone, text }
   const s = q.data;
-  const clean = token.trim();
-  const valid = /^[\x21-\x7e]+$/.test(clean);
-  const expiry = s?.configured ? expiryText(s.expiresAt) : null;
 
-  async function save(e) {
-    e.preventDefault();
-    setBusy(true);
+  // Retorno da SAXO: /definicoes?saxo=ok|erro&motivo=…
+  useEffect(() => {
+    const r = params.get('saxo');
+    if (!r) return;
+    setResult(r === 'ok'
+      ? { tone: 'info', text: 'Ligado à SAXO Bank. Use «Testar ligação» para confirmar.' }
+      : { tone: 'error', text: `Não foi possível ligar à SAXO Bank: ${params.get('motivo') || 'erro desconhecido'}.` });
+    qc.invalidateQueries({ queryKey: ['integration-saxo'] });
+    setParams((p) => { const n = new URLSearchParams(p); n.delete('saxo'); n.delete('motivo'); return n; }, { replace: true });
+  }, [params, setParams, qc]);
+
+  useEffect(() => { if (s?.app && !appKey) setAppKey(s.app.appKey); }, [s?.app, appKey]);
+
+  const key = appKey.trim();
+  const secret = appSecret.trim();
+  const keyOk = KEY_RE.test(key);
+  const secretOk = SECRET_RE.test(secret);
+  const sameApp = Boolean(s?.app && s.app.appKey === key);
+  const canSaveApp = keyOk && (secretOk || (sameApp && !secret));
+  const cleanToken = token.trim();
+  const tokenOk = /^[\x21-\x7e]+$/.test(cleanToken);
+  const expiry = s?.configured && s.kind === 'manual' ? expiryText(s.expiresAt) : null;
+
+  async function run(name, fn) {
+    setBusy(name);
     setResult(null);
     try {
-      qc.setQueryData(['integration-saxo'], await api.put('/me/integrations/saxo', { token: clean }));
-      setToken('');
-      qc.invalidateQueries({ queryKey: ['saxo-connection'] });
-      setResult({ tone: 'info', text: 'Token guardado (cifrado no servidor). Use «Testar ligação» para confirmar.' });
+      await fn();
     } catch (err) {
       setResult({ tone: 'error', text: errorMessage(err) });
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
-  async function remove() {
-    setBusy(true);
-    setResult(null);
-    try {
-      await api.del('/me/integrations/saxo');
-      await qc.invalidateQueries({ queryKey: ['integration-saxo'] });
-      setResult({ tone: 'info', text: 'Token removido.' });
-    } catch (err) {
-      setResult({ tone: 'error', text: errorMessage(err) });
-    } finally {
-      setBusy(false);
-    }
-  }
+  const saveApp = (e) => { e.preventDefault(); return run('app', async () => {
+    qc.setQueryData(['integration-saxo'], await api.put('/me/integrations/saxo/app', { appKey: key, ...(secret ? { appSecret: secret } : {}) }));
+    setAppSecret('');
+    setResult({ tone: 'info', text: 'Aplicação guardada (o segredo fica cifrado no servidor). Já pode ligar à SAXO.' });
+  }); };
 
-  async function test() {
-    setTesting(true);
-    setResult(null);
+  const connect = () => run('connect', async () => {
+    const { url } = await api.post('/me/integrations/saxo/connect');
+    window.location.assign(url);
+    await new Promise(() => {}); // a página vai ser substituída
+  });
+
+  const test = () => run('test', async () => {
     try {
       const c = await api.get('/saxo/connection');
       setResult({ tone: 'info', text: `Ligação OK: conta ${c.accountId}${c.isTrial ? ' (simulação)' : ''}, saldo ${c.cashBalance == null ? '—' : f.money(c.cashBalance, c.currency)}.` });
-    } catch (err) {
-      setResult({ tone: 'error', text: errorMessage(err) });
     } finally {
-      qc.invalidateQueries({ queryKey: ['integration-saxo'] }); // um 401 marca o token como expirado
-      setTesting(false);
+      qc.invalidateQueries({ queryKey: ['integration-saxo'] }); // um 401 marca a ligação como expirada
     }
-  }
+  });
+
+  const disconnect = () => run('disconnect', async () => {
+    await api.del('/me/integrations/saxo');
+    await qc.invalidateQueries({ queryKey: ['integration-saxo'] });
+    setResult({ tone: 'info', text: 'Desligado da SAXO Bank. A aplicação continua guardada.' });
+  });
+
+  const removeApp = () => run('app', async () => {
+    await api.del('/me/integrations/saxo/app');
+    setAppKey(''); setAppSecret('');
+    await qc.invalidateQueries({ queryKey: ['integration-saxo'] });
+    setResult({ tone: 'info', text: 'Aplicação removida.' });
+  });
+
+  const saveToken = (e) => { e.preventDefault(); return run('token', async () => {
+    qc.setQueryData(['integration-saxo'], await api.put('/me/integrations/saxo', { token: cleanToken }));
+    setToken('');
+    setResult({ tone: 'info', text: 'Token guardado (cifrado no servidor). Use «Testar ligação» para confirmar.' });
+  }); };
+
 
   return (
     <section className="card" aria-labelledby="saxo-title">
@@ -73,28 +108,61 @@ export default function SaxoCard() {
         <span className="badge badge-warning">Simulação (SIM)</span>
       </div>
       <p className="small muted" style={{ margin: '0.25rem 0 1rem' }}>
-        Token de acesso à conta de simulação da SAXO Bank (gerado no portal de programadores, dura 24 h). Fica guardado cifrado no
-        servidor e nunca é mostrado de novo. Serve para enviar ordens para a conta de simulação, sempre com uma pré-validação e uma
-        confirmação; a conta real não está activada. As compras e vendas simuladas da aplicação continuam a ser virtuais.
+        Ligação à conta de simulação da SAXO Bank para enviar ordens, sempre com uma pré-validação e uma confirmação; a conta real
+        não está activada. Crie uma aplicação no portal de programadores da SAXO (grant type «Code») e guarde aqui a chave e o
+        segredo: o segredo fica cifrado no servidor e nunca é mostrado de novo. As compras e vendas simuladas da aplicação continuam virtuais.
       </p>
       {q.isPending ? <p className="small muted">A carregar…</p> : q.error ? <Notice tone="error">{errorMessage(q.error)}</Notice> : (
-        <form className="stack" style={{ gap: '1rem', maxWidth: '36rem' }} noValidate onSubmit={save}>
-          <Field label="Token" error={clean && !valid ? 'O token não pode ter espaços nem caracteres especiais.' : null}
-            help={s.configured ? `Definido em ${f.dateTime(s.updatedAt)}${expiry ? ` · ${expiry}` : ''}. Escreva um novo para o substituir.` : 'Cole aqui o token da SAXO Bank.'}>
-            {(p) => (
-              <input {...p} className="input" type="password" name="saxo-token" autoComplete="off" spellCheck={false}
-                value={token} onChange={(e) => setToken(e.target.value)} placeholder={s.configured ? '••••••••••••' : ''} />
-            )}
-          </Field>
-          {s.expired && <Notice tone="warning">O token expirou ou foi recusado pela SAXO Bank: gere um novo no portal e guarde-o aqui.</Notice>}
-          {!s.canEncrypt && <Notice tone="warning">A chave de cifra do servidor não está configurada: não é possível guardar o token.</Notice>}
-          {result && <Notice tone={result.tone}>{result.text}</Notice>}
-          <div className="row">
-            <Button type="submit" variant="primary" busy={busy} disabled={!clean || !valid || !s.canEncrypt}>Guardar</Button>
-            {s.configured && <Button onClick={test} busy={testing} disabled={busy}>Testar ligação</Button>}
-            {s.configured && <Button variant="ghost" onClick={remove} disabled={busy}>Remover token</Button>}
+        <div className="stack" style={{ gap: '1.25rem', maxWidth: '36rem' }}>
+          <form className="stack" style={{ gap: '1rem' }} noValidate onSubmit={saveApp}>
+            <Field label="App Key (chave da aplicação)" error={key && !keyOk ? 'Indique a chave tal como está no portal da SAXO.' : null}>
+              {(p) => <input {...p} className="input" name="saxo-app-key" autoComplete="off" spellCheck={false} value={appKey} onChange={(e) => setAppKey(e.target.value)} />}
+            </Field>
+            <Field label="App Secret (segredo da aplicação)" error={secret && !secretOk ? 'O segredo não pode ter espaços nem caracteres especiais.' : null}
+              help={s.app?.hasSecret ? 'Já guardado. Escreva um novo só para o substituir.' : 'Cole aqui o segredo da aplicação.'}>
+              {(p) => <input {...p} className="input" type="password" name="saxo-app-secret" autoComplete="off" spellCheck={false}
+                value={appSecret} onChange={(e) => setAppSecret(e.target.value)} placeholder={s.app?.hasSecret ? '••••••••••••' : ''} />}
+            </Field>
+            {s.redirectUri ? (
+              <p className="small muted">URL de retorno a registar na aplicação SAXO: <code style={{ userSelect: 'all', wordBreak: 'break-all' }}>{s.redirectUri}</code></p>
+            ) : <Notice tone="warning">A origem pública do servidor não está configurada (STOCKS_PUBLIC_ORIGIN): não é possível ligar por OAuth.</Notice>}
+            {!s.canEncrypt && <Notice tone="warning">A chave de cifra do servidor não está configurada: não é possível guardar o segredo.</Notice>}
+            <div className="row">
+              <Button type="submit" variant="primary" busy={busy === 'app'} disabled={!canSaveApp || !s.canEncrypt || Boolean(busy)}>Guardar aplicação</Button>
+              {s.app && <Button variant="ghost" onClick={removeApp} disabled={Boolean(busy)}>Remover aplicação</Button>}
+            </div>
+          </form>
+
+          <div className="stack" style={{ gap: '0.75rem' }}>
+            <p className="small">
+              <strong>Ligação:</strong>{' '}
+              {!s.configured ? 'não ligado.'
+                : s.expired ? 'a ligação expirou ou foi recusada pela SAXO: volte a ligar.'
+                : s.kind === 'oauth' ? `ligado, com renovação automática (desde ${f.dateTime(s.updatedAt)}).`
+                : `token de 24 h guardado em ${f.dateTime(s.updatedAt)}${expiry ? ` · ${expiry}` : ''}.`}
+            </p>
+            {result && <Notice tone={result.tone}>{result.text}</Notice>}
+            <div className="row">
+              <Button variant="primary" onClick={connect} busy={busy === 'connect'} disabled={!s.app || !s.canConnect || Boolean(busy)}
+                title={s.app ? undefined : 'Guarde primeiro a chave e o segredo da aplicação'}>
+                {s.configured && s.kind === 'oauth' ? 'Voltar a ligar à SAXO' : 'Ligar à SAXO'}
+              </Button>
+              {s.configured && <Button onClick={test} busy={busy === 'test'} disabled={Boolean(busy)}>Testar ligação</Button>}
+              {s.configured && <Button variant="ghost" onClick={disconnect} disabled={Boolean(busy)}>Desligar</Button>}
+            </div>
           </div>
-        </form>
+
+          <details>
+            <summary className="small">Alternativa: token de 24 h do portal</summary>
+            <form className="stack" style={{ gap: '1rem', marginTop: '0.75rem' }} noValidate onSubmit={saveToken}>
+              <Field label="Token" error={cleanToken && !tokenOk ? 'O token não pode ter espaços nem caracteres especiais.' : null}
+                help="Expira ao fim de 24 h e tem de ser colado de novo. Substitui a ligação actual.">
+                {(p) => <input {...p} className="input" type="password" name="saxo-token" autoComplete="off" spellCheck={false} value={token} onChange={(e) => setToken(e.target.value)} />}
+              </Field>
+              <div><Button type="submit" busy={busy === 'token'} disabled={!cleanToken || !tokenOk || !s.canEncrypt || Boolean(busy)}>Guardar token</Button></div>
+            </form>
+          </details>
+        </div>
       )}
     </section>
   );
