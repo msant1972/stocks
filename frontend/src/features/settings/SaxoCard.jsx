@@ -3,7 +3,6 @@ import { useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { expiryText } from '../../lib/saxo.js';
 import { Button, Field, Notice } from '../../components/ui/controls.jsx';
 
 const KEY_RE = /^[A-Za-z0-9_-]{8,64}$/;
@@ -12,7 +11,7 @@ const SECRET_RE = /^[\x21-\x7e]{8,256}$/;
 /**
  * Ligação à SAXO Bank (conta de simulação). Chave e segredo da aplicação SAXO (criada no portal, grant type «Code») ficam
  * guardados no servidor, o segredo cifrado e nunca mostrado de novo. «Ligar à SAXO» leva ao login da SAXO e volta com a
- * autorização; a partir daí os tokens renovam-se sozinhos. Alternativa: colar o token de 24 h do portal.
+ * autorização; a partir daí os tokens renovam-se sozinhos.
  */
 export default function SaxoCard() {
   const qc = useQueryClient();
@@ -20,8 +19,7 @@ export default function SaxoCard() {
   const q = useQuery({ queryKey: ['integration-saxo'], queryFn: () => api.get('/me/integrations/saxo') });
   const [appKey, setAppKey] = useState('');
   const [appSecret, setAppSecret] = useState('');
-  const [token, setToken] = useState('');
-  const [busy, setBusy] = useState(null); // 'app' | 'connect' | 'test' | 'disconnect' | 'token'
+  const [busy, setBusy] = useState(null); // 'app' | 'connect' | 'test' | 'disconnect'
   const [result, setResult] = useState(null); // { tone, text }
   const s = q.data;
 
@@ -44,9 +42,6 @@ export default function SaxoCard() {
   const secretOk = SECRET_RE.test(secret);
   const sameApp = Boolean(s?.app && s.app.appKey === key);
   const canSaveApp = keyOk && (secretOk || (sameApp && !secret));
-  const cleanToken = token.trim();
-  const tokenOk = /^[\x21-\x7e]+$/.test(cleanToken);
-  const expiry = s?.configured && s.kind === 'manual' ? expiryText(s.expiresAt) : null;
 
   async function run(name, fn) {
     setBusy(name);
@@ -94,12 +89,6 @@ export default function SaxoCard() {
     setResult({ tone: 'info', text: 'Aplicação removida.' });
   });
 
-  const saveToken = (e) => { e.preventDefault(); return run('token', async () => {
-    qc.setQueryData(['integration-saxo'], await api.put('/me/integrations/saxo', { token: cleanToken }));
-    setToken('');
-    setResult({ tone: 'info', text: 'Token guardado (cifrado no servidor). Use «Testar ligação» para confirmar.' });
-  }); };
-
 
   return (
     <section className="card" aria-labelledby="saxo-title">
@@ -138,30 +127,19 @@ export default function SaxoCard() {
               <strong>Ligação:</strong>{' '}
               {!s.configured ? 'não ligado.'
                 : s.expired ? 'a ligação expirou ou foi recusada pela SAXO: volte a ligar.'
-                : s.kind === 'oauth' ? `ligado, com renovação automática (desde ${f.dateTime(s.updatedAt)}).`
-                : `token de 24 h guardado em ${f.dateTime(s.updatedAt)}${expiry ? ` · ${expiry}` : ''}.`}
+                : `ligado, com renovação automática (desde ${f.dateTime(s.updatedAt)}).`}
             </p>
             {result && <Notice tone={result.tone}>{result.text}</Notice>}
             <div className="row">
               <Button variant="primary" onClick={connect} busy={busy === 'connect'} disabled={!s.app || !s.canConnect || Boolean(busy)}
                 title={s.app ? undefined : 'Guarde primeiro a chave e o segredo da aplicação'}>
-                {s.configured && s.kind === 'oauth' ? 'Voltar a ligar à SAXO' : 'Ligar à SAXO'}
+                {s.configured ? 'Voltar a ligar à SAXO' : 'Ligar à SAXO'}
               </Button>
               {s.configured && <Button onClick={test} busy={busy === 'test'} disabled={Boolean(busy)}>Testar ligação</Button>}
               {s.configured && <Button variant="ghost" onClick={disconnect} disabled={Boolean(busy)}>Desligar</Button>}
             </div>
           </div>
 
-          <details>
-            <summary className="small">Alternativa: token de 24 h do portal</summary>
-            <form className="stack" style={{ gap: '1rem', marginTop: '0.75rem' }} noValidate onSubmit={saveToken}>
-              <Field label="Token" error={cleanToken && !tokenOk ? 'O token não pode ter espaços nem caracteres especiais.' : null}
-                help="Expira ao fim de 24 h e tem de ser colado de novo. Substitui a ligação actual.">
-                {(p) => <input {...p} className="input" type="password" name="saxo-token" autoComplete="off" spellCheck={false} value={token} onChange={(e) => setToken(e.target.value)} />}
-              </Field>
-              <div><Button type="submit" busy={busy === 'token'} disabled={!cleanToken || !tokenOk || !s.canEncrypt || Boolean(busy)}>Guardar token</Button></div>
-            </form>
-          </details>
         </div>
       )}
     </section>

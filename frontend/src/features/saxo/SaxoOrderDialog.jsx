@@ -9,7 +9,7 @@ import { Button, Dialog, Field, Notice, Segmented } from '../../components/ui/co
 
 export const SIM_BANNER = 'Conta de simulação da SAXO Bank — não é dinheiro real.';
 
-/** Estado do token da SAXO (partilhado com o cartão das Definições). */
+/** Estado da ligação à SAXO (partilhado com o cartão das Definições). */
 export const useSaxoStatus = () => useQuery({
   queryKey: ['integration-saxo'], queryFn: () => api.get('/me/integrations/saxo'), staleTime: 60_000,
 });

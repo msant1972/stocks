@@ -22,8 +22,8 @@ export default function SaxoPortfolioPage() {
         </div>
       </div>
       <Notice tone="warning">{SIM_BANNER}</Notice>
-      {token.data && !token.data.configured && <Notice tone="info">Ainda não guardou o token da SAXO Bank. <Link to="/definicoes">Abrir Definições</Link></Notice>}
-      {token.data?.expired && <Notice tone="warning">O token da SAXO Bank expirou ou foi recusado. <Link to="/definicoes">Guarde um novo em Definições</Link></Notice>}
+      {token.data && !token.data.configured && <Notice tone="info">Ainda não está ligado à SAXO Bank. <Link to="/definicoes">Ligar em Definições</Link></Notice>}
+      {token.data?.expired && <Notice tone="warning">A ligação à SAXO Bank expirou ou foi recusada. <Link to="/definicoes">Volte a ligar em Definições</Link></Notice>}
 
       {ready && (q.isPending ? <Loading rows={4} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : (
         <>

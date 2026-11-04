@@ -1,15 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { confirmWaitMs, defaultLimit, expiryText, normaliseLimit } from '../src/lib/saxo.js';
-
-test('validade do token', () => {
-  const now = Date.parse('2026-11-04T10:00:00Z');
-  assert.equal(expiryText('2026-11-04T15:20:30Z', now), 'expira em 5 h 20 min');
-  assert.equal(expiryText('2026-11-04T10:12:00Z', now), 'expira em 12 min');
-  assert.equal(expiryText('2026-11-04T10:00:10Z', now), 'expira em 1 min');
-  assert.equal(expiryText('2026-11-04T09:59:00Z', now), 'expirou');
-  assert.equal(expiryText(null, now), null);
-});
+import { confirmWaitMs, defaultLimit, normaliseLimit } from '../src/lib/saxo.js';
 
 test('preço limite: aceita vírgula, recusa vazio, zero e lixo', () => {
   assert.equal(normaliseLimit('9,5'), '9.5');

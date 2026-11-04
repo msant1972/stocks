@@ -1,8 +1,8 @@
 import { AppError } from '../errors.js';
 
-/** Erros da ligação à SAXO, no formato comum da API. Nenhum inclui o token. */
-export const noToken = () => new AppError(409, 'SAXO_NO_TOKEN', 'não há token da SAXO Bank; guarde-o em Definições');
-export const tokenExpired = () => new AppError(409, 'SAXO_TOKEN_EXPIRED', 'o token da SAXO Bank expirou ou foi recusado; gere e guarde um novo em Definições');
+/** Erros da ligação à SAXO, no formato comum da API. Nenhum inclui tokens ou segredos. */
+export const noToken = () => new AppError(409, 'SAXO_NO_TOKEN', 'não está ligado à SAXO Bank; ligue em Definições → SAXO Bank');
+export const tokenExpired = () => new AppError(409, 'SAXO_TOKEN_EXPIRED', 'a ligação à SAXO Bank expirou ou foi recusada; volte a ligar em Definições → SAXO Bank');
 export const liveBlocked = () => new AppError(409, 'SAXO_LIVE_BLOCKED', 'a conta real da SAXO Bank não está activada nesta aplicação (só simulação)');
 export const forbidden = (msg) => new AppError(403, 'SAXO_FORBIDDEN', msg || 'a SAXO Bank recusou o acesso a este recurso');
 export const rateLimited = () => new AppError(429, 'SAXO_RATE_LIMITED', 'limite de pedidos da SAXO Bank atingido; tente de novo daqui a alguns segundos');

@@ -133,7 +133,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US38 | Ordens para a conta de simulação da SAXO: testar ligação, resolução do instrumento, pré-validação, confirmação, envio, estado e cancelamento | — | Feito |
 | US41 | Ordens SAXO: preço limite validado contra o passo de preço do instrumento (`SAXO_TICK_SIZE`, com sugestão) e preço inicial arredondado | — | Feito |
 | US40 | Grupo «SAXO» no menu: Carteira SAXO, Ordens SAXO e Alertas SAXO (email quando uma ordem deixa de estar aberta) | — | Feito |
-| US39 | SAXO: ligação OAuth («Authorization Code») com aplicação por utilizador, renovação automática e atómica do refresh token (o token de 24 h fica como alternativa) | — | Feito |
+| US39 | SAXO: ligação OAuth («Authorization Code») com aplicação por utilizador, renovação automática e atómica do refresh token; o token de 24 h foi retirado | — | Feito |
 | US34 | Charts como sítio único do instrumento, com velas e volume (a página do instrumento redirecciona) | — | Feito |
 | US35 | Cálculos antecipados e caches stale-while-revalidate: páginas de estratégias imediatas | — | Feito |
 | US36 | Visão geral como painel do dia; menu em secções e botão «Mais» em telemóvel | — | Feito |

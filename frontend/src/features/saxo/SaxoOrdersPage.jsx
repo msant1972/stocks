@@ -38,8 +38,8 @@ export default function SaxoOrdersPage() {
       </div>
       <Notice tone="warning">{SIM_BANNER}</Notice>
 
-      {s && !s.configured && <Notice tone="info">Ainda não guardou o token da SAXO Bank. <Link to="/definicoes">Abrir Definições</Link></Notice>}
-      {s?.expired && <Notice tone="warning">O token da SAXO Bank expirou ou foi recusado. <Link to="/definicoes">Guarde um novo em Definições</Link></Notice>}
+      {s && !s.configured && <Notice tone="info">Ainda não está ligado à SAXO Bank. <Link to="/definicoes">Ligar em Definições</Link></Notice>}
+      {s?.expired && <Notice tone="warning">A ligação à SAXO Bank expirou ou foi recusada. <Link to="/definicoes">Volte a ligar em Definições</Link></Notice>}
       {conn.data && (
         <section className="card" aria-label="Conta SAXO">
           <dl className="summary-box">

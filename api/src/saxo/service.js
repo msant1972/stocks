@@ -22,8 +22,8 @@ export async function openSession(pool, cfg, userId) {
   let row = await load();
   if (!row) throw E.noToken();
   if (row.environment === 'live' && !cfg.saxo.allowLive) throw E.liveBlocked();
-  // Ligação OAuth: o access token dura minutos; renova-se (de forma atómica) quando está a acabar.
-  if (row.auth_kind === 'oauth' && !row.rejected_at && (!row.expires_at || row.expires_at.getTime() < Date.now() + 30_000)) {
+  // O access token dura minutos; renova-se (de forma atómica) quando está a acabar.
+  if (!row.rejected_at && (!row.expires_at || row.expires_at.getTime() < Date.now() + 30_000)) {
     await refreshUserToken(pool, cfg, userId);
     row = await load();
     if (!row) throw E.noToken();

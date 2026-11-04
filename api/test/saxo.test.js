@@ -101,10 +101,11 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
   let seq = 0;
   const base = () => ({ instrumentId: galp, side: 'buy', quantity: 10, orderType: 'limit', limitPrice: '9.5' });
   const useSaxo = (over) => { const f = fakeSaxo(over); ctx.cfg.saxo.fetchImpl = f.fetchImpl; return f; };
-  // Directo na BD: o PUT tem limite de pedidos por minuto e cada teste começa de zero.
+  // Ligação OAuth já feita, directo na BD (o fluxo completo é testado em «ligação OAuth»): access token válido 20 min.
   const saveToken = (userId) => ctx.pool.query(
-    "REPLACE INTO user_integration_tokens (user_id, provider, token_enc, environment, expires_at) VALUES (?, 'saxo', ?, 'sim', NOW(3) + INTERVAL 24 HOUR)",
-    [userId, encryptSecret(TEST_SECRET_KEY, TOKEN)],
+    `REPLACE INTO user_integration_tokens (user_id, provider, token_enc, environment, auth_kind, refresh_token_enc, expires_at, refresh_expires_at)
+     VALUES (?, 'saxo', ?, 'sim', 'oauth', ?, NOW(3) + INTERVAL 20 MINUTE, NOW(3) + INTERVAL 40 MINUTE)`,
+    [userId, encryptSecret(TEST_SECRET_KEY, TOKEN), encryptSecret(TEST_SECRET_KEY, 'refresh-0')],
   );
   const preview = (extra = {}) => ana.post('/saxo/orders/preview', { ...base(), ...extra });
   const place = async (extra = {}) => {
@@ -138,16 +139,19 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     await ctx.pool.end();
   });
 
-  it('sem token, pede para o guardar; com token expirado ou recusado, pede um novo', async () => {
+  it('sem ligação, pede para ligar; com o refresh token já expirado, pede para voltar a ligar', async () => {
     await ana.del('/me/integrations/saxo');
-    expect((await ana.get('/saxo/connection')).json().error.code).toBe('SAXO_NO_TOKEN');
+    expect((await ana.get('/saxo/connection')).json().error).toMatchObject({ code: 'SAXO_NO_TOKEN', message: expect.stringContaining('ligue em Definições') });
     await saveToken(anaId);
-    await ctx.pool.query("UPDATE user_integration_tokens SET expires_at = NOW(3) - INTERVAL 1 MINUTE");
+    await ctx.pool.query('UPDATE user_integration_tokens SET expires_at = NOW(3) - INTERVAL 1 MINUTE, refresh_expires_at = NOW(3) - INTERVAL 1 MINUTE');
+    const f = useSaxo();
     expect((await ana.get('/saxo/connection')).json().error.code).toBe('SAXO_TOKEN_EXPIRED');
-    expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({ configured: true, expired: true, environment: 'sim' });
-    expect((await ana.put('/me/integrations/saxo', { token: TOKEN })).statusCode).toBe(200); // um token novo repõe a validade
-    expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({ expired: false });
-    expect((await ana.get('/saxo/connection')).statusCode).toBe(200);
+    expect(f.calls.filter((c) => c.key === 'POST /token')).toHaveLength(0); // nem tenta: já não há com que renovar
+    expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({ configured: true, kind: 'oauth', expired: true, environment: 'sim' });
+  });
+
+  it('o token de 24 h colado à mão já não é aceite', async () => {
+    expect((await ana.put('/me/integrations/saxo', { token: TOKEN })).statusCode).toBe(404);
   });
 
   it('a SAXO a recusar o token (401) marca-o como expirado', async () => {
@@ -449,7 +453,7 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
       expect(decryptSecret(TEST_SECRET_KEY, row.refresh_token_enc)).toBe('refresh-1');
       expect(row.token_enc).not.toContain('acesso-1');
       const s = (await ana.get('/me/integrations/saxo')).json();
-      expect(s).toMatchObject({ configured: true, kind: 'oauth', expired: false, expiresAt: null });
+      expect(s).toMatchObject({ configured: true, kind: 'oauth', expired: false });
       expect(JSON.stringify(s)).not.toMatch(/acesso-1|refresh-1/);
       // E já se pode usar.
       useSaxo({ 'POST /token': tok(2) });
@@ -549,13 +553,6 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
       await connect(useSaxo({ 'POST /token': tok(1) }));
       expect((await ana.del('/me/integrations/saxo/app')).statusCode).toBe(204);
       expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({ configured: false, app: null });
-    });
-
-    it('guardar um token de 24 h substitui a ligação OAuth', async () => {
-      await connect(useSaxo({ 'POST /token': tok(1) }));
-      expect((await ana.put('/me/integrations/saxo', { token: TOKEN })).json()).toMatchObject({ kind: 'manual', expired: false });
-      const [[row]] = await ctx.pool.query('SELECT refresh_token_enc FROM user_integration_tokens');
-      expect(row.refresh_token_enc).toBeNull();
     });
   });
 

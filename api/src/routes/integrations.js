@@ -11,8 +11,7 @@ const Status = z.object({
   configured: z.boolean(),
   updatedAt: z.string().nullable(),
   environment: z.enum(['sim', 'live']).nullable().describe('Ambiente da ligação; por agora só a simulação (sim)'),
-  kind: z.enum(['oauth', 'manual']).nullable().describe('oauth: ligada pela aplicação SAXO, com renovação automática; manual: token de 24 h colado'),
-  expiresAt: z.string().nullable().describe('Só nas ligações manuais: o token do portal dura 24 h'),
+  kind: z.enum(['oauth']).nullable().describe('oauth: ligada pela aplicação SAXO (API Key), com renovação automática'),
   expired: z.boolean().describe('Expirou ou a SAXO recusou-o: é preciso ligar de novo'),
   canEncrypt: z.boolean().describe('false: a chave de cifra do servidor não está configurada e não é possível guardar segredos'),
   app: z.object({ appKey: z.string(), hasSecret: z.boolean() }).nullable().describe('Aplicação SAXO guardada (o segredo nunca é devolvido)'),
@@ -25,8 +24,8 @@ const AppSecret = z.string().trim().min(8).max(256).regex(/^[\x21-\x7e]+$/, 'o s
 
 /**
  * Ligação do utilizador à SAXO Bank. Segredos (segredo da aplicação, access e refresh tokens) ficam cifrados na BD e nunca são
- * devolvidos: a API só diz o que existe. Ligação normal: aplicação SAXO (chave + segredo) e fluxo OAuth «Authorization Code»,
- * com renovação automática. Alternativa: token de 24 h do portal. Só a conta de simulação (SIM).
+ * devolvidos: a API só diz o que existe. A ligação é feita com a aplicação SAXO do utilizador (API Key + segredo) e o fluxo
+ * OAuth «Authorization Code», com renovação automática. Só a conta de simulação (SIM).
  */
 export default async function integrationRoutes(app, { pool, cfg }) {
   async function status(userId) {
@@ -36,13 +35,11 @@ export default async function integrationRoutes(app, { pool, cfg }) {
     );
     const [[a]] = await pool.query('SELECT app_key FROM user_saxo_apps WHERE user_id = ?', [userId]);
     const now = Date.now();
-    const oauth = r?.auth_kind === 'oauth';
-    const expired = Boolean(r && (r.rejected_at
-      || (oauth ? r.refresh_expires_at && r.refresh_expires_at.getTime() < now : r.expires_at && r.expires_at.getTime() < now)));
+    const expired = Boolean(r && (r.rejected_at || (r.refresh_expires_at && r.refresh_expires_at.getTime() < now)));
     return {
       configured: Boolean(r), updatedAt: r?.updated_at.toISOString() ?? null, canEncrypt: Boolean(cfg.secretKey),
       environment: r?.environment ?? null, kind: r?.auth_kind ?? null,
-      expiresAt: !oauth ? r?.expires_at?.toISOString() ?? null : null, expired,
+      expired,
       app: a ? { appKey: a.app_key, hasSecret: true } : null,
       redirectUri: redirectUri(cfg), canConnect: Boolean(cfg.secretKey && redirectUri(cfg)),
     };
@@ -134,31 +131,6 @@ export default async function integrationRoutes(app, { pool, cfg }) {
       req.log.warn({ code: err.code }, 'saxo: ligação OAuth falhou');
       return back('erro', err instanceof AppError ? err.message : 'não foi possível concluir a ligação');
     }
-  });
-
-  // --- Token de 24 h colado (alternativa) ---
-  app.put('/me/integrations/saxo', {
-    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
-    schema: {
-      tags: ['Conta'], summary: 'Guardar o token de 24 h da SAXO Bank (cifrado; substitui a ligação anterior)',
-      body: z.object({
-        token: z.string().trim().min(1).max(4096).regex(/^[\x21-\x7e]+$/, 'o token não pode ter espaços nem caracteres especiais'),
-      }),
-      response: { 200: Status, 400: ErrorBody, 409: ErrorBody },
-    },
-  }, async (req) => {
-    needKey();
-    await withTransaction(pool, async (conn) => {
-      await conn.query(
-        `INSERT INTO user_integration_tokens (user_id, provider, token_enc, environment, auth_kind, refresh_token_enc, expires_at, refresh_expires_at, rejected_at)
-         VALUES (?, ?, ?, 'sim', 'manual', NULL, DATE_ADD(NOW(3), INTERVAL 24 HOUR), NULL, NULL)
-         ON DUPLICATE KEY UPDATE token_enc = VALUES(token_enc), environment = 'sim', auth_kind = 'manual', refresh_token_enc = NULL,
-           expires_at = VALUES(expires_at), refresh_expires_at = NULL, rejected_at = NULL`,
-        [req.user.id, PROVIDER, encryptSecret(cfg.secretKey, req.body.token)],
-      );
-      await audit(conn, req.user.id, 'integration.token_set', 'integration', null, { provider: PROVIDER });
-    });
-    return status(req.user.id);
   });
 
   app.delete('/me/integrations/saxo', {

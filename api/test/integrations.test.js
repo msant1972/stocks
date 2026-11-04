@@ -1,90 +1,84 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from '../src/app.js';
-import { decryptSecret } from '../src/secrets.js';
+import { encryptSecret } from '../src/secrets.js';
 import { api, hasTestDb, login, makeUser, setup, TEST_SECRET_KEY } from './helpers.js';
 
-const TOKEN = 'eyJhbGciOi.JIUzI1NiIs-InR5cCI_6Ik';
-
-describe.skipIf(!hasTestDb)('token da SAXO Bank', () => {
+// O fluxo OAuth completo (guardar a aplicação, ligar, renovar) está em saxo.test.js.
+describe.skipIf(!hasTestDb)('ligação à SAXO Bank: estado, desligar e cascata', () => {
   let ctx;
   let ana;
-  let rui;
+  let anaId;
+  let ruiId;
   let anaCookie;
+  const connectInDb = (userId) => ctx.pool.query(
+    `REPLACE INTO user_integration_tokens (user_id, provider, token_enc, environment, auth_kind, refresh_token_enc, expires_at, refresh_expires_at)
+     VALUES (?, 'saxo', ?, 'sim', 'oauth', ?, NOW(3) + INTERVAL 20 MINUTE, NOW(3) + INTERVAL 40 MINUTE)`,
+    [userId, encryptSecret(TEST_SECRET_KEY, 'acesso'), encryptSecret(TEST_SECRET_KEY, 'refresh')],
+  );
+  const appInDb = (userId) => ctx.pool.query('REPLACE INTO user_saxo_apps (user_id, app_key, app_secret_enc) VALUES (?, ?, ?)',
+    [userId, 'chave-da-app-0001', encryptSecret(TEST_SECRET_KEY, 'segredo-0001')]);
+
   beforeAll(async () => {
     ctx = await setup();
-    await makeUser(ctx.pool, 'ana@exemplo.pt');
-    await makeUser(ctx.pool, 'rui@exemplo.pt');
+    anaId = await makeUser(ctx.pool, 'ana@exemplo.pt');
+    ruiId = await makeUser(ctx.pool, 'rui@exemplo.pt');
     anaCookie = await login(ctx.app, 'ana@exemplo.pt');
     ana = api(ctx.app, anaCookie);
-    rui = api(ctx.app, await login(ctx.app, 'rui@exemplo.pt'));
   });
   afterAll(async () => {
     await ctx.app.close();
     await ctx.pool.end();
   });
 
-  it('começa sem token', async () => {
-    expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({ configured: false, updatedAt: null, canEncrypt: true, environment: null, kind: null, expiresAt: null, expired: false, app: null });
+  it('começa sem ligação nem aplicação', async () => {
+    expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({
+      configured: false, updatedAt: null, canEncrypt: true, environment: null, kind: null, expired: false, app: null,
+    });
   });
 
-  it('guarda o token cifrado e nunca o devolve', async () => {
-    const res = await ana.put('/me/integrations/saxo', { token: `  ${TOKEN}  ` });
-    expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ configured: true, canEncrypt: true });
-    expect(res.body).not.toContain(TOKEN);
-    expect((await ana.get('/me/integrations/saxo')).body).not.toContain(TOKEN);
-
-    const [[row]] = await ctx.pool.query("SELECT token_enc FROM user_integration_tokens WHERE provider = 'saxo'");
-    expect(row.token_enc).toMatch(/^v1:/);
-    expect(row.token_enc).not.toContain(TOKEN);
-    expect(decryptSecret(TEST_SECRET_KEY, row.token_enc)).toBe(TOKEN);
-
-    // Auditoria sem o token.
-    const [audit] = await ctx.pool.query("SELECT detail FROM audit_log WHERE action = 'integration.token_set'");
-    expect(audit).toHaveLength(1);
-    expect(audit[0].detail).not.toContain(TOKEN);
+  it('o estado nunca devolve tokens nem o segredo; cada utilizador vê só o seu', async () => {
+    await appInDb(anaId);
+    await connectInDb(anaId);
+    const res = await ana.get('/me/integrations/saxo');
+    expect(res.json()).toMatchObject({ configured: true, kind: 'oauth', expired: false, app: { appKey: 'chave-da-app-0001', hasSecret: true } });
+    expect(res.body).not.toMatch(/acesso|refresh|segredo-0001/);
+    const rui = api(ctx.app, await login(ctx.app, 'rui@exemplo.pt'));
+    expect((await rui.get('/me/integrations/saxo')).json()).toMatchObject({ configured: false, app: null });
   });
 
-  it('um novo token substitui o anterior; cada utilizador vê só o seu', async () => {
-    expect((await ana.put('/me/integrations/saxo', { token: 'outro-token-2' })).statusCode).toBe(200);
-    const [rows] = await ctx.pool.query("SELECT token_enc FROM user_integration_tokens WHERE provider = 'saxo'");
-    expect(rows).toHaveLength(1);
-    expect(decryptSecret(TEST_SECRET_KEY, rows[0].token_enc)).toBe('outro-token-2');
-    expect((await rui.get('/me/integrations/saxo')).json().configured).toBe(false);
-  });
-
-  it('recusa tokens vazios ou com espaços', async () => {
-    for (const token of ['', '   ', 'com espaço', 'acentuação']) {
-      expect((await ana.put('/me/integrations/saxo', { token })).statusCode).toBe(400);
-    }
-    expect((await ana.put('/me/integrations/saxo', {})).statusCode).toBe(400);
-  });
-
-  it('sem a chave de cifra do servidor não guarda o token', async () => {
+  it('sem a chave de cifra do servidor não guarda a aplicação nem liga', async () => {
     const app = await buildApp({ pool: ctx.pool, cfg: { ...ctx.cfg, secretKey: null }, logger: false });
     try {
       const noKey = api(app, anaCookie); // a sessão está na BD: o mesmo cookie serve
-      expect((await noKey.get('/me/integrations/saxo')).json().canEncrypt).toBe(false);
-      const res = await noKey.put('/me/integrations/saxo', { token: TOKEN });
-      expect(res.statusCode).toBe(409);
-      expect(res.json().error.code).toBe('NO_SECRET_KEY');
+      expect((await noKey.get('/me/integrations/saxo')).json()).toMatchObject({ canEncrypt: false, canConnect: false });
+      expect((await noKey.put('/me/integrations/saxo/app', { appKey: 'chave-da-app-0001', appSecret: 'segredo-0002' })).json().error.code).toBe('NO_SECRET_KEY');
+      expect((await noKey.post('/me/integrations/saxo/connect', {})).json().error.code).toBe('NO_SECRET_KEY');
     } finally {
       await app.close();
     }
   });
 
-  it('remove o token, e removê-lo outra vez não dá erro', async () => {
-    expect((await ana.del('/me/integrations/saxo')).statusCode).toBe(204);
-    expect((await ana.get('/me/integrations/saxo')).json().configured).toBe(false);
-    expect((await ana.del('/me/integrations/saxo')).statusCode).toBe(204);
-    const [audit] = await ctx.pool.query("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'integration.token_remove'");
-    expect(Number(audit[0].n)).toBe(1); // só a remoção que apagou alguma coisa
+  it('recusa chaves e segredos com formato inválido', async () => {
+    for (const body of [{ appKey: 'curta', appSecret: 'segredo-0002' }, { appKey: 'com espaço 0001', appSecret: 'segredo-0002' },
+      { appKey: 'chave-da-app-0001', appSecret: 'com espaço' }, {}]) {
+      expect((await ana.put('/me/integrations/saxo/app', body)).statusCode, JSON.stringify(body)).toBe(400);
+    }
   });
 
-  it('apagar o utilizador apaga o seu token', async () => {
-    expect((await rui.put('/me/integrations/saxo', { token: TOKEN })).statusCode).toBe(200);
+  it('desligar remove os tokens (só a primeira vez fica na auditoria) e mantém a aplicação', async () => {
+    expect((await ana.del('/me/integrations/saxo')).statusCode).toBe(204);
+    expect((await ana.del('/me/integrations/saxo')).statusCode).toBe(204);
+    expect((await ana.get('/me/integrations/saxo')).json()).toMatchObject({ configured: false, app: { appKey: 'chave-da-app-0001' } });
+    const [[{ n }]] = await ctx.pool.query("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'integration.token_remove'");
+    expect(Number(n)).toBe(1);
+  });
+
+  it('apagar o utilizador apaga a sua ligação e a sua aplicação', async () => {
+    await appInDb(ruiId);
+    await connectInDb(ruiId);
     await ctx.pool.query("DELETE FROM users WHERE email = 'rui@exemplo.pt'");
-    const [[{ n }]] = await ctx.pool.query('SELECT COUNT(*) AS n FROM user_integration_tokens');
-    expect(Number(n)).toBe(0);
+    const [[t]] = await ctx.pool.query('SELECT COUNT(*) AS n FROM user_integration_tokens WHERE user_id = ?', [ruiId]);
+    const [[a]] = await ctx.pool.query('SELECT COUNT(*) AS n FROM user_saxo_apps WHERE user_id = ?', [ruiId]);
+    expect([Number(t.n), Number(a.n)]).toEqual([0, 0]);
   });
 });
