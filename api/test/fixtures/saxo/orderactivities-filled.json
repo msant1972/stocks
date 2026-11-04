@@ -1,0 +1,79 @@
+{
+ "status": 200,
+ "body": {
+  "__count": 3,
+  "Data": [
+   {
+    "AccountId": "0000000",
+    "ActivityTime": "2026-11-03T22:53:32.629000Z",
+    "Amount": 10,
+    "AssetType": "Stock",
+    "BuySell": "Buy",
+    "ClientId": "0000000",
+    "Duration": {
+     "DurationType": "DayOrder"
+    },
+    "HandledBy": "0000000",
+    "LogId": "1",
+    "OrderId": "5041484162",
+    "OrderRelation": "StandAlone",
+    "OrderType": "Limit",
+    "Price": 9.5,
+    "RelatedOrders": [],
+    "Status": "Placed",
+    "SubStatus": "Requested",
+    "Uic": 23737,
+    "UserId": "0000000"
+   },
+   {
+    "AccountId": "0000000",
+    "ActivityTime": "2026-11-03T22:53:32.632000Z",
+    "Amount": 10,
+    "AssetType": "Stock",
+    "BuySell": "Buy",
+    "ClientId": "0000000",
+    "Duration": {
+     "DurationType": "DayOrder"
+    },
+    "HandledBy": "0000000",
+    "LogId": "1",
+    "OrderId": "5041484162",
+    "OrderRelation": "StandAlone",
+    "OrderType": "Limit",
+    "Price": 9.5,
+    "RelatedOrders": [],
+    "Status": "Placed",
+    "SubStatus": "Confirmed",
+    "Uic": 23737,
+    "UserId": "0000000"
+   },
+   {
+    "AccountId": "0000000",
+    "ActivityTime": "2026-11-04T08:19:31.575000Z",
+    "Amount": 10,
+    "AssetType": "Stock",
+    "BuySell": "Buy",
+    "ClientId": "0000000",
+    "Duration": {
+     "DurationType": "DayOrder"
+    },
+    "HandledBy": "0000000",
+    "LogId": "1",
+    "OrderId": "5041484162",
+    "OrderRelation": "StandAlone",
+    "OrderType": "Limit",
+    "Price": 9.5,
+    "RelatedOrders": [],
+    "Status": "FinalFill",
+    "SubStatus": "Confirmed",
+    "Uic": 23737,
+    "UserId": "0000000",
+    "AveragePrice": 9.4825,
+    "ExecutionPrice": 9.4825,
+    "FillAmount": 10,
+    "FilledAmount": 10,
+    "PositionId": "5028005299"
+   }
+  ]
+ }
+}

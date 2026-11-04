@@ -3,17 +3,19 @@ import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { ORDER_STATUS, ORDER_STATUS_HELP } from '../../lib/saxo.js';
+import { ORDER_STATUS, ORDER_STATUS_HELP, orderLabel } from '../../lib/saxo.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Notice } from '../../components/ui/controls.jsx';
 import { SIM_BANNER, useSaxoStatus } from './SaxoOrderDialog.jsx';
+import SaxoModifyDialog from './SaxoModifyDialog.jsx';
 
 const PAGE = 25;
-const TONE = { working: 'badge-accent', rejected: 'badge-negative', unknown: 'badge-warning' };
+const TONE = { working: 'badge-accent', filled: 'badge-positive', rejected: 'badge-negative', unknown: 'badge-warning' };
 
 export default function SaxoOrdersPage() {
   const qc = useQueryClient();
   const [page, setPage] = useState(0);
+  const [editing, setEditing] = useState(null);
   const token = useSaxoStatus();
   const orders = useQuery({
     queryKey: ['saxo-orders', page], queryFn: () => api.get(`/saxo/orders?limit=${PAGE}&offset=${page * PAGE}`),
@@ -57,7 +59,7 @@ export default function SaxoOrdersPage() {
         {orders.isPending ? <Loading rows={4} /> : orders.error ? <ErrorState error={orders.error} onRetry={orders.refetch} /> :
           orders.data.items.length === 0 ? (
             <EmptyState title="Sem ordens" action={<Link className="button" to="/charts">Ir para os Charts</Link>}>
-              Ainda não enviou nenhuma ordem para a SAXO. Use «Enviar à SAXO» nos Charts ou nos Sinais.
+              Ainda não enviou nenhuma ordem para a SAXO. Use «Enviar à SAXO» nos Charts, nos Sinais ou na Carteira SAXO.
             </EmptyState>
           ) : (
             <>
@@ -66,7 +68,7 @@ export default function SaxoOrdersPage() {
                   <thead>
                     <tr>
                       <th scope="col">Enviada</th><th scope="col">Instrumento</th><th scope="col">Ordem</th>
-                      <th scope="col" className="r">Quantidade</th><th scope="col" className="r">Preço limite</th>
+                      <th scope="col" className="r">Quantidade</th><th scope="col" className="r">Preço</th>
                       <th scope="col">Estado</th><th scope="col" className="r"><span className="visually-hidden">Acções</span></th>
                     </tr>
                   </thead>
@@ -75,15 +77,28 @@ export default function SaxoOrdersPage() {
                       <tr key={o.id}>
                         <td className="small" style={{ whiteSpace: 'nowrap' }}>{f.dateTime(o.createdAt)}<div className="muted">{o.saxoOrderId ? `SAXO ${o.saxoOrderId}` : `#${o.id}`}</div></td>
                         <td><Link to={`/instrumentos/${o.instrumentId}`} className="row-link">{o.symbol}</Link></td>
-                        <td><span className={`badge ${o.side === 'buy' ? 'badge-accent' : ''}`}>{o.side === 'buy' ? 'Compra' : 'Venda'} {o.orderType === 'limit' ? 'limitada' : 'a mercado'}</span></td>
+                        <td>
+                          <span className={`badge ${o.side === 'buy' ? 'badge-accent' : ''}`}>{orderLabel(o)}</span>
+                          {o.parentId && <div className="small muted">associado à compra #{o.parentId}</div>}
+                        </td>
                         <td className="r">{f.quantity(o.quantity)}</td>
-                        <td className="r">{o.limitPrice ? f.price(o.limitPrice) : <span className="muted">mercado</span>}</td>
+                        <td className="r">
+                          {o.limitPrice ? f.price(o.limitPrice) : o.stopPrice ? f.price(o.stopPrice) : <span className="muted">mercado</span>}
+                          {o.trailDistance && <div className="small muted">distância {f.price(o.trailDistance)}</div>}
+                        </td>
                         <td>
                           <span className={`badge ${TONE[o.status] ?? ''}`}>{ORDER_STATUS[o.status]}</span>
+                          {o.status === 'filled' && o.filledQuantity != null && (
+                            <div className="small">{f.quantity(o.filledQuantity)} a {f.price(o.fillPrice)}{o.finishedAt ? ` · ${f.dateTime(o.finishedAt)}` : ''}</div>
+                          )}
+                          {o.status !== 'filled' && o.finishedAt && <div className="small muted">{f.dateTime(o.finishedAt)}</div>}
                           {(o.message || ORDER_STATUS_HELP[o.status]) && <div className="small muted">{o.message ?? ORDER_STATUS_HELP[o.status]}</div>}
                         </td>
-                        <td className="r">
-                          {o.status === 'working' && (
+                        <td className="r" style={{ whiteSpace: 'nowrap' }}>
+                          {o.status === 'working' && ['limit', 'stop'].includes(o.orderType) && o.saxoOrderId && (
+                            <><Button size="small" onClick={() => setEditing(o)}>Alterar<span className="visually-hidden"> ordem {o.symbol}</span></Button>{' '}</>
+                          )}
+                          {o.status === 'working' && o.saxoOrderId && (
                             <Button size="small" onClick={() => cancel.mutate(o.id)} busy={cancel.isPending && cancel.variables === o.id}>
                               Cancelar<span className="visually-hidden"> ordem {o.symbol}</span>
                             </Button>
@@ -106,6 +121,7 @@ export default function SaxoOrdersPage() {
             </>
           )}
       </section>
+      <SaxoModifyDialog order={editing} onClose={() => setEditing(null)} />
     </>
   );
 }

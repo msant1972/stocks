@@ -5,19 +5,28 @@ import { sendPendingEmails } from '../saxo/watcher.js';
 import { ErrorBody, Id } from '../schemas.js';
 
 const Side = z.enum(['buy', 'sell']);
+const Price = z.string().regex(/^\d+(\.\d{1,6})?$/);
+const Quantity = z.number().int().min(1).max(10_000_000);
 const OrderParams = z.object({
   instrumentId: Id,
   side: Side,
-  quantity: z.number().int().min(1).max(10_000_000),
+  quantity: Quantity,
   orderType: z.enum(['market', 'limit']),
-  limitPrice: z.string().regex(/^\d+(\.\d{1,6})?$/).optional().describe('Obrigatório nas ordens limitadas'),
+  limitPrice: Price.optional().describe('Obrigatório nas ordens limitadas'),
+  stop: z.object({
+    type: z.enum(['stop', 'trailing']).describe('stop: fixo (price); trailing: móvel (distance abaixo do mercado)'),
+    price: Price.optional(),
+    distance: Price.optional(),
+  }).optional().describe('Só nas compras: ordem de venda de protecção, activa quando a compra é executada'),
 });
+const Status = z.enum(['sending', 'working', 'filled', 'expired', 'cancelled', 'rejected', 'ended', 'unknown']);
 const Order = z.object({
-  id: z.number(), instrumentId: z.number(), symbol: z.string().nullable(), name: z.string().nullable(), environment: z.enum(['sim', 'live']),
-  saxoOrderId: z.string().nullable(), side: Side, quantity: z.number(), orderType: z.enum(['market', 'limit']),
-  limitPrice: z.string().nullable(), appPrice: z.string().nullable(),
-  status: z.enum(['sending', 'working', 'ended', 'cancelled', 'rejected', 'unknown']), message: z.string().nullable(),
-  createdAt: z.string(), updatedAt: z.string(),
+  id: z.number(), parentId: z.number().nullable(), instrumentId: z.number(), symbol: z.string().nullable(), name: z.string().nullable(),
+  environment: z.enum(['sim', 'live']), saxoOrderId: z.string().nullable(), side: Side, quantity: z.number(),
+  orderType: z.enum(['market', 'limit', 'stop', 'trailing_stop']),
+  limitPrice: z.string().nullable(), stopPrice: z.string().nullable(), trailDistance: z.string().nullable(), appPrice: z.string().nullable(),
+  filledQuantity: z.number().nullable(), fillPrice: z.string().nullable(), finishedAt: z.string().nullable(),
+  status: Status, message: z.string().nullable(), createdAt: z.string(), updatedAt: z.string(),
 });
 const Errors = { 403: ErrorBody, 404: ErrorBody, 409: ErrorBody, 422: ErrorBody, 429: ErrorBody, 502: ErrorBody };
 
@@ -108,6 +117,11 @@ export default async function saxoRoutes(app, { pool, cfg }) {
             positionId: z.string(), instrumentId: z.number().nullable(), symbol: z.string(), name: z.string().nullable(), currency: z.string(),
             quantity: z.number(), openPrice: z.number(), price: z.number().nullable(), marketValue: z.number().nullable(), pnl: z.number().nullable(),
           })),
+          closed: z.array(z.object({
+            closedPositionId: z.string(), instrumentId: z.number().nullable(), symbol: z.string(), name: z.string().nullable(), currency: z.string(),
+            quantity: z.number(), openPrice: z.number().nullable(), closePrice: z.number().nullable(), pnl: z.number().nullable(),
+            openedAt: z.string().nullable(), closedAt: z.string().nullable(),
+          })),
         }), ...Errors,
       },
     },
@@ -115,13 +129,14 @@ export default async function saxoRoutes(app, { pool, cfg }) {
 
   app.get('/saxo/alerts', {
     schema: {
-      tags: ['SAXO'], summary: 'Alertas SAXO: avisos de ordens que já não estão abertas e preferência de email',
+      tags: ['SAXO'], summary: 'Alertas SAXO: avisos de ordens executadas, expiradas ou canceladas e preferência de email',
       response: {
         200: z.object({
           emailEnabled: z.boolean(), canEmail: z.boolean(),
           items: z.array(z.object({
-            id: z.number(), orderId: z.number(), kind: z.literal('ended'), symbol: z.string(), side: Side, quantity: z.number(),
-            orderType: z.enum(['market', 'limit']), limitPrice: z.string().nullable(), saxoOrderId: z.string().nullable(),
+            id: z.number(), orderId: z.number(), kind: z.enum(['ended', 'filled', 'expired', 'cancelled']), symbol: z.string(), side: Side, quantity: z.number(),
+            orderType: z.enum(['market', 'limit', 'stop', 'trailing_stop']), limitPrice: z.string().nullable(), stopPrice: z.string().nullable(),
+            saxoOrderId: z.string().nullable(), filledQuantity: z.number().nullable(), fillPrice: z.string().nullable(),
             createdAt: z.string(), emailedAt: z.string().nullable(), read: z.boolean(),
           })),
         }),
@@ -146,6 +161,16 @@ export default async function saxoRoutes(app, { pool, cfg }) {
     await pool.query('UPDATE saxo_notifications SET read_at = NOW(3) WHERE user_id = ? AND read_at IS NULL', [req.user.id]);
     return reply.code(204).send(null);
   });
+
+  app.patch('/saxo/orders/:id', {
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['SAXO'], summary: 'Alterar uma ordem aberta (quantidade e preço limite, ou preço de um stop fixo)',
+      params: z.object({ id: Id }),
+      body: z.object({ quantity: Quantity.optional(), price: Price.optional() }).refine((b) => b.quantity != null || b.price != null, 'indique a quantidade ou o preço'),
+      response: { 200: Order, 400: ErrorBody, ...Errors },
+    },
+  }, async (req) => saxo.modifyOrder(pool, await session(req), req.params.id, req.body, { wait }));
 
   app.delete('/saxo/orders/:id', {
     config: { rateLimit: { max: 30, timeWindow: '1 minute' } },

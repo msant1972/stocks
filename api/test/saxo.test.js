@@ -6,6 +6,7 @@ import { createSaxoClient, createThrottle } from '../src/saxo/client.js';
 import { signState } from '../src/saxo/oauth.js';
 import { refreshDueTokens } from '../src/saxo/tokens.js';
 import { watchOrders } from '../src/saxo/watcher.js';
+import { buildFrame, createStreamManager, parseFrames } from '../src/saxo/streaming.js';
 import { decryptSecret, encryptSecret } from '../src/secrets.js';
 import { api, hasTestDb, login, makeInstrument, makeUser, setup, TEST_SECRET_KEY } from './helpers.js';
 
@@ -117,6 +118,7 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     ctx = await setup();
     ctx.cfg.saxo.orderSpacingMs = 0;
     ctx.cfg.saxo.sleep = async () => {};
+    ctx.cfg.testNoRateLimit = true; // muitas pré-validações seguidas; os limites de pedidos testam-se noutros ficheiros
     // Utilizadores e logins uma só vez: o login tem limite de pedidos por minuto.
     anaId = await makeUser(ctx.pool, 'ana@exemplo.pt');
     ana = api(ctx.app, await login(ctx.app, 'ana@exemplo.pt'));
@@ -330,7 +332,7 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
   it('recusa um preço limite fora do passo de preço e sugere o mais próximo', async () => {
     const res = await preview({ limitPrice: '9.5004' });
     expect(res.statusCode).toBe(422);
-    expect(res.json().error).toMatchObject({ code: 'SAXO_TICK_SIZE', details: { tickSize: 0.002, suggested: '9.5' } });
+    expect(res.json().error).toMatchObject({ code: 'SAXO_TICK_SIZE', details: { tickSize: 0.002, suggested: '9.5', field: 'limit' } });
     expect((await preview({ limitPrice: '9.504' })).statusCode).toBe(200);
     // O código só existe para preços válidos: usá-lo com um preço fora do passo é recusado.
     const p = (await preview()).json();
@@ -556,11 +558,203 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     });
   });
 
+  describe('estado final das ordens (histórico da SAXO)', () => {
+    const gone = (activities) => useSaxo({ 'GET /port/v1/orders/me': fx('orders-empty'), 'GET /port/v1/users/me': fx('users-me-min'), 'GET /cs/v1/audit/orderactivities': fx(activities) });
+
+    it('executada: guarda quantidade e preço médio e avisa «executada»', async () => {
+      await place();
+      const f = gone('orderactivities-filled');
+      const o = (await ana.get('/saxo/orders')).json().items[0];
+      expect(o).toMatchObject({ status: 'filled', filledQuantity: 10, fillPrice: '9.482500', finishedAt: '2026-11-04T08:19:31.575Z' });
+      expect(f.calls.find((c) => c.key === 'GET /cs/v1/audit/orderactivities').query).toEqual({ ClientKey: '<ClientKey>', OrderId: '5041484162' });
+      expect((await ana.get('/saxo/alerts')).json().items[0]).toMatchObject({ kind: 'filled', filledQuantity: 10, fillPrice: '9.482500' });
+    });
+
+    it('expirada e cancelada fora da aplicação têm o seu próprio estado e aviso', async () => {
+      for (const [fixture, status] of [['orderactivities-expired', 'expired'], ['orderactivities-cancelled', 'cancelled']]) {
+        await ctx.pool.query('DELETE FROM saxo_notifications');
+        await ctx.pool.query('DELETE FROM saxo_orders');
+        await place();
+        gone(fixture);
+        expect((await ana.get('/saxo/orders')).json().items[0].status).toBe(status);
+        expect((await ana.get('/saxo/alerts')).json().items.map((i) => i.kind)).toEqual([status]);
+      }
+    });
+
+    it('sem estado final ainda, continua aberta; ao fim de 3 dias deixa de se esperar', async () => {
+      await place();
+      gone('orderactivities-placed');
+      expect((await ana.get('/saxo/orders')).json().items[0].status).toBe('working');
+      expect((await ana.get('/saxo/alerts')).json().items).toEqual([]);
+      await ctx.pool.query('UPDATE saxo_orders SET created_at = NOW(3) - INTERVAL 4 DAY');
+      expect((await ana.get('/saxo/orders')).json().items[0].status).toBe('ended');
+    });
+
+    it('uma ordem associada (em RelatedOpenOrders) continua aberta', async () => {
+      await place();
+      const working = fx('orders-working');
+      working.body.Data[0].OrderId = '999';
+      working.body.Data[0].RelatedOpenOrders = [{ OrderId: '5041484162', OpenOrderType: 'StopIfTraded' }];
+      const f = useSaxo({ 'GET /port/v1/orders/me': working });
+      expect((await ana.get('/saxo/orders')).json().items[0].status).toBe('working');
+      expect(f.calls.some((c) => c.key === 'GET /cs/v1/audit/orderactivities')).toBe(false);
+    });
+
+    it('as ordens antigas «já não está aberta» ganham o estado real, sem novo aviso', async () => {
+      await place();
+      await place();
+      await ctx.pool.query("UPDATE saxo_orders SET status = 'ended' WHERE id = (SELECT MIN(id) FROM (SELECT id FROM saxo_orders) x)");
+      gone('orderactivities-filled');
+      const items = (await ana.get('/saxo/orders')).json().items;
+      expect(items.map((o) => o.status)).toEqual(['filled', 'filled']);
+      expect((await ana.get('/saxo/alerts')).json().items).toHaveLength(1); // só a que estava aberta
+    });
+  });
+
+  describe('stop associado à compra', () => {
+    const withStop = (stop, extra = {}) => preview({ stop, ...extra });
+
+    it('stop fixo: vai para a SAXO como ordem associada StopIfTraded, válida até cancelar', async () => {
+      const f = useSaxo();
+      const res = await withStop({ type: 'stop', price: '8.7' });
+      expect(res.statusCode).toBe(200);
+      expect(res.json().stop).toEqual({ type: 'stop', price: '8.7', distance: null });
+      const body = f.calls.find((c) => c.key === 'POST /trade/v2/orders/precheck').body;
+      expect(body.Orders).toEqual([expect.objectContaining({
+        BuySell: 'Sell', Amount: 10, OrderType: 'StopIfTraded', OrderPrice: 8.7, Uic: 23737, OrderDuration: { DurationType: 'GoodTillCancel' }, ManualOrder: true,
+      })]);
+    });
+
+    it('stop móvel: distância ao mercado, passo igual ao tick e preço inicial abaixo da compra', async () => {
+      const f = useSaxo();
+      const res = await withStop({ type: 'trailing', distance: '0.76' });
+      expect(res.json().stop).toEqual({ type: 'trailing', price: '8.74', distance: '0.76' });
+      const leg = f.calls.find((c) => c.key === 'POST /trade/v2/orders/precheck').body.Orders[0];
+      expect(leg).toMatchObject({ OrderType: 'TrailingStopIfTraded', TrailingStopDistanceToMarket: 0.76, TrailingStopStep: 0.002, OrderPrice: 8.74 });
+    });
+
+    it('valida o stop: só nas compras, abaixo do preço e no passo de preço', async () => {
+      expect((await withStop({ type: 'stop', price: '9.6' })).json().error.code).toBe('SAXO_STOP_ABOVE');
+      expect((await withStop({ type: 'stop', price: '8.7001' })).json().error).toMatchObject({ code: 'SAXO_TICK_SIZE', details: { suggested: '8.7', field: 'stop' } });
+      expect((await withStop({ type: 'stop' })).json().error.code).toBe('STOP_PRICE_REQUIRED');
+      expect((await withStop({ type: 'trailing', distance: '0.751' })).json().error).toMatchObject({ code: 'SAXO_TICK_SIZE', details: { suggested: '0.752', field: 'distance' } });
+      expect((await withStop({ type: 'stop', price: '8.7' }, { side: 'sell' })).json().error.code).toBe('SAXO_STOP_ONLY_BUY');
+    });
+
+    it('o envio cria a compra e o stop (ligado à compra); o código cobre o stop', async () => {
+      const p = (await withStop({ type: 'stop', price: '8.7' })).json();
+      const tampered = await ana.post('/saxo/orders', { ...base(), stop: { type: 'stop', price: '8.6' }, confirmation: p.confirmation, idempotencyKey: 'ordem-stop-x-aaaa' });
+      expect(tampered.json().error.code).toBe('SAXO_BAD_CONFIRMATION');
+      useSaxo({ 'POST /trade/v2/orders': { status: 200, body: { OrderId: '5041484162', Orders: [{ OrderId: '5041484999' }] } } });
+      const res = await ana.post('/saxo/orders', { ...base(), stop: { type: 'stop', price: '8.7' }, confirmation: p.confirmation, idempotencyKey: 'ordem-stop-aaaa' });
+      expect(res.statusCode).toBe(201);
+      // Na SAXO o stop aparece dentro da compra (RelatedOpenOrders) enquanto a compra não é executada.
+      const working = fx('orders-working');
+      working.body.Data[0].RelatedOpenOrders = [{ OrderId: '5041484999' }];
+      useSaxo({ 'GET /port/v1/orders/me': working });
+      const items = (await ana.get('/saxo/orders')).json().items;
+      const stop = items.find((o) => o.orderType === 'stop');
+      expect(stop).toMatchObject({ parentId: res.json().order.id, saxoOrderId: '5041484999', side: 'sell', quantity: 10, stopPrice: '8.700000', status: 'working' });
+      // Cancelar a compra cancela o stop associado.
+      useSaxo();
+      expect((await ana.del(`/saxo/orders/${res.json().order.id}`)).statusCode).toBe(200);
+      const after = (await ana.get('/saxo/orders')).json().items;
+      expect(after.map((o) => o.status)).toEqual(['cancelled', 'cancelled']);
+    });
+  });
+
+  describe('alterar ordens abertas', () => {
+    it('altera quantidade e preço limite com PATCH na SAXO', async () => {
+      const id = (await place()).json().order.id;
+      const f = useSaxo({ 'PATCH /trade/v2/orders': { status: 200, body: { OrderId: '5041484162' } } });
+      const res = await ana.patch(`/saxo/orders/${id}`, { quantity: 12, price: '9.4' });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toMatchObject({ quantity: 12, limitPrice: '9.400000' });
+      expect(f.calls.find((c) => c.key === 'PATCH /trade/v2/orders').body).toMatchObject({ OrderId: '5041484162', Amount: 12, OrderType: 'Limit', OrderPrice: 9.4, OrderDuration: { DurationType: 'DayOrder' } });
+      const [[a]] = await ctx.pool.query("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'saxo.order_modified'");
+      expect(Number(a.n)).toBe(1);
+    });
+
+    it('valida o passo de preço e recusa ordens que não estão abertas ou que não se alteram', async () => {
+      const id = (await place()).json().order.id;
+      useSaxo({ 'PATCH /trade/v2/orders': { status: 200, body: {} } });
+      expect((await ana.patch(`/saxo/orders/${id}`, { price: '9.4001' })).json().error.code).toBe('SAXO_TICK_SIZE');
+      expect((await ana.patch(`/saxo/orders/${id}`, {})).statusCode).toBe(400);
+      await ctx.pool.query("UPDATE saxo_orders SET order_type = 'trailing_stop' WHERE id = ?", [id]);
+      expect((await ana.patch(`/saxo/orders/${id}`, { price: '9.4' })).json().error.code).toBe('SAXO_NOT_MODIFIABLE');
+      await ctx.pool.query("UPDATE saxo_orders SET order_type = 'limit', status = 'filled' WHERE id = ?", [id]);
+      expect((await ana.patch(`/saxo/orders/${id}`, { price: '9.4' })).json().error.code).toBe('SAXO_NOT_MODIFIABLE');
+      await saveToken(ruiId);
+      expect((await rui.patch(`/saxo/orders/${id}`, { price: '9.4' })).statusCode).toBe(404);
+    });
+  });
+
+  it('Carteira SAXO: posições fechadas com o resultado realizado', async () => {
+    await preview();
+    useSaxo({
+      'GET /port/v1/positions/me': fx('positions-empty'),
+      'GET /port/v1/closedpositions/me': { status: 200, body: { __count: 1, Data: [{
+        ClosedPositionUniqueId: '5028005299-1', DisplayAndFormat: { Currency: 'EUR', Symbol: 'GALP:xlis', Description: 'Galp' },
+        ClosedPosition: { AssetType: 'Stock', Uic: 23737, Amount: -10, OpenPrice: 9.5, ClosingPrice: 10.2, ProfitLossOnTrade: 7, ExecutionTimeOpen: '2026-11-04T08:00:00Z', ExecutionTimeClose: '2026-11-05T09:00:00Z' },
+      }] } },
+    });
+    expect((await ana.get('/saxo/portfolio')).json().closed).toEqual([{
+      closedPositionId: '5028005299-1', instrumentId: galp, symbol: 'GALP.LS', name: 'Empresa GALP.LS', currency: 'EUR',
+      quantity: 10, openPrice: 9.5, closePrice: 10.2, pnl: 7, openedAt: '2026-11-04T08:00:00Z', closedAt: '2026-11-05T09:00:00Z',
+    }]);
+  });
+
+  it('streaming: liga quem tem ordens abertas, avisa nas mensagens de ordens e volta a ligar quando o token muda', async () => {
+    const sockets = [];
+    class FakeWS {
+      constructor(url) { this.url = url; this.closed = false; sockets.push(this); setTimeout(() => this.onopen?.(), 0); }
+      close() { this.closed = true; }
+    }
+    const changed = [];
+    const f = useSaxo({ 'GET /port/v1/users/me': fx('users-me-min'), 'POST /port/v1/orders/subscriptions': { status: 201, body: { State: 'Active' } } });
+    ctx.cfg.saxo.streamUrl = 'wss://stream.test/connect';
+    const m = createStreamManager({ pool: ctx.pool, cfg: ctx.cfg, WebSocketImpl: FakeWS, debounceMs: 0, onOrdersChanged: (u) => changed.push(u) });
+    await m.sync();
+    expect(sockets).toHaveLength(0); // sem ordens abertas, não liga
+    await place();
+    await m.sync();
+    expect(sockets).toHaveLength(1);
+    expect(sockets[0].url).toMatch(/^wss:\/\/stream\.test\/connect\?contextId=stocks\d+[0-9a-f]+&authorization=BEARER%20/);
+    const sub = f.calls.find((c) => c.key === 'POST /port/v1/orders/subscriptions').body;
+    expect(sub).toMatchObject({ ReferenceId: 'orders', Arguments: { ClientKey: '<ClientKey>' } });
+    expect(sockets[0].url).toContain(`contextId=${sub.ContextId}`);
+    sockets[0].onmessage({ data: buildFrame('_heartbeat', [{ Heartbeats: [] }]) });
+    sockets[0].onmessage({ data: buildFrame('orders', [{ OrderId: '5041484162', Status: 'Filled' }]) });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(changed).toEqual([anaId]);
+    await m.sync();
+    expect(sockets).toHaveLength(1); // nada mudou
+    await ctx.pool.query('UPDATE user_integration_tokens SET updated_at = NOW(3) + INTERVAL 1 SECOND');
+    await m.sync();
+    expect(sockets).toHaveLength(2);
+    expect(sockets[0].closed).toBe(true);
+    await ctx.pool.query("UPDATE saxo_orders SET status = 'filled'");
+    await m.sync();
+    expect(sockets[1].closed).toBe(true);
+    expect(m.connections()).toBe(0);
+  });
+
   it('valida quantidade e preço limite', async () => {
     expect((await preview({ quantity: 0 })).statusCode).toBe(400);
     expect((await preview({ quantity: 1.5 })).statusCode).toBe(400);
     expect((await preview({ limitPrice: undefined })).json().error.code).toBe('LIMIT_PRICE_REQUIRED');
     expect((await preview({ limitPrice: '-1' })).statusCode).toBe(400);
+  });
+});
+
+describe('mensagens do streaming', () => {
+  it('lê várias mensagens seguidas no formato binário da SAXO', () => {
+    const buf = Buffer.concat([buildFrame('orders', [{ OrderId: '1' }], 7n), buildFrame('_heartbeat', [{ Heartbeats: [] }], 8n)]);
+    expect(parseFrames(buf)).toEqual([
+      { messageId: '7', referenceId: 'orders', format: 0, payload: [{ OrderId: '1' }] },
+      { messageId: '8', referenceId: '_heartbeat', format: 0, payload: [{ Heartbeats: [] }] },
+    ]);
+    expect(parseFrames(Buffer.alloc(3))).toEqual([]);
   });
 });
 

@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process';
 import { listOrders, openSession } from './service.js';
+import { createStreamManager } from './streaming.js';
 import { refreshDueTokens } from './tokens.js';
 
 let sending = false;
@@ -18,14 +19,19 @@ export function sendPendingEmails(cfg, log = null) {
   });
 }
 
-/** Confronta com a SAXO as ordens abertas de cada utilizador; as que desapareceram geram aviso e email. */
+/** Actualiza as ordens de um utilizador (estado final, avisos); devolve quantos avisos novos gerou. */
+export async function refreshUserOrders(pool, cfg, userId) {
+  const session = await openSession(pool, cfg, userId);
+  return (await listOrders(pool, session, { limit: 1 })).ended;
+}
+
+/** Confronta com a SAXO as ordens abertas de cada utilizador; as que terminaram geram aviso e email. */
 export async function watchOrders(pool, cfg, log = null) {
   const [users] = await pool.query("SELECT DISTINCT user_id FROM saxo_orders WHERE status = 'working'");
   let ended = 0;
   for (const { user_id: userId } of users) {
     try {
-      const session = await openSession(pool, cfg, userId);
-      ended += (await listOrders(pool, session, { limit: 1 })).ended;
+      ended += await refreshUserOrders(pool, cfg, userId);
     } catch (err) {
       log?.debug?.({ userId, code: err.code }, 'saxo: ordens não actualizadas');
     }
@@ -34,11 +40,22 @@ export async function watchOrders(pool, cfg, log = null) {
   return ended;
 }
 
-/** Vigia periódica (por omissão a cada 60 s; só chama a SAXO se houver ordens abertas). Devolve a função que a pára. */
+/**
+ * Vigia periódica (por omissão a cada 60 s): renova os tokens que estão a acabar, confronta as ordens abertas com a SAXO e
+ * mantém o streaming (avisos no momento em que uma ordem muda). Devolve a função que a pára.
+ */
 export function startOrderWatcher(pool, cfg, log = null) {
   const every = cfg.saxo.watchSeconds * 1000;
   if (!(every > 0)) return () => {};
-  const timer = setInterval(() => { refreshDueTokens(pool, cfg, log).then(() => watchOrders(pool, cfg, log)).catch((e) => log?.warn?.({ err: e.message }, 'saxo: vigia falhou')); }, every);
+  const stream = createStreamManager({
+    pool, cfg, log,
+    onOrdersChanged: async (userId) => { if (await refreshUserOrders(pool, cfg, userId)) await sendPendingEmails(cfg, log); },
+  });
+  const tick = () => refreshDueTokens(pool, cfg, log)
+    .then(() => watchOrders(pool, cfg, log))
+    .then(() => stream.sync())
+    .catch((e) => log?.warn?.({ err: e.message }, 'saxo: vigia falhou'));
+  const timer = setInterval(tick, every);
   timer.unref();
-  return () => clearInterval(timer);
+  return () => { clearInterval(timer); stream.closeAll(); };
 }

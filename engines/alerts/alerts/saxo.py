@@ -1,6 +1,7 @@
-"""Alertas SAXO: email quando uma ordem enviada à SAXO deixa de estar aberta (executada, expirada ou cancelada fora
-da aplicação). A API regista os avisos em saxo_notifications; este módulo envia um email por utilizador com os
-pendentes. Um envio falhado volta a ser tentado (até 2 dias); um resultado incerto não é reenviado."""
+"""Alertas SAXO: email quando uma ordem enviada à SAXO termina (executada, expirada ou cancelada fora da aplicação; ou só
+«já não está aberta» quando a SAXO não deu o histórico). A API regista os avisos em saxo_notifications; este módulo envia
+um email por utilizador com os pendentes. Um envio falhado volta a ser tentado (até 2 dias); um resultado incerto não é
+reenviado."""
 import logging
 from email.message import EmailMessage
 
@@ -8,7 +9,8 @@ from .mailer import SendFailed, SendUncertain
 
 log = logging.getLogger(__name__)
 
-SUBJECT = "Stocks: ordens SAXO que já não estão abertas"
+SUBJECT = "Stocks: ordens SAXO executadas, expiradas ou canceladas"
+KIND = {"filled": "Executada", "expired": "Expirada", "cancelled": "Cancelada", "ended": "Já não está aberta"}
 MAX_AGE_DAYS = 2
 
 
@@ -16,7 +18,8 @@ def pending(conn) -> dict:
     """Avisos por enviar, por utilizador com email activo e a preferência ligada (por omissão está ligada)."""
     with conn.cursor() as cur:
         cur.execute(
-            "SELECT n.id, n.user_id, u.email, u.name, o.side, o.quantity, o.order_type, o.limit_price, o.saxo_order_id, i.symbol "
+            "SELECT n.id, n.user_id, n.kind, u.email, u.name, o.side, o.quantity, o.order_type, o.limit_price, o.stop_price, "
+            "o.saxo_order_id, o.filled_quantity, o.fill_price, i.symbol "
             "FROM saxo_notifications n JOIN users u ON u.id = n.user_id AND u.disabled_at IS NULL "
             "JOIN saxo_orders o ON o.id = n.order_id JOIN instruments i ON i.id = o.instrument_id "
             "LEFT JOIN saxo_alert_settings s ON s.user_id = n.user_id "
@@ -32,11 +35,26 @@ def pending(conn) -> dict:
     return by_user
 
 
+def _num(d) -> str:
+    return f"{d.normalize():f}"
+
+
 def describe(r: dict) -> str:
     side = "Compra" if r["side"] == "buy" else "Venda"
-    kind = f"limitada a {r['limit_price'].normalize():f}" if r["order_type"] == "limit" and r["limit_price"] is not None else "a mercado"
+    t = r["order_type"]
+    if t == "limit" and r["limit_price"] is not None:
+        kind = f"limitada a {_num(r['limit_price'])}"
+    elif t == "stop" and r.get("stop_price") is not None:
+        kind = f"stop a {_num(r['stop_price'])}"
+    elif t == "trailing_stop":
+        kind = "stop móvel"
+    else:
+        kind = "a mercado"
     ref = f" (SAXO {r['saxo_order_id']})" if r["saxo_order_id"] else ""
-    return f"- {side} {kind} de {r['quantity']} {r['symbol']}{ref}"
+    state = KIND.get(r.get("kind") or "ended", "Já não está aberta")
+    if r.get("kind") == "filled" and r.get("filled_quantity") and r.get("fill_price") is not None:
+        state += f": {r['filled_quantity']} a {_num(r['fill_price'])}"
+    return f"- {state} — {side} {kind} de {r['quantity']} {r['symbol']}{ref}"
 
 
 def build_message(sender: str, recipient: str, name: str, rows: list, app_url: str | None) -> EmailMessage:
@@ -44,8 +62,7 @@ def build_message(sender: str, recipient: str, name: str, rows: list, app_url: s
     msg["Subject"] = SUBJECT
     msg["From"] = sender
     msg["To"] = recipient
-    lines = [f"Olá {name},", "", "Estas ordens enviadas à conta de simulação da SAXO Bank já não estão abertas "
-             "(foram executadas, expiraram ou foram canceladas fora da aplicação):", ""]
+    lines = [f"Olá {name},", "", "Estas ordens enviadas à conta de simulação da SAXO Bank terminaram:", ""]
     lines += [describe(r) for r in rows]
     lines += ["", "Confirme o resultado na plataforma da SAXO. "
               + (f"Ver as ordens: {app_url.rstrip('/')}/saxo/ordens" if app_url else "")]

@@ -12,6 +12,7 @@ import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Field, Notice, Segmented } from '../../components/ui/controls.jsx';
 import TradeDialog from '../portfolio/TradeDialog.jsx';
 import SaxoOrderDialog, { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
+import SaxoBatchDialog from '../saxo/SaxoBatchDialog.jsx';
 
 const SIDES = {
   buy: { label: 'Compra', letter: 'C', cls: 'badge-positive' },
@@ -30,6 +31,7 @@ export default function SignalsPage() {
   const sessions = PERIODS.includes(params.get('sessoes')) ? params.get('sessoes') : '5';
   const [trade, setTrade] = useState(null); // { instrument, side, quantity, note }
   const [saxoTrade, setSaxoTrade] = useState(null); // { instrument, side, quantity }
+  const [saxoBatch, setSaxoBatch] = useState(false);
   const saxo = useSaxoStatus();
   const portfolio = usePortfolio();
   const alerts = useAlerts();
@@ -111,7 +113,12 @@ export default function SignalsPage() {
         <section className="card" aria-labelledby="sig-title">
           <div className="card-head">
             <h2 id="sig-title" className="card-title">Sinais{q.data?.latestSession ? ` até ${f.date(q.data.latestSession)}` : ''}</h2>
-            {q.data && <span className="small muted">{items.length} {items.length === 1 ? 'sinal' : 'sinais'}</span>}
+            <div className="row">
+              {q.data && <span className="small muted">{items.length} {items.length === 1 ? 'sinal' : 'sinais'}</span>}
+              {saxo.data?.configured && !saxo.data.expired && items.length > 0 && (
+                <Button size="small" onClick={() => setSaxoBatch(true)} title="Pré-validar e enviar à conta de simulação da SAXO uma ordem por sinal da lista">Enviar sinais à SAXO</Button>
+              )}
+            </div>
           </div>
           {q.isPending ? <Loading rows={6} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : items.length === 0 ? (
             <EmptyState title="Sem sinais no período">Experimente alargar o período ou mudar o tipo de sinal.</EmptyState>
@@ -176,8 +183,8 @@ export default function SignalsPage() {
                           </Button>
                           {saxo.data?.configured && (
                             <>{' '}
-                              <Button size="small" onClick={() => setSaxoTrade({ instrument, side: 'buy', quantity: Math.max(1, Math.floor(budget / Number(i.lastClose))) })}
-                                title="Enviar uma ordem de compra para a conta de simulação da SAXO Bank">
+                              <Button size="small" onClick={() => setSaxoTrade({ instrument: { ...instrument, latest: { close: i.lastClose } }, side: i.side === 'sell' ? 'sell' : 'buy', quantity: i.side === 'sell' ? null : Math.max(1, Math.floor(budget / Number(i.lastClose))) })}
+                                title="Enviar uma ordem para a conta de simulação da SAXO Bank">
                                 Enviar à SAXO<span className="visually-hidden"> {i.symbol}</span>
                               </Button>
                             </>
@@ -195,6 +202,7 @@ export default function SignalsPage() {
 
       <TradeDialog open={!!trade} onClose={() => setTrade(null)} instrument={trade?.instrument} initialSide={trade?.side}
         initialQuantity={trade?.quantity} quantityNote={trade?.note} />
+      <SaxoBatchDialog open={saxoBatch} onClose={() => setSaxoBatch(false)} signals={items} budget={budget} strategyName={strategy.name} />
       <SaxoOrderDialog open={!!saxoTrade} onClose={() => setSaxoTrade(null)} instrument={saxoTrade?.instrument} initialSide={saxoTrade?.side} initialQuantity={saxoTrade?.quantity} />
     </>
   );

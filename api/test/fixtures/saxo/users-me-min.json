@@ -1,0 +1,8 @@
+{
+ "status": 200,
+ "body": {
+  "ClientKey": "<ClientKey>",
+  "UserId": "0000000",
+  "Name": "Utilizador de Teste"
+ }
+}

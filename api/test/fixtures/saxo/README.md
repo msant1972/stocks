@@ -12,3 +12,9 @@ tem `{ status, body }`. Notas do spike:
 
 - `positions-empty.json` é real (a conta SIM não tinha posições). `positions-synthetic.json` é **construído à mão** segundo a documentação da SAXO
   (PositionBase/PositionView/DisplayAndFormat), para testar a Carteira SAXO; no SIM sem preços `CurrentPrice` vem a 0.
+- `orderactivities-*.json` (2026-11-04): histórico de uma ordem em `/cs/v1/audit/orderactivities?ClientKey&OrderId`, com os estados reais
+  vistos no SIM (`Placed`, `FinalFill` com `FilledAmount`/`AveragePrice`, `Expired`, `Cancelled`); anonimizados e reduzidos à mesma ordem.
+- Spike de 2026-11-04: a pré-validação aceita uma compra com ordem associada em `Orders` (`StopIfTraded` com `OrderPrice`, ou
+  `TrailingStopIfTraded` com `TrailingStopDistanceToMarket` e `TrailingStopStep`), devolvendo `PreCheckResult: Ok`. O streaming
+  (`wss://sim-streaming.saxobank.com/sim/oapi/streaming/ws/connect?contextId&authorization=BEARER …`) liga com o WebSocket do Node e
+  `POST /port/v1/orders/subscriptions` devolve o snapshot das ordens abertas (ordens associadas vêm em `RelatedOpenOrders`).

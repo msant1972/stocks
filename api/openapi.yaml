@@ -4003,6 +4003,25 @@ paths:
                   description: Obrigatório nas ordens limitadas
                   type: string
                   pattern: ^\d+(\.\d{1,6})?$
+                stop:
+                  description: "Só nas compras: ordem de venda de protecção, activa quando a
+                    compra é executada"
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - stop
+                        - trailing
+                      description: "stop: fixo (price); trailing: móvel (distance abaixo do mercado)"
+                    price:
+                      type: string
+                      pattern: ^\d+(\.\d{1,6})?$
+                    distance:
+                      type: string
+                      pattern: ^\d+(\.\d{1,6})?$
+                  required:
+                    - type
               required:
                 - instrumentId
                 - side
@@ -4406,6 +4425,25 @@ paths:
                   description: Obrigatório nas ordens limitadas
                   type: string
                   pattern: ^\d+(\.\d{1,6})?$
+                stop:
+                  description: "Só nas compras: ordem de venda de protecção, activa quando a
+                    compra é executada"
+                  type: object
+                  properties:
+                    type:
+                      type: string
+                      enum:
+                        - stop
+                        - trailing
+                      description: "stop: fixo (price); trailing: móvel (distance abaixo do mercado)"
+                    price:
+                      type: string
+                      pattern: ^\d+(\.\d{1,6})?$
+                    distance:
+                      type: string
+                      pattern: ^\d+(\.\d{1,6})?$
+                  required:
+                    - type
                 confirmation:
                   type: string
                   minLength: 10
@@ -4435,6 +4473,9 @@ paths:
                     properties:
                       id:
                         type: number
+                      parentId:
+                        nullable: true
+                        type: number
                       instrumentId:
                         type: number
                       symbol:
@@ -4463,10 +4504,27 @@ paths:
                         enum:
                           - market
                           - limit
+                          - stop
+                          - trailing_stop
                       limitPrice:
                         nullable: true
                         type: string
+                      stopPrice:
+                        nullable: true
+                        type: string
+                      trailDistance:
+                        nullable: true
+                        type: string
                       appPrice:
+                        nullable: true
+                        type: string
+                      filledQuantity:
+                        nullable: true
+                        type: number
+                      fillPrice:
+                        nullable: true
+                        type: string
+                      finishedAt:
                         nullable: true
                         type: string
                       status:
@@ -4474,9 +4532,11 @@ paths:
                         enum:
                           - sending
                           - working
-                          - ended
+                          - filled
+                          - expired
                           - cancelled
                           - rejected
+                          - ended
                           - unknown
                       message:
                         nullable: true
@@ -4487,6 +4547,7 @@ paths:
                         type: string
                     required:
                       - id
+                      - parentId
                       - instrumentId
                       - symbol
                       - name
@@ -4496,7 +4557,12 @@ paths:
                       - quantity
                       - orderType
                       - limitPrice
+                      - stopPrice
+                      - trailDistance
                       - appPrice
+                      - filledQuantity
+                      - fillPrice
+                      - finishedAt
                       - status
                       - message
                       - createdAt
@@ -4520,6 +4586,9 @@ paths:
                     properties:
                       id:
                         type: number
+                      parentId:
+                        nullable: true
+                        type: number
                       instrumentId:
                         type: number
                       symbol:
@@ -4548,10 +4617,27 @@ paths:
                         enum:
                           - market
                           - limit
+                          - stop
+                          - trailing_stop
                       limitPrice:
                         nullable: true
                         type: string
+                      stopPrice:
+                        nullable: true
+                        type: string
+                      trailDistance:
+                        nullable: true
+                        type: string
                       appPrice:
+                        nullable: true
+                        type: string
+                      filledQuantity:
+                        nullable: true
+                        type: number
+                      fillPrice:
+                        nullable: true
+                        type: string
+                      finishedAt:
                         nullable: true
                         type: string
                       status:
@@ -4559,9 +4645,11 @@ paths:
                         enum:
                           - sending
                           - working
-                          - ended
+                          - filled
+                          - expired
                           - cancelled
                           - rejected
+                          - ended
                           - unknown
                       message:
                         nullable: true
@@ -4572,6 +4660,7 @@ paths:
                         type: string
                     required:
                       - id
+                      - parentId
                       - instrumentId
                       - symbol
                       - name
@@ -4581,7 +4670,12 @@ paths:
                       - quantity
                       - orderType
                       - limitPrice
+                      - stopPrice
+                      - trailDistance
                       - appPrice
+                      - filledQuantity
+                      - fillPrice
+                      - finishedAt
                       - status
                       - message
                       - createdAt
@@ -4783,6 +4877,9 @@ paths:
                       properties:
                         id:
                           type: number
+                        parentId:
+                          nullable: true
+                          type: number
                         instrumentId:
                           type: number
                         symbol:
@@ -4811,10 +4908,27 @@ paths:
                           enum:
                             - market
                             - limit
+                            - stop
+                            - trailing_stop
                         limitPrice:
                           nullable: true
                           type: string
+                        stopPrice:
+                          nullable: true
+                          type: string
+                        trailDistance:
+                          nullable: true
+                          type: string
                         appPrice:
+                          nullable: true
+                          type: string
+                        filledQuantity:
+                          nullable: true
+                          type: number
+                        fillPrice:
+                          nullable: true
+                          type: string
+                        finishedAt:
                           nullable: true
                           type: string
                         status:
@@ -4822,9 +4936,11 @@ paths:
                           enum:
                             - sending
                             - working
-                            - ended
+                            - filled
+                            - expired
                             - cancelled
                             - rejected
+                            - ended
                             - unknown
                         message:
                           nullable: true
@@ -4835,6 +4951,7 @@ paths:
                           type: string
                       required:
                         - id
+                        - parentId
                         - instrumentId
                         - symbol
                         - name
@@ -4844,7 +4961,12 @@ paths:
                         - quantity
                         - orderType
                         - limitPrice
+                        - stopPrice
+                        - trailDistance
                         - appPrice
+                        - filledQuantity
+                        - fillPrice
+                        - finishedAt
                         - status
                         - message
                         - createdAt
@@ -4934,6 +5056,53 @@ paths:
                         - marketValue
                         - pnl
                       additionalProperties: false
+                  closed:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        closedPositionId:
+                          type: string
+                        instrumentId:
+                          nullable: true
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        currency:
+                          type: string
+                        quantity:
+                          type: number
+                        openPrice:
+                          nullable: true
+                          type: number
+                        closePrice:
+                          nullable: true
+                          type: number
+                        pnl:
+                          nullable: true
+                          type: number
+                        openedAt:
+                          nullable: true
+                          type: string
+                        closedAt:
+                          nullable: true
+                          type: string
+                      required:
+                        - closedPositionId
+                        - instrumentId
+                        - symbol
+                        - name
+                        - currency
+                        - quantity
+                        - openPrice
+                        - closePrice
+                        - pnl
+                        - openedAt
+                        - closedAt
+                      additionalProperties: false
                 required:
                   - environment
                   - accountId
@@ -4942,6 +5111,7 @@ paths:
                   - cashBalance
                   - totalValue
                   - positions
+                  - closed
                 additionalProperties: false
         "403":
           description: Default Response
@@ -5077,8 +5247,8 @@ paths:
                 additionalProperties: false
   /api/v1/saxo/alerts:
     get:
-      summary: "Alertas SAXO: avisos de ordens que já não estão abertas e preferência
-        de email"
+      summary: "Alertas SAXO: avisos de ordens executadas, expiradas ou canceladas e
+        preferência de email"
       tags:
         - SAXO
       responses:
@@ -5106,6 +5276,9 @@ paths:
                           type: string
                           enum:
                             - ended
+                            - filled
+                            - expired
+                            - cancelled
                         symbol:
                           type: string
                         side:
@@ -5120,10 +5293,21 @@ paths:
                           enum:
                             - market
                             - limit
+                            - stop
+                            - trailing_stop
                         limitPrice:
                           nullable: true
                           type: string
+                        stopPrice:
+                          nullable: true
+                          type: string
                         saxoOrderId:
+                          nullable: true
+                          type: string
+                        filledQuantity:
+                          nullable: true
+                          type: number
+                        fillPrice:
                           nullable: true
                           type: string
                         createdAt:
@@ -5142,7 +5326,10 @@ paths:
                         - quantity
                         - orderType
                         - limitPrice
+                        - stopPrice
                         - saxoOrderId
+                        - filledQuantity
+                        - fillPrice
                         - createdAt
                         - emailedAt
                         - read
@@ -5197,10 +5384,25 @@ paths:
                 enum:
                   - null
   /api/v1/saxo/orders/{id}:
-    delete:
-      summary: Cancelar uma ordem aberta
+    patch:
+      summary: Alterar uma ordem aberta (quantidade e preço limite, ou preço de um
+        stop fixo)
       tags:
         - SAXO
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: integer
+                  minimum: 1
+                  maximum: 10000000
+                price:
+                  type: string
+                  pattern: ^\d+(\.\d{1,6})?$
       parameters:
         - schema:
             type: integer
@@ -5219,6 +5421,9 @@ paths:
                 type: object
                 properties:
                   id:
+                    type: number
+                  parentId:
+                    nullable: true
                     type: number
                   instrumentId:
                     type: number
@@ -5248,10 +5453,27 @@ paths:
                     enum:
                       - market
                       - limit
+                      - stop
+                      - trailing_stop
                   limitPrice:
                     nullable: true
                     type: string
+                  stopPrice:
+                    nullable: true
+                    type: string
+                  trailDistance:
+                    nullable: true
+                    type: string
                   appPrice:
+                    nullable: true
+                    type: string
+                  filledQuantity:
+                    nullable: true
+                    type: number
+                  fillPrice:
+                    nullable: true
+                    type: string
+                  finishedAt:
                     nullable: true
                     type: string
                   status:
@@ -5259,9 +5481,11 @@ paths:
                     enum:
                       - sending
                       - working
-                      - ended
+                      - filled
+                      - expired
                       - cancelled
                       - rejected
+                      - ended
                       - unknown
                   message:
                     nullable: true
@@ -5272,6 +5496,7 @@ paths:
                     type: string
                 required:
                   - id
+                  - parentId
                   - instrumentId
                   - symbol
                   - name
@@ -5281,7 +5506,284 @@ paths:
                   - quantity
                   - orderType
                   - limitPrice
+                  - stopPrice
+                  - trailDistance
                   - appPrice
+                  - filledQuantity
+                  - fillPrice
+                  - finishedAt
+                  - status
+                  - message
+                  - createdAt
+                  - updatedAt
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "502":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    delete:
+      summary: Cancelar uma ordem aberta
+      tags:
+        - SAXO
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                  parentId:
+                    nullable: true
+                    type: number
+                  instrumentId:
+                    type: number
+                  symbol:
+                    nullable: true
+                    type: string
+                  name:
+                    nullable: true
+                    type: string
+                  environment:
+                    type: string
+                    enum:
+                      - sim
+                      - live
+                  saxoOrderId:
+                    nullable: true
+                    type: string
+                  side:
+                    type: string
+                    enum:
+                      - buy
+                      - sell
+                  quantity:
+                    type: number
+                  orderType:
+                    type: string
+                    enum:
+                      - market
+                      - limit
+                      - stop
+                      - trailing_stop
+                  limitPrice:
+                    nullable: true
+                    type: string
+                  stopPrice:
+                    nullable: true
+                    type: string
+                  trailDistance:
+                    nullable: true
+                    type: string
+                  appPrice:
+                    nullable: true
+                    type: string
+                  filledQuantity:
+                    nullable: true
+                    type: number
+                  fillPrice:
+                    nullable: true
+                    type: string
+                  finishedAt:
+                    nullable: true
+                    type: string
+                  status:
+                    type: string
+                    enum:
+                      - sending
+                      - working
+                      - filled
+                      - expired
+                      - cancelled
+                      - rejected
+                      - ended
+                      - unknown
+                  message:
+                    nullable: true
+                    type: string
+                  createdAt:
+                    type: string
+                  updatedAt:
+                    type: string
+                required:
+                  - id
+                  - parentId
+                  - instrumentId
+                  - symbol
+                  - name
+                  - environment
+                  - saxoOrderId
+                  - side
+                  - quantity
+                  - orderType
+                  - limitPrice
+                  - stopPrice
+                  - trailDistance
+                  - appPrice
+                  - filledQuantity
+                  - fillPrice
+                  - finishedAt
                   - status
                   - message
                   - createdAt

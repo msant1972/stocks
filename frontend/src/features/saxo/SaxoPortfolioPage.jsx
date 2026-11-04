@@ -1,17 +1,25 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
+import { usePortfolio } from '../../lib/queries.js';
+import { comparePortfolios } from '../../lib/saxo.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { PnL } from '../../components/finance/finance.jsx';
-import { Notice } from '../../components/ui/controls.jsx';
-import { SIM_BANNER, useSaxoStatus } from './SaxoOrderDialog.jsx';
+import { Button, Notice } from '../../components/ui/controls.jsx';
+import SaxoOrderDialog, { SIM_BANNER, useSaxoStatus } from './SaxoOrderDialog.jsx';
+
+const muted = <span className="muted">—</span>;
 
 export default function SaxoPortfolioPage() {
   const token = useSaxoStatus();
   const ready = Boolean(token.data?.configured && !token.data?.expired);
   const q = useQuery({ queryKey: ['saxo-portfolio'], queryFn: () => api.get('/saxo/portfolio'), enabled: ready, retry: false, refetchOnWindowFocus: false });
+  const virtual = usePortfolio();
+  const [selling, setSelling] = useState(null); // { instrument, quantity }
   const d = q.data;
+  const compare = d && virtual.data ? comparePortfolios(virtual.data.positions, d.positions) : [];
 
   return (
     <>
@@ -20,6 +28,7 @@ export default function SaxoPortfolioPage() {
           <h1 className="page-title">Carteira SAXO</h1>
           <p className="page-sub">Saldo e posições da conta de simulação da SAXO Bank. É à parte da carteira virtual da aplicação.</p>
         </div>
+        {ready && <Button onClick={() => q.refetch()} busy={q.isFetching}>Actualizar</Button>}
       </div>
       <Notice tone="warning">{SIM_BANNER}</Notice>
       {token.data && !token.data.configured && <Notice tone="info">Ainda não está ligado à SAXO Bank. <Link to="/definicoes">Ligar em Definições</Link></Notice>}
@@ -34,6 +43,7 @@ export default function SaxoPortfolioPage() {
               <dt>Valor total da conta</dt><dd>{d.totalValue == null ? '—' : f.money(d.totalValue, d.currency)}</dd>
             </dl>
           </section>
+
           <section className="card" aria-labelledby="saxo-pos-title">
             <h2 id="saxo-pos-title" className="card-title">Posições abertas</h2>
             <p className="small muted" style={{ margin: '0.25rem 0 1rem' }}>
@@ -50,6 +60,7 @@ export default function SaxoPortfolioPage() {
                     <tr>
                       <th scope="col">Instrumento</th><th scope="col" className="r">Quantidade</th><th scope="col" className="r">Preço de abertura</th>
                       <th scope="col" className="r">Último preço</th><th scope="col" className="r">Valor</th><th scope="col" className="r">Resultado</th>
+                      <th scope="col"><span className="visually-hidden">Acções</span></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -59,9 +70,77 @@ export default function SaxoPortfolioPage() {
                           {p.name && <div className="small muted">{p.name}</div>}</td>
                         <td className="r">{f.quantity(p.quantity)}</td>
                         <td className="r">{f.price(p.openPrice, p.currency)}</td>
-                        <td className="r">{p.price == null ? <span className="muted">—</span> : f.price(p.price, p.currency)}</td>
-                        <td className="r">{p.marketValue == null ? <span className="muted">—</span> : f.money(p.marketValue, p.currency)}</td>
-                        <td className="r">{p.pnl == null ? <span className="muted">—</span> : <PnL value={p.pnl} currency={p.currency} />}</td>
+                        <td className="r">{p.price == null ? muted : f.price(p.price, p.currency)}</td>
+                        <td className="r">{p.marketValue == null ? muted : f.money(p.marketValue, p.currency)}</td>
+                        <td className="r">{p.pnl == null ? muted : <PnL value={p.pnl} currency={p.currency} />}</td>
+                        <td className="r">
+                          <Button size="small" disabled={!p.instrumentId}
+                            title={p.instrumentId ? `Vender ${f.quantity(p.quantity)} unidades na SAXO` : 'Instrumento sem correspondência na aplicação: venda na plataforma da SAXO'}
+                            onClick={() => setSelling({
+                              instrument: { id: p.instrumentId, symbol: p.symbol, name: p.name, currency: p.currency, latest: { close: p.price } },
+                              quantity: p.quantity,
+                            })}>
+                            Vender<span className="visually-hidden"> {p.symbol}</span>
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="card" aria-labelledby="saxo-closed-title">
+            <h2 id="saxo-closed-title" className="card-title">Posições fechadas</h2>
+            {d.closed.length === 0 ? (
+              <p className="small muted">Ainda não há posições fechadas na conta de simulação.</p>
+            ) : (
+              <div className="table-wrap" tabIndex={0} aria-label="Tabela de posições SAXO fechadas">
+                <table className="data">
+                  <thead>
+                    <tr>
+                      <th scope="col">Fechada</th><th scope="col">Instrumento</th><th scope="col" className="r">Quantidade</th>
+                      <th scope="col" className="r">Abertura</th><th scope="col" className="r">Fecho</th><th scope="col" className="r">Resultado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.closed.map((c) => (
+                      <tr key={c.closedPositionId}>
+                        <td className="small" style={{ whiteSpace: 'nowrap' }}>{c.closedAt ? f.dateTime(c.closedAt) : '—'}</td>
+                        <td>{c.instrumentId ? <Link to={`/instrumentos/${c.instrumentId}`} className="row-link">{c.symbol}</Link> : c.symbol}</td>
+                        <td className="r">{f.quantity(c.quantity)}</td>
+                        <td className="r">{c.openPrice == null ? muted : f.price(c.openPrice, c.currency)}</td>
+                        <td className="r">{c.closePrice == null ? muted : f.price(c.closePrice, c.currency)}</td>
+                        <td className="r">{c.pnl == null ? muted : <PnL value={c.pnl} currency={c.currency} />}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="card" aria-labelledby="saxo-cmp-title">
+            <h2 id="saxo-cmp-title" className="card-title">Comparação com a carteira virtual</h2>
+            <p className="small muted" style={{ margin: '0.25rem 0 1rem' }}>
+              Quantidades de cada instrumento na carteira virtual da aplicação e na conta SAXO, para ver se as duas seguem a mesma estratégia.
+            </p>
+            {virtual.isPending ? <Loading rows={2} /> : compare.length === 0 ? (
+              <p className="small muted">Nenhuma das carteiras tem posições.</p>
+            ) : (
+              <div className="table-wrap" tabIndex={0} aria-label="Comparação das carteiras">
+                <table className="data">
+                  <thead>
+                    <tr><th scope="col">Instrumento</th><th scope="col" className="r">Carteira virtual</th><th scope="col" className="r">SAXO</th><th scope="col" className="r">Diferença</th></tr>
+                  </thead>
+                  <tbody>
+                    {compare.map((r) => (
+                      <tr key={r.key}>
+                        <td>{r.instrumentId ? <Link to={`/instrumentos/${r.instrumentId}`} className="row-link">{r.symbol}</Link> : r.symbol}</td>
+                        <td className="r">{f.quantity(r.virtualQty)}</td>
+                        <td className="r">{f.quantity(r.saxoQty)}</td>
+                        <td className="r">{r.diff === 0 ? <span className="muted">igual</span> : <span className={r.diff > 0 ? 'positive' : 'negative'}>{r.diff > 0 ? '+' : ''}{f.quantity(r.diff)}</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -71,6 +150,7 @@ export default function SaxoPortfolioPage() {
           </section>
         </>
       ))}
+      <SaxoOrderDialog open={Boolean(selling)} onClose={() => { setSelling(null); q.refetch(); }} instrument={selling?.instrument} initialSide="sell" initialQuantity={selling?.quantity} />
     </>
   );
 }

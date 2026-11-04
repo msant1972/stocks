@@ -46,6 +46,8 @@ export function loadConfig(env = process.env) {
       liveUrl: env.STOCKS_SAXO_LIVE_URL || 'https://gateway.saxobank.com/openapi',
       timeoutMs: Number(env.STOCKS_SAXO_TIMEOUT_MS || 10_000),
       orderSpacingMs: 1100, // a SAXO só aceita 1 pedido/s a /trade/v2/orders (pré-validação e envio partilham o limite)
+      streamUrl: env.STOCKS_SAXO_SIM_STREAM_URL || 'wss://sim-streaming.saxobank.com/sim/oapi/streaming/ws/connect',
+      streaming: env.STOCKS_SAXO_STREAMING !== 'false', // avisos instantâneos das ordens (WebSocket); a vigia de 60 s fica de reserva
       watchSeconds: Number(env.STOCKS_SAXO_WATCH_SECONDS ?? 60), // vigia das ordens abertas; 0 desliga
       fetchImpl: null, // só para testes
     },

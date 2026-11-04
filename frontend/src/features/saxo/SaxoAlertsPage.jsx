@@ -2,6 +2,7 @@ import { Link } from 'react-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
+import { NOTICE_KIND, orderLabel } from '../../lib/saxo.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Notice, Switch } from '../../components/ui/controls.jsx';
 
@@ -24,7 +25,7 @@ export default function SaxoAlertsPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Alertas SAXO</h1>
-          <p className="page-sub">Avisos de ordens enviadas à SAXO Bank que já não estão abertas: foram executadas, expiraram ou foram canceladas fora da aplicação.</p>
+          <p className="page-sub">Avisos de ordens enviadas à SAXO Bank que terminaram: executadas (com quantidade e preço), expiradas ou canceladas fora da aplicação.</p>
         </div>
         {unread > 0 && <Button onClick={() => markRead.mutate()} busy={markRead.isPending}>Marcar como lidos</Button>}
       </div>
@@ -34,12 +35,12 @@ export default function SaxoAlertsPage() {
           <section className="card" aria-labelledby="saxo-alert-pref">
             <h2 id="saxo-alert-pref" className="card-title">Email</h2>
             <p className="small muted" style={{ margin: '0.25rem 0 1rem' }}>
-              A aplicação confronta a cada minuto as suas ordens abertas com a SAXO e envia-lhe um email quando alguma deixa de estar aberta.
+              A aplicação acompanha as suas ordens abertas na SAXO em tempo real (e confirma a cada minuto) e envia-lhe um email quando alguma termina.
               Confirme sempre o resultado na plataforma da SAXO.
             </p>
             <div className="row">
-              <Switch checked={d.emailEnabled} onChange={(v) => setEmail.mutate(v)} disabled={setEmail.isPending} label="Receber email quando uma ordem SAXO deixa de estar aberta" />
-              <span aria-hidden="true">Receber email quando uma ordem SAXO deixa de estar aberta</span>
+              <Switch checked={d.emailEnabled} onChange={(v) => setEmail.mutate(v)} disabled={setEmail.isPending} label="Receber email quando uma ordem SAXO termina" />
+              <span aria-hidden="true">Receber email quando uma ordem SAXO termina</span>
             </div>
             {!d.canEmail && <Notice tone="warning">O envio de emails não está disponível neste servidor: os avisos ficam só nesta página.</Notice>}
             {setEmail.error && <Notice tone="error">{errorMessage(setEmail.error)}</Notice>}
@@ -49,25 +50,29 @@ export default function SaxoAlertsPage() {
             <h2 id="saxo-alert-list" className="card-title">Avisos{unread > 0 ? ` (${unread} por ler)` : ''}</h2>
             {d.items.length === 0 ? (
               <EmptyState title="Sem avisos" action={<Link className="button" to="/saxo/ordens">Ver ordens SAXO</Link>}>
-                Quando uma ordem aberta deixar de estar aberta na SAXO, aparece aqui.
+                Quando uma ordem enviada à SAXO for executada, expirar ou for cancelada, aparece aqui.
               </EmptyState>
             ) : (
               <div className="table-wrap" tabIndex={0} aria-label="Tabela de avisos SAXO">
                 <table className="data">
                   <thead>
-                    <tr><th scope="col">Data</th><th scope="col">Ordem</th><th scope="col" className="r">Quantidade</th><th scope="col" className="r">Preço limite</th><th scope="col">Email</th></tr>
+                    <tr><th scope="col">Data</th><th scope="col">Ordem</th><th scope="col" className="r">Quantidade</th><th scope="col" className="r">Preço</th><th scope="col">Email</th></tr>
                   </thead>
                   <tbody>
                     {d.items.map((i) => (
                       <tr key={i.id}>
                         <td className="small" style={{ whiteSpace: 'nowrap' }}>{f.dateTime(i.createdAt)}{!i.read && <> <span className="badge badge-accent">novo</span></>}</td>
                         <td>
-                          <span className={`badge ${i.side === 'buy' ? 'badge-accent' : ''}`}>{i.side === 'buy' ? 'Compra' : 'Venda'} {i.orderType === 'limit' ? 'limitada' : 'a mercado'}</span>{' '}
+                          <span className={`badge ${i.side === 'buy' ? 'badge-accent' : ''}`}>{orderLabel(i)}</span>{' '}
                           {i.symbol}
-                          <div className="small muted">Já não está aberta{i.saxoOrderId ? ` · SAXO ${i.saxoOrderId}` : ''}</div>
+                          <div className="small">
+                            <span className={`badge ${i.kind === 'filled' ? 'badge-positive' : ''}`}>{NOTICE_KIND[i.kind]}</span>
+                            {i.kind === 'filled' && i.filledQuantity != null && <> {f.quantity(i.filledQuantity)} a {f.price(i.fillPrice)}</>}
+                            <span className="muted">{i.saxoOrderId ? ` · SAXO ${i.saxoOrderId}` : ''}</span>
+                          </div>
                         </td>
                         <td className="r">{f.quantity(i.quantity)}</td>
-                        <td className="r">{i.limitPrice ? f.price(i.limitPrice) : <span className="muted">mercado</span>}</td>
+                        <td className="r">{i.limitPrice ? f.price(i.limitPrice) : i.stopPrice ? f.price(i.stopPrice) : <span className="muted">mercado</span>}</td>
                         <td className="small">{i.emailedAt ? `enviado ${f.dateTime(i.emailedAt)}` : <span className="muted">—</span>}</td>
                       </tr>
                     ))}

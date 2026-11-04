@@ -65,6 +65,7 @@ export function createSaxoClient({ baseUrl, token, fetchImpl = null, timeoutMs =
   return {
     get: (path, query) => request('GET', path, { query }),
     post: (path, body, requestId) => request('POST', path, { body, requestId }),
+    patch: (path, body, requestId) => request('PATCH', path, { body, requestId }),
     del: (path, query) => request('DELETE', path, { query }),
   };
 }

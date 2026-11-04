@@ -71,7 +71,8 @@ export async function buildApp({ pool, cfg, logger = true, warm = false }) {
   });
 
   await app.register(cookie);
-  await app.register(rateLimit, { global: false });
+  // cfg.testNoRateLimit: só nos testes que fazem muitos pedidos seguidos (lido a cada pedido).
+  await app.register(rateLimit, { global: false, allowList: () => Boolean(cfg.testNoRateLimit) });
   await app.register(multipart, { limits: { fileSize: 1024 * 1024, files: 1, fields: 5 } });
   await app.register(swagger, {
     openapi: {
