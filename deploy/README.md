@@ -174,6 +174,8 @@ Uso típico: MariaDB ~1,2 GB, API ~150 MB (picos de ~500 MB com os workers), mot
 
 O servidor aceita login SSH por palavra-passe (decisão do administrador) e está exposto a milhares de tentativas automáticas por dia (8 446 falhadas num dia, a 3 nov. 2026, com nomes como `root`, `ubuntu` ou `admin`). O `fail2ban` (`deploy/fail2ban/stocks.local`, instalado pelo `install.sh`) bloqueia durante 1 hora o IP que falhe 5 vezes em 10 minutos, e os bloqueios repetidos duplicam, até uma semana. Usa regras `nftables` próprias, independentes da `ufw`.
 
+Desde 4 nov. 2026, `deploy/ssh/10-stocks.conf` (instalado pelo `install.sh` em `/etc/ssh/sshd_config.d/`, validado com `sshd -t` antes de recarregar) proíbe o login directo do `root` (`PermitRootLogin no`: entra-se como `stocks` e usa-se `sudo`), reduz as tentativas por ligação para 3 e o tempo para autenticar para 30 s, e desliga o reencaminhamento de X11. O acesso por palavra-passe mantém-se. Para voltar a permitir o `root`, apagar a linha `PermitRootLogin` desse ficheiro e correr o `install.sh`.
+
 Para não se bloquear a si próprio, ponha o seu IP num ficheiro à parte (não versionado):
 
 ```bash

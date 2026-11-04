@@ -24,11 +24,23 @@ for p in "${PKGS[@]}"; do dpkg -s "$p" >/dev/null 2>&1 || missing+=("$p"); done
 if (( ${#missing[@]} )); then apt-get update -q && DEBIAN_FRONTEND=noninteractive apt-get install -y -q "${missing[@]}"; fi
 command -v dbmate >/dev/null || { echo "falta o dbmate em /usr/local/bin (ver deploy/README.md)" >&2; exit 1; }
 
-step "Afinação do servidor (MariaDB e swap)"
+step "Afinação do servidor (MariaDB, SSH e swap)"
 # MariaDB afinado para o servidor (deploy/mariadb/60-stocks.cnf); reinicia só quando o ficheiro muda.
 if ! cmp -s "$SRC/deploy/mariadb/60-stocks.cnf" /etc/mysql/mariadb.conf.d/60-stocks.cnf; then
   install -m 644 "$SRC/deploy/mariadb/60-stocks.cnf" /etc/mysql/mariadb.conf.d/60-stocks.cnf
   systemctl restart mariadb
+fi
+# SSH (deploy/ssh/10-stocks.conf): sem login directo do root, menos tentativas e tempo para autenticar. Valida a
+# configuração antes de recarregar; com erro repõe a anterior. As sessões abertas não são afectadas.
+if ! cmp -s "$SRC/deploy/ssh/10-stocks.conf" /etc/ssh/sshd_config.d/10-stocks.conf; then
+  cp -p /etc/ssh/sshd_config.d/10-stocks.conf /tmp/10-stocks.conf.prev 2>/dev/null || rm -f /tmp/10-stocks.conf.prev
+  install -m 644 "$SRC/deploy/ssh/10-stocks.conf" /etc/ssh/sshd_config.d/10-stocks.conf
+  if sshd -t; then
+    systemctl reload ssh
+  else
+    echo "configuração SSH inválida: reposta a anterior" >&2
+    if [ -f /tmp/10-stocks.conf.prev ]; then mv /tmp/10-stocks.conf.prev /etc/ssh/sshd_config.d/10-stocks.conf; else rm -f /etc/ssh/sshd_config.d/10-stocks.conf; fi
+  fi
 fi
 # fail2ban: bloqueia temporariamente os IPs que falham o login SSH (deploy/fail2ban/stocks.local); o IP do
 # administrador deve ficar num ficheiro à parte, /etc/fail2ban/jail.d/stocks-ignoreip.local (ver deploy/README.md).
