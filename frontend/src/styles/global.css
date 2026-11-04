@@ -363,3 +363,19 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 /* Leitura dos valores da sessão sob o cursor, por cima dos painéis do gráfico. */
 .chart-readout { display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem 1rem; min-height: 1.5rem; }
 .chart-readout .num { font-variant-numeric: tabular-nums; }
+
+/* Painel «Empresa» do Charts (perfil da empresa, fonte Yahoo) */
+.company-panel { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.company-summary { margin: 0.75rem 0; max-width: 72ch; }
+.link-button { border: 0; padding: 0; margin-left: 0.25rem; background: none; color: var(--accent); font: inherit; cursor: pointer; text-decoration: underline; }
+.company-metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.75rem 1.25rem; margin: 0.75rem 0 0; }
+.company-metrics dt { margin-bottom: 0.125rem; }
+.company-metrics dd { margin: 0; font-weight: 500; font-variant-numeric: tabular-nums; }
+.company-range { grid-column: span 2; }
+.range-bar { position: relative; display: block; height: 4px; margin-top: 0.5rem; border-radius: 2px; background: var(--surface-muted); max-width: 16rem; }
+.range-dot { position: absolute; top: 50%; width: 10px; height: 10px; border-radius: 50%; background: var(--series-price); box-shadow: 0 0 0 2px var(--surface); transform: translate(-50%, -50%); }
+.financials-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.financials-figure { margin: 0; }
+.financials-figure figcaption { margin-bottom: 0.25rem; color: var(--text-secondary); }
+.chart-tooltip { padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); box-shadow: var(--shadow-overlay); font-size: 0.875rem; }
+@media (max-width: 767px) { .company-range { grid-column: auto; } }

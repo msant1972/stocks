@@ -44,6 +44,7 @@ python -m fetcher update --intraday                           # actualização d
 python -m fetcher status                                      # cobertura e estado de cada instrumento
 python -m fetcher indicators                                  # recalcula EMA9 e SMA10/50/125/200
 python -m fetcher backfill                                    # completa o histórico dos activos até STOCKS_HISTORY_YEARS
+python -m fetcher profiles [--all] [--limit N]                # perfis das empresas (Yahoo) em falta ou com mais de 7 dias
 ```
 
 ## Agendamento proposto (systemd)
@@ -51,6 +52,7 @@ python -m fetcher backfill                                    # completa o hist�
 - `stocks-fetcher-run.timer`: corre `python -m fetcher run` a cada 5 minutos, para processar as cargas iniciais pedidas pela aplicação.
 - `stocks-intraday.timer`: corre `python -m fetcher update --intraday` de segunda a sexta, de hora a hora das 08:23 às 17:23 de Lisboa (o Yahoo tem cerca de 20 minutos de atraso), durante as sessões; a vela do próprio dia é provisória.
 - `stocks-daily.timer`: corre `python -m fetcher update` (e depois os alertas) de segunda a sexta às 19:01 de Lisboa, depois do fecho das bolsas europeias (17:30 CET), gravando os fechos definitivos.
+- `stocks-profiles.timer`: corre `python -m fetcher profiles` ao domingo às 08:00 de Lisboa (perfis das empresas para o Charts).
 
 ## Testes
 

@@ -193,3 +193,46 @@ describe.skipIf(!hasTestDb)('forçar validação no fornecedor', () => {
     await ctx.pool.end();
   });
 });
+
+describe.skipIf(!hasTestDb)('perfil da empresa', () => {
+  let ctx;
+  let ana;
+  let galp;
+  beforeAll(async () => {
+    ctx = await setup();
+    await makeUser(ctx.pool, 'perfil@exemplo.pt');
+    ana = api(ctx.app, await login(ctx.app, 'perfil@exemplo.pt'));
+    galp = await makeInstrument(ctx.pool, 'GALP.LS');
+  });
+  afterAll(async () => {
+    await ctx.app.close();
+    await ctx.pool.end();
+  });
+
+  it('sem perfil recolhido devolve profile null', async () => {
+    expect((await ana.get(`/instruments/${galp}/profile`)).json()).toEqual({ profile: null, fetchedAt: null, source: 'Yahoo Finance' });
+    expect((await ana.get('/instruments/999999/profile')).statusCode).toBe(404);
+  });
+
+  it('devolve o perfil com números e as contas anuais', async () => {
+    await ctx.pool.query(
+      `INSERT INTO company_profiles (instrument_id, status, long_name, summary, sector, industry, country, website, employees, currency,
+         market_cap, trailing_pe, dividend_yield, profit_margin, high_52w, low_52w, financials, fetched_at)
+       VALUES (?, 'ok', 'Galp Energia', 'Integrated energy operator.', 'Energy', 'Oil & Gas Integrated', 'Portugal', 'javascript:alert(1)', 6886, 'EUR',
+         14347606016, 14.078, 3.4, 0.0428, 23.18, 13.96, ?, NOW(3))`,
+      [galp, JSON.stringify([{ year: 2024, revenue: 21311e6, operatingIncome: 2550e6, netIncome: 1040e6, ebitda: null }, { year: 'x' }])],
+    );
+    const res = (await ana.get(`/instruments/${galp}/profile`)).json();
+    expect(res.profile).toMatchObject({
+      longName: 'Galp Energia', sector: 'Energy', employees: 6886, marketCap: 14347606016, trailingPe: 14.078, dividendYield: 3.4,
+      profitMargin: 0.0428, high52w: 23.18, low52w: 13.96, website: null, // só http(s)
+      financials: [{ year: 2024, revenue: 21311e6, operatingIncome: 2550e6, netIncome: 1040e6, ebitda: null }],
+    });
+    expect(res.fetchedAt).toMatch(/^\d{4}-/);
+  });
+
+  it('um perfil marcado «sem dados» devolve profile null', async () => {
+    await ctx.pool.query("UPDATE company_profiles SET status = 'missing'");
+    expect((await ana.get(`/instruments/${galp}/profile`)).json().profile).toBeNull();
+  });
+});

@@ -28,6 +28,45 @@ export const INSTRUMENT_SELECT = `
          EXISTS (SELECT 1 FROM watchlist_items w WHERE w.instrument_id = i.id AND w.user_id = ?) AS in_watchlist
     FROM instruments i`;
 
+
+const num = (v) => (v == null ? null : Number(v));
+function parseFinancials(text) {
+  try {
+    const rows = JSON.parse(text ?? '[]');
+    return Array.isArray(rows) ? rows.filter((r) => Number.isInteger(r?.year)).map((r) => ({
+      year: r.year, revenue: num(r.revenue), operatingIncome: num(r.operatingIncome), netIncome: num(r.netIncome), ebitda: num(r.ebitda),
+    })) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function mapProfile(r) {
+  return {
+    longName: r.long_name, summary: r.summary, sector: r.sector, industry: r.industry, country: r.country, city: r.city,
+    website: r.website && /^https?:\/\//.test(r.website) ? r.website : null, employees: r.employees == null ? null : Number(r.employees),
+    currency: r.currency, financialCurrency: r.financial_currency,
+    marketCap: num(r.market_cap), trailingPe: num(r.trailing_pe), forwardPe: num(r.forward_pe), priceToBook: num(r.price_to_book),
+    dividendYield: num(r.dividend_yield), beta: num(r.beta), eps: num(r.eps), profitMargin: num(r.profit_margin),
+    returnOnEquity: num(r.return_on_equity), debtToEquity: num(r.debt_to_equity), high52w: num(r.high_52w), low52w: num(r.low_52w),
+    financials: parseFinancials(r.financials),
+  };
+}
+
+const N = z.number().nullable();
+const CompanyProfileResponse = z.object({
+  profile: z.object({
+    longName: z.string().nullable(), summary: z.string().nullable(), sector: z.string().nullable(), industry: z.string().nullable(),
+    country: z.string().nullable(), city: z.string().nullable(), website: z.string().nullable(), employees: N,
+    currency: z.string().nullable(), financialCurrency: z.string().nullable(),
+    marketCap: N, trailingPe: N, forwardPe: N, priceToBook: N, dividendYield: N, beta: N, eps: N, profitMargin: N,
+    returnOnEquity: N, debtToEquity: N, high52w: N, low52w: N,
+    financials: z.array(z.object({ year: z.number(), revenue: N, operatingIncome: N, netIncome: N, ebitda: N })),
+  }).nullable(),
+  fetchedAt: z.string().nullable(),
+  source: z.string(),
+});
+
 const MAX_QUOTE_ROWS = 1500;
 
 import { yearsBefore } from '../dates.js';
@@ -150,6 +189,21 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       .header('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       .header('content-disposition', 'attachment; filename="modelo-instrumentos.xlsx"');
     return importTemplate();
+  });
+
+  app.get('/instruments/:id/profile', {
+    schema: {
+      tags: ['Instrumentos'], summary: 'Perfil da empresa (actividade, indicadores e contas anuais; fonte: Yahoo)',
+      description: 'Recolhido pelo motor de recolha uma vez por semana e na carga inicial. `profile` é null enquanto não houver dados. '
+        + 'dividendYield e debtToEquity vêm em percentagem; profitMargin e returnOnEquity em fracção.',
+      params: z.object({ id: Id }),
+      response: { 200: CompanyProfileResponse, 404: ErrorBody },
+    },
+  }, async (req) => {
+    const [[inst]] = await pool.query('SELECT id FROM instruments WHERE id = ?', [req.params.id]);
+    if (!inst) throw notFound('Instrumento');
+    const [[r]] = await pool.query('SELECT * FROM company_profiles WHERE instrument_id = ?', [req.params.id]);
+    return { profile: r && r.status === 'ok' && r.fetched_at ? mapProfile(r) : null, fetchedAt: r?.fetched_at?.toISOString() ?? null, source: 'Yahoo Finance' };
   });
 
   app.get('/instruments/:id', {

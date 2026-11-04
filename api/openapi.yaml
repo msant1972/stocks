@@ -1192,6 +1192,186 @@ paths:
       responses:
         "200":
           description: Default Response
+  /api/v1/instruments/{id}/profile:
+    get:
+      summary: "Perfil da empresa (actividade, indicadores e contas anuais; fonte:
+        Yahoo)"
+      tags:
+        - Instrumentos
+      description: Recolhido pelo motor de recolha uma vez por semana e na carga
+        inicial. `profile` é null enquanto não houver dados. dividendYield e
+        debtToEquity vêm em percentagem; profitMargin e returnOnEquity em
+        fracção.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profile:
+                    nullable: true
+                    type: object
+                    properties:
+                      longName:
+                        nullable: true
+                        type: string
+                      summary:
+                        nullable: true
+                        type: string
+                      sector:
+                        nullable: true
+                        type: string
+                      industry:
+                        nullable: true
+                        type: string
+                      country:
+                        nullable: true
+                        type: string
+                      city:
+                        nullable: true
+                        type: string
+                      website:
+                        nullable: true
+                        type: string
+                      employees:
+                        nullable: true
+                        type: number
+                      currency:
+                        nullable: true
+                        type: string
+                      financialCurrency:
+                        nullable: true
+                        type: string
+                      marketCap:
+                        nullable: true
+                        type: number
+                      trailingPe:
+                        nullable: true
+                        type: number
+                      forwardPe:
+                        nullable: true
+                        type: number
+                      priceToBook:
+                        nullable: true
+                        type: number
+                      dividendYield:
+                        nullable: true
+                        type: number
+                      beta:
+                        nullable: true
+                        type: number
+                      eps:
+                        nullable: true
+                        type: number
+                      profitMargin:
+                        nullable: true
+                        type: number
+                      returnOnEquity:
+                        nullable: true
+                        type: number
+                      debtToEquity:
+                        nullable: true
+                        type: number
+                      high52w:
+                        nullable: true
+                        type: number
+                      low52w:
+                        nullable: true
+                        type: number
+                      financials:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            year:
+                              type: number
+                            revenue:
+                              nullable: true
+                              type: number
+                            operatingIncome:
+                              nullable: true
+                              type: number
+                            netIncome:
+                              nullable: true
+                              type: number
+                            ebitda:
+                              nullable: true
+                              type: number
+                          required:
+                            - year
+                            - revenue
+                            - operatingIncome
+                            - netIncome
+                            - ebitda
+                          additionalProperties: false
+                    required:
+                      - longName
+                      - summary
+                      - sector
+                      - industry
+                      - country
+                      - city
+                      - website
+                      - employees
+                      - currency
+                      - financialCurrency
+                      - marketCap
+                      - trailingPe
+                      - forwardPe
+                      - priceToBook
+                      - dividendYield
+                      - beta
+                      - eps
+                      - profitMargin
+                      - returnOnEquity
+                      - debtToEquity
+                      - high52w
+                      - low52w
+                      - financials
+                    additionalProperties: false
+                  fetchedAt:
+                    nullable: true
+                    type: string
+                  source:
+                    type: string
+                required:
+                  - profile
+                  - fetchedAt
+                  - source
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
   /api/v1/instruments/{id}:
     get:
       summary: Detalhe do instrumento e estado da recolha

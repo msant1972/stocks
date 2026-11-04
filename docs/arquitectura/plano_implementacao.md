@@ -138,6 +138,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US43 | SAXO: vender posições a partir da Carteira SAXO; posições fechadas; comparação com a carteira virtual | — | Feito |
 | US44 | SAXO: stop fixo ou móvel associado à compra; alterar ordens abertas | — | Feito |
 | US45 | SAXO: envio em lote dos sinais de uma estratégia; streaming das ordens (avisos instantâneos) | — | Feito |
+| US46 | Charts: painel «Empresa» com actividade, indicadores e contas anuais (Yahoo, recolha semanal) | — | Feito |
 | US34 | Charts como sítio único do instrumento, com velas e volume (a página do instrumento redirecciona) | — | Feito |
 | US35 | Cálculos antecipados e caches stale-while-revalidate: páginas de estratégias imediatas | — | Feito |
 | US36 | Visão geral como painel do dia; menu em secções e botão «Mais» em telemóvel | — | Feito |

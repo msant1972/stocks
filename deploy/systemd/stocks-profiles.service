@@ -1,0 +1,20 @@
+[Unit]
+Description=Stocks — recolha semanal dos perfis das empresas (actividade, indicadores, contas anuais)
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=stocks-svc
+Group=stocks-svc
+EnvironmentFile=/etc/stocks/stocks.env
+# Cache de cookies e fusos do yfinance: a home (/opt/stocks) é só de leitura.
+Environment=XDG_CACHE_HOME=/var/lib/stocks/cache
+WorkingDirectory=/opt/stocks/engines/fetcher
+ExecStart=/opt/stocks/engines/fetcher/.venv/bin/python -m fetcher profiles
+TimeoutStartSec=2h
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/stocks

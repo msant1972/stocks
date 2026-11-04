@@ -12,6 +12,7 @@ import Icon from '../../components/ui/Icon.jsx';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
 import TradeDialog from '../portfolio/TradeDialog.jsx';
+import CompanyPanel from './CompanyPanel.jsx';
 import SaxoOrderDialog, { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
 import AlertDialog from '../alerts/AlertDialog.jsx';
 
@@ -242,6 +243,7 @@ export default function ChartsPage() {
               </Suspense>
             </div>
           )}
+        {current.status === 'active' && <CompanyPanel instrumentId={current.id} lastPrice={current.latest?.close} />}
       </section>
 
       <aside className="card charts-side" aria-labelledby="charts-list-title">

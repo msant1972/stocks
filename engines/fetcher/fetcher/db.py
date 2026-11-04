@@ -324,3 +324,57 @@ def history_start(today: date, years: int) -> date:
         return today.replace(year=today.year - years)
     except ValueError:  # 29 de Fevereiro
         return today.replace(year=today.year - years, day=28)
+
+
+# --- Perfis das empresas ---
+
+PROFILE_FIELDS = [
+    "long_name", "summary", "sector", "industry", "country", "city", "website", "employees", "currency", "financial_currency",
+    "market_cap", "trailing_pe", "forward_pe", "price_to_book", "dividend_yield", "beta", "eps", "profit_margin",
+    "return_on_equity", "debt_to_equity", "high_52w", "low_52w",
+]
+
+
+def instruments_needing_profiles(conn, stale_days: int, limit: int | None = None) -> list[dict]:
+    """Instrumentos activos sem perfil, ou com o perfil recolhido há mais de stale_days dias (os mais antigos primeiro)."""
+    sql = ("SELECT i.id, i.symbol FROM instruments i LEFT JOIN company_profiles p ON p.instrument_id = i.id "
+           "WHERE i.status = 'active' AND (p.fetched_at IS NULL OR p.fetched_at < NOW(3) - INTERVAL %s DAY) "
+           "ORDER BY p.fetched_at IS NOT NULL, p.fetched_at, i.id")
+    args: tuple = (stale_days,)
+    if limit:
+        sql += " LIMIT %s"
+        args += (limit,)
+    with conn.cursor() as cur:
+        cur.execute(sql, args)
+        rows = cur.fetchall()
+    conn.commit()
+    return rows
+
+
+def save_profile(conn, instrument_id: int, profile) -> None:
+    """Grava o perfil (ou marca-o como inexistente no fornecedor, se vier vazio)."""
+    status = "missing" if profile.is_empty() else "ok"
+    values = [getattr(profile, f) for f in PROFILE_FIELDS]
+    cols = ", ".join(PROFILE_FIELDS)
+    marks = ", ".join(["%s"] * len(PROFILE_FIELDS))
+    updates = ", ".join(f"{f} = VALUES({f})" for f in PROFILE_FIELDS)
+    with conn.cursor() as cur:
+        cur.execute(
+            f"INSERT INTO company_profiles (instrument_id, status, {cols}, financials, error, fetched_at) "
+            f"VALUES (%s, %s, {marks}, %s, NULL, NOW(3)) "
+            f"ON DUPLICATE KEY UPDATE status = VALUES(status), {updates}, financials = VALUES(financials), "
+            "error = NULL, fetched_at = NOW(3)",
+            [instrument_id, status, *values, json.dumps(profile.financials) if profile.financials else None],
+        )
+    conn.commit()
+
+
+def profile_error(conn, instrument_id: int, error: str) -> None:
+    """Falha transitória: guarda o erro e mantém os dados anteriores (volta a tentar na próxima execução)."""
+    with conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO company_profiles (instrument_id, status, error) VALUES (%s, 'ok', %s) "
+            "ON DUPLICATE KEY UPDATE error = VALUES(error)",
+            (instrument_id, error[:255]),
+        )
+    conn.commit()

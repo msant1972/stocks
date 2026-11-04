@@ -17,7 +17,7 @@ SUBJECT = "Stocks: aviso operacional"
 DAILY_EXPECTED_AFTER = 20
 STUCK_HOURS = 3
 STALE_BUSINESS_DAYS = 2  # tolera um feriado da bolsa
-KIND_LABEL = {"fetch_update": "recolha diária", "fetch_intraday": "recolha horária", "alerts": "alertas"}
+KIND_LABEL = {"fetch_update": "recolha diária", "fetch_intraday": "recolha horária", "fetch_profiles": "recolha dos perfis das empresas", "alerts": "alertas"}
 
 
 def run_label(r: dict) -> str:

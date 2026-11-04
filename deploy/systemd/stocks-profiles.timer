@@ -1,0 +1,9 @@
+[Unit]
+Description=Stocks — perfis das empresas, ao domingo às 08:00 de Lisboa (bolsas fechadas)
+
+[Timer]
+OnCalendar=Sun 08:00 Europe/Lisbon
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -3,7 +3,7 @@ import logging
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from . import db
+from . import db, profiles
 from .config import Settings
 from .provider import InstrumentNotFound, ProviderError, QuoteProvider
 from .validation import instrument_error, quote_error
@@ -71,6 +71,13 @@ def process_job(conn, provider: QuoteProvider, settings: Settings, job: dict, to
     provisional = provisional_session(today, now or datetime.now(MARKET_TZ))
     written = db.complete_job(conn, job["id"], job["instrument_id"], info, valid, provider.name, note, provisional)
     log.info("%s: %s sessões gravadas (%s)", symbol, written, job["kind"])
+    # Instrumento novo: recolhe já o perfil da empresa (melhor esforço; o comando semanal completa o que falhar).
+    if job["instrument_status"] == "pending" and hasattr(provider, "fetch_profile"):
+        try:
+            profiles.fetch_one(conn, provider, job["instrument_id"], symbol)
+        except Exception:
+            log.exception("%s: perfil não recolhido na carga inicial", symbol)
+            conn.rollback()
 
 
 def run_pending(conn, provider: QuoteProvider, settings: Settings, today: date | None = None,
