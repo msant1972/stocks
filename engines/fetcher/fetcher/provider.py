@@ -46,31 +46,57 @@ def _text(value, limit: int) -> str | None:
     return (value.strip()[:limit] or None) if isinstance(value, str) else None
 
 
-# Linhas da demonstração de resultados anual (yfinance income_stmt) e a chave usada na aplicação.
+# Linhas das contas anuais do yfinance e a chave usada na aplicação: demonstração de resultados (income_stmt),
+# fluxos de caixa (cashflow) e balanço (balance_sheet). Só as linhas da demonstração de resultados decidem se um ano conta.
 FINANCIAL_ROWS = {"Total Revenue": "revenue", "Operating Income": "operatingIncome", "Net Income": "netIncome", "EBITDA": "ebitda"}
+EXTRA_INCOME_ROWS = {"Diluted EPS": "dilutedEps"}
+CASHFLOW_ROWS = {"Free Cash Flow": "freeCashFlow"}
+BALANCE_ROWS = {"Stockholders Equity": "equity", "Ordinary Shares Number": "shares"}
 
 
-def financials_from_income(income) -> list[dict]:
-    """Contas anuais (receitas, resultado operacional, resultado líquido, EBITDA) do mais antigo para o mais recente.
-    Anos sem nenhum valor são ignorados; valores em falta ficam None."""
-    if income is None or getattr(income, "empty", True):
-        return []
-    out = []
-    for col in income.columns:
+def _rows_by_year(frame, rows: dict) -> dict:
+    """{ano: {chave: valor}} para as linhas pedidas de uma tabela anual do yfinance (colunas = datas de fecho)."""
+    out: dict = {}
+    if frame is None or getattr(frame, "empty", True):
+        return out
+    for col in frame.columns:
         year = getattr(col, "year", None)
         if year is None:
             continue
-        row = {"year": int(year)}
-        for label, key in FINANCIAL_ROWS.items():
-            v = _dec(income.loc[label, col]) if label in income.index else None
-            row[key] = None if v is None else float(v)
-        if any(row[k] is not None for k in FINANCIAL_ROWS.values()):
-            out.append(row)
+        vals = out.setdefault(int(year), {})
+        for label, key in rows.items():
+            v = _dec(frame.loc[label, col]) if label in frame.index else None
+            vals[key] = None if v is None else float(v)
+    return out
+
+
+def financials_from_income(income, cashflow=None, balance=None) -> list[dict]:
+    """Contas anuais do mais antigo para o mais recente: receitas, resultado operacional, resultado líquido, EBITDA,
+    resultado diluído por acção, fluxo de caixa livre, capitais próprios e número de acções.
+    Anos sem nenhum valor da demonstração de resultados são ignorados; valores em falta ficam None."""
+    inc = _rows_by_year(income, {**FINANCIAL_ROWS, **EXTRA_INCOME_ROWS})
+    cf = _rows_by_year(cashflow, CASHFLOW_ROWS)
+    bs = _rows_by_year(balance, BALANCE_ROWS)
+    out = []
+    for year, vals in inc.items():
+        if not any(vals[k] is not None for k in FINANCIAL_ROWS.values()):
+            continue
+        row = {"year": year, **{k: vals[k] for k in FINANCIAL_ROWS.values()}, "dilutedEps": vals["dilutedEps"]}
+        row.update({k: cf.get(year, {}).get(k) for k in CASHFLOW_ROWS.values()})
+        row.update({k: bs.get(year, {}).get(k) for k in BALANCE_ROWS.values()})
+        out.append(row)
     return sorted(out, key=lambda r: r["year"])
 
 
-def profile_from_info(info: dict, income=None) -> CompanyProfile:
-    """Converte o `info` do yfinance (e a demonstração de resultados anual) num CompanyProfile."""
+_RECOMMENDATIONS = {"strong_buy", "buy", "hold", "underperform", "sell", "strong_sell", "none"}
+
+
+def _count(value) -> int | None:
+    return int(value) if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value) and value > 0 else None
+
+
+def profile_from_info(info: dict, income=None, cashflow=None, balance=None) -> CompanyProfile:
+    """Converte o `info` do yfinance (e as contas anuais) num CompanyProfile."""
     info = info or {}
     employees = info.get("fullTimeEmployees")
     return CompanyProfile(
@@ -96,7 +122,27 @@ def profile_from_info(info: dict, income=None) -> CompanyProfile:
         debt_to_equity=_dec(info.get("debtToEquity")),
         high_52w=_dec(info.get("fiftyTwoWeekHigh")),
         low_52w=_dec(info.get("fiftyTwoWeekLow")),
-        financials=financials_from_income(income),
+        ref_price=_dec(info.get("currentPrice") or info.get("regularMarketPrice")),
+        enterprise_value=_dec(info.get("enterpriseValue")),
+        enterprise_to_ebitda=_dec(info.get("enterpriseToEbitda")),
+        ebitda=_dec(info.get("ebitda")),
+        total_debt=_dec(info.get("totalDebt")),
+        total_cash=_dec(info.get("totalCash")),
+        shares_outstanding=_count(info.get("sharesOutstanding")),
+        free_cashflow=_dec(info.get("freeCashflow")),
+        book_value=_dec(info.get("bookValue")),
+        forward_eps=_dec(info.get("forwardEps")),
+        earnings_growth=_dec(info.get("earningsGrowth")),
+        revenue_growth=_dec(info.get("revenueGrowth")),
+        payout_ratio=_dec(info.get("payoutRatio")),
+        target_mean=_dec(info.get("targetMeanPrice")),
+        target_median=_dec(info.get("targetMedianPrice")),
+        target_low=_dec(info.get("targetLowPrice")),
+        target_high=_dec(info.get("targetHighPrice")),
+        analyst_count=_count(info.get("numberOfAnalystOpinions")),
+        recommendation_key=rec if (rec := _text(info.get("recommendationKey"), 16)) in _RECOMMENDATIONS else None,
+        recommendation_mean=_dec(info.get("recommendationMean")),
+        financials=financials_from_income(income, cashflow, balance),
     )
 
 
@@ -160,8 +206,12 @@ class YFinanceProvider:
             info = ticker.info or {}
         except Exception as exc:  # rede, limite de pedidos, respostas inesperadas
             raise ProviderError(f"{type(exc).__name__}: {exc}") from exc
-        try:
-            income = ticker.income_stmt
-        except Exception:  # as contas são opcionais: sem elas, o resto do perfil serve
-            income = None
-        return profile_from_info(info, income)
+        return profile_from_info(info, *(_optional(ticker, name) for name in ("income_stmt", "cashflow", "balance_sheet")))
+
+
+def _optional(ticker, name):
+    """As contas anuais são opcionais: se o Yahoo falhar numa delas, o resto do perfil serve."""
+    try:
+        return getattr(ticker, name)
+    except Exception:
+        return None

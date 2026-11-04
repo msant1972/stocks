@@ -1308,12 +1308,28 @@ paths:
                             ebitda:
                               nullable: true
                               type: number
+                            dilutedEps:
+                              nullable: true
+                              type: number
+                            freeCashFlow:
+                              nullable: true
+                              type: number
+                            equity:
+                              nullable: true
+                              type: number
+                            shares:
+                              nullable: true
+                              type: number
                           required:
                             - year
                             - revenue
                             - operatingIncome
                             - netIncome
                             - ebitda
+                            - dilutedEps
+                            - freeCashFlow
+                            - equity
+                            - shares
                           additionalProperties: false
                     required:
                       - longName
@@ -1347,6 +1363,353 @@ paths:
                     type: string
                 required:
                   - profile
+                  - fetchedAt
+                  - source
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/instruments/{id}/valuation:
+    get:
+      summary: Valorização indicativa (sector, história do P/E, analistas, Graham, DCF
+        invertido)
+      tags:
+        - Instrumentos
+      description: Calculada a pedido com o último fecho e o perfil semanal do Yahoo.
+        `valuation` é null sem perfil ou sem cotações. Rendimentos
+        (dividendYield, fcfYield) em percentagem; upside, impliedGrowth e
+        revenueCagr em fracção. Indicativo, não é uma recomendação.
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valuation:
+                    nullable: true
+                    type: object
+                    properties:
+                      price:
+                        nullable: true
+                        type: number
+                      priceDate:
+                        nullable: true
+                        type: string
+                      currency:
+                        nullable: true
+                        type: string
+                      summary:
+                        type: object
+                        properties:
+                          verdict:
+                            type: string
+                            enum:
+                              - cheap
+                              - fair
+                              - expensive
+                              - insufficient
+                          cheap:
+                            type: number
+                          expensive:
+                            type: number
+                          fair:
+                            type: number
+                          total:
+                            type: number
+                        required:
+                          - verdict
+                          - cheap
+                          - expensive
+                          - fair
+                          - total
+                        additionalProperties: false
+                      sector:
+                        type: object
+                        properties:
+                          sector:
+                            nullable: true
+                            type: string
+                          peers:
+                            type: number
+                          score:
+                            nullable: true
+                            type: number
+                          verdict:
+                            nullable: true
+                            type: string
+                            enum:
+                              - cheap
+                              - fair
+                              - expensive
+                          metrics:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                key:
+                                  type: string
+                                label:
+                                  type: string
+                                cheapWhen:
+                                  type: string
+                                  enum:
+                                    - low
+                                    - high
+                                value:
+                                  type: number
+                                sectorMedian:
+                                  type: number
+                                cheapness:
+                                  type: number
+                                peers:
+                                  type: number
+                              required:
+                                - key
+                                - label
+                                - cheapWhen
+                                - value
+                                - sectorMedian
+                                - cheapness
+                                - peers
+                              additionalProperties: false
+                        required:
+                          - sector
+                          - peers
+                          - score
+                          - verdict
+                          - metrics
+                        additionalProperties: false
+                      history:
+                        type: object
+                        properties:
+                          verdict:
+                            nullable: true
+                            type: string
+                            enum:
+                              - cheap
+                              - fair
+                              - expensive
+                          current:
+                            nullable: true
+                            type: number
+                          median:
+                            nullable: true
+                            type: number
+                          p25:
+                            nullable: true
+                            type: number
+                          p75:
+                            nullable: true
+                            type: number
+                          points:
+                            type: number
+                          from:
+                            type: string
+                          reason:
+                            type: string
+                          series:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                date:
+                                  type: string
+                                pe:
+                                  type: number
+                              required:
+                                - date
+                                - pe
+                              additionalProperties: false
+                        required:
+                          - verdict
+                          - current
+                          - median
+                          - p25
+                          - p75
+                          - points
+                          - series
+                        additionalProperties: false
+                      analysts:
+                        type: object
+                        properties:
+                          count:
+                            type: number
+                          mean:
+                            nullable: true
+                            type: number
+                          median:
+                            nullable: true
+                            type: number
+                          low:
+                            nullable: true
+                            type: number
+                          high:
+                            nullable: true
+                            type: number
+                          recommendation:
+                            nullable: true
+                            type: string
+                          recommendationMean:
+                            nullable: true
+                            type: number
+                          upside:
+                            nullable: true
+                            type: number
+                          verdict:
+                            nullable: true
+                            type: string
+                            enum:
+                              - cheap
+                              - fair
+                              - expensive
+                        required:
+                          - count
+                          - mean
+                          - median
+                          - low
+                          - high
+                          - recommendation
+                          - recommendationMean
+                          - upside
+                          - verdict
+                        additionalProperties: false
+                      graham:
+                        type: object
+                        properties:
+                          value:
+                            nullable: true
+                            type: number
+                          eps:
+                            nullable: true
+                            type: number
+                          bookValue:
+                            nullable: true
+                            type: number
+                          ratio:
+                            nullable: true
+                            type: number
+                          verdict:
+                            nullable: true
+                            type: string
+                            enum:
+                              - cheap
+                              - fair
+                              - expensive
+                        required:
+                          - value
+                          - eps
+                          - bookValue
+                          - ratio
+                          - verdict
+                        additionalProperties: false
+                      dcf:
+                        type: object
+                        properties:
+                          impliedGrowth:
+                            nullable: true
+                            type: number
+                          bound:
+                            nullable: true
+                            type: string
+                            enum:
+                              - below
+                              - above
+                          revenueCagr:
+                            nullable: true
+                            type: number
+                          assumptions:
+                            type: object
+                            properties:
+                              discount:
+                                type: number
+                              terminal:
+                                type: number
+                              years:
+                                type: number
+                            required:
+                              - discount
+                              - terminal
+                              - years
+                            additionalProperties: false
+                        required:
+                          - impliedGrowth
+                          - revenueCagr
+                          - assumptions
+                        additionalProperties: false
+                      metrics:
+                        type: object
+                        properties:
+                          pe:
+                            nullable: true
+                            type: number
+                          pb:
+                            nullable: true
+                            type: number
+                          evEbitda:
+                            nullable: true
+                            type: number
+                          dividendYield:
+                            nullable: true
+                            type: number
+                          fcfYield:
+                            nullable: true
+                            type: number
+                        required:
+                          - pe
+                          - pb
+                          - evEbitda
+                          - dividendYield
+                          - fcfYield
+                        additionalProperties: false
+                    required:
+                      - price
+                      - priceDate
+                      - currency
+                      - summary
+                      - sector
+                      - history
+                      - analysts
+                      - graham
+                      - dcf
+                      - metrics
+                    additionalProperties: false
+                  fetchedAt:
+                    nullable: true
+                    type: string
+                  source:
+                    type: string
+                required:
+                  - valuation
                   - fetchedAt
                   - source
                 additionalProperties: false

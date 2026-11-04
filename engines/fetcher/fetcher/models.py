@@ -53,6 +53,28 @@ class CompanyProfile:
     debt_to_equity: Decimal | None = None
     high_52w: Decimal | None = None
     low_52w: Decimal | None = None
+    # Valorização: preço de referência do Yahoo no momento da recolha (para reescalar os rácios ao fecho do dia),
+    # valor da empresa, dívida, caixa, fluxo de caixa livre e consenso dos analistas.
+    ref_price: Decimal | None = None
+    enterprise_value: Decimal | None = None
+    enterprise_to_ebitda: Decimal | None = None
+    ebitda: Decimal | None = None
+    total_debt: Decimal | None = None
+    total_cash: Decimal | None = None
+    shares_outstanding: int | None = None
+    free_cashflow: Decimal | None = None
+    book_value: Decimal | None = None
+    forward_eps: Decimal | None = None
+    earnings_growth: Decimal | None = None
+    revenue_growth: Decimal | None = None
+    payout_ratio: Decimal | None = None
+    target_mean: Decimal | None = None
+    target_median: Decimal | None = None
+    target_low: Decimal | None = None
+    target_high: Decimal | None = None
+    analyst_count: int | None = None
+    recommendation_key: str | None = None
+    recommendation_mean: Decimal | None = None
     financials: list[dict] = field(default_factory=list)
 
     def is_empty(self) -> bool:

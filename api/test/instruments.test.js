@@ -231,6 +231,33 @@ describe.skipIf(!hasTestDb)('perfil da empresa', () => {
     expect(res.fetchedAt).toMatch(/^\d{4}-/);
   });
 
+  it('valorização: null sem perfil; com perfil, compara com o sector, analistas e Graham', async () => {
+    const lone = await makeInstrument(ctx.pool, 'SEMPERFIL.LS');
+    expect((await ana.get(`/instruments/${lone}/valuation`)).json()).toEqual({ valuation: null, fetchedAt: null, source: 'Yahoo Finance' });
+    expect((await ana.get('/instruments/999999/valuation')).statusCode).toBe(404);
+    const insert = (id, pe, extra = '') => ctx.pool.query(
+      `INSERT INTO company_profiles (instrument_id, status, sector, currency, ref_price, trailing_pe, price_to_book, dividend_yield,
+         analyst_count, target_mean, financials, fetched_at${extra ? ', recommendation_key' : ''})
+       VALUES (?, 'ok', 'Utilities', 'EUR', 10, ?, 1.5, 3, 5, 13, ?, NOW(3)${extra ? ', ?' : ''})
+       ON DUPLICATE KEY UPDATE trailing_pe = VALUES(trailing_pe)`,
+      [id, pe, JSON.stringify([{ year: 2024, revenue: 100, dilutedEps: 1 }]), ...(extra ? [extra] : [])],
+    );
+    const edp = await makeInstrument(ctx.pool, 'EDP.LS', { closes: ['10.00'] });
+    await insert(edp, 8, 'buy');
+    for (const [i, pe] of [12, 14, 15, 16, 18].entries()) await insert(await makeInstrument(ctx.pool, `PAR${i}.LS`), pe);
+    const res = await ana.get(`/instruments/${edp}/valuation`);
+    expect(res.statusCode).toBe(200);
+    const v = res.json().valuation;
+    expect(v.price).toBe(10);
+    expect(v.sector).toMatchObject({ sector: 'Utilities', peers: 5 });
+    expect(v.sector.metrics.find((m) => m.key === 'pe')).toMatchObject({ value: 8, cheapness: 1, sectorMedian: 15 });
+    expect(v.analysts).toMatchObject({ count: 5, mean: 13, verdict: 'cheap', recommendation: 'buy' });
+    expect(v.analysts.upside).toBeCloseTo(0.3);
+    expect(v.graham.verdict).not.toBeNull();
+    expect(v.history).toMatchObject({ verdict: null, reason: 'short', series: [] });
+    expect(['cheap', 'fair', 'expensive']).toContain(v.summary.verdict);
+  });
+
   it('um perfil marcado «sem dados» devolve profile null', async () => {
     await ctx.pool.query("UPDATE company_profiles SET status = 'missing'");
     expect((await ana.get(`/instruments/${galp}/profile`)).json().profile).toBeNull();

@@ -54,3 +54,49 @@ export function shortSummary(text, max = 420) {
   const cutAt = dot > max * 0.5 ? dot + 1 : head.lastIndexOf(' ');
   return { text: `${head.slice(0, cutAt > 0 ? cutAt : max).trim()}…`, cut: true };
 }
+
+/** Veredictos da secção «Valorização»: texto e classe do distintivo (o texto diz sempre o estado, nunca só a cor). */
+export const VERDICT = {
+  cheap: { label: 'Barato', badge: 'badge-positive' },
+  fair: { label: 'Em linha', badge: '' },
+  expensive: { label: 'Caro', badge: 'badge-negative' },
+  insufficient: { label: 'Dados insuficientes', badge: '' },
+};
+
+/** «Barato em 2 de 4 critérios», «Caro em 3 de 3 critérios», «Em linha (1 barato, 1 caro, 2 em linha)». */
+export function verdictSentence(summary) {
+  if (!summary || summary.verdict === 'insufficient') return 'Há menos de dois critérios com dados para concluir.';
+  const { verdict, cheap, expensive, fair, total } = summary;
+  const crit = (k) => `${k} de ${total} critério${total === 1 ? '' : 's'}`;
+  if (verdict === 'cheap') return `Barato em ${crit(cheap)}${expensive ? `; caro em ${expensive}` : ''}.`;
+  if (verdict === 'expensive') return `Caro em ${crit(expensive)}${cheap ? `; barato em ${cheap}` : ''}.`;
+  const parts = [cheap && `${cheap} barato`, expensive && `${expensive} caro`, fair && `${fair} em linha`].filter(Boolean);
+  return `Sem maioria: ${parts.join(', ')} (de ${total}).`;
+}
+
+/** Fracção com sinal: 0.184 → «+18,4 %». */
+export function signedPctOf(value, digits = 1) {
+  if (value == null || !Number.isFinite(Number(value))) return '—';
+  const v = Number(value) * 100;
+  return `${v > 0 ? '+' : v < 0 ? '−' : ''}${nf(digits).format(Math.abs(v))} %`;
+}
+
+/** Recomendação média dos analistas (Yahoo) em português. */
+export const RECOMMENDATION = {
+  strong_buy: 'Compra forte', buy: 'Comprar', hold: 'Manter', underperform: 'Abaixo do mercado', sell: 'Vender', strong_sell: 'Venda forte',
+};
+
+/** «mais barato do que 78 % das 31 empresas» a partir da barateza (fracção dos pares mais caros). */
+export function peerPosition(cheapness, peers) {
+  if (cheapness == null) return '';
+  const pct = Math.round(cheapness * 100);
+  return pct >= 50
+    ? `mais barato do que ${pct} % das ${peers} empresas do sector`
+    : `mais caro do que ${100 - pct} % das ${peers} empresas do sector`;
+}
+
+/** Valor de um indicador da valorização: rácios com 1 casa («14,1×»), rendimentos em % («3,4 %»). */
+export function metricValue(key, value) {
+  if (value == null || !Number.isFinite(Number(value))) return '—';
+  return key === 'dividendYield' || key === 'fcfYield' ? `${nf(1).format(value)} %` : `${nf(1).format(value)}×`;
+}

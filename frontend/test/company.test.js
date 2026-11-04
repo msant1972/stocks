@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { axisMoney, bigMoney, pctOf, rangePosition, ratio, shortSummary } from '../src/lib/company.js';
+import {
+  axisMoney, bigMoney, metricValue, pctOf, peerPosition, rangePosition, ratio, shortSummary, signedPctOf, verdictSentence,
+} from '../src/lib/company.js';
 
 const n = (s) => s.replace(/\s/g, ' '); // o Intl usa espaços não separáveis
 
@@ -42,4 +44,22 @@ test('resumo curto corta numa frase', () => {
   assert.equal(s.cut, true);
   assert.ok(s.text.endsWith('.…'));
   assert.ok(s.text.length <= 122);
+});
+
+test('frase do veredicto da valorização', () => {
+  assert.equal(verdictSentence({ verdict: 'cheap', cheap: 2, expensive: 0, fair: 1, total: 3 }), 'Barato em 2 de 3 critérios.');
+  assert.equal(verdictSentence({ verdict: 'expensive', cheap: 1, expensive: 3, fair: 0, total: 4 }), 'Caro em 3 de 4 critérios; barato em 1.');
+  assert.equal(verdictSentence({ verdict: 'fair', cheap: 1, expensive: 1, fair: 2, total: 4 }), 'Sem maioria: 1 barato, 1 caro, 2 em linha (de 4).');
+  assert.match(verdictSentence({ verdict: 'insufficient' }), /menos de dois/);
+});
+
+test('percentagens com sinal, posição no sector e valores dos indicadores', () => {
+  assert.equal(n(signedPctOf(0.184)), '+18,4 %');
+  assert.equal(n(signedPctOf(-0.05)), '−5,0 %');
+  assert.equal(signedPctOf(null), '—');
+  assert.equal(peerPosition(0.78, 31), 'mais barato do que 78 % das 31 empresas do sector');
+  assert.equal(peerPosition(0.1, 31), 'mais caro do que 90 % das 31 empresas do sector');
+  assert.equal(n(metricValue('pe', 14.078)), '14,1×');
+  assert.equal(n(metricValue('dividendYield', 3.4)), '3,4 %');
+  assert.equal(metricValue('pb', null), '—');
 });

@@ -4,6 +4,7 @@ import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { bigMoney, pctOf, rangePosition, ratio, shortSummary } from '../../lib/company.js';
 import { Loading } from '../../components/feedback/states.jsx';
+import ValuationSection from './ValuationSection.jsx';
 
 const FinancialsChart = lazy(() => import('../../components/finance/FinancialsChart.jsx'));
 
@@ -90,6 +91,8 @@ export default function CompanyPanel({ instrumentId, lastPrice }) {
           </div>
         )}
       </dl>
+
+      <ValuationSection instrumentId={instrumentId} />
 
       {years.length > 0 && (
         <>

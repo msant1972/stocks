@@ -61,11 +61,31 @@ def test_converte_o_info_e_as_contas_anuais():
     assert (p.sector, p.industry, p.country, p.employees) == ("Energy", "Oil & Gas Integrated", "Portugal", 6886)
     assert p.market_cap == Decimal("14347606016") and p.dividend_yield == Decimal("3.4") and p.beta == Decimal("-0.067")
     # Do mais antigo para o mais recente; anos sem valores ignorados; valores em falta a None.
+    empty = {"dilutedEps": None, "freeCashFlow": None, "equity": None, "shares": None}
     assert p.financials == [
-        {"year": 2024, "revenue": 21311e6, "operatingIncome": 2550e6, "netIncome": 1040e6, "ebitda": None},
-        {"year": 2025, "revenue": 19507e6, "operatingIncome": 2135e6, "netIncome": 1120e6, "ebitda": 2899e6},
+        {"year": 2024, "revenue": 21311e6, "operatingIncome": 2550e6, "netIncome": 1040e6, "ebitda": None, **empty},
+        {"year": 2025, "revenue": 19507e6, "operatingIncome": 2135e6, "netIncome": 1120e6, "ebitda": 2899e6, **empty},
     ]
     assert not p.is_empty()
+
+
+def test_campos_da_valorizacao_e_contas_completas():
+    info = {**INFO, "currentPrice": 19.85, "enterpriseValue": 17779253248, "enterpriseToEbitda": 4.468, "ebitda": 3979000064,
+            "totalDebt": 4784999936, "totalCash": 2476999936, "sharesOutstanding": 664721769, "freeCashflow": 2440875008,
+            "bookValue": 6.479, "targetMeanPrice": 23.51111, "targetLowPrice": 18.4, "targetHighPrice": 28.0,
+            "numberOfAnalystOpinions": 18, "recommendationKey": "buy", "recommendationMean": 2.16667}
+    y25, y24 = pd.Timestamp("2025-12-31"), pd.Timestamp("2024-12-31")
+    inc = income()
+    inc.loc["Diluted EPS"] = [1.51, 1.36, float("nan")]
+    cash = pd.DataFrame({y25: [353e6], y24: [1150e6]}, index=["Free Cash Flow"])
+    bal = pd.DataFrame({y25: [4419e6, 733855705.0]}, index=["Stockholders Equity", "Ordinary Shares Number"])
+    p = profile_from_info(info, inc, cash, bal)
+    assert p.ref_price == Decimal("19.85") and p.target_mean == Decimal("23.51111") and p.analyst_count == 18
+    assert p.recommendation_key == "buy" and p.shares_outstanding == 664721769 and p.enterprise_to_ebitda == Decimal("4.468")
+    assert p.financials[-1] == {"year": 2025, "revenue": 19507e6, "operatingIncome": 2135e6, "netIncome": 1120e6, "ebitda": 2899e6,
+                                "dilutedEps": 1.51, "freeCashFlow": 353e6, "equity": 4419e6, "shares": 733855705.0}
+    assert p.financials[0]["freeCashFlow"] == 1150e6 and p.financials[0]["equity"] is None
+    assert profile_from_info({"recommendationKey": "<script>", "numberOfAnalystOpinions": -2}).recommendation_key is None
 
 
 def test_valores_estranhos_ficam_vazios():

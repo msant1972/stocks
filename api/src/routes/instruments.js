@@ -9,6 +9,7 @@ import {
   UnexpectedFormatError, UpstreamError,
 } from '../orderbook/index.js';
 import { latestQuotes } from '../services/quotes.js';
+import { valuation } from '../valuation.js';
 
 export function mapInstrument(r, quotes) {
   const id = Number(r.id);
@@ -30,11 +31,12 @@ export const INSTRUMENT_SELECT = `
 
 
 const num = (v) => (v == null ? null : Number(v));
-function parseFinancials(text) {
+export function parseFinancials(text) {
   try {
     const rows = JSON.parse(text ?? '[]');
     return Array.isArray(rows) ? rows.filter((r) => Number.isInteger(r?.year)).map((r) => ({
       year: r.year, revenue: num(r.revenue), operatingIncome: num(r.operatingIncome), netIncome: num(r.netIncome), ebitda: num(r.ebitda),
+      dilutedEps: num(r.dilutedEps), freeCashFlow: num(r.freeCashFlow), equity: num(r.equity), shares: num(r.shares),
     })) : [];
   } catch {
     return [];
@@ -61,7 +63,40 @@ const CompanyProfileResponse = z.object({
     currency: z.string().nullable(), financialCurrency: z.string().nullable(),
     marketCap: N, trailingPe: N, forwardPe: N, priceToBook: N, dividendYield: N, beta: N, eps: N, profitMargin: N,
     returnOnEquity: N, debtToEquity: N, high52w: N, low52w: N,
-    financials: z.array(z.object({ year: z.number(), revenue: N, operatingIncome: N, netIncome: N, ebitda: N })),
+    financials: z.array(z.object({
+      year: z.number(), revenue: N, operatingIncome: N, netIncome: N, ebitda: N, dilutedEps: N, freeCashFlow: N, equity: N, shares: N,
+    })),
+  }).nullable(),
+  fetchedAt: z.string().nullable(),
+  source: z.string(),
+});
+
+const Verdict = z.enum(['cheap', 'fair', 'expensive']).nullable();
+const ValuationResponse = z.object({
+  valuation: z.object({
+    price: N, priceDate: z.string().nullable(), currency: z.string().nullable(),
+    summary: z.object({ verdict: z.enum(['cheap', 'fair', 'expensive', 'insufficient']), cheap: z.number(), expensive: z.number(), fair: z.number(), total: z.number() }),
+    sector: z.object({
+      sector: z.string().nullable(), peers: z.number(), score: N, verdict: Verdict,
+      metrics: z.array(z.object({
+        key: z.string(), label: z.string(), cheapWhen: z.enum(['low', 'high']), value: z.number(), sectorMedian: z.number(),
+        cheapness: z.number(), peers: z.number(),
+      })),
+    }),
+    history: z.object({
+      verdict: Verdict, current: N, median: N, p25: N, p75: N, points: z.number(), from: z.string().optional(), reason: z.string().optional(),
+      series: z.array(z.object({ date: z.string(), pe: z.number() })),
+    }),
+    analysts: z.object({
+      count: z.number(), mean: N, median: N, low: N, high: N, recommendation: z.string().nullable(), recommendationMean: N,
+      upside: N, verdict: Verdict,
+    }),
+    graham: z.object({ value: N, eps: N, bookValue: N, ratio: N, verdict: Verdict }),
+    dcf: z.object({
+      impliedGrowth: N, bound: z.enum(['below', 'above']).nullable().optional(), revenueCagr: N,
+      assumptions: z.object({ discount: z.number(), terminal: z.number(), years: z.number() }),
+    }),
+    metrics: z.object({ pe: N, pb: N, evEbitda: N, dividendYield: N, fcfYield: N }),
   }).nullable(),
   fetchedAt: z.string().nullable(),
   source: z.string(),
@@ -204,6 +239,42 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     if (!inst) throw notFound('Instrumento');
     const [[r]] = await pool.query('SELECT * FROM company_profiles WHERE instrument_id = ?', [req.params.id]);
     return { profile: r && r.status === 'ok' && r.fetched_at ? mapProfile(r) : null, fetchedAt: r?.fetched_at?.toISOString() ?? null, source: 'Yahoo Finance' };
+  });
+
+  app.get('/instruments/:id/valuation', {
+    schema: {
+      tags: ['Instrumentos'], summary: 'Valorização indicativa (sector, história do P/E, analistas, Graham, DCF invertido)',
+      description: 'Calculada a pedido com o último fecho e o perfil semanal do Yahoo. `valuation` é null sem perfil ou sem cotações. '
+        + 'Rendimentos (dividendYield, fcfYield) em percentagem; upside, impliedGrowth e revenueCagr em fracção. Indicativo, não é uma recomendação.',
+      params: z.object({ id: Id }),
+      response: { 200: ValuationResponse, 404: ErrorBody },
+    },
+  }, async (req) => {
+    const id = Number(req.params.id);
+    const [[inst]] = await pool.query('SELECT id FROM instruments WHERE id = ?', [id]);
+    if (!inst) throw notFound('Instrumento');
+    const [[row]] = await pool.query("SELECT * FROM company_profiles WHERE instrument_id = ? AND status = 'ok' AND fetched_at IS NOT NULL", [id]);
+    const latest = (await latestQuotes(pool, [id])).get(id);
+    const meta = { fetchedAt: row?.fetched_at?.toISOString() ?? null, source: 'Yahoo Finance' };
+    if (!row || !latest) return { valuation: null, ...meta };
+    const financials = parseFinancials(row.financials);
+    const [peerRows] = row.sector ? await pool.query(
+      `SELECT p.* FROM company_profiles p JOIN instruments i ON i.id = p.instrument_id
+        WHERE p.sector = ? AND p.status = 'ok' AND p.fetched_at IS NOT NULL AND i.status = 'active' AND p.instrument_id <> ?`,
+      [row.sector, id],
+    ) : [[]];
+    const peerQuotes = await latestQuotes(pool, peerRows.map((r) => r.instrument_id));
+    const peers = peerRows.filter((r) => peerQuotes.has(Number(r.instrument_id)))
+      .map((r) => ({ row: r, close: peerQuotes.get(Number(r.instrument_id)).close }));
+    const firstYear = financials.find((f) => f.dilutedEps != null)?.year;
+    const [closes] = firstYear ? await pool.query(
+      'SELECT session_date AS date, close FROM daily_quotes WHERE instrument_id = ? AND session_date >= ? ORDER BY session_date',
+      [id, `${firstYear + 1}-04-01`],
+    ) : [[]];
+    return {
+      valuation: valuation({ row, close: latest.close, closeDate: latest.date, financials, closes, peers }),
+      ...meta,
+    };
   });
 
   app.get('/instruments/:id', {

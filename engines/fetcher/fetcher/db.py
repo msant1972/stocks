@@ -332,6 +332,9 @@ PROFILE_FIELDS = [
     "long_name", "summary", "sector", "industry", "country", "city", "website", "employees", "currency", "financial_currency",
     "market_cap", "trailing_pe", "forward_pe", "price_to_book", "dividend_yield", "beta", "eps", "profit_margin",
     "return_on_equity", "debt_to_equity", "high_52w", "low_52w",
+    "ref_price", "enterprise_value", "enterprise_to_ebitda", "ebitda", "total_debt", "total_cash", "shares_outstanding",
+    "free_cashflow", "book_value", "forward_eps", "earnings_growth", "revenue_growth", "payout_ratio",
+    "target_mean", "target_median", "target_low", "target_high", "analyst_count", "recommendation_key", "recommendation_mean",
 ]
 
 
