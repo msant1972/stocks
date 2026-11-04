@@ -27,7 +27,7 @@ export async function openSession(pool, cfg, userId) {
   const client = createSaxoClient({
     baseUrl: environment === 'live' ? cfg.saxo.liveUrl : cfg.saxo.simUrl,
     token, fetchImpl: cfg.saxo.fetchImpl, timeoutMs: cfg.saxo.timeoutMs, sleep: cfg.saxo.sleep ?? undefined,
-    onUnauthorized: () => pool.query('UPDATE user_integration_tokens SET rejected_at = NOW(3) WHERE user_id = ? AND provider = ?', [userId, PROVIDER]),
+    onUnauthorized: () => pool.query('UPDATE user_integration_tokens SET rejected_at = NOW(3), updated_at = updated_at WHERE user_id = ? AND provider = ?', [userId, PROVIDER]),
   });
   return { client, environment, userId };
 }
@@ -309,6 +309,11 @@ async function markEnded(pool, userId, id) {
 /** Ordens do utilizador; as abertas são confrontadas com as ordens abertas da SAXO (as que desapareceram passam a «ended»). */
 export async function listOrders(pool, session, { limit = 50, offset = 0 } = {}) {
   const userId = session.userId;
+  // Um envio que ficou a meio (a API reiniciou) não pode ficar «a enviar» para sempre: passa a «por confirmar».
+  await pool.query(
+    "UPDATE saxo_orders SET status = 'unknown', message = 'envio interrompido: confirme na SAXO se a ordem foi aceite' WHERE user_id = ? AND status = 'sending' AND created_at < NOW(3) - INTERVAL 2 MINUTE",
+    [userId],
+  );
   let refreshError = null;
   let ended = 0; // ordens que passaram a «ended» nesta consulta (geram aviso)
   const [open] = await pool.query("SELECT id, saxo_order_id FROM saxo_orders WHERE user_id = ? AND status = 'working'", [userId]);

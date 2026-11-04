@@ -149,6 +149,27 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     expect((await ana.get('/me/integrations/saxo')).json().expired).toBe(true);
   });
 
+  it('marcar o token como recusado não altera a data em que foi guardado', async () => {
+    await ctx.pool.query("UPDATE user_integration_tokens SET updated_at = '2026-01-01 10:00:00.000'");
+    useSaxo({ 'GET /port/v1/accounts/me': { status: 401, body: {} } });
+    await ana.get('/saxo/connection');
+    const s = (await ana.get('/me/integrations/saxo')).json();
+    expect(s.expired).toBe(true);
+    expect(s.updatedAt).toBe('2026-01-01T10:00:00.000Z');
+  });
+
+  it('um envio que ficou a meio passa a «por confirmar»; os recentes não mexem', async () => {
+    const row = (key, age) => ctx.pool.query(
+      "INSERT INTO saxo_orders (user_id, instrument_id, idempotency_key, side, quantity, order_type, status, created_at) VALUES (?, ?, ?, 'buy', 1, 'market', 'sending', NOW(3) - INTERVAL ? SECOND)",
+      [anaId, galp, key, age],
+    );
+    await row('envio-antigo-aaaa', 300);
+    await row('envio-recente-aaaa', 5);
+    const items = (await ana.get('/saxo/orders')).json().items;
+    expect(items.map((o) => o.status).sort()).toEqual(['sending', 'unknown']);
+    expect(items.find((o) => o.status === 'unknown').message).toMatch(/confirme na SAXO/);
+  });
+
   it('recusa tokens da conta real enquanto STOCKS_SAXO_ALLOW_LIVE não estiver activo', async () => {
     await ctx.pool.query("UPDATE user_integration_tokens SET environment = 'live'");
     const f = useSaxo();

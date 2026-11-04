@@ -1,7 +1,5 @@
 from alerts import saxo
 
-from .conftest import FakeMailer
-
 
 def make_notification(db, user_id, limit="30.46", order_type="limit"):
     galp = db.instrument(f"DBK{user_id}{limit}.DE")
