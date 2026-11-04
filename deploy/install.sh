@@ -100,6 +100,9 @@ done
 step "API e frontend"
 (cd "$APP/api" && npm ci --omit=dev --no-audit --no-fund --loglevel=error)
 (cd "$APP/frontend" && npm ci --no-audit --no-fund --loglevel=error && npm run build --silent && rm -rf node_modules)
+# O npm, a correr como root, mantém o dono dos ficheiros dos pacotes (por vezes o uid 1000): tudo para root, para que
+# nenhum utilizador do servidor possa alterar código que a API executa.
+chown -R root:root "$APP/api/node_modules" "$APP/frontend/dist"
 
 step "Migrações da base de dados"
 DATABASE_URL="mysql://${STOCKS_DB_USER}:${STOCKS_DB_PASSWORD}@${STOCKS_DB_HOST}:${STOCKS_DB_PORT}/${STOCKS_DB_NAME}" \
