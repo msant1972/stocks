@@ -14,6 +14,22 @@
  * Tudo é indicativo e não é uma recomendação de investimento.
  */
 
+const num0 = (v) => (v == null ? null : Number(v));
+
+/** Contas anuais guardadas em JSON (company_profiles.financials), com números; anos inválidos ignorados. */
+export function parseFinancials(text) {
+  try {
+    const rows = JSON.parse(text ?? '[]');
+    return Array.isArray(rows) ? rows.filter((r) => Number.isInteger(r?.year)).map((r) => ({
+      year: r.year, revenue: num0(r.revenue), operatingIncome: num0(r.operatingIncome), netIncome: num0(r.netIncome), ebitda: num0(r.ebitda),
+      dilutedEps: num0(r.dilutedEps), freeCashFlow: num0(r.freeCashFlow), equity: num0(r.equity), shares: num0(r.shares),
+    })) : [];
+  } catch {
+    return [];
+  }
+}
+
+
 export const THRESHOLDS = Object.freeze({
   sectorCheap: 0.67, sectorExpensive: 0.33, minPeers: 5,
   historyMinPoints: 250, analystsMin: 3, analystsCheap: 0.15, analystsExpensive: 0,

@@ -258,6 +258,18 @@ describe.skipIf(!hasTestDb)('perfil da empresa', () => {
     expect(['cheap', 'fair', 'expensive']).toContain(v.summary.verdict);
   });
 
+  it('lista de valorizações (Pechinchas) com filtro pelo veredicto', async () => {
+    const all = (await ana.get('/valuations')).json();
+    expect(all.items.length).toBeGreaterThanOrEqual(6);
+    const edp = all.items.find((r) => r.symbol === 'EDP.LS');
+    expect(edp).toMatchObject({ sector: 'Utilities', price: 10, analysts: 5, criteria: { sector: 'fair', analysts: 'cheap' } }); // P/E o mais barato, P/B e dividendo iguais aos pares
+    expect(edp.upside).toBeCloseTo(0.3);
+    const cheap = (await ana.get('/valuations?verdict=cheap')).json().items;
+    expect(cheap.every((r) => r.verdict === 'cheap')).toBe(true);
+    expect(cheap.map((r) => r.symbol)).toContain('EDP.LS');
+    expect((await ana.get('/valuations?verdict=x')).statusCode).toBe(400);
+  });
+
   it('um perfil marcado «sem dados» devolve profile null', async () => {
     await ctx.pool.query("UPDATE company_profiles SET status = 'missing'");
     expect((await ana.get(`/instruments/${galp}/profile`)).json().profile).toBeNull();

@@ -9,7 +9,8 @@ import {
   UnexpectedFormatError, UpstreamError,
 } from '../orderbook/index.js';
 import { latestQuotes } from '../services/quotes.js';
-import { annualEps, valuation } from '../valuation.js';
+import { annualEps, parseFinancials, valuation } from '../valuation.js';
+import { allValuations } from '../services/valuations.js';
 
 export function mapInstrument(r, quotes) {
   const id = Number(r.id);
@@ -31,17 +32,6 @@ export const INSTRUMENT_SELECT = `
 
 
 const num = (v) => (v == null ? null : Number(v));
-export function parseFinancials(text) {
-  try {
-    const rows = JSON.parse(text ?? '[]');
-    return Array.isArray(rows) ? rows.filter((r) => Number.isInteger(r?.year)).map((r) => ({
-      year: r.year, revenue: num(r.revenue), operatingIncome: num(r.operatingIncome), netIncome: num(r.netIncome), ebitda: num(r.ebitda),
-      dilutedEps: num(r.dilutedEps), freeCashFlow: num(r.freeCashFlow), equity: num(r.equity), shares: num(r.shares),
-    })) : [];
-  } catch {
-    return [];
-  }
-}
 
 export function mapProfile(r) {
   return {
@@ -100,6 +90,14 @@ const ValuationResponse = z.object({
   }).nullable(),
   fetchedAt: z.string().nullable(),
   source: z.string(),
+});
+
+const ValuationRow = z.object({
+  instrumentId: z.number(), symbol: z.string(), name: z.string().nullable(), exchange: z.string().nullable(), sector: z.string().nullable(),
+  price: N, priceDate: z.string().nullable(), currency: z.string().nullable(),
+  verdict: z.enum(['cheap', 'fair', 'expensive', 'insufficient']), cheap: z.number(), expensive: z.number(), total: z.number(),
+  criteria: z.object({ sector: Verdict, history: Verdict, analysts: Verdict, graham: Verdict }),
+  pe: N, sectorPe: N, sectorScore: N, dividendYield: N, upside: N, analysts: z.number(), grahamGap: N,
 });
 
 const MAX_QUOTE_ROWS = 1500;
@@ -239,6 +237,19 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     if (!inst) throw notFound('Instrumento');
     const [[r]] = await pool.query('SELECT * FROM company_profiles WHERE instrument_id = ?', [req.params.id]);
     return { profile: r && r.status === 'ok' && r.fetched_at ? mapProfile(r) : null, fetchedAt: r?.fetched_at?.toISOString() ?? null, source: 'Yahoo Finance' };
+  });
+
+  app.get('/valuations', {
+    schema: {
+      tags: ['Instrumentos'], summary: 'Valorização indicativa de todos os instrumentos activos com perfil (página «Pechinchas»)',
+      description: 'Mesmas regras de /instruments/{id}/valuation, resumidas por instrumento. `verdict` filtra pelo veredicto global. '
+        + 'upside e grahamGap em fracção; dividendYield em percentagem.',
+      querystring: z.object({ verdict: z.enum(['cheap', 'fair', 'expensive', 'insufficient']).optional() }),
+      response: { 200: z.object({ items: z.array(ValuationRow), source: z.string() }) },
+    },
+  }, async (req) => {
+    const rows = await allValuations(pool);
+    return { items: req.query.verdict ? rows.filter((r) => r.verdict === req.query.verdict) : rows, source: 'Yahoo Finance' };
   });
 
   app.get('/instruments/:id/valuation', {

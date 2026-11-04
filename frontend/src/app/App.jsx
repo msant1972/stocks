@@ -24,6 +24,7 @@ const ComparePage = lazy(() => import('../features/compare/ComparePage.jsx'));
 const BacktestPage = lazy(() => import('../features/backtest/BacktestPage.jsx'));
 const WinnersLosersPage = lazy(() => import('../features/winners/WinnersLosersPage.jsx'));
 const PromessasPage = lazy(() => import('../features/promessas/PromessasPage.jsx'));
+const PechinchasPage = lazy(() => import('../features/pechinchas/PechinchasPage.jsx'));
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage.jsx'));
 const UsersPage = lazy(() => import('../features/users/UsersPage.jsx'));
 
@@ -61,6 +62,7 @@ export default function App() {
           <Route path="comparar" element={<ComparePage />} />
           <Route path="winners-loosers" element={<WinnersLosersPage />} />
           <Route path="promessas" element={<PromessasPage />} />
+          <Route path="pechinchas" element={<PechinchasPage />} />
           <Route path="alertas" element={<AlertsPage />} />
           <Route path="utilizadores" element={<UsersPage />} />
           <Route path="definicoes" element={<SettingsPage />} />

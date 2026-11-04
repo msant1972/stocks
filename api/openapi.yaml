@@ -1388,6 +1388,159 @@ paths:
                 required:
                   - error
                 additionalProperties: false
+  /api/v1/valuations:
+    get:
+      summary: Valorização indicativa de todos os instrumentos activos com perfil
+        (página «Pechinchas»)
+      tags:
+        - Instrumentos
+      description: Mesmas regras de /instruments/{id}/valuation, resumidas por
+        instrumento. `verdict` filtra pelo veredicto global. upside e grahamGap
+        em fracção; dividendYield em percentagem.
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - cheap
+              - fair
+              - expensive
+              - insufficient
+          in: query
+          name: verdict
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        exchange:
+                          nullable: true
+                          type: string
+                        sector:
+                          nullable: true
+                          type: string
+                        price:
+                          nullable: true
+                          type: number
+                        priceDate:
+                          nullable: true
+                          type: string
+                        currency:
+                          nullable: true
+                          type: string
+                        verdict:
+                          type: string
+                          enum:
+                            - cheap
+                            - fair
+                            - expensive
+                            - insufficient
+                        cheap:
+                          type: number
+                        expensive:
+                          type: number
+                        total:
+                          type: number
+                        criteria:
+                          type: object
+                          properties:
+                            sector:
+                              nullable: true
+                              type: string
+                              enum:
+                                - cheap
+                                - fair
+                                - expensive
+                            history:
+                              nullable: true
+                              type: string
+                              enum:
+                                - cheap
+                                - fair
+                                - expensive
+                            analysts:
+                              nullable: true
+                              type: string
+                              enum:
+                                - cheap
+                                - fair
+                                - expensive
+                            graham:
+                              nullable: true
+                              type: string
+                              enum:
+                                - cheap
+                                - fair
+                                - expensive
+                          required:
+                            - sector
+                            - history
+                            - analysts
+                            - graham
+                          additionalProperties: false
+                        pe:
+                          nullable: true
+                          type: number
+                        sectorPe:
+                          nullable: true
+                          type: number
+                        sectorScore:
+                          nullable: true
+                          type: number
+                        dividendYield:
+                          nullable: true
+                          type: number
+                        upside:
+                          nullable: true
+                          type: number
+                        analysts:
+                          type: number
+                        grahamGap:
+                          nullable: true
+                          type: number
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - exchange
+                        - sector
+                        - price
+                        - priceDate
+                        - currency
+                        - verdict
+                        - cheap
+                        - expensive
+                        - total
+                        - criteria
+                        - pe
+                        - sectorPe
+                        - sectorScore
+                        - dividendYield
+                        - upside
+                        - analysts
+                        - grahamGap
+                      additionalProperties: false
+                  source:
+                    type: string
+                required:
+                  - items
+                  - source
+                additionalProperties: false
   /api/v1/instruments/{id}/valuation:
     get:
       summary: Valorização indicativa (sector, história do P/E, analistas, Graham, DCF

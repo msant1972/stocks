@@ -44,6 +44,7 @@ const NAV_GROUPS = [
       { to: '/comparar', label: 'Comparar', icon: 'compare' },
       { to: '/winners-loosers', label: 'WinnersLoosers', icon: 'winners' },
       { to: '/promessas', label: 'Promessas', icon: 'promise' },
+      { to: '/pechinchas', label: 'Pechinchas', icon: 'bargain' },
     ],
   },
   {
