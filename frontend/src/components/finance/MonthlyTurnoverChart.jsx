@@ -40,7 +40,7 @@ export default function MonthlyTurnoverChart({ months }) {
           <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="2 4" />
           <XAxis dataKey="month" tickFormatter={(m) => monthLabel(m).replace('.', '')} minTickGap={8} interval="preserveStartEnd"
             tickLine={false} axisLine={false} tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
-          <YAxis width={56} tickFormatter={axisMoney} tickLine={false} axisLine={false}
+          <YAxis width={64} tickFormatter={axisMoney} tickLine={false} axisLine={false}
             tick={{ fontSize: 12, fill: 'var(--text-secondary)' }} />
           <Tooltip content={<Tip />} cursor={{ fill: 'var(--surface-muted)' }} />
           <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={40} isAnimationActive={false} stroke="var(--surface)" strokeWidth={1}>

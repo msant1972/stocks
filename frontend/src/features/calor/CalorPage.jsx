@@ -14,6 +14,7 @@ const lisbonToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/L
 /** Valor mensal negociado: histograma com os meses coloridos pelo quartil e tabela dos totais. */
 function MonthlySection({ months }) {
   const hottest = months.filter((m) => m.rank != null && m.rank <= 3).sort((a, b) => a.rank - b.rank);
+  const sessions = months.filter((m) => !m.partial).map((m) => m.sessions);
   return (
     <section className="card" aria-labelledby="calor-month-title">
       <div className="card-head">
@@ -38,7 +39,7 @@ function MonthlySection({ months }) {
       </Suspense>
       <p className="small muted" style={{ margin: '0.5rem 0 0' }}>
         A cor diz o quartil do mês entre os meses completos: «Muito quente» são os 25 % com mais valor negociado e «Frio» os 25 % com menos.
-        Os meses têm entre 19 e 23 sessões; a média por sessão está na tabela.
+        {sessions.length > 0 && <>Os meses completos têm entre {Math.min(...sessions)} e {Math.max(...sessions)} sessões; a média por sessão está na tabela.</>}
       </p>
       <details style={{ marginTop: '0.75rem' }}>
         <summary className="small">Ver os dados</summary>
