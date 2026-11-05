@@ -38,7 +38,7 @@ function MonthlySection({ months }) {
         <MonthlyTurnoverChart months={months} />
       </Suspense>
       <p className="small muted" style={{ margin: '0.5rem 0 0' }}>
-        A cor diz o quartil do mês entre os meses completos: «Muito quente» são os 25 % com mais valor negociado e «Frio» os 25 % com menos.
+        A cor diz o quartil do mês entre os meses completos: «Muito quente» são os 25 % com mais valor negociado e «Frio» os 25 % com menos.{' '}
         {sessions.length > 0 && <>Os meses completos têm entre {Math.min(...sessions)} e {Math.max(...sessions)} sessões; a média por sessão está na tabela.</>}
       </p>
       <details style={{ marginTop: '0.75rem' }}>

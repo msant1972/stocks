@@ -16,7 +16,9 @@ describe('valor negociado (Calor)', () => {
     const dates = days(1000);
     const rows = dates.map((date, i) => ({ date, value: String(i + 1), instruments: 3 }));
     const s = turnoverSeries(rows, { years: 2, smaN: 200 });
-    expect(s[0].date > yearsBeforeIso(dates.at(-1), 2)).toBe(true);
+    // última data 2025-09-27 → a janela começa no dia 1 do mês de há 2 anos, para o mês ficar completo
+    expect(dates.at(-1)).toBe('2025-09-27');
+    expect(s[0].date).toBe('2023-09-01');
     expect(s.at(-1)).toEqual({ date: dates.at(-1), value: 1000, sma200: Math.round((801 + 1000) / 2), instruments: 3 });
     expect(s.every((p) => p.sma200 != null)).toBe(true); // havia mais de 200 sessões antes da janela
   });

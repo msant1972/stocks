@@ -3,7 +3,8 @@
  *
  * Por instrumento e sessão: VN = volume × (abertura + mínimo + máximo + fecho) / 4, em preços reais (não ajustados).
  * Por sessão: soma de todos os instrumentos activos. A SMA200 é calculada sobre a série completa e só depois se
- * recorta a janela pedida, para os primeiros pontos da janela já terem média.
+ * recorta a janela pedida, para os primeiros pontos da janela já terem média. A janela começa no dia 1 do mês de há
+ * `years` anos, para o primeiro mês do histograma mensal ficar completo.
  */
 
 export const TURNOVER_SQL = `
@@ -24,7 +25,7 @@ export function yearsBeforeIso(iso, years) {
 }
 
 /**
- * Série da janela: [{ date, value, sma200, instruments }] (value e sma200 em euros, sma200 null sem 200 sessões).
+ * Série da janela (do dia 1 do mês de há `years` anos até à última sessão): [{ date, value, sma200, instruments }] (value e sma200 em euros, sma200 null sem 200 sessões).
  * rows: sessões por ordem cronológica, com o histórico anterior à janela para aquecer a média.
  */
 export function turnoverSeries(rows, { years = 2, smaN = 200 } = {}) {
@@ -32,11 +33,11 @@ export function turnoverSeries(rows, { years = 2, smaN = 200 } = {}) {
   const values = rows.map((r) => Number(r.value) || 0);
   const out = [];
   let sum = 0;
-  const from = yearsBeforeIso(rows.at(-1).date, years);
+  const from = `${yearsBeforeIso(rows.at(-1).date, years).slice(0, 7)}-01`;
   for (let i = 0; i < rows.length; i += 1) {
     sum += values[i];
     if (i >= smaN) sum -= values[i - smaN];
-    if (rows[i].date <= from) continue;
+    if (rows[i].date < from) continue;
     out.push({
       date: rows[i].date, value: Math.round(values[i]),
       sma200: i >= smaN - 1 ? Math.round(sum / smaN) : null,
