@@ -92,8 +92,6 @@ export function normaliseLimit(text) {
  */
 export const defaultLimit = (price) => (Number(price) > 0 ? String(Number(Number(price).toFixed(4))) : '');
 
-/** Segundos que faltam para se poder confirmar (a SAXO só aceita 1 pedido/s a ordens). */
-export const confirmWaitMs = (previewedAt, now = Date.now(), minMs = 1100) => Math.max(0, previewedAt + minMs - now);
 
 // ---------- Correspondência do catálogo com a SAXO ----------
 

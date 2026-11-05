@@ -159,10 +159,14 @@ export default async function saxoRoutes(app, { pool, cfg }) {
   app.post('/saxo/orders', {
     config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     schema: {
-      tags: ['SAXO'], summary: 'Enviar uma ordem pré-validada para a SAXO Bank',
-      description: 'Exige o código de confirmação da pré-validação com os mesmos parâmetros. Repetir a idempotencyKey devolve a ordem original.',
+      tags: ['SAXO'], summary: 'Enviar uma ordem para a SAXO Bank',
+      description: 'Envio directo: a API aplica as verificações (instrumento, negociável, tipo de ordem, passo de preço, stop, quantidade) '
+        + 'e a SAXO valida a ordem ao recebê-la; uma recusa fica com o estado rejected e a mensagem da SAXO. Opcionalmente, '
+        + '`confirmation` de POST /saxo/orders/preview liga o envio aos parâmetros pré-validados; na conta real é obrigatório '
+        + '(409 SAXO_CONFIRMATION_REQUIRED). Várias correspondências: 409 SAXO_AMBIGUOUS com os candidatos. Repetir a '
+        + 'idempotencyKey devolve a ordem original.',
       body: OrderParams.extend({
-        confirmation: z.string().min(10).max(200),
+        confirmation: z.string().min(10).max(200).optional(),
         idempotencyKey: z.string().min(8).max(64).regex(/^[A-Za-z0-9_-]+$/),
       }),
       response: { 200: z.object({ order: Order, replayed: z.boolean() }), 201: z.object({ order: Order, replayed: z.boolean() }), 400: ErrorBody, ...Errors },

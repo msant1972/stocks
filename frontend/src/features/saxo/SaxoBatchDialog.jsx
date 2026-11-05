@@ -8,27 +8,26 @@ import { Button, Dialog, Notice } from '../../components/ui/controls.jsx';
 import { SIM_BANNER } from './SaxoOrderDialog.jsx';
 
 const STATE = {
-  idle: 'Por pré-validar', checking: 'A pré-validar…', ok: 'Pré-validada', problem: 'Recusada pela SAXO', error: 'Erro',
-  sending: 'A enviar…', sent: 'Enviada', failed: 'Não enviada', skip: 'Ignorada',
+  idle: 'Por enviar', sending: 'A enviar…', sent: 'Enviada', failed: 'Não enviada', skip: 'Ignorada',
 };
-const TONE = { ok: 'badge-accent', sent: 'badge-positive', problem: 'badge-warning', error: 'badge-negative', failed: 'badge-negative' };
+const TONE = { sent: 'badge-positive', failed: 'badge-negative' };
 
 /**
- * Sinais → ordens para a SAXO, em lote e sempre com confirmação: uma ordem limitada por instrumento (ao último preço),
- * pré-validadas uma a uma (pela aplicação; com stop também pela SAXO, que aceita 1 pedido/s), e só as escolhidas são
- * enviadas, também uma a uma.
+ * Sinais → ordens para a SAXO, em lote: uma ordem limitada por instrumento (ao último preço); «Confirmar e enviar» envia as
+ * escolhidas uma a uma (a SAXO aceita 1 por segundo). A API verifica cada ordem e a SAXO valida-a ao recebê-la; um preço
+ * fora do passo de preço é corrigido com a sugestão e enviado de novo.
  */
 export default function SaxoBatchDialog({ open, onClose, signals, budget, strategyName }) {
   const qc = useQueryClient();
   const portfolio = useQuery({ queryKey: ['saxo-portfolio'], queryFn: () => api.get('/saxo/portfolio'), enabled: open, retry: false, refetchOnWindowFocus: false });
   const [rows, setRows] = useState([]);
   const [withStop, setWithStop] = useState(false);
-  const [running, setRunning] = useState(null); // 'check' | 'send'
+  const [running, setRunning] = useState(false);
   // A lista de sinais lê-se só ao abrir (a página recria-a a cada render).
   const signalsRef = useRef(signals);
   signalsRef.current = signals;
 
-  // As linhas montam-se uma vez por abertura: um refetch da carteira não apaga as pré-validações.
+  // As linhas montam-se uma vez por abertura: um refetch da carteira não apaga o estado dos envios.
   const loaded = useRef(false);
   useEffect(() => {
     if (!open) { loaded.current = false; return; }
@@ -36,9 +35,9 @@ export default function SaxoBatchDialog({ open, onClose, signals, budget, strate
     loaded.current = true;
     setRows(signalsToOrders(signalsRef.current, portfolio.data.positions, budget).map((o) => ({
       ...o, key: newIdempotencyKey(), selected: !o.skip, state: o.skip ? 'skip' : 'idle', limitPrice: defaultLimit(o.price),
-      stopPrice: defaultStop(o.price).price, preview: null, message: o.skip,
+      stopPrice: defaultStop(o.price).price, message: o.skip,
     })));
-    setRunning(null);
+    setRunning(false);
   }, [open, portfolio.data, budget]);
 
   const update = (i, patch) => setRows((rs) => rs.map((r, j) => (j === i ? { ...r, ...patch } : r)));
@@ -47,49 +46,34 @@ export default function SaxoBatchDialog({ open, onClose, signals, budget, strate
     ...(withStop && r.side === 'buy' ? { stop: { type: 'stop', price: r.stopPrice } } : {}),
   });
 
-  async function checkAll() {
-    setRunning('check');
+  async function sendAll() {
+    setRunning(true);
     for (const [i, r0] of rows.entries()) {
-      if (!r0.selected || r0.skip) continue;
+      if (!r0.selected || !['idle', 'failed'].includes(r0.state)) continue;
       let r = { ...r0 };
-      update(i, { state: 'checking', message: null });
-      // Um preço fora do passo de preço é corrigido uma vez com a sugestão da SAXO (limite ou stop).
+      update(i, { state: 'sending', message: null });
+      // Um preço fora do passo de preço é corrigido com a sugestão da API (limite ou stop) e enviado de novo.
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          const p = await api.post('/saxo/orders/preview', params(r));
-          update(i, { ...r, preview: p, state: p.ok ? 'ok' : 'problem', message: p.ok ? null : p.problem });
+          const res = await api.post('/saxo/orders', { ...params(r), idempotencyKey: r.key });
+          update(i, { ...r, state: 'sent', message: res.order.saxoOrderId ? `SAXO ${res.order.saxoOrderId}` : null });
           break;
         } catch (err) {
           if (err.code === 'SAXO_TICK_SIZE' && err.details?.suggested && attempt < 2) {
             r = err.details.field === 'stop' ? { ...r, stopPrice: err.details.suggested } : { ...r, limitPrice: err.details.suggested };
             continue;
           }
-          update(i, { ...r, state: 'error', message: errorMessage(err) });
+          // Recusada pela SAXO (já registada como ordem recusada) ou outro erro: tentar de novo é uma ordem nova.
+          update(i, { ...r, state: 'failed', message: errorMessage(err), key: err.status ? newIdempotencyKey() : r.key });
           break;
         }
       }
     }
-    setRunning(null);
-  }
-
-  async function sendAll() {
-    setRunning('send');
-    for (const [i, r] of rows.entries()) {
-      if (!r.selected || r.state !== 'ok') continue;
-      update(i, { state: 'sending' });
-      try {
-        const res = await api.post('/saxo/orders', { ...params(r), confirmation: r.preview.confirmation, idempotencyKey: r.key });
-        update(i, { state: 'sent', message: res.order.saxoOrderId ? `SAXO ${res.order.saxoOrderId}` : null });
-      } catch (err) {
-        update(i, { state: 'failed', message: errorMessage(err) });
-      }
-    }
     qc.invalidateQueries({ queryKey: ['saxo-orders'] });
-    setRunning(null);
+    setRunning(false);
   }
 
-  const ready = rows.filter((r) => r.selected && r.state === 'ok').length;
-  const pending = rows.filter((r) => r.selected && ['idle', 'error', 'problem'].includes(r.state)).length;
+  const ready = rows.filter((r) => r.selected && ['idle', 'failed'].includes(r.state)).length;
   const sent = rows.filter((r) => r.state === 'sent').length;
 
   return (
@@ -99,11 +83,11 @@ export default function SaxoBatchDialog({ open, onClose, signals, budget, strate
         <>
           <p className="small muted">
             Uma ordem limitada por instrumento, ao último preço: compras e reforços pelo orçamento da estratégia ({f.money(budget, 'EUR', 0)}),
-            vendas de tudo o que a conta SAXO tem. Pré-valide primeiro (sem stop é imediato: a SAXO valida as ordens no envio; com stop
-            a SAXO pré-valida cada uma, cerca de 1 s por ordem); depois escolha as ordens a enviar.
+            vendas de tudo o que a conta SAXO tem. Escolha as ordens e carregue em «Confirmar e enviar»: seguem uma a uma (cerca de 1 s
+            cada) e a SAXO valida cada ordem ao recebê-la; as que recusar aparecem como «Não enviada», com o motivo.
           </p>
           <label className="row small" style={{ gap: '0.5rem' }}>
-            <input type="checkbox" checked={withStop} disabled={Boolean(running) || rows.some((r) => r.preview)} onChange={(e) => setWithStop(e.target.checked)} />
+            <input type="checkbox" checked={withStop} disabled={running || rows.some((r) => r.state !== 'idle' && r.state !== 'skip')} onChange={(e) => setWithStop(e.target.checked)} />
             Proteger as compras com um stop fixo {DEFAULT_STOP_PCT} % abaixo
           </label>
           {rows.length === 0 ? <p className="small muted">Não há sinais na lista actual.</p> : (
@@ -119,7 +103,7 @@ export default function SaxoBatchDialog({ open, onClose, signals, budget, strate
                   {rows.map((r, i) => (
                     <tr key={r.signal.instrumentId}>
                       <td>
-                        <input type="checkbox" aria-label={`Incluir ${r.signal.symbol}`} checked={r.selected} disabled={Boolean(r.skip) || Boolean(running) || ['sent', 'sending'].includes(r.state)}
+                        <input type="checkbox" aria-label={`Incluir ${r.signal.symbol}`} checked={r.selected} disabled={Boolean(r.skip) || running || ['sent', 'sending'].includes(r.state)}
                           onChange={(e) => update(i, { selected: e.target.checked })} />
                       </td>
                       <td>{r.signal.symbol}</td>
@@ -139,9 +123,8 @@ export default function SaxoBatchDialog({ open, onClose, signals, budget, strate
           )}
           {sent > 0 && <Notice tone="info">{sent} {sent === 1 ? 'ordem enviada' : 'ordens enviadas'}. <Link to="/saxo/ordens" onClick={onClose}>Ver ordens SAXO</Link></Notice>}
           <div className="modal-actions">
-            <Button onClick={onClose} disabled={Boolean(running)}>Fechar</Button>
-            <Button onClick={checkAll} busy={running === 'check'} disabled={Boolean(running) || pending === 0}>Pré-validar ({pending})</Button>
-            <Button variant="primary" onClick={sendAll} busy={running === 'send'} disabled={Boolean(running) || ready === 0}>Confirmar e enviar {ready} {ready === 1 ? 'ordem' : 'ordens'}</Button>
+            <Button onClick={onClose} disabled={running}>Fechar</Button>
+            <Button variant="primary" onClick={sendAll} busy={running} disabled={running || ready === 0}>Confirmar e enviar {ready} {ready === 1 ? 'ordem' : 'ordens'}</Button>
           </div>
         </>
       )}

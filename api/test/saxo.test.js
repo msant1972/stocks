@@ -276,6 +276,39 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     expect(JSON.stringify(audits)).not.toContain(TOKEN);
   });
 
+  it('envio directo (sem pré-validação): verifica, envia sem precheck e regista a ordem; repetir a chave devolve a original', async () => {
+    const f = useSaxo();
+    const key = `ordem-directa-${Date.now()}`;
+    const res = await ana.post('/saxo/orders', { ...base(), idempotencyKey: key });
+    expect(res.statusCode).toBe(201);
+    expect(res.json().order).toMatchObject({ saxoOrderId: '5041484162', status: 'working', side: 'buy', quantity: 10, orderType: 'limit', symbol: 'GALP.LS' });
+    expect(f.calls.some((c) => c.key === 'POST /trade/v2/orders/precheck')).toBe(false);
+    expect(f.calls.find((c) => c.key === 'POST /trade/v2/orders').body).toMatchObject({ Uic: 23737, Amount: 10, OrderType: 'Limit', OrderPrice: 9.5, ManualOrder: true });
+    const again = await ana.post('/saxo/orders', { ...base(), idempotencyKey: key });
+    expect(again.statusCode).toBe(200);
+    expect(again.json()).toMatchObject({ replayed: true, order: { id: res.json().order.id } });
+  });
+
+  it('envio directo: passo de preço errado → 422 com sugestão, sem enviar nada', async () => {
+    const f = useSaxo();
+    const res = await ana.post('/saxo/orders', { ...base(), limitPrice: '9.5004', idempotencyKey: `ordem-tick-${Date.now()}` });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().error).toMatchObject({ code: 'SAXO_TICK_SIZE', details: { suggested: '9.5', field: 'limit' } });
+    expect(f.calls.some((c) => c.key === 'POST /trade/v2/orders')).toBe(false);
+  });
+
+  it('envio directo: instrumento ambíguo → 409 com os candidatos', async () => {
+    await ctx.pool.query('DELETE FROM saxo_instruments');
+    const two = fx('instruments-galp');
+    two.body.Data.push({ ...two.body.Data[0], Identifier: 999, Symbol: 'GALP:xmce', ExchangeId: 'SIBE' });
+    await ctx.pool.query('UPDATE instruments SET mic = NULL WHERE id = ?', [galp]);
+    useSaxo({ 'GET /ref/v1/instruments': two });
+    const res = await ana.post('/saxo/orders', { ...base(), idempotencyKey: `ordem-amb-${Date.now()}` });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error).toMatchObject({ code: 'SAXO_AMBIGUOUS' });
+    expect(res.json().error.details.candidates.map((c) => c.uic)).toEqual([23737, 999]);
+  });
+
   it('o código está ligado aos parâmetros: alterar quantidade, lado, preço ou tipo é recusado', async () => {
     const p = (await preview()).json();
     for (const change of [{ quantity: 11 }, { side: 'sell' }, { limitPrice: '9.6' }, { orderType: 'market' }]) {

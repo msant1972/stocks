@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage, newIdempotencyKey } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { budgetQuantity } from '../../lib/trade.js';
-import { confirmWaitMs, DEFAULT_STOP_PCT, defaultLimit, defaultStop, normaliseLimit } from '../../lib/saxo.js';
+import { DEFAULT_STOP_PCT, defaultLimit, defaultStop, normaliseLimit } from '../../lib/saxo.js';
 import { Button, Dialog, Field, Notice, Segmented } from '../../components/ui/controls.jsx';
 
 export const SIM_BANNER = 'Conta de simulação da SAXO Bank — não é dinheiro real.';
@@ -15,9 +15,9 @@ export const useSaxoStatus = () => useQuery({
 });
 
 /**
- * Envio de uma ordem para a conta de simulação da SAXO, sempre em duas fases: «Pré-validar» (a aplicação verifica a ordem e,
- * nas ordens a mercado ou com stop, também a SAXO) e «Confirmar e enviar» (com o código da pré-validação, ligado a estes
- * parâmetros). Só depois de um precheck da SAXO é preciso esperar 1 s (a SAXO aceita 1 pedido/s a ordens).
+ * Envio de uma ordem para a conta de simulação da SAXO num só passo: o resumo mostra-se enquanto se preenche e «Confirmar e
+ * enviar» envia logo. A API verifica a ordem (instrumento, tipo, passo de preço, stop, quantidade) e a SAXO valida-a ao
+ * recebê-la; uma recusa fica «recusada» em Ordens SAXO com a mensagem da SAXO.
  */
 export default function SaxoOrderDialog({ open, onClose, instrument, initialSide = 'buy', initialQuantity = null }) {
   const qc = useQueryClient();
@@ -31,12 +31,11 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
   const [stopText, setStopText] = useState('');
   const [distText, setDistText] = useState('');
   const [key, setKey] = useState(newIdempotencyKey);
-  const [prev, setPrev] = useState(null); // { data, at }
+  const [sentStop, setSentStop] = useState(null);
   const [candidates, setCandidates] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [receipt, setReceipt] = useState(null);
-  const [, tick] = useState(0);
   const start = useRef({});
   start.current = { qty: initialQuantity ?? (initialSide === 'buy' ? budgetQuantity(price) : 1), limit: defaultLimit(price), stop: defaultStop(price) };
 
@@ -44,7 +43,7 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
     if (open) {
       setSide(initialSide); setQtyText(String(Math.max(1, start.current.qty || 1))); setOrderType('limit'); setLimitText(start.current.limit);
       setStopOn(false); setStopType('stop'); setStopText(start.current.stop.price); setDistText(start.current.stop.distance);
-      setKey(newIdempotencyKey()); setPrev(null); setCandidates(null); setError(null); setReceipt(null); setBusy(false);
+      setKey(newIdempotencyKey()); setSentStop(null); setCandidates(null); setError(null); setReceipt(null); setBusy(false);
     }
   }, [open, initialSide, initialQuantity, instrument?.id]);
 
@@ -64,35 +63,15 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
     instrumentId: instrument.id, side, quantity: qty, orderType, ...(orderType === 'limit' ? { limitPrice: limit } : {}),
     ...(withStop ? { stop: stopType === 'stop' ? { type: 'stop', price: stopPrice } : { type: 'trailing', distance } } : {}),
   });
-  // Mudar qualquer parâmetro invalida a pré-validação (o código está ligado aos valores exactos).
-  const edit = (fn) => (v) => { fn(v); setPrev(null); setCandidates(null); setError(null); setKey(newIdempotencyKey()); };
-
-  const wait = prev?.data.prechecked ? confirmWaitMs(prev.at) : 0;
-  useEffect(() => {
-    if (!prev || wait <= 0) return undefined;
-    const t = setTimeout(() => tick((n) => n + 1), wait + 20);
-    return () => clearTimeout(t);
-  }, [prev, wait]);
-
-  async function validate() {
-    setBusy(true); setError(null); setCandidates(null);
-    try {
-      setPrev({ data: await api.post('/saxo/orders/preview', params()), at: Date.now() });
-    } catch (err) {
-      if (err.code === 'SAXO_AMBIGUOUS') setCandidates(err.details?.candidates ?? []);
-      setError(err);
-      setPrev(null);
-    } finally {
-      setBusy(false);
-    }
-  }
+  // Mudar qualquer parâmetro é uma ordem nova (nova chave de idempotência).
+  const edit = (fn) => (v) => { fn(v); setCandidates(null); setError(null); setKey(newIdempotencyKey()); };
 
   async function choose(uic) {
     setBusy(true); setError(null);
     try {
       await api.post(`/saxo/instruments/${instrument.id}/match`, { uic });
       setCandidates(null);
-      await validate();
+      await send();
     } catch (err) {
       setError(err); setBusy(false);
     }
@@ -101,19 +80,24 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
   async function send() {
     setBusy(true); setError(null);
     try {
-      const res = await api.post('/saxo/orders', { ...params(), confirmation: prev.data.confirmation, idempotencyKey: key });
+      const body = params();
+      const res = await api.post('/saxo/orders', { ...body, idempotencyKey: key });
+      setSentStop(body.stop ?? null);
       setReceipt(res.order);
       qc.invalidateQueries({ queryKey: ['saxo-orders'] });
     } catch (err) {
-      // Numa falha de rede mantém-se a chave: repetir não duplica a ordem.
+      // Numa falha de rede mantém-se a chave: repetir não duplica a ordem. Uma recusa da SAXO já ficou registada como ordem
+      // recusada: tentar de novo é uma ordem nova.
+      if (err.code === 'SAXO_AMBIGUOUS') setCandidates(err.details?.candidates ?? []);
       setError(err);
-      if (['SAXO_BAD_CONFIRMATION', 'SAXO_CONFIRMATION_EXPIRED', 'SAXO_DUPLICATE'].includes(err.code)) { setPrev(null); setKey(newIdempotencyKey()); }
+      if (err.code === 'SAXO_DUPLICATE' || err.code === 'SAXO_REJECTED' || err.status === 409) setKey(newIdempotencyKey());
     } finally {
       setBusy(false);
     }
   }
 
-  const p = prev?.data;
+  const refPrice = orderType === 'limit' ? Number(limit) : price;
+  const estimate = qty && refPrice > 0 ? qty * refPrice : null;
   const sideLabel = side === 'buy' ? 'compra' : 'venda';
   const typeLabel = orderType === 'limit' ? 'limitada' : 'a mercado';
   // «Usar …» do erro de passo de preço preenche o campo indicado pelo servidor.
@@ -134,11 +118,11 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
             <dt>Instrumento</dt><dd>{receipt.symbol}</dd>
             <dt>Ordem</dt><dd>{receipt.side === 'buy' ? 'Compra' : 'Venda'} de {f.quantity(receipt.quantity)} {receipt.orderType === 'limit' ? `a ${f.price(receipt.limitPrice)} (limitada)` : '(a mercado)'}</dd>
             <dt>Número na SAXO</dt><dd>{receipt.saxoOrderId}</dd>
-            {p?.stop && <><dt>Stop associado</dt><dd>{p.stop.type === 'stop' ? `a ${f.price(p.stop.price)}` : `móvel, ${f.price(p.stop.distance)} abaixo do mercado`}</dd></>}
+            {sentStop && <><dt>Stop associado</dt><dd>{sentStop.type === 'stop' ? `a ${f.price(sentStop.price)}` : `móvel, ${f.price(sentStop.distance)} abaixo do mercado`}</dd></>}
           </dl>
           <p className="small muted">
             É uma ordem do dia: se não for executada, expira no fim da sessão. Pode alterá-la ou cancelá-la em «Ordens SAXO».
-            {p?.stop ? ' O stop fica activo quando a compra for executada e mantém-se até ser cancelado.' : ''}
+            {sentStop ? ' O stop fica activo quando a compra for executada e mantém-se até ser cancelado.' : ''}
           </p>
           <div className="modal-actions">
             <Link className="button" to="/saxo/ordens" onClick={onClose}>Ver ordens SAXO</Link>
@@ -195,18 +179,14 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
             </div>
           )}
 
-          {p && (
+          {canPreview && (
             <dl className="summary-box" aria-live="polite">
-              <dt>Instrumento na SAXO</dt><dd>{p.instrument.saxoSymbol}{p.instrument.exchangeId ? ` (${p.instrument.exchangeId})` : ''}</dd>
-              <dt>Conta</dt><dd>{p.account.id}{p.account.isTrial ? ' · simulação' : ''}</dd>
-              <dt>Ordem</dt><dd>{sideLabel} {typeLabel} de {f.quantity(p.quantity)}</dd>
-              {p.limitPrice && <><dt>Preço limite</dt><dd>{f.price(p.limitPrice, p.currency)}</dd></>}
-              {p.stop && <><dt>Stop associado</dt><dd>{p.stop.type === 'stop' ? `a ${f.price(p.stop.price, p.currency)}` : `móvel, ${f.price(p.stop.distance, p.currency)} abaixo (começa em ${f.price(p.stop.price, p.currency)})`}</dd></>}
-              <dt>Valor aproximado</dt><dd>{f.money(p.estimatedAmount, p.currency)}</dd>
-              <dt>Pré-validação</dt><dd>{p.prechecked ? (p.ok ? 'Aceite pela SAXO' : 'Recusada pela SAXO') : 'Verificada pela aplicação · a SAXO valida no envio'}</dd>
+              <dt>Ordem</dt><dd>{sideLabel} {typeLabel} de {f.quantity(qty)} {instrument.symbol}</dd>
+              {orderType === 'limit' && <><dt>Preço limite</dt><dd>{f.price(limit, instrument.currency || 'EUR')}</dd></>}
+              {withStop && <><dt>Stop associado</dt><dd>{stopType === 'stop' ? `a ${f.price(stopPrice, instrument.currency || 'EUR')}` : `móvel, ${f.price(distance, instrument.currency || 'EUR')} abaixo do mercado`}</dd></>}
+              <dt>Valor aproximado</dt><dd>{estimate == null ? '—' : f.money(estimate, instrument.currency || 'EUR')}</dd>
             </dl>
           )}
-          {p && !p.ok && <Notice tone="warning">{p.problem}</Notice>}
           {candidates && (
             <div className="stack" style={{ gap: '0.5rem' }}>
               <p className="small">Escolha o instrumento da SAXO que corresponde a {instrument.symbol}:</p>
@@ -228,22 +208,15 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
           )}
 
           <p className="small muted">
-            Primeiro pré-valide a ordem; só depois a pode confirmar. A aplicação verifica o instrumento, o tipo de ordem, o passo de
-            preço e a quantidade; as ordens a mercado e as com stop são também pré-validadas pela SAXO, e as restantes são validadas
-            pela SAXO no envio (se as recusar, ficam «recusadas» em Ordens SAXO). O valor é calculado com o preço da aplicação: a
-            conta de simulação não tem preços de mercado.
+            «Confirmar e enviar» envia logo a ordem. A aplicação verifica o instrumento, o tipo de ordem, o passo de preço e a
+            quantidade, e a SAXO valida a ordem ao recebê-la (se a recusar, fica «recusada» em Ordens SAXO, com o motivo). O valor é
+            calculado com o preço da aplicação: a conta de simulação não tem preços de mercado.
           </p>
           <div className="modal-actions">
             <Button onClick={onClose}>Cancelar</Button>
-            {p?.ok ? (
-              <Button variant="primary" onClick={send} busy={busy} disabled={wait > 0}>
-                {busy ? 'A enviar…' : `Confirmar e enviar ${sideLabel}`}
-              </Button>
-            ) : (
-              <Button variant="primary" onClick={validate} busy={busy} disabled={!canPreview || Boolean(candidates)}>
-                {busy ? 'A pré-validar…' : 'Pré-validar'}
-              </Button>
-            )}
+            <Button variant="primary" onClick={send} busy={busy} disabled={!canPreview || Boolean(candidates)}>
+              {busy ? 'A enviar…' : `Confirmar e enviar ${sideLabel}`}
+            </Button>
           </div>
         </>
       )}

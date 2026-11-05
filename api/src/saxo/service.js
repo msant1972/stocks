@@ -195,6 +195,25 @@ function checkParams(saxo, p, refPrice) {
 }
 
 /**
+ * Verificações da aplicação antes de uma ordem (na pré-visualização ou no envio directo): instrumento activo com cotação
+ * recente, correspondência SAXO (guardada ou resolvida agora), negociável, tipo de ordem, passo de preço, stop e quantidade.
+ */
+async function prepareOrder(pool, cfg, session, p) {
+  if (p.orderType === 'limit' && !(Number(p.limitPrice) > 0)) throw new AppError(422, 'LIMIT_PRICE_REQUIRED', 'indique o preço limite');
+  const inst = await loadInstrument(pool, p.instrumentId);
+  const quote = await appQuote(pool, inst.id, cfg.maxQuoteAgeDays);
+  const account = await pickAccount(session.client, inst.currency);
+  let saxo = await resolveInstrument(pool, session, inst, account.accountKey);
+  if (!saxo.tradable) throw new AppError(409, 'SAXO_NOT_TRADABLE', `${saxo.saxo_symbol} não está negociável na SAXO Bank (ver Correspondência SAXO)`);
+  if (!saxo.tick_scheme) { // correspondência guardada antes de se registar o passo de preço
+    saxo = await saveResolution(pool, session, inst, { uic: Number(saxo.uic), symbol: saxo.saxo_symbol, exchangeId: saxo.exchange_id, description: saxo.description, currency: saxo.currency }, account.accountKey, saxo.source);
+  }
+  const refPrice = refPriceOf(p, quote);
+  checkParams(saxo, p, refPrice);
+  return { inst, quote, account, saxo, refPrice, body: orderBody(account.accountKey, saxo, p, refPrice) };
+}
+
+/**
  * Precheck da SAXO só quando acrescenta alguma coisa às verificações da aplicação (instrumento negociável, tipo de ordem,
  * passo de preço, quantidade mínima): ordens a mercado, ordens com stop associado e qualquer ordem na conta real (saldo e
  * margem verdadeiros). As limitadas simples no SIM dispensam-no: a SAXO valida-as no envio, e o precheck gastaria o limite
@@ -210,19 +229,7 @@ export function needsPrecheck(p, environment, { always = false } = {}) {
  * Nada é enviado: a confirmação em dois passos mantém-se em todas as ordens.
  */
 export async function previewOrder(pool, cfg, session, p, { wait }) {
-  if (p.orderType === 'limit' && !(Number(p.limitPrice) > 0)) throw new AppError(422, 'LIMIT_PRICE_REQUIRED', 'indique o preço limite');
-  const inst = await loadInstrument(pool, p.instrumentId);
-  const quote = await appQuote(pool, inst.id, cfg.maxQuoteAgeDays);
-  const account = await pickAccount(session.client, inst.currency);
-  let saxo = await resolveInstrument(pool, session, inst, account.accountKey);
-  if (!saxo.tradable) throw new AppError(409, 'SAXO_NOT_TRADABLE', `${saxo.saxo_symbol} não está negociável na SAXO Bank (ver Correspondência SAXO)`);
-  if (!saxo.tick_scheme) { // correspondência guardada antes de se registar o passo de preço
-    saxo = await saveResolution(pool, session, inst, { uic: Number(saxo.uic), symbol: saxo.saxo_symbol, exchangeId: saxo.exchange_id, description: saxo.description, currency: saxo.currency }, account.accountKey, saxo.source);
-  }
-  const refPrice = refPriceOf(p, quote);
-  checkParams(saxo, p, refPrice);
-
-  const body = orderBody(account.accountKey, saxo, p, refPrice);
+  const { inst, quote, account, saxo, refPrice, body } = await prepareOrder(pool, cfg, session, p);
   const prechecked = needsPrecheck(p, session.environment, { always: cfg.saxo.alwaysPrecheck });
   let ok = true;
   let problem = null;
@@ -266,21 +273,33 @@ async function orderById(pool, userId, id) {
   return r ? mapOrder(r) : null;
 }
 
-/** Envia a ordem (e o stop associado, se houver) depois de verificar o código. Repetir a idempotencyKey devolve a original. */
+/**
+ * Envia a ordem (e o stop associado, se houver). Envio directo (sem `confirmation`, desde 5 nov. 2026): as verificações da
+ * aplicação correm aqui e a SAXO valida a ordem ao recebê-la. Com `confirmation` (de POST /saxo/orders/preview), o código tem
+ * de corresponder aos parâmetros. Na conta real a pré-validação é obrigatória. Repetir a idempotencyKey devolve a original.
+ */
 export async function placeOrder(pool, cfg, session, p, { wait }) {
   const userId = session.userId;
   const [[prev]] = await pool.query('SELECT id FROM saxo_orders WHERE user_id = ? AND idempotency_key = ?', [userId, p.idempotencyKey]);
   if (prev) return { order: await orderById(pool, userId, prev.id), replayed: true };
 
-  const inst = await loadInstrument(pool, p.instrumentId);
-  const saxo = await storedResolution(pool, inst.id, session.environment);
-  if (!saxo) throw new AppError(409, 'SAXO_BAD_CONFIRMATION', 'pré-valide a ordem antes de a enviar');
-  checkConfirmation(cfg, userId, p, Number(saxo.uic), session.environment, p.confirmation);
-  const quote = await appQuote(pool, inst.id, cfg.maxQuoteAgeDays);
-  const refPrice = refPriceOf(p, quote);
-  checkParams(saxo, p, refPrice);
-  const account = await pickAccount(session.client, inst.currency);
-  const body = orderBody(account.accountKey, saxo, p, refPrice);
+  let inst; let quote; let account; let body;
+  if (p.confirmation) {
+    inst = await loadInstrument(pool, p.instrumentId);
+    const saxo = await storedResolution(pool, inst.id, session.environment);
+    if (!saxo) throw new AppError(409, 'SAXO_BAD_CONFIRMATION', 'pré-valide a ordem antes de a enviar');
+    checkConfirmation(cfg, userId, p, Number(saxo.uic), session.environment, p.confirmation);
+    quote = await appQuote(pool, inst.id, cfg.maxQuoteAgeDays);
+    const refPrice = refPriceOf(p, quote);
+    checkParams(saxo, p, refPrice);
+    account = await pickAccount(session.client, inst.currency);
+    body = orderBody(account.accountKey, saxo, p, refPrice);
+  } else {
+    if (session.environment === 'live') {
+      throw new AppError(409, 'SAXO_CONFIRMATION_REQUIRED', 'na conta real as ordens têm de ser pré-validadas antes do envio');
+    }
+    ({ inst, quote, account, body } = await prepareOrder(pool, cfg, session, p));
+  }
 
   let id;
   try {

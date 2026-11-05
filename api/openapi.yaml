@@ -5518,11 +5518,17 @@ paths:
                 additionalProperties: false
   /api/v1/saxo/orders:
     post:
-      summary: Enviar uma ordem pré-validada para a SAXO Bank
+      summary: Enviar uma ordem para a SAXO Bank
       tags:
         - SAXO
-      description: Exige o código de confirmação da pré-validação com os mesmos
-        parâmetros. Repetir a idempotencyKey devolve a ordem original.
+      description: "Envio directo: a API aplica as verificações (instrumento,
+        negociável, tipo de ordem, passo de preço, stop, quantidade) e a SAXO
+        valida a ordem ao recebê-la; uma recusa fica com o estado rejected e a
+        mensagem da SAXO. Opcionalmente, `confirmation` de POST
+        /saxo/orders/preview liga o envio aos parâmetros pré-validados; na conta
+        real é obrigatório (409 SAXO_CONFIRMATION_REQUIRED). Várias
+        correspondências: 409 SAXO_AMBIGUOUS com os candidatos. Repetir a
+        idempotencyKey devolve a ordem original."
       requestBody:
         required: true
         content:
@@ -5586,7 +5592,6 @@ paths:
                 - side
                 - quantity
                 - orderType
-                - confirmation
                 - idempotencyKey
       responses:
         "200":
