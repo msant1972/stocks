@@ -36,10 +36,16 @@ const STOP = new Set([
 
 /** Palavras significativas de um nome de empresa (minúsculas, sem acentos nem formas jurídicas). */
 export function nameTokens(name) {
+  return rawTokens(name).filter((t) => !STOP.has(t));
+}
+
+/** Palavras de um nome, em minúsculas, sem acentos; o trema alemão escrito «oe/ue/ae» fica igual (Börse = Boerse). */
+function rawTokens(name) {
   return String(name ?? '')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFD').replace(/\p{M}/gu, '')
     .toLowerCase().replace(/&/g, ' ').replace(/[^a-z0-9]+/g, ' ')
-    .split(' ').filter((t) => t && !STOP.has(t));
+    .split(' ').filter(Boolean)
+    .map((t) => t.replace(/ae/g, 'a').replace(/oe/g, 'o').replace(/ue/g, 'u'));
 }
 
 const same = (a, b) => a === b || (a.length >= 5 && b.length >= 5 && (a.startsWith(b) || b.startsWith(a)));
@@ -53,8 +59,9 @@ export function nameScore(a, b) {
   const A = nameTokens(a);
   const B = nameTokens(b);
   if (!A.length || !B.length) return 0;
-  const initials = (t) => t.map((w) => w[0]).join('');
-  if ((A.length === 1 && A[0].length >= 3 && A[0] === initials(B)) || (B.length === 1 && B[0].length >= 3 && B[0] === initials(A))) return 1;
+  // Sigla: as iniciais de todas as palavras do outro nome começam por ela (WDP = Warehouses De Pauw SA).
+  const acronym = (one, other) => one.length === 1 && one[0].length >= 3 && rawTokens(other).map((w) => w[0]).join('').startsWith(one[0]);
+  if (acronym(A, b) || acronym(B, a)) return 1;
   const [short, long] = A.length <= B.length ? [A, B] : [B, A];
   const hits = short.filter((t) => long.some((u) => same(t, u))).length;
   return Math.round((hits / short.length) * 100) / 100;

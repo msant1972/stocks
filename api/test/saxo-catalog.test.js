@@ -12,6 +12,10 @@ describe('correspondência Yahoo → SAXO (regras)', () => {
     expect(nameScore('Koninklijke KPN N.V.', 'KPN (Koninklijke)')).toBe(1);
     expect(nameScore('Société Générale Société anonyme', 'Societe Generale')).toBe(1);
     expect(nameScore('Bayer AG', 'Deutsche Bank AG')).toBe(0);
+    expect(nameScore('Deutsche Börse AG', 'Deutsche Boerse AG')).toBe(1);
+    expect(nameScore('Hannover Rück SE', 'Hannover Rueck SE')).toBe(1);
+    expect(nameScore('Warehouses De Pauw SA', 'WDP')).toBe(1);
+    expect(nameScore('Warehouses De Pauw SA', 'WD')).toBe(0); // sigla com menos de 3 letras não conta
     expect(nameScore('', 'X')).toBe(0);
   });
 
