@@ -195,8 +195,19 @@ function checkParams(saxo, p, refPrice) {
 }
 
 /**
- * Pré-validação: resolve o instrumento, corre o precheck da SAXO (com o stop associado, se houver) e devolve o resumo com um
- * código de confirmação (assinado, 5 minutos) ligado aos parâmetros exactos. Nada é enviado.
+ * Precheck da SAXO só quando acrescenta alguma coisa às verificações da aplicação (instrumento negociável, tipo de ordem,
+ * passo de preço, quantidade mínima): ordens a mercado, ordens com stop associado e qualquer ordem na conta real (saldo e
+ * margem verdadeiros). As limitadas simples no SIM dispensam-no: a SAXO valida-as no envio, e o precheck gastaria o limite
+ * de 1 pedido/s partilhado com o envio. STOCKS_SAXO_ALWAYS_PRECHECK=true volta a fazê-lo sempre.
+ */
+export function needsPrecheck(p, environment, { always = false } = {}) {
+  return always || environment === 'live' || p.orderType === 'market' || Boolean(p.stop);
+}
+
+/**
+ * Pré-visualização: resolve o instrumento, aplica as verificações da aplicação, corre o precheck da SAXO quando é preciso
+ * (needsPrecheck) e devolve o resumo com um código de confirmação (assinado, 5 minutos) ligado aos parâmetros exactos.
+ * Nada é enviado: a confirmação em dois passos mantém-se em todas as ordens.
  */
 export async function previewOrder(pool, cfg, session, p, { wait }) {
   if (p.orderType === 'limit' && !(Number(p.limitPrice) > 0)) throw new AppError(422, 'LIMIT_PRICE_REQUIRED', 'indique o preço limite');
@@ -211,16 +222,21 @@ export async function previewOrder(pool, cfg, session, p, { wait }) {
   const refPrice = refPriceOf(p, quote);
   checkParams(saxo, p, refPrice);
 
-  await wait(session.userId);
   const body = orderBody(account.accountKey, saxo, p, refPrice);
-  const pre = await session.client.post('/trade/v2/orders/precheck', body);
-  const result = pre?.PreCheckResult ?? 'Unknown';
-  const ok = result === 'Ok';
+  const prechecked = needsPrecheck(p, session.environment, { always: cfg.saxo.alwaysPrecheck });
+  let ok = true;
+  let problem = null;
+  if (prechecked) {
+    await wait(session.userId);
+    const pre = await session.client.post('/trade/v2/orders/precheck', body);
+    const result = pre?.PreCheckResult ?? 'Unknown';
+    ok = result === 'Ok';
+    if (!ok) problem = errorText(pre) ?? `a SAXO Bank não aceitou a ordem (${result})`;
+  }
   const exp = Date.now() + CONFIRM_TTL_MS;
   const leg = body.Orders?.[0];
   return {
-    environment: session.environment, ok,
-    problem: ok ? null : (errorText(pre) ?? `a SAXO Bank não aceitou a ordem (${result})`),
+    environment: session.environment, ok, prechecked, problem,
     instrument: { id: inst.id, symbol: inst.symbol, name: inst.name, saxoSymbol: saxo.saxo_symbol, exchangeId: saxo.exchange_id, uic: Number(saxo.uic) },
     account: { id: account.accountId, currency: account.currency, isTrial: account.isTrial },
     side: p.side, quantity: p.quantity, orderType: p.orderType, limitPrice: p.orderType === 'limit' ? canonPrice(p.limitPrice) : null,

@@ -198,19 +198,17 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     });
   });
 
-  it('pré-valida: resolve o instrumento por ISIN e MIC, corre o precheck e devolve um código de confirmação', async () => {
+  it('limitada simples: resolve o instrumento por ISIN e MIC e devolve o código de confirmação sem precheck da SAXO', async () => {
     const f = useSaxo();
     const res = await preview();
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({
-      ok: true, environment: 'sim', side: 'buy', quantity: 10, orderType: 'limit', limitPrice: '9.5', estimatedAmount: '95.00', currency: 'EUR',
+      ok: true, prechecked: false, problem: null, environment: 'sim', side: 'buy', quantity: 10, orderType: 'limit', limitPrice: '9.5', estimatedAmount: '95.00', currency: 'EUR',
       instrument: { id: galp, saxoSymbol: 'GALP:xlis', uic: 23737 }, appPrice: '10.000000',
     });
     expect(res.json().confirmation).toMatch(/^\d+\./);
     expect(f.calls.find((c) => c.key === 'GET /ref/v1/instruments').query.Keywords).toBe('PTGAL0AM0009');
-    expect(f.calls.find((c) => c.key === 'POST /trade/v2/orders/precheck').body).toMatchObject({
-      Uic: 23737, AssetType: 'Stock', BuySell: 'Buy', Amount: 10, OrderType: 'Limit', OrderPrice: 9.5, ManualOrder: true, OrderDuration: { DurationType: 'DayOrder' },
-    });
+    expect(f.calls.some((c) => c.key === 'POST /trade/v2/orders/precheck')).toBe(false);
     const [[r]] = await ctx.pool.query('SELECT uic, saxo_symbol, order_types FROM saxo_instruments WHERE instrument_id = ?', [galp]);
     expect(Number(r.uic)).toBe(23737);
     expect(r.order_types).toContain('Limit');
@@ -220,9 +218,30 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     expect(g.calls.some((c) => c.key === 'GET /ref/v1/instruments')).toBe(false);
   });
 
+  it('a mercado: corre o precheck da SAXO com o corpo da ordem', async () => {
+    const f = useSaxo();
+    const res = await preview({ orderType: 'market', limitPrice: undefined });
+    expect(res.json()).toMatchObject({ ok: true, prechecked: true, orderType: 'market' });
+    expect(res.json().confirmation).toMatch(/^\d+\./);
+    expect(f.calls.find((c) => c.key === 'POST /trade/v2/orders/precheck').body).toMatchObject({
+      Uic: 23737, AssetType: 'Stock', BuySell: 'Buy', Amount: 10, OrderType: 'Market', ManualOrder: true, OrderDuration: { DurationType: 'DayOrder' },
+    });
+  });
+
+  it('STOCKS_SAXO_ALWAYS_PRECHECK: a limitada simples também passa pelo precheck', async () => {
+    ctx.cfg.saxo.alwaysPrecheck = true;
+    try {
+      const f = useSaxo();
+      expect((await preview()).json()).toMatchObject({ ok: true, prechecked: true });
+      expect(f.calls.find((c) => c.key === 'POST /trade/v2/orders/precheck').body).toMatchObject({ OrderType: 'Limit', OrderPrice: 9.5 });
+    } finally {
+      ctx.cfg.saxo.alwaysPrecheck = false;
+    }
+  });
+
   it('uma pré-validação não aceite pela SAXO não dá código de confirmação', async () => {
     useSaxo({ 'POST /trade/v2/orders/precheck': { status: 200, body: { PreCheckResult: 'Error', ErrorInfo: { Message: 'Saldo insuficiente' } } } });
-    expect((await preview()).json()).toMatchObject({ ok: false, problem: 'Saldo insuficiente', confirmation: null });
+    expect((await preview({ orderType: 'market', limitPrice: undefined })).json()).toMatchObject({ ok: false, prechecked: true, problem: 'Saldo insuficiente', confirmation: null });
   });
 
   it('várias correspondências: devolve candidatos e a escolha fica guardada', async () => {
@@ -774,5 +793,17 @@ describe('passo de preço', () => {
     expect(nearestTick(scheme, 30.006)).toBe('30.01');
     expect(nearestTick(scheme, 15.002)).toBe('15');
     expect(nearestTick(scheme, 0.00001)).toBe('0.0001');
+  });
+});
+
+describe('quando correr o precheck da SAXO', () => {
+  it('só a mercado, com stop associado ou na conta real (ou se pedido sempre)', async () => {
+    const { needsPrecheck } = await import('../src/saxo/service.js');
+    const limit = { orderType: 'limit', limitPrice: '9.5' };
+    expect(needsPrecheck(limit, 'sim')).toBe(false);
+    expect(needsPrecheck({ orderType: 'market' }, 'sim')).toBe(true);
+    expect(needsPrecheck({ ...limit, stop: { type: 'stop', price: '9' } }, 'sim')).toBe(true);
+    expect(needsPrecheck(limit, 'live')).toBe(true);
+    expect(needsPrecheck(limit, 'sim', { always: true })).toBe(true);
   });
 });

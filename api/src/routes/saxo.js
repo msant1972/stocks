@@ -57,8 +57,10 @@ export default async function saxoRoutes(app, { pool, cfg }) {
     config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     schema: {
       tags: ['SAXO'], summary: 'Pré-validar uma ordem (não envia nada)',
-      description: 'Resolve o instrumento na SAXO, corre a pré-validação da SAXO e devolve o resumo e um código de confirmação '
-        + '(5 minutos) ligado a estes parâmetros. Se houver várias correspondências, 409 SAXO_AMBIGUOUS com os candidatos.',
+      description: 'Resolve o instrumento na SAXO, aplica as verificações da aplicação (negociável, tipo de ordem, passo de preço, '
+        + 'quantidade mínima) e devolve o resumo e um código de confirmação (5 minutos) ligado a estes parâmetros. O precheck da '
+        + 'SAXO (`prechecked: true`) só corre nas ordens a mercado, com stop associado ou na conta real; as limitadas simples são '
+        + 'validadas pela SAXO no envio. Se houver várias correspondências, 409 SAXO_AMBIGUOUS com os candidatos.',
       body: OrderParams,
       response: { 200: z.object({}).passthrough(), 400: ErrorBody, ...Errors },
     },

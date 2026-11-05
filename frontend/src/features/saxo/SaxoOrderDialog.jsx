@@ -15,8 +15,9 @@ export const useSaxoStatus = () => useQuery({
 });
 
 /**
- * Envio de uma ordem para a conta de simulação da SAXO, sempre em duas fases: «Pré-validar» (a SAXO verifica a ordem)
- * e «Confirmar e enviar» (com o código da pré-validação, que fica ligado a estes parâmetros).
+ * Envio de uma ordem para a conta de simulação da SAXO, sempre em duas fases: «Pré-validar» (a aplicação verifica a ordem e,
+ * nas ordens a mercado ou com stop, também a SAXO) e «Confirmar e enviar» (com o código da pré-validação, ligado a estes
+ * parâmetros). Só depois de um precheck da SAXO é preciso esperar 1 s (a SAXO aceita 1 pedido/s a ordens).
  */
 export default function SaxoOrderDialog({ open, onClose, instrument, initialSide = 'buy', initialQuantity = null }) {
   const qc = useQueryClient();
@@ -66,7 +67,7 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
   // Mudar qualquer parâmetro invalida a pré-validação (o código está ligado aos valores exactos).
   const edit = (fn) => (v) => { fn(v); setPrev(null); setCandidates(null); setError(null); setKey(newIdempotencyKey()); };
 
-  const wait = prev ? confirmWaitMs(prev.at) : 0;
+  const wait = prev?.data.prechecked ? confirmWaitMs(prev.at) : 0;
   useEffect(() => {
     if (!prev || wait <= 0) return undefined;
     const t = setTimeout(() => tick((n) => n + 1), wait + 20);
@@ -202,7 +203,7 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
               {p.limitPrice && <><dt>Preço limite</dt><dd>{f.price(p.limitPrice, p.currency)}</dd></>}
               {p.stop && <><dt>Stop associado</dt><dd>{p.stop.type === 'stop' ? `a ${f.price(p.stop.price, p.currency)}` : `móvel, ${f.price(p.stop.distance, p.currency)} abaixo (começa em ${f.price(p.stop.price, p.currency)})`}</dd></>}
               <dt>Valor aproximado</dt><dd>{f.money(p.estimatedAmount, p.currency)}</dd>
-              <dt>Pré-validação da SAXO</dt><dd>{p.ok ? 'Aceite' : 'Recusada'}</dd>
+              <dt>Pré-validação</dt><dd>{p.prechecked ? (p.ok ? 'Aceite pela SAXO' : 'Recusada pela SAXO') : 'Verificada pela aplicação · a SAXO valida no envio'}</dd>
             </dl>
           )}
           {p && !p.ok && <Notice tone="warning">{p.problem}</Notice>}
@@ -227,8 +228,10 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
           )}
 
           <p className="small muted">
-            Primeiro a SAXO pré-valida a ordem; só depois a pode confirmar. O valor é calculado com o preço da aplicação:
-            a conta de simulação não tem preços de mercado.
+            Primeiro pré-valide a ordem; só depois a pode confirmar. A aplicação verifica o instrumento, o tipo de ordem, o passo de
+            preço e a quantidade; as ordens a mercado e as com stop são também pré-validadas pela SAXO, e as restantes são validadas
+            pela SAXO no envio (se as recusar, ficam «recusadas» em Ordens SAXO). O valor é calculado com o preço da aplicação: a
+            conta de simulação não tem preços de mercado.
           </p>
           <div className="modal-actions">
             <Button onClick={onClose}>Cancelar</Button>

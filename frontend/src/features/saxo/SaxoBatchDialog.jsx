@@ -15,7 +15,8 @@ const TONE = { ok: 'badge-accent', sent: 'badge-positive', problem: 'badge-warni
 
 /**
  * Sinais → ordens para a SAXO, em lote e sempre com confirmação: uma ordem limitada por instrumento (ao último preço),
- * pré-validadas uma a uma (a SAXO aceita 1 por segundo), e só as escolhidas são enviadas, também uma a uma.
+ * pré-validadas uma a uma (pela aplicação; com stop também pela SAXO, que aceita 1 pedido/s), e só as escolhidas são
+ * enviadas, também uma a uma.
  */
 export default function SaxoBatchDialog({ open, onClose, signals, budget, strategyName }) {
   const qc = useQueryClient();
@@ -98,7 +99,8 @@ export default function SaxoBatchDialog({ open, onClose, signals, budget, strate
         <>
           <p className="small muted">
             Uma ordem limitada por instrumento, ao último preço: compras e reforços pelo orçamento da estratégia ({f.money(budget, 'EUR', 0)}),
-            vendas de tudo o que a conta SAXO tem. Pré-valide primeiro; depois escolha as ordens a enviar.
+            vendas de tudo o que a conta SAXO tem. Pré-valide primeiro (sem stop é imediato: a SAXO valida as ordens no envio; com stop
+            a SAXO pré-valida cada uma, cerca de 1 s por ordem); depois escolha as ordens a enviar.
           </p>
           <label className="row small" style={{ gap: '0.5rem' }}>
             <input type="checkbox" checked={withStop} disabled={Boolean(running) || rows.some((r) => r.preview)} onChange={(e) => setWithStop(e.target.checked)} />
