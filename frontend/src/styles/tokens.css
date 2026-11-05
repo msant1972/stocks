@@ -36,6 +36,12 @@
   --heat-up: #1a7f45;
   --heat-flat: #6b7079;
   --heat-down: #c0362c;
+  /* Calor, valor mensal: escala sequencial de laranjas (claro = frio, escuro = quente) e cinzento para meses parciais. */
+  --heat-month-1: #fbd3a8;
+  --heat-month-2: #f4a35c;
+  --heat-month-3: #db6a24;
+  --heat-month-4: #a33f0c;
+  --heat-month-partial: #c3c7cf;
   --sidebar-width: 232px;
   --content-max: 1440px;
 }
@@ -62,6 +68,12 @@
   --series-sma50: #c98500;
   --series-sma125: #d55181;
   --series-sma200: #008300;
+  /* No escuro a escala inverte o brilho: o mais quente é o mais vivo. */
+  --heat-month-1: #5e3216;
+  --heat-month-2: #9a4a1c;
+  --heat-month-3: #dc6f28;
+  --heat-month-4: #ffa75e;
+  --heat-month-partial: #4a4e59;
   --topbar-bg: rgb(16 17 20 / 0.82);
   --shadow-card: 0 4px 20px rgb(0 0 0 / 0.14);
   --shadow-overlay: 0 16px 48px rgb(0 0 0 / 0.4);

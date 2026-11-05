@@ -3,10 +3,65 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { bigMoney, signedPctOf } from '../../lib/company.js';
-import { monthLabel, monthlyAverages, peakSession } from '../../lib/turnover.js';
+import { HEAT_LABELS, monthLabel, monthlyTotals, peakSession } from '../../lib/turnover.js';
 import { ErrorState, Loading } from '../../components/feedback/states.jsx';
 
 const TurnoverChart = lazy(() => import('../../components/finance/TurnoverChart.jsx'));
+const MonthlyTurnoverChart = lazy(() => import('../../components/finance/MonthlyTurnoverChart.jsx'));
+
+const lisbonToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date());
+
+/** Valor mensal negociado: histograma com os meses coloridos pelo quartil e tabela dos totais. */
+function MonthlySection({ months }) {
+  const hottest = months.filter((m) => m.rank != null && m.rank <= 3).sort((a, b) => a.rank - b.rank);
+  return (
+    <section className="card" aria-labelledby="calor-month-title">
+      <div className="card-head">
+        <h2 id="calor-month-title" className="card-title">Valor mensal negociado</h2>
+        <span className="small muted">soma das sessões de cada mês · em euros</span>
+      </div>
+      {hottest.length > 0 && (
+        <p className="small" style={{ margin: '0 0 0.5rem' }}>
+          Meses mais quentes: {hottest.map((m, i) => (
+            <span key={m.month}>{i > 0 && ', '}<strong>{monthLabel(m.month)}</strong> <span className="num">({bigMoney(m.value)})</span></span>
+          ))}.
+        </p>
+      )}
+      <div className="legend-chips" style={{ margin: '0.5rem 0 0.25rem' }}>
+        {HEAT_LABELS.map((label, i) => (
+          <span key={label} className="legend-chip static"><span className="swatch-box" style={{ background: `var(--heat-month-${i + 1})` }} />{label}</span>
+        ))}
+        <span className="legend-chip static"><span className="swatch-box" style={{ background: 'var(--heat-month-partial)' }} />Mês incompleto</span>
+      </div>
+      <Suspense fallback={<Loading rows={4} label="A carregar o gráfico…" />}>
+        <MonthlyTurnoverChart months={months} />
+      </Suspense>
+      <p className="small muted" style={{ margin: '0.5rem 0 0' }}>
+        A cor diz o quartil do mês entre os meses completos: «Muito quente» são os 25 % com mais valor negociado e «Frio» os 25 % com menos.
+        Os meses têm entre 19 e 23 sessões; a média por sessão está na tabela.
+      </p>
+      <details style={{ marginTop: '0.75rem' }}>
+        <summary className="small">Ver os dados</summary>
+        <div className="table-wrap" tabIndex={0} aria-label="Valor negociado por mês">
+          <table className="data">
+            <thead><tr><th scope="col">Mês</th><th scope="col" className="r">Valor negociado</th><th scope="col" className="r">Sessões</th><th scope="col" className="r">Média por sessão</th><th scope="col">Calor</th></tr></thead>
+            <tbody>
+              {[...months].reverse().map((m) => (
+                <tr key={m.month}>
+                  <th scope="row">{monthLabel(m.month)}</th>
+                  <td className="r num">{bigMoney(m.value)}</td>
+                  <td className="r num">{m.sessions}</td>
+                  <td className="r num">{bigMoney(m.perSession)}</td>
+                  <td>{m.partial ? <span className="muted">incompleto</span> : <>{HEAT_LABELS[m.heat - 1]} <span className="small muted">({m.rank}.º)</span></>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+  );
+}
 
 function Stat({ label, value, sub }) {
   return (
@@ -25,7 +80,9 @@ function Stat({ label, value, sub }) {
 export default function CalorPage() {
   const q = useQuery({ queryKey: ['market', 'turnover'], queryFn: () => api.get('/market/turnover'), staleTime: 10 * 60_000 });
   const points = useMemo(() => q.data?.points ?? [], [q.data]);
-  const months = useMemo(() => monthlyAverages(points), [points]);
+  const partial = q.data?.partial;
+  // A sessão em curso conta para o total do mês corrente (que já é um mês incompleto).
+  const months = useMemo(() => monthlyTotals(partial ? [...points, partial] : points, { today: lisbonToday() }), [points, partial]);
   const peak = useMemo(() => peakSession(points), [points]);
   const s = q.data?.summary;
 
@@ -42,6 +99,7 @@ export default function CalorPage() {
         </div>
       </div>
 
+      <div className="stack">
       <section className="card" aria-labelledby="calor-title">
         <div className="card-head">
           <h2 id="calor-title" className="card-title">Valor negociado diário (2 anos)</h2>
@@ -72,24 +130,6 @@ export default function CalorPage() {
                   <Suspense fallback={<Loading rows={4} label="A carregar o gráfico…" />}>
                     <TurnoverChart points={points} />
                   </Suspense>
-                  <details style={{ marginTop: '0.75rem' }}>
-                    <summary className="small">Ver os dados (médias mensais)</summary>
-                    <div className="table-wrap" tabIndex={0} aria-label="Médias mensais do valor negociado">
-                      <table className="data">
-                        <thead><tr><th scope="col">Mês</th><th scope="col" className="r">Valor negociado médio</th><th scope="col" className="r">SMA200 média</th><th scope="col" className="r">Sessões</th></tr></thead>
-                        <tbody>
-                          {[...months].reverse().map((m) => (
-                            <tr key={m.month}>
-                              <th scope="row">{monthLabel(m.month)}</th>
-                              <td className="r num">{bigMoney(m.value)}</td>
-                              <td className="r num">{bigMoney(m.sma200)}</td>
-                              <td className="r num">{m.sessions}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </details>
                 </>
               )}
         <p className="small muted" style={{ margin: '0.75rem 0 0' }}>
@@ -97,6 +137,9 @@ export default function CalorPage() {
           (24 e 31 de dezembro, feriados locais) aparecem mais baixos; o número de instrumentos com negócios está na caixa de cada dia.
         </p>
       </section>
+
+      {months.length > 0 && <MonthlySection months={months} />}
+      </div>
     </>
   );
 }
