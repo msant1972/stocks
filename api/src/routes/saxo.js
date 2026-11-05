@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { createThrottle } from '../saxo/client.js';
 import * as saxo from '../saxo/service.js';
+import { catalogStatus, startCatalogSync } from '../saxo/catalog-runner.js';
+import { AppError } from '../errors.js';
 import { sendPendingEmails } from '../saxo/watcher.js';
 import { ErrorBody, Id } from '../schemas.js';
 
@@ -72,6 +74,84 @@ export default async function saxoRoutes(app, { pool, cfg }) {
   }, async (req) => {
     const r = await saxo.chooseInstrument(pool, await session(req), req.params.instrumentId, req.body.uic);
     return { uic: Number(r.uic), symbol: r.saxo_symbol };
+  });
+
+  // ---------- Correspondência do catálogo com a SAXO (administradores) ----------
+
+  const adminOnly = (req) => { if (!req.user.isAdmin) throw new AppError(403, 'FORBIDDEN', 'reservado a administradores'); };
+  const envOf = async (userId) => {
+    const [[t]] = await pool.query("SELECT environment FROM user_integration_tokens WHERE user_id = ? AND provider = 'saxo'", [userId]);
+    return t?.environment ?? 'sim';
+  };
+  const Candidate = z.object({
+    uic: z.number(), symbol: z.string(), description: z.string().nullable(), exchangeId: z.string().nullable(),
+    mic: z.string().nullable().optional(), currency: z.string().nullable(), nameScore: z.number().optional(),
+  }).passthrough();
+  const MatchStatus = z.enum(['linked', 'unchecked', 'ambiguous', 'other_market', 'not_found', 'not_tradable', 'error']);
+
+  app.get('/saxo/catalog', {
+    schema: {
+      tags: ['SAXO'], summary: 'Correspondência de cada instrumento do catálogo com a SAXO Bank (administradores)',
+      description: 'Estado por instrumento activo: linked (ligado), unchecked (ainda não procurado), ambiguous (vários candidatos '
+        + 'na bolsa certa), other_market (só noutra bolsa), not_found, not_tradable, error. Inclui os candidatos para escolha manual '
+        + 'e a última ligação do catálogo.',
+      response: {
+        200: z.object({
+          environment: z.enum(['sim', 'live']),
+          summary: z.record(z.string(), z.number()),
+          items: z.array(z.object({
+            instrumentId: z.number(), symbol: z.string(), name: z.string().nullable(), exchange: z.string().nullable(), isin: z.string().nullable(),
+            status: MatchStatus,
+            saxo: z.object({
+              uic: z.number(), symbol: z.string(), description: z.string().nullable(), exchangeId: z.string().nullable(),
+              source: z.enum(['auto', 'manual']), nameScore: z.number().nullable(), checkedAt: z.string().nullable(),
+            }).nullable(),
+            message: z.string().nullable(), candidates: z.array(Candidate), issueAt: z.string().nullable(),
+          })),
+          lastRun: z.object({
+            id: z.number(), status: z.enum(['running', 'done', 'failed']), recheck: z.boolean(), trigger: z.enum(['manual', 'weekly']),
+            total: z.number(), processed: z.number(), counts: z.record(z.string(), z.number()), detail: z.string().nullable(),
+            userName: z.string().nullable(), startedAt: z.string(), finishedAt: z.string().nullable(),
+          }).nullable(),
+        }),
+        403: ErrorBody,
+      },
+    },
+  }, async (req) => {
+    adminOnly(req);
+    return catalogStatus(pool, await envOf(req.user.id));
+  });
+
+  app.post('/saxo/catalog/sync', {
+    config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['SAXO'], summary: 'Ligar o catálogo inteiro à SAXO Bank (em segundo plano; administradores)',
+      description: 'Procura na SAXO os instrumentos activos ainda sem correspondência (ISIN, raiz do símbolo e nome, na bolsa certa) e, '
+        + 'com recheck, revalida os já ligados (negociável, mesma moeda). Usa o token SAXO de quem pede. Uma de cada vez '
+        + '(409 SAXO_SYNC_RUNNING). O progresso vê-se em GET /saxo/catalog.',
+      body: z.object({ recheck: z.boolean().default(false) }).default({}),
+      response: { 202: z.object({ id: z.number() }), ...Errors },
+    },
+  }, async (req, reply) => {
+    adminOnly(req);
+    const { id } = await startCatalogSync(pool, cfg, req.user.id, { recheck: req.body.recheck, log: req.log });
+    return reply.code(202).send({ id });
+  });
+
+  app.delete('/saxo/instruments/:instrumentId/match', {
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['SAXO'], summary: 'Desligar um instrumento da SAXO Bank (administradores)',
+      description: 'Apaga a correspondência e o problema registado; o instrumento volta a «por procurar».',
+      params: z.object({ instrumentId: Id }),
+      response: { 204: z.null(), 403: ErrorBody },
+    },
+  }, async (req, reply) => {
+    adminOnly(req);
+    const env = await envOf(req.user.id);
+    await pool.query('DELETE FROM saxo_instruments WHERE instrument_id = ? AND environment = ?', [req.params.instrumentId, env]);
+    await pool.query('DELETE FROM saxo_match_issues WHERE instrument_id = ? AND environment = ?', [req.params.instrumentId, env]);
+    return reply.code(204).send(null);
   });
 
   app.post('/saxo/orders', {

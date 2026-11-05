@@ -94,3 +94,37 @@ export const defaultLimit = (price) => (Number(price) > 0 ? String(Number(Number
 
 /** Segundos que faltam para se poder confirmar (a SAXO só aceita 1 pedido/s a ordens). */
 export const confirmWaitMs = (previewedAt, now = Date.now(), minMs = 1100) => Math.max(0, previewedAt + minMs - now);
+
+// ---------- Correspondência do catálogo com a SAXO ----------
+
+/** Estado da correspondência de um instrumento: texto, ajuda e tom do distintivo. */
+export const MATCH_STATUS = {
+  linked: { label: 'Ligado', tone: 'badge-positive', help: 'Instrumento da SAXO confirmado: negociável e na mesma moeda.' },
+  unchecked: { label: 'Por procurar', tone: '', help: 'Ainda não foi procurado na SAXO (corra «Ligar o catálogo»).' },
+  ambiguous: { label: 'Ambíguo', tone: 'badge-warning', help: 'Vários candidatos na bolsa certa, ou o nome não coincide: escolha o certo.' },
+  other_market: { label: 'Só noutra bolsa', tone: 'badge-warning', help: 'A SAXO só o tem noutra bolsa ou moeda: escolha um candidato ou deixe sem ligação.' },
+  not_found: { label: 'Não encontrado', tone: 'badge-negative', help: 'Nenhum instrumento parecido na SAXO. Pode indicar o Uic à mão.' },
+  not_tradable: { label: 'Não negociável', tone: 'badge-negative', help: 'A SAXO diz que não é negociável nesta conta (ou mudou de moeda).' },
+  error: { label: 'Erro', tone: 'badge-negative', help: 'A verificação falhou; tente de novo.' },
+};
+
+export const MATCH_ORDER = ['linked', 'unchecked', 'ambiguous', 'other_market', 'not_found', 'not_tradable', 'error'];
+
+/**
+ * Filtro da tabela de correspondência. view: 'todo' (por resolver: tudo menos ligado), 'linked' ou 'all'.
+ * q: procura no símbolo, nome e símbolo/descrição da SAXO. Os por resolver aparecem primeiro.
+ */
+export function filterMatches(items, { view = 'todo', q = '' } = {}) {
+  const needle = q.trim().toLowerCase();
+  const rank = (s) => (s === 'linked' ? 2 : s === 'unchecked' ? 1 : 0);
+  return items
+    .filter((i) => (view === 'all' ? true : view === 'linked' ? i.status === 'linked' : i.status !== 'linked'))
+    .filter((i) => !needle || [i.symbol, i.name, i.saxo?.symbol, i.saxo?.description].some((t) => String(t ?? '').toLowerCase().includes(needle)))
+    .sort((a, b) => rank(a.status) - rank(b.status) || a.symbol.localeCompare(b.symbol));
+}
+
+/** Texto de um candidato da SAXO: «BAYN:xetr — Bayer AG · FSE · EUR · nome 100 %». */
+export function candidateLabel(c) {
+  const score = c.nameScore == null ? '' : ` · nome ${Math.round(c.nameScore * 100)} %`;
+  return `${c.symbol} — ${c.description ?? 'sem descrição'} · ${c.exchangeId ?? '?'} · ${c.currency ?? '?'}${score}`;
+}

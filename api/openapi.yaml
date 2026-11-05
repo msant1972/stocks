@@ -5084,6 +5084,435 @@ paths:
                 required:
                   - error
                 additionalProperties: false
+    delete:
+      summary: Desligar um instrumento da SAXO Bank (administradores)
+      tags:
+        - SAXO
+      description: Apaga a correspondência e o problema registado; o instrumento volta
+        a «por procurar».
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: instrumentId
+          required: true
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/saxo/catalog:
+    get:
+      summary: Correspondência de cada instrumento do catálogo com a SAXO Bank
+        (administradores)
+      tags:
+        - SAXO
+      description: "Estado por instrumento activo: linked (ligado), unchecked (ainda
+        não procurado), ambiguous (vários candidatos na bolsa certa),
+        other_market (só noutra bolsa), not_found, not_tradable, error. Inclui
+        os candidatos para escolha manual e a última ligação do catálogo."
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  environment:
+                    type: string
+                    enum:
+                      - sim
+                      - live
+                  summary:
+                    type: object
+                    additionalProperties:
+                      type: number
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        exchange:
+                          nullable: true
+                          type: string
+                        isin:
+                          nullable: true
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - linked
+                            - unchecked
+                            - ambiguous
+                            - other_market
+                            - not_found
+                            - not_tradable
+                            - error
+                        saxo:
+                          nullable: true
+                          type: object
+                          properties:
+                            uic:
+                              type: number
+                            symbol:
+                              type: string
+                            description:
+                              nullable: true
+                              type: string
+                            exchangeId:
+                              nullable: true
+                              type: string
+                            source:
+                              type: string
+                              enum:
+                                - auto
+                                - manual
+                            nameScore:
+                              nullable: true
+                              type: number
+                            checkedAt:
+                              nullable: true
+                              type: string
+                          required:
+                            - uic
+                            - symbol
+                            - description
+                            - exchangeId
+                            - source
+                            - nameScore
+                            - checkedAt
+                          additionalProperties: false
+                        message:
+                          nullable: true
+                          type: string
+                        candidates:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              uic:
+                                type: number
+                              symbol:
+                                type: string
+                              description:
+                                nullable: true
+                                type: string
+                              exchangeId:
+                                nullable: true
+                                type: string
+                              mic:
+                                nullable: true
+                                type: string
+                              currency:
+                                nullable: true
+                                type: string
+                              nameScore:
+                                type: number
+                            required:
+                              - uic
+                              - symbol
+                              - description
+                              - exchangeId
+                              - currency
+                            additionalProperties: {}
+                        issueAt:
+                          nullable: true
+                          type: string
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - exchange
+                        - isin
+                        - status
+                        - saxo
+                        - message
+                        - candidates
+                        - issueAt
+                      additionalProperties: false
+                  lastRun:
+                    nullable: true
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      status:
+                        type: string
+                        enum:
+                          - running
+                          - done
+                          - failed
+                      recheck:
+                        type: boolean
+                      trigger:
+                        type: string
+                        enum:
+                          - manual
+                          - weekly
+                      total:
+                        type: number
+                      processed:
+                        type: number
+                      counts:
+                        type: object
+                        additionalProperties:
+                          type: number
+                      detail:
+                        nullable: true
+                        type: string
+                      userName:
+                        nullable: true
+                        type: string
+                      startedAt:
+                        type: string
+                      finishedAt:
+                        nullable: true
+                        type: string
+                    required:
+                      - id
+                      - status
+                      - recheck
+                      - trigger
+                      - total
+                      - processed
+                      - counts
+                      - detail
+                      - userName
+                      - startedAt
+                      - finishedAt
+                    additionalProperties: false
+                required:
+                  - environment
+                  - summary
+                  - items
+                  - lastRun
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/saxo/catalog/sync:
+    post:
+      summary: Ligar o catálogo inteiro à SAXO Bank (em segundo plano; administradores)
+      tags:
+        - SAXO
+      description: Procura na SAXO os instrumentos activos ainda sem correspondência
+        (ISIN, raiz do símbolo e nome, na bolsa certa) e, com recheck, revalida
+        os já ligados (negociável, mesma moeda). Usa o token SAXO de quem pede.
+        Uma de cada vez (409 SAXO_SYNC_RUNNING). O progresso vê-se em GET
+        /saxo/catalog.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              default: {}
+              type: object
+              properties:
+                recheck:
+                  default: false
+                  type: boolean
+      responses:
+        "202":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id:
+                    type: number
+                required:
+                  - id
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "422":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "502":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
   /api/v1/saxo/orders:
     post:
       summary: Enviar uma ordem pré-validada para a SAXO Bank

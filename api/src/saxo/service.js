@@ -1,9 +1,9 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { audit } from '../db.js';
 import { AppError, notFound } from '../errors.js';
-import { suggestMic } from '../orderbook/index.js';
 import { decryptSecret } from '../secrets.js';
 import { ageInDays } from '../services/quotes.js';
+import { resolveInstrument, saveResolution, storedResolution } from './catalog.js';
 import { createSaxoClient, errorText } from './client.js';
 import * as E from './errors.js';
 import { isOnTick, nearestTick, tickFor } from './ticks.js';
@@ -11,7 +11,6 @@ import { refreshUserToken } from './tokens.js';
 
 const PROVIDER = 'saxo';
 const CONFIRM_TTL_MS = 5 * 60_000;
-const exchangeCache = new Map(); // baseUrl -> { at, map: ExchangeId -> MIC }
 
 /** Cliente da SAXO para o token do utilizador, ou o erro que explica porque não há (sem token, expirado, LIVE). */
 export async function openSession(pool, cfg, userId) {
@@ -59,25 +58,6 @@ export async function testConnection(session) {
   };
 }
 
-async function exchangeMics(client, baseKey) {
-  const hit = exchangeCache.get(baseKey);
-  if (hit && Date.now() - hit.at < 24 * 3600_000) return hit.map;
-  const map = new Map();
-  try {
-    const res = await client.get('/ref/v1/exchanges', { $top: 1000 });
-    for (const e of res?.Data ?? []) if (e.ExchangeId && e.Mic) map.set(e.ExchangeId, e.Mic);
-    if (map.size) exchangeCache.set(baseKey, { at: Date.now(), map });
-  } catch (err) {
-    if (err.code === 'SAXO_TOKEN_EXPIRED') throw err; // sem mapa, a escolha cai para a raiz do símbolo
-  }
-  return map;
-}
-
-const candidate = (c, mics) => ({
-  uic: Number(c.Identifier), symbol: c.Symbol, description: c.Description ?? null, exchangeId: c.ExchangeId ?? null,
-  mic: mics.get(c.ExchangeId) ?? null, currency: c.CurrencyCode ?? null,
-});
-
 async function loadInstrument(pool, instrumentId) {
   const [[inst]] = await pool.query(
     'SELECT id, symbol, name, exchange, currency, status, isin, mic FROM instruments WHERE id = ?', [instrumentId],
@@ -87,64 +67,13 @@ async function loadInstrument(pool, instrumentId) {
   return inst;
 }
 
-async function storedResolution(pool, instrumentId, environment) {
-  const [[r]] = await pool.query('SELECT * FROM saxo_instruments WHERE instrument_id = ? AND environment = ?', [instrumentId, environment]);
-  return r ?? null;
-}
-
-/** Guarda a correspondência escolhida, depois de confirmar nos detalhes da SAXO que é negociável e na moeda certa. */
-async function saveResolution(pool, session, inst, cand, accountKey, source) {
-  const d = await session.client.get(`/ref/v1/instruments/details/${cand.uic}/Stock`, { AccountKey: accountKey });
-  if (d?.IsTradable === false) throw new AppError(409, 'SAXO_NOT_TRADABLE', `${cand.symbol} não é negociável na conta da SAXO Bank`);
-  const currency = d?.CurrencyCode ?? cand.currency;
-  if (currency !== inst.currency) throw new AppError(409, 'CURRENCY_MISMATCH', `${cand.symbol} negoceia em ${currency}, não em ${inst.currency}`);
-  const types = (d?.SupportedOrderTypes ?? []).join(',');
-  await pool.query(
-    `REPLACE INTO saxo_instruments (instrument_id, environment, uic, asset_type, saxo_symbol, exchange_id, currency, description, tradable, order_types, min_size, tick_scheme, source)
-     VALUES (?, ?, ?, 'Stock', ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
-    [inst.id, session.environment, cand.uic, d?.Symbol ?? cand.symbol, cand.exchangeId, currency, (d?.Description ?? cand.description ?? '').slice(0, 255),
-      types.slice(0, 255), d?.MinimumTradeSize ?? 1, d?.TickSizeScheme ? JSON.stringify(d.TickSizeScheme) : null, source],
-  );
-  return storedResolution(pool, inst.id, session.environment);
-}
-
-/**
- * Instrumento da SAXO que corresponde ao da aplicação: ISIN (pesquisa por palavra-chave) ou raiz do símbolo, filtrado
- * pela bolsa (MIC). Se não houver uma só correspondência, 409 SAXO_AMBIGUOUS com os candidatos para o utilizador escolher.
- */
-export async function resolveInstrument(pool, session, inst, accountKey) {
-  const known = await storedResolution(pool, inst.id, session.environment);
-  if (known) return known;
-  const mic = inst.mic ?? suggestMic(inst.exchange);
-  const root = inst.symbol.split('.')[0];
-  const mics = await exchangeMics(session.client, session.environment);
-  const search = async (kw) => (await session.client.get('/ref/v1/instruments', { Keywords: kw, AssetTypes: 'Stock', $top: 50 }))?.Data ?? [];
-  let found = inst.isin ? await search(inst.isin) : [];
-  if (!found.length) found = await search(root);
-  const cands = found.filter((c) => c.AssetType === 'Stock' && c.CurrencyCode === inst.currency).map((c) => candidate(c, mics));
-  if (!cands.length) throw new AppError(422, 'SAXO_INSTRUMENT_NOT_FOUND', `${inst.symbol} não foi encontrado na SAXO Bank`);
-
-  const wantSymbol = mic ? `${root}:${mic}`.toLowerCase() : null;
-  let pool1 = mic ? cands.filter((c) => c.mic === mic) : [];
-  if (!pool1.length && wantSymbol) pool1 = cands.filter((c) => c.symbol.toLowerCase() === wantSymbol);
-  if (pool1.length > 1 && wantSymbol) {
-    const exact = pool1.filter((c) => c.symbol.toLowerCase() === wantSymbol);
-    if (exact.length === 1) pool1 = exact;
-  }
-  if (pool1.length === 1) return saveResolution(pool, session, inst, pool1[0], accountKey, 'auto');
-  throw new AppError(409, 'SAXO_AMBIGUOUS', `há várias correspondências para ${inst.symbol} na SAXO Bank; escolha o instrumento certo`, {
-    candidates: (pool1.length ? pool1 : cands).slice(0, 10),
-  });
-}
-
-/** Escolha manual de um candidato (revalidado na SAXO por pesquisa). */
+/** Escolha manual de um candidato (revalidado nos detalhes da SAXO). Substitui a correspondência que houver. */
 export async function chooseInstrument(pool, session, instrumentId, uic) {
   const inst = await loadInstrument(pool, instrumentId);
   const account = await pickAccount(session.client, inst.currency);
   const d = await session.client.get(`/ref/v1/instruments/details/${Number(uic)}/Stock`, { AccountKey: account.accountKey });
   if (!d?.Uic) throw new AppError(422, 'SAXO_INSTRUMENT_NOT_FOUND', 'instrumento não encontrado na SAXO Bank');
-  const mics = await exchangeMics(session.client, session.environment);
-  const cand = { uic: Number(d.Uic), symbol: d.Symbol, description: d.Description, exchangeId: d.Exchange?.ExchangeId ?? null, mic: mics.get(d.Exchange?.ExchangeId) ?? null, currency: d.CurrencyCode };
+  const cand = { uic: Number(d.Uic), symbol: d.Symbol, description: d.Description, exchangeId: d.Exchange?.ExchangeId ?? null, currency: d.CurrencyCode };
   return saveResolution(pool, session, inst, cand, account.accountKey, 'manual');
 }
 
@@ -275,6 +204,7 @@ export async function previewOrder(pool, cfg, session, p, { wait }) {
   const quote = await appQuote(pool, inst.id, cfg.maxQuoteAgeDays);
   const account = await pickAccount(session.client, inst.currency);
   let saxo = await resolveInstrument(pool, session, inst, account.accountKey);
+  if (!saxo.tradable) throw new AppError(409, 'SAXO_NOT_TRADABLE', `${saxo.saxo_symbol} não está negociável na SAXO Bank (ver Correspondência SAXO)`);
   if (!saxo.tick_scheme) { // correspondência guardada antes de se registar o passo de preço
     saxo = await saveResolution(pool, session, inst, { uic: Number(saxo.uic), symbol: saxo.saxo_symbol, exchangeId: saxo.exchange_id, description: saxo.description, currency: saxo.currency }, account.accountKey, saxo.source);
   }

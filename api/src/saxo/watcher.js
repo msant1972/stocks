@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import { listOrders, openSession } from './service.js';
 import { createStreamManager } from './streaming.js';
 import { refreshDueTokens } from './tokens.js';
+import { maybeWeeklyRecheck } from './catalog-runner.js';
 
 let sending = false;
 
@@ -54,6 +55,7 @@ export function startOrderWatcher(pool, cfg, log = null) {
   const tick = () => refreshDueTokens(pool, cfg, log)
     .then(() => watchOrders(pool, cfg, log))
     .then(() => stream.sync())
+    .then(() => maybeWeeklyRecheck(pool, cfg, log))
     .catch((e) => log?.warn?.({ err: e.message }, 'saxo: vigia falhou'));
   const timer = setInterval(tick, every);
   timer.unref();

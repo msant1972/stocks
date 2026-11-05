@@ -49,6 +49,10 @@ export function loadConfig(env = process.env) {
       streamUrl: env.STOCKS_SAXO_SIM_STREAM_URL || 'wss://sim-streaming.saxobank.com/sim/oapi/streaming/ws/connect',
       streaming: env.STOCKS_SAXO_STREAMING !== 'false', // avisos instantâneos das ordens (WebSocket); a vigia de 60 s fica de reserva
       watchSeconds: Number(env.STOCKS_SAXO_WATCH_SECONDS ?? 60), // vigia das ordens abertas; 0 desliga
+      // Ligação do catálogo inteiro: pausa entre instrumentos (até 4 pedidos cada; fica abaixo dos limites da SAXO)
+      // e revalidação automática semanal (false desliga).
+      catalogPauseMs: Number(env.STOCKS_SAXO_CATALOG_PAUSE_MS ?? 1200),
+      catalogWeekly: env.STOCKS_SAXO_CATALOG_WEEKLY !== 'false',
       fetchImpl: null, // só para testes
     },
   };

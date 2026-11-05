@@ -8,6 +8,7 @@
  *   npm run cli -- enable-user --email ana@exemplo.pt
  *   npm run cli -- list-users
  *   npm run cli -- reset-mfa --email ana@exemplo.pt   (2.º factor perdido: configura-o de novo no próximo login)
+ *   npm run cli -- saxo-sync --email admin@exemplo.pt [--recheck]   (liga o catálogo à SAXO com o token SAXO desse administrador)
  *
  * A palavra-passe é pedida no terminal sem eco, ou lida de STOCKS_NEW_PASSWORD (para automatização).
  */
@@ -18,6 +19,7 @@ import { audit, createPool, withTransaction } from './db.js';
 import { destroyUserSessions } from './auth/sessions.js';
 import { createUser, normaliseEmail, passwordError, setPassword } from './services/users.js';
 import { resetMfa } from './services/mfa.js';
+import { startCatalogSync } from './saxo/catalog-runner.js';
 
 function askHidden(prompt) {
   return new Promise((resolve) => {
@@ -48,7 +50,7 @@ async function main() {
     allowPositionals: true,
     options: {
       email: { type: 'string' }, name: { type: 'string' },
-      admin: { type: 'boolean', default: false }, capital: { type: 'string' }, 'new-email': { type: 'string' },
+      admin: { type: 'boolean', default: false }, recheck: { type: 'boolean', default: false }, capital: { type: 'string' }, 'new-email': { type: 'string' },
     },
   });
   const [command] = positionals;
@@ -122,8 +124,20 @@ async function main() {
         }
         break;
       }
+      case 'saxo-sync': {
+        const id = await findUser(pool, values.email ?? '');
+        const [[u]] = await pool.query('SELECT is_admin FROM users WHERE id = ?', [id]);
+        if (!u.is_admin) throw new Error('a ligação do catálogo à SAXO é reservada a administradores');
+        const run = await startCatalogSync(pool, cfg, id, { recheck: values.recheck });
+        console.log(`ligação ${run.id} a decorrer…`);
+        await run.done;
+        const [[r]] = await pool.query('SELECT status, counts, detail FROM saxo_catalog_runs WHERE id = ?', [run.id]);
+        console.log(`${r.status}: ${r.counts ?? '{}'}${r.detail ? ` — ${r.detail}` : ''}`);
+        if (r.status !== 'done') process.exitCode = 1;
+        break;
+      }
       default:
-        throw new Error('comando desconhecido; use create-user, set-password, set-email, disable-user, enable-user, reset-mfa ou list-users');
+        throw new Error('comando desconhecido; use create-user, set-password, set-email, disable-user, enable-user, reset-mfa, list-users ou saxo-sync');
     }
   } finally {
     await pool.end();

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { comparePortfolios, confirmWaitMs, defaultLimit, defaultStop, normaliseLimit, orderLabel, signalsToOrders } from '../src/lib/saxo.js';
+import { candidateLabel, comparePortfolios, confirmWaitMs, defaultLimit, defaultStop, filterMatches, normaliseLimit, orderLabel, signalsToOrders } from '../src/lib/saxo.js';
 
 test('preço limite: aceita vírgula, recusa vazio, zero e lixo', () => {
   assert.equal(normaliseLimit('9,5'), '9.5');
@@ -55,4 +55,17 @@ test('sinais → ordens: um por instrumento, compras ao orçamento, vendas só d
   assert.deepEqual(orders.map((o) => [o.signal.symbol, o.side, o.quantity, o.skip]), [
     ['BCP.LS', 'sell', 1000, null], ['EDP.LS', 'sell', 0, 'sem posição na SAXO'], ['GALP.LS', 'buy', 937, null],
   ]);
+});
+
+test('correspondência SAXO: filtro, ordenação e texto dos candidatos', () => {
+  const items = [
+    { symbol: 'B.DE', name: 'Bayer', status: 'linked', saxo: { symbol: 'BAYN:xetr', description: 'Bayer AG' } },
+    { symbol: 'A.PA', name: 'Alpha', status: 'unchecked', saxo: null },
+    { symbol: 'C.MI', name: 'Gamma', status: 'ambiguous', saxo: null },
+  ];
+  assert.deepEqual(filterMatches(items).map((i) => i.symbol), ['C.MI', 'A.PA']);
+  assert.deepEqual(filterMatches(items, { view: 'linked' }).map((i) => i.symbol), ['B.DE']);
+  assert.deepEqual(filterMatches(items, { view: 'all', q: 'xetr' }).map((i) => i.symbol), ['B.DE']);
+  assert.equal(candidateLabel({ symbol: 'BAYN:xetr', description: 'Bayer AG', exchangeId: 'FSE', currency: 'EUR', nameScore: 1 }),
+    'BAYN:xetr — Bayer AG · FSE · EUR · nome 100 %');
 });
