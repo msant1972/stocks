@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { IsoDate } from '../schemas.js';
 import { TURNOVER_SQL, turnoverSeries, turnoverSummary, yearsBeforeIso } from '../services/turnover.js';
+import { MARKET_CAP_COVERAGE_SQL, MARKET_CAP_SQL, marketCapByDate } from '../services/marketcap.js';
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
 const NEUTRAL_BAND = 1;       // % — a mesma zona neutra da estratégia
@@ -30,6 +31,31 @@ async function computeMomentum(pool) {
 export default async function marketRoutes(app, { pool }) {
   let cache = null;
   let turnoverCache = null;
+  let capCache = null;
+
+  /**
+   * Série diária do catálogo (valor negociado ou capitalização): janela de 2 anos com a SMA200, resumo e a sessão em
+   * curso à parte. `sql` recebe a data inicial; `toSessions` converte as linhas em { date, value, instruments } por sessão.
+   */
+  async function dailySeries(sql, toSessions = (rows) => rows) {
+    const [[last]] = await pool.query("SELECT MAX(last_session) AS d FROM instruments WHERE status = 'active'");
+    let points = [];
+    if (last?.d) {
+      // 2 anos de janela + ~1,5 anos antes, para a SMA200 começar já preenchida.
+      const [rows] = await pool.query(sql, [yearsBeforeIso(last.d, 4)]);
+      points = turnoverSeries(toSessions(rows), { years: 2, smaN: 200 });
+    }
+    const [[runs]] = await pool.query(
+      `SELECT (SELECT MAX(started_at) FROM job_runs WHERE kind = 'fetch_update' AND status = 'done') AS daily,
+              (SELECT MAX(started_at) FROM job_runs WHERE kind = 'fetch_intraday' AND status = 'done') AS intraday`,
+    );
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date());
+    const provisional = Boolean(points.at(-1)?.date === today && runs.intraday && (!runs.daily || runs.intraday > runs.daily));
+    // A sessão em curso tem só parte do dia: fica à parte, fora do gráfico e da comparação com a média.
+    const partial = provisional ? { date: points.at(-1).date, value: points.at(-1).value, instruments: points.at(-1).instruments } : null;
+    if (provisional) points = points.slice(0, -1);
+    return { points, summary: turnoverSummary(points), partial };
+  }
 
   // ---------- Calor: valor negociado diário do catálogo ----------
 
@@ -49,25 +75,37 @@ export default async function marketRoutes(app, { pool }) {
     },
   }, async () => {
     if (!turnoverCache || Date.now() - turnoverCache.at > CACHE_MS) {
-      const [[last]] = await pool.query("SELECT MAX(last_session) AS d FROM instruments WHERE status = 'active'");
-      let points = [];
-      if (last?.d) {
-        // 2 anos de janela + ~1,5 anos antes, para a SMA200 começar já preenchida.
-        const [rows] = await pool.query(TURNOVER_SQL, [yearsBeforeIso(last.d, 4)]);
-        points = turnoverSeries(rows, { years: 2, smaN: 200 });
-      }
-      const [[runs]] = await pool.query(
-        `SELECT (SELECT MAX(started_at) FROM job_runs WHERE kind = 'fetch_update' AND status = 'done') AS daily,
-                (SELECT MAX(started_at) FROM job_runs WHERE kind = 'fetch_intraday' AND status = 'done') AS intraday`,
-      );
-      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date());
-      const provisional = Boolean(points.at(-1)?.date === today && runs.intraday && (!runs.daily || runs.intraday > runs.daily));
-      // A sessão em curso tem só parte do dia: fica à parte, fora do gráfico e da comparação com a média.
-      const partial = provisional ? { date: points.at(-1).date, value: points.at(-1).value, instruments: points.at(-1).instruments } : null;
-      if (provisional) points = points.slice(0, -1);
-      turnoverCache = { at: Date.now(), payload: { points, summary: turnoverSummary(points), partial, currency: 'EUR' } };
+      turnoverCache = { at: Date.now(), payload: { ...(await dailySeries(TURNOVER_SQL)), currency: 'EUR' } };
     }
     return turnoverCache.payload;
+  });
+
+  // ---------- Calor: capitalização total do catálogo ----------
+
+  app.get('/market/cap', {
+    schema: {
+      tags: ['Mercado'], summary: 'Capitalização total diária dos instrumentos activos (2 anos) e a sua SMA200',
+      description: 'Capitalização de cada instrumento = fecho × número de acções (o actual, do perfil Yahoo, aplicado a todo o '
+        + 'histórico); o valor do dia é a soma dos instrumentos com número de acções (num feriado local conta a última capitalização '
+        + 'do instrumento, até 10 dias; `instruments` conta só os que tiveram sessão). Valores em euros. A sessão em curso '
+        + 'não entra em `points` nem em `summary`: vem em `partial`. `coverage`: instrumentos activos com e sem número de acções.',
+      response: {
+        200: z.object({
+          points: z.array(z.object({ date: IsoDate, value: z.number(), sma200: z.number().nullable(), instruments: z.number() })),
+          summary: z.object({ date: IsoDate, value: z.number(), sma200: z.number().nullable(), vsSma200: z.number().nullable() }).nullable(),
+          partial: z.object({ date: IsoDate, value: z.number(), instruments: z.number() }).nullable(),
+          coverage: z.object({ total: z.number(), withShares: z.number() }),
+          currency: z.literal('EUR'),
+        }),
+      },
+    },
+  }, async () => {
+    if (!capCache || Date.now() - capCache.at > CACHE_MS) {
+      const [[cov]] = await pool.query(MARKET_CAP_COVERAGE_SQL);
+      const coverage = { total: Number(cov.total), withShares: Number(cov.withShares) };
+      capCache = { at: Date.now(), payload: { ...(await dailySeries(MARKET_CAP_SQL, marketCapByDate)), coverage, currency: 'EUR' } };
+    }
+    return capCache.payload;
   });
 
   app.get('/market/momentum', {

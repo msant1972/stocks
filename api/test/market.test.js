@@ -96,3 +96,34 @@ describe.skipIf(!hasTestDb)('calor: valor negociado do catálogo', () => {
     expect(b).toMatchObject({ partial: null, currency: 'EUR' });
   });
 });
+
+describe.skipIf(!hasTestDb)('calor: capitalização do catálogo', () => {
+  let ctx;
+  let ana;
+  beforeAll(async () => {
+    ctx = await setup();
+    await makeUser(ctx.pool, 'cap@exemplo.pt');
+    ana = api(ctx.app, await login(ctx.app, 'cap@exemplo.pt'));
+    const a = await makeInstrument(ctx.pool, 'A.LS', { closes: ['10', '11', '12'] });
+    const b = await makeInstrument(ctx.pool, 'B.LS', { closes: ['20', '20', '20'] });
+    await makeInstrument(ctx.pool, 'SEMACCOES.LS', { closes: ['5', '5', '5'] }); // sem número de acções: fica de fora
+    const fora = await makeInstrument(ctx.pool, 'FORA.LS', { closes: ['99', '99', '99'], status: 'invalid' });
+    for (const [id, shares] of [[a, 1000], [b, 500], [fora, 1e6]]) {
+      await ctx.pool.query('INSERT INTO company_profiles (instrument_id, shares_outstanding) VALUES (?, ?)', [id, shares]);
+    }
+  });
+  afterAll(async () => {
+    await ctx.app.close();
+    await ctx.pool.end();
+  });
+
+  it('soma fecho × acções dos instrumentos activos com número de acções', async () => {
+    const res = await ana.get('/market/cap');
+    expect(res.statusCode).toBe(200);
+    const b = res.json();
+    // A: 10 000, 11 000, 12 000; B: 10 000 em todas as sessões
+    expect(b.points.map((p) => [p.value, p.instruments])).toEqual([[20000, 2], [21000, 2], [22000, 2]]);
+    expect(b.summary).toMatchObject({ value: 22000, sma200: null });
+    expect(b).toMatchObject({ partial: null, coverage: { total: 3, withShares: 2 }, currency: 'EUR' });
+  });
+});

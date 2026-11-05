@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { turnoverSeries, turnoverSummary, yearsBeforeIso } from '../src/services/turnover.js';
+import { marketCapByDate } from '../src/services/marketcap.js';
 
 const days = (n, start = '2023-01-02') => {
   const out = [];
@@ -36,5 +37,21 @@ describe('valor negociado (Calor)', () => {
 
   it('anos antes de uma data', () => {
     expect(yearsBeforeIso('2026-11-05', 2)).toBe('2024-11-05');
+  });
+});
+
+describe('capitalização (Calor)', () => {
+  it('soma por sessão; num feriado local conta a última capitalização do instrumento, até 10 dias', () => {
+    const rows = [
+      { id: 1, date: '2024-12-23', cap: '100' }, { id: 2, date: '2024-12-23', cap: '50' },
+      { id: 1, date: '2024-12-24', cap: '110' }, // o 2 não negociou (feriado): conta 50
+      { id: 1, date: '2025-01-10', cap: '120' }, // o 2 está há 18 dias sem sessão: sai da soma
+    ];
+    expect(marketCapByDate(rows)).toEqual([
+      { date: '2024-12-23', value: 150, instruments: 2 },
+      { date: '2024-12-24', value: 160, instruments: 1 },
+      { date: '2025-01-10', value: 120, instruments: 1 },
+    ]);
+    expect(marketCapByDate([])).toEqual([]);
   });
 });

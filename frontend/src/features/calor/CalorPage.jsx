@@ -64,6 +64,59 @@ function MonthlySection({ months }) {
   );
 }
 
+/** Capitalização Mercado: soma de fecho × número de acções de cada instrumento, com a SMA200. */
+function MarketCapSection() {
+  const q = useQuery({ queryKey: ['market', 'cap'], queryFn: () => api.get('/market/cap'), staleTime: 10 * 60_000 });
+  const points = q.data?.points ?? [];
+  const s = q.data?.summary;
+  const cov = q.data?.coverage;
+  const peak = useMemo(() => peakSession(q.data?.points ?? []), [q.data]);
+  const first = points[0];
+  return (
+    <section className="card" aria-labelledby="calor-cap-title">
+      <div className="card-head">
+        <h2 id="calor-cap-title" className="card-title">Capitalização Mercado</h2>
+        {points.length > 0 && <span className="small muted">{f.date(points[0].date)} a {f.date(points.at(-1).date)} · em euros</span>}
+      </div>
+      {q.isPending ? <Loading rows={6} label="A somar a capitalização de todos os instrumentos…" />
+        : q.error ? <ErrorState error={q.error} onRetry={q.refetch} />
+          : points.length === 0 ? <p className="small muted">Ainda não há cotações com número de acções.</p>
+            : (
+              <>
+                {s && (
+                  <div className="calor-stats">
+                    <Stat label="Última sessão completa" value={bigMoney(s.value)} sub={f.date(s.date)} />
+                    <Stat label="Média de 200 sessões" value={bigMoney(s.sma200)} />
+                    <Stat label="Face à média" value={signedPctOf(s.vsSma200)}
+                      sub={s.vsSma200 == null ? null : s.vsSma200 >= 0 ? 'acima da média' : 'abaixo da média'} />
+                    {first && <Stat label="Variação na janela" value={signedPctOf(s.value / first.value - 1)} sub={`desde ${f.date(first.date)}`} />}
+                    {peak && <Stat label="Máximo da janela" value={bigMoney(peak.value)} sub={f.date(peak.date)} />}
+                    {q.data.partial && (
+                      <Stat label="Sessão em curso" value={bigMoney(q.data.partial.value)}
+                        sub={`${f.date(q.data.partial.date)} · provisório, fora do gráfico`} />
+                    )}
+                  </div>
+                )}
+                <div className="legend-chips" style={{ margin: '0.75rem 0 0.25rem' }}>
+                  <span className="legend-chip static"><span className="swatch" style={{ background: 'var(--series-price)' }} />Capitalização</span>
+                  <span className="legend-chip static"><span className="swatch" style={{ background: 'var(--series-sma200)' }} />SMA200</span>
+                </div>
+                <Suspense fallback={<Loading rows={4} label="A carregar o gráfico…" />}>
+                  <TurnoverChart points={points} label="capitalização" countLabel="instrumentos" zeroBased={false} />
+                </Suspense>
+              </>
+            )}
+      <p className="small muted" style={{ margin: '0.75rem 0 0' }}>
+        Capitalização de cada instrumento = fecho × número de acções. O número de acções é o actual (Yahoo Finance), aplicado
+        a todo o período: emissões e recompras de acções não são reconstituídas. Em empresas com duas classes de acções o Yahoo
+        conta, por vezes, só uma, e as holdings cotadas (ex.: Heineken Holding) somam-se à participada.
+        {cov && cov.withShares < cov.total && <> Sem número de acções: {cov.total - cov.withShares} de {cov.total} instrumentos, fora da soma.</>}
+        {' '}O eixo não começa em zero, para se verem as variações.
+      </p>
+    </section>
+  );
+}
+
 function Stat({ label, value, sub }) {
   return (
     <div>
@@ -140,6 +193,8 @@ export default function CalorPage() {
       </section>
 
       {months.length > 0 && <MonthlySection months={months} />}
+
+      <MarketCapSection />
       </div>
     </>
   );

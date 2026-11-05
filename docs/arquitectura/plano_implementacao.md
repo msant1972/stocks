@@ -143,6 +143,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US48 | Estratégias → Pechinchas: lista dos instrumentos classificados como barato | — | Feito |
 | US49 | Estratégias → Calor: valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
 | US50 | Calor: histograma «Valor mensal negociado» com os meses mais quentes a cores | — | Feito |
+| US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
 | US34 | Charts como sítio único do instrumento, com velas e volume (a página do instrumento redirecciona) | — | Feito |
 | US35 | Cálculos antecipados e caches stale-while-revalidate: páginas de estratégias imediatas | — | Feito |
 | US36 | Visão geral como painel do dia; menu em secções e botão «Mais» em telemóvel | — | Feito |

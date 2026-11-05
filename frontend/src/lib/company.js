@@ -9,6 +9,7 @@ export function bigMoney(value, currency = 'EUR') {
   const v = Number(value);
   const a = Math.abs(v);
   const cur = SYMBOL[currency] ?? currency ?? '';
+  if (a >= 1e12) return `${nf(2).format(v / 1e12)} biliões ${cur}`.trim();
   if (a >= 1e9) return `${nf(1).format(v / 1e9)} mil milhões ${cur}`.trim();
   if (a >= 1e6) return `${nf(1).format(v / 1e6)} milhões ${cur}`.trim();
   return `${nf(0).format(v)} ${cur}`.trim();

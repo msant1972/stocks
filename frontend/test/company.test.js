@@ -8,6 +8,7 @@ const n = (s) => s.replace(/\s/g, ' '); // o Intl usa espaços não separáveis
 
 test('valores grandes em mil milhões e milhões', () => {
   assert.equal(n(bigMoney(14347606016)), '14,3 mil milhões €');
+  assert.equal(n(bigMoney(9.4412e12)), '9,44 biliões €');
   assert.equal(n(bigMoney(850.24e6)), '850,2 milhões €');
   assert.equal(n(bigMoney(-1.5e9, 'USD')), '-1,5 mil milhões US$');
   assert.equal(n(bigMoney(12345)), '12 345 €');
