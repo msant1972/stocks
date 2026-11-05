@@ -379,6 +379,8 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .financials-figure figcaption { margin-bottom: 0.25rem; color: var(--text-secondary); }
 .chart-tooltip { padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: var(--radius-control); background: var(--surface); box-shadow: var(--shadow-overlay); font-size: 0.875rem; }
 @media (max-width: 767px) { .company-range { grid-column: auto; } }
+.calor-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 0.75rem 1.25rem; }
+.swatch-inline { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: baseline; }
 .valuation-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 0.75rem; }
 .valuation-card { display: flex; flex-direction: column; gap: 0.5rem; padding: 0.75rem 1rem; border: 1px solid var(--border); border-radius: var(--radius-control); min-width: 0; }
 .valuation-metrics { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.625rem; }

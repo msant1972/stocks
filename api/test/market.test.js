@@ -67,3 +67,32 @@ describe.skipIf(!hasTestDb)('cruzamentos SMA10 / SMA50', () => {
     expect(b.down.map((e) => [e.symbol, e.sessionsAgo])).toEqual([['VAIVEM.LS', 1], ['DESCE.LS', 3]]);
   });
 });
+
+describe.skipIf(!hasTestDb)('calor: valor negociado do catálogo', () => {
+  let ctx;
+  let ana;
+  beforeAll(async () => {
+    ctx = await setup();
+    await makeUser(ctx.pool, 'calor@exemplo.pt');
+    ana = api(ctx.app, await login(ctx.app, 'calor@exemplo.pt'));
+    const a = await makeInstrument(ctx.pool, 'A.LS', { closes: ['10', '10', '10'] });
+    await makeInstrument(ctx.pool, 'B.LS', { closes: ['20', '20', '20'] });
+    await makeInstrument(ctx.pool, 'FORA.LS', { closes: ['99', '99', '99'], status: 'invalid' });
+    // Sessão do meio de A com OHLC diferentes: VN = 1000 × (8 + 9 + 12 + 11) / 4 = 10 000.
+    const [[mid]] = await ctx.pool.query('SELECT session_date AS d FROM daily_quotes WHERE instrument_id = ? ORDER BY session_date LIMIT 1 OFFSET 1', [a]);
+    await ctx.pool.query('UPDATE daily_quotes SET open = 8, low = 9, high = 12, close = 11 WHERE instrument_id = ? AND session_date = ?', [a, mid.d]);
+  });
+  afterAll(async () => {
+    await ctx.app.close();
+    await ctx.pool.end();
+  });
+
+  it('soma VN = volume × (O + Mín + Máx + F) / 4 dos instrumentos activos, por sessão', async () => {
+    const res = await ana.get('/market/turnover');
+    expect(res.statusCode).toBe(200);
+    const b = res.json();
+    expect(b.points.map((p) => [p.value, p.instruments, p.sma200])).toEqual([[30000, 2, null], [30000, 2, null], [30000, 2, null]]);
+    expect(b.summary).toMatchObject({ value: 30000, sma200: null, vsSma200: null });
+    expect(b).toMatchObject({ partial: null, currency: 'EUR' });
+  });
+});

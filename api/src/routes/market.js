@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { IsoDate } from '../schemas.js';
+import { TURNOVER_SQL, turnoverSeries, turnoverSummary, yearsBeforeIso } from '../services/turnover.js';
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
 const NEUTRAL_BAND = 1;       // % — a mesma zona neutra da estratégia
@@ -28,6 +29,46 @@ async function computeMomentum(pool) {
 
 export default async function marketRoutes(app, { pool }) {
   let cache = null;
+  let turnoverCache = null;
+
+  // ---------- Calor: valor negociado diário do catálogo ----------
+
+  app.get('/market/turnover', {
+    schema: {
+      tags: ['Mercado'], summary: 'Valor negociado diário de todos os instrumentos activos (2 anos) e a sua SMA200',
+      description: 'VN de cada instrumento = volume × (abertura + mínimo + máximo + fecho) / 4; o valor do dia é a soma de todos. '
+        + 'Valores em euros. A sessão em curso (recolha horária) não entra em `points` nem em `summary`: vem em `partial`.',
+      response: {
+        200: z.object({
+          points: z.array(z.object({ date: IsoDate, value: z.number(), sma200: z.number().nullable(), instruments: z.number() })),
+          summary: z.object({ date: IsoDate, value: z.number(), sma200: z.number().nullable(), vsSma200: z.number().nullable() }).nullable(),
+          partial: z.object({ date: IsoDate, value: z.number(), instruments: z.number() }).nullable(),
+          currency: z.literal('EUR'),
+        }),
+      },
+    },
+  }, async () => {
+    if (!turnoverCache || Date.now() - turnoverCache.at > CACHE_MS) {
+      const [[last]] = await pool.query("SELECT MAX(last_session) AS d FROM instruments WHERE status = 'active'");
+      let points = [];
+      if (last?.d) {
+        // 2 anos de janela + ~1,5 anos antes, para a SMA200 começar já preenchida.
+        const [rows] = await pool.query(TURNOVER_SQL, [yearsBeforeIso(last.d, 4)]);
+        points = turnoverSeries(rows, { years: 2, smaN: 200 });
+      }
+      const [[runs]] = await pool.query(
+        `SELECT (SELECT MAX(started_at) FROM job_runs WHERE kind = 'fetch_update' AND status = 'done') AS daily,
+                (SELECT MAX(started_at) FROM job_runs WHERE kind = 'fetch_intraday' AND status = 'done') AS intraday`,
+      );
+      const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date());
+      const provisional = Boolean(points.at(-1)?.date === today && runs.intraday && (!runs.daily || runs.intraday > runs.daily));
+      // A sessão em curso tem só parte do dia: fica à parte, fora do gráfico e da comparação com a média.
+      const partial = provisional ? { date: points.at(-1).date, value: points.at(-1).value, instruments: points.at(-1).instruments } : null;
+      if (provisional) points = points.slice(0, -1);
+      turnoverCache = { at: Date.now(), payload: { points, summary: turnoverSummary(points), partial, currency: 'EUR' } };
+    }
+    return turnoverCache.payload;
+  });
 
   app.get('/market/momentum', {
     schema: {
