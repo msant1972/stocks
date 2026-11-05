@@ -12,7 +12,7 @@ Este guia estabelece uma proposta visual e funcional para implementação. Os va
 
 - Negociação exclusivamente simulada.
 - Carteira e saldo virtuais.
-- Histórico diário dos últimos dois anos, sujeito à disponibilidade dos dados.
+- Histórico diário dos últimos dois anos nos gráficos, com três anos guardados (o primeiro aquece a SMA200), sujeito à disponibilidade dos dados.
 - Alertas por email agrupados num único resumo por utilizador, enviado após a recolha diária das cotações.
 - Instrumentos cotados em EUR e carteira em EUR.
 - Ausência de cotações em tempo real (durante a sessão só há a vela provisória do dia, actualizada de hora a hora) e de execução real em bolsa.
@@ -631,4 +631,4 @@ src/
 
 ## 13. Briefing resumido para implementação
 
-> Criar uma interface React premium, serena e fluida para uma plataforma de simulação e acompanhamento de acções. Inspirar-se na clareza e contenção das interfaces Apple sem copiar a marca. Usar tipografia de sistema, grelha consistente, superfícies sólidas, espaços generosos, cantos suaves, sombras discretas e azul como destaque. Disponibilizar temas claro, escuro e sistema. Reservar translucidez para navegação, nunca para os dados. Desenhar Visão geral, Acompanhamento, Detalhe do instrumento, Carteira, Operações, Alertas e Definições. Mostrar sempre a natureza virtual das operações e a data das cotações diárias. Suportar histórico de dois anos e explicar que os alertas chegam num email de resumo após a actualização diária. Priorizar acessibilidade, navegação por teclado, movimento reduzido, estados de erro e clareza financeira. A experiência deve transmitir confiança e qualidade sem sugerir dados em tempo real nem execução real de ordens.
+> Criar uma interface React premium, serena e fluida para uma plataforma de simulação e acompanhamento de acções. Inspirar-se na clareza e contenção das interfaces Apple sem copiar a marca. Usar tipografia de sistema, grelha consistente, superfícies sólidas, espaços generosos, cantos suaves, sombras discretas e azul como destaque. Disponibilizar temas claro, escuro e sistema. Reservar translucidez para navegação, nunca para os dados. Desenhar Visão geral, Acompanhamento, Detalhe do instrumento, Carteira, Operações, Alertas e Definições. Mostrar sempre a natureza virtual das operações e a data das cotações diárias. Suportar histórico de dois anos nos gráficos (três guardados, para as médias longas) e explicar que os alertas chegam num email de resumo após a actualização diária. Priorizar acessibilidade, navegação por teclado, movimento reduzido, estados de erro e clareza financeira. A experiência deve transmitir confiança e qualidade sem sugerir dados em tempo real nem execução real de ordens.

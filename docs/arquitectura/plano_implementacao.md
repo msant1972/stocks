@@ -49,7 +49,7 @@ Detalhe em [Análise e decisões](analise_e_decisoes.md).
 |---|---|---|---|
 | F0 — Requisitos e prova de conceito | Âmbito e fonte validados | Concluída | Decisões registadas; prova de conceito do motor de recolha; lista inicial de 41 símbolos. O SMTP não foi confirmado nesta fase |
 | F1 — Fundação técnica | Repositório, ambientes, BD, pipeline | Concluída, com lacunas | Stack fixada, migrações dbmate, OpenAPI gerado, CI com testes em cada componente. Falta análise estática (lint) e auditoria de dependências no CI; desenvolvimento e produção partilham o servidor |
-| F2 — Recolha e histórico | Dois anos consultáveis | Concluída | 295 instrumentos activos, cerca de 148 mil sessões; idempotência, validação, novas tentativas e concorrência testadas |
+| F2 — Recolha e histórico | Dois anos consultáveis (três guardados, para a SMA200 completa) | Concluída | 295 instrumentos activos, cerca de 148 mil sessões; idempotência, validação, novas tentativas e concorrência testadas |
 | F3 — API e acompanhamento | Login, pesquisa, lista, gráficos | Concluída | Isolamento entre utilizadores testado; importação de Excel com pré-visualização |
 | F4 — Carteira e simulação | Operações transaccionais | Concluída | Concorrência, idempotência, custo médio e aritmética decimal exacta testados |
 | F5 — Alertas e email | Regras, resumo, registos | Concluída | Resumo por utilizador, desduplicação, envios falhados e incertos testados. SMTP da OVH configurado em Definições e email de teste aceite |
@@ -231,7 +231,7 @@ Rollback:
 
 A versão 1 considera-se concluída quando permite:
 
-- acompanhar instrumentos com histórico diário até dois anos — **cumprido**;
+- acompanhar instrumentos com histórico diário de dois anos nos gráficos, com três anos guardados para a SMA200 estar completa — **cumprido**;
 - simular compras e vendas com integridade de saldo e posições — **cumprido**;
 - gerir alertas por email com um resumo por utilizador após cada recolha diária — **cumprido**;
 - operar com monitorização e recuperação testadas — **cumprido** (aviso operacional desde 3 nov. 2026; restauro do dump testado).

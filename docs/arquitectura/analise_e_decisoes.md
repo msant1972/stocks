@@ -37,7 +37,7 @@ A UI pesquisa instrumentos (US02) e a API «valida o instrumento» (fluxo 5.1), 
 **Decisão do Miguel (18 out. 2026):** o catálogo é preenchido pelo utilizador, por introdução manual ou por importação de um ficheiro Excel com a lista de instrumentos.
 
 Implicações e proposta:
-- **Validação assíncrona:** como só o motor Python fala com o fornecedor, a API grava o instrumento com estado «A validar» e cria um pedido em `fetch_jobs`. O motor confirma que o ticker existe, preenche nome, mercado e moeda, faz a carga de dois anos e passa o estado para «Activo», ou para «Inválido» com o motivo. A UI mostra estes estados.
+- **Validação assíncrona:** como só o motor Python fala com o fornecedor, a API grava o instrumento com estado «A validar» e cria um pedido em `fetch_jobs`. O motor confirma que o ticker existe, preenche nome, mercado e moeda, faz a carga do histórico (três anos, ver a nota da secção 4.4) e passa o estado para «Activo», ou para «Inválido» com o motivo. A UI mostra estes estados.
 - **Formato do Excel:** um modelo fixo, descarregável na aplicação, com colunas `ticker` (símbolo Yahoo, ex.: `GALP.LS`, `AAPL`), `nome` (opcional), `mercado` (opcional) e `moeda` (opcional). Só a coluna ticker é obrigatória; o resto vem do fornecedor.
 - **Importação:** pré-visualização antes de gravar, com linhas válidas, duplicadas e com erro; aceitar só `.xlsx` (e eventualmente `.csv`), com limite de tamanho e de linhas. A leitura pode ser feita na API (ex.: biblioteca `exceljs`) ou no browser.
 - **Catálogo partilhado ou por utilizador:** recomendo um catálogo global único (chave: ticker + mercado), onde cada utilizador adiciona instrumentos e os associa à sua watchlist. Evita recolher o mesmo ticker várias vezes.
@@ -82,6 +82,8 @@ Se a carteira for em EUR e o catálogo tiver acções americanas, a regra do pla
 
 ### 4.4. Retenção móvel de dois anos
 Dois anos por ticker são cerca de 500 linhas; mil tickers durante dez anos ficam abaixo de 3 milhões de linhas, o que o MariaDB gere sem esforço. Apagar dados antigos acrescenta um processo, testes e risco (gráficos que encolhem) sem ganho. **Proposta:** os «dois anos» passam a ser só a profundidade da carga inicial; não apagar nada no MVP.
+
+**Decisão posterior:** a carga inicial passou a **três anos** (`STOCKS_HISTORY_YEARS=3`). A SMA200 só tem valor a partir da 200.ª sessão (cerca de 10 meses); com três anos guardados, os dois anos mostrados nos gráficos e usados nas estratégias têm sempre a SMA200 completa. Nada é apagado.
 
 ### 4.5. Preços ajustados e eventos societários
 O plano diz bem para não misturar séries. **Proposta concreta:** guardar o fecho não ajustado e o fecho ajustado na mesma linha; as operações simuladas usam o não ajustado (é o preço que «existiu»); os gráficos usam o ajustado. Um desdobramento numa acção detida continua a distorcer a posição; no MVP, sinalizar e documentar como limitação.
