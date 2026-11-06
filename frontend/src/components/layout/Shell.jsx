@@ -50,7 +50,7 @@ const NAV_GROUPS = [
     ],
   },
   {
-    title: 'Conta',
+    title: 'Administração',
     items: [
       { to: '/utilizadores', label: 'Utilizadores', icon: 'users', admin: true },
       { to: '/saxo/correspondencia', label: 'Correspondência SAXO', icon: 'link', admin: true },
