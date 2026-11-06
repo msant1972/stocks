@@ -9,9 +9,9 @@ import { nearestTick } from './ticks.js';
 /**
  * Automação: lê os sinais das estratégias ligadas e envia as ordens à conta de SIMULAÇÃO da SAXO, sem intervenção.
  *
- * Quando: uma vez por dia útil, a partir das 08:30 de Lisboa (bolsas abertas, primeira recolha horária feita).
- * Que sinais: os da última sessão fechada e, nas estratégias que executam na abertura (signalTiming 'open'), também os de hoje.
- * As que dependem do fecho nunca usam a sessão em curso, que ainda pode mudar.
+ * Quando: de hora a hora nos dias úteis, 10 minutos depois de cada recolha horária do Yahoo (08:23 a 17:23 → 08:33 a 17:33 de
+ * Lisboa). Que sinais: os da sessão em curso, calculados com os últimos dados, e os da última sessão. Um sinal da sessão em
+ * curso pode depender de um fecho que ainda vai mudar: uma vez enviado, a ordem fica, mesmo que o sinal desapareça depois.
  * Ordens, ambas do dia: compra limitada a último preço + 1 %, com o orçamento da estratégia; venda a mercado do que a
  * automação comprou para essa estratégia (no máximo o que a conta tem), nunca de posições manuais ou de outra estratégia.
  * Um sinal nunca se envia duas vezes: saxo_automation_orders tem um registo único por sinal e a chave de idempotência da
@@ -19,7 +19,11 @@ import { nearestTick } from './ticks.js';
  */
 
 export const BUY_LIMIT_MARKUP = 0.01;
-export const WINDOW = { from: '08:30', intradayGrace: '09:00', to: '09:30' };
+const FIRST_HOUR = 8;   // recolhas horárias: 08:23 a 17:23 (deploy/systemd/stocks-intraday.timer)
+const LAST_HOUR = 17;
+const SLOT_FROM = 33;   // 10 minutos depois da recolha
+const SLOT_TO = 53;     // sem recolha até aqui, esta hora fica sem execução
+const LATE_MINUTE = 50; // a partir daqui, a falta da recolha da hora fica registada como falha
 const RETRY_MS = 5 * 60_000;  // depois de uma falha (ex.: ligação expirada), volta a tentar dentro da janela
 const STUCK_MS = 15 * 60_000; // «a correr» há mais do que isto: a API reiniciou a meio
 
@@ -31,7 +35,12 @@ export function lisbonClock(now = new Date()) {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}`, weekday: parts.weekday };
 }
 
-export const inWindow = ({ time, weekday }) => !['Sat', 'Sun'].includes(weekday) && time >= WINDOW.from && time < WINDOW.to;
+/** Hora da execução em curso (8 a 17), ou null fora dos 20 minutos a seguir aos 10 minutos depois de cada recolha. */
+export function runSlot({ time, weekday }) {
+  if (['Sat', 'Sun'].includes(weekday)) return null;
+  const [hour, minute] = time.split(':').map(Number);
+  return hour >= FIRST_HOUR && hour <= LAST_HOUR && minute >= SLOT_FROM && minute < SLOT_TO ? hour : null;
+}
 
 /** Preço limite de uma compra: último preço + 1 %, no passo de preço do instrumento (sem esquema conhecido, 4 casas). */
 export function buyLimit(lastPrice, scheme = null) {
@@ -42,10 +51,9 @@ export function buyLimit(lastPrice, scheme = null) {
 /** Unidades que o orçamento compra ao último preço (0 se não chegar para uma). */
 export const buyQuantity = (budget, lastPrice) => (Number(lastPrice) > 0 ? Math.floor(budget / Number(lastPrice)) : 0);
 
-/** Sinais a tratar: da última sessão fechada e, se a estratégia executa na abertura, de hoje; vendas primeiro (libertam saldo). */
-export function selectSignals(items, strategy, { lastFinal, today }) {
-  const dates = new Set([lastFinal, ...(strategy.signalTiming === 'open' ? [today] : [])]);
-  return items.filter((s) => dates.has(s.date))
+/** Sinais a tratar: os da sessão em curso e os da última sessão; vendas primeiro (libertam saldo). */
+export function selectSignals(items, { lastFinal, today }) {
+  return items.filter((s) => s.date === lastFinal || s.date === today)
     .sort((a, b) => a.date.localeCompare(b.date) || (a.side === 'sell' ? 0 : 1) - (b.side === 'sell' ? 0 : 1) || a.symbol.localeCompare(b.symbol));
 }
 
@@ -155,7 +163,7 @@ export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSign
   for (const { strategy_id: id } of rows) {
     const strategy = getStrategy(id);
     if (!strategy?.available) continue;
-    const items = selectSignals(await loadSignals(strategy), strategy, { lastFinal, today: clock.date });
+    const items = selectSignals(await loadSignals(strategy), { lastFinal, today: clock.date });
     for (const s of items) {
       const outcome = await handleSignal(pool, cfg, session, s, strategy, { getHeld, wait });
       counts[outcome] = (counts[outcome] ?? 0) + 1;
@@ -168,18 +176,20 @@ export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSign
 let running = false;
 
 /**
- * Chamada pela vigia da SAXO a cada minuto: dentro da janela, corre os utilizadores com a automação ligada que ainda não
- * correram hoje. Espera pela recolha horária das 08:23 (até às 09:00) e nunca corre sem a recolha diária da véspera.
+ * Chamada pela vigia da SAXO a cada minuto: 10 minutos depois de cada recolha horária, corre os utilizadores com a automação
+ * ligada que ainda não correram nessa hora. Precisa da recolha dessa hora (senão os sinais não são os últimos) e da recolha
+ * diária da última sessão.
  */
 export async function runDueAutomation(pool, cfg, { now = new Date(), loadSignals = null, log = null } = {}) {
   const clock = lisbonClock(now);
-  if (!inWindow(clock) || running) return 0;
+  const hour = runSlot(clock);
+  if (hour == null || running) return 0;
   const [due] = await pool.query(
     `SELECT s.user_id, r.status, r.finished_at, r.started_at
        FROM saxo_automation_settings s
-       LEFT JOIN saxo_automation_runs r ON r.user_id = s.user_id AND r.run_date = ?
+       LEFT JOIN saxo_automation_runs r ON r.user_id = s.user_id AND r.run_date = ? AND r.run_hour = ?
       WHERE s.enabled = 1 AND (r.status IS NULL OR r.status <> 'done')
-        AND EXISTS (SELECT 1 FROM saxo_automation_strategies x WHERE x.user_id = s.user_id AND x.enabled = 1)`, [clock.date],
+        AND EXISTS (SELECT 1 FROM saxo_automation_strategies x WHERE x.user_id = s.user_id AND x.enabled = 1)`, [clock.date, hour],
   );
   const ready = due.filter((r) => !r.status
     || (r.status === 'failed' && now - new Date(r.finished_at) >= RETRY_MS)
@@ -188,8 +198,9 @@ export async function runDueAutomation(pool, cfg, { now = new Date(), loadSignal
   running = true;
   try {
     const [[intraday]] = await pool.query("SELECT MAX(started_at) AS at FROM job_runs WHERE kind = 'fetch_intraday' AND status = 'done'");
-    const hasIntraday = intraday?.at && lisbonClock(new Date(intraday.at)).date === clock.date;
-    if (!hasIntraday && clock.time < WINDOW.intradayGrace) return 0;
+    const last = intraday?.at ? lisbonClock(new Date(intraday.at)) : null;
+    const fresh = last?.date === clock.date && Number(last.time.slice(0, 2)) === hour;
+    if (!fresh && Number(clock.time.slice(3)) < LATE_MINUTE) return 0; // a recolha pode ainda estar a acabar
     const { lastFinal, confirmed } = await lastFinalSession(pool, clock.date);
     const cache = new Map();
     const signals = loadSignals ?? (async (strategy) => {
@@ -199,16 +210,18 @@ export async function runDueAutomation(pool, cfg, { now = new Date(), loadSignal
     let done = 0;
     for (const { user_id: userId } of ready) {
       await pool.query(
-        `INSERT INTO saxo_automation_runs (user_id, run_date) VALUES (?, ?)
-         ON DUPLICATE KEY UPDATE status = 'running', started_at = NOW(3), finished_at = NULL, detail = NULL`, [userId, clock.date],
+        `INSERT INTO saxo_automation_runs (user_id, run_date, run_hour) VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE status = 'running', started_at = NOW(3), finished_at = NULL, detail = NULL`, [userId, clock.date, hour],
       );
+      const key = [userId, clock.date, hour];
       try {
+        if (!fresh) throw new Error('a recolha horária do Yahoo não terminou: esta hora fica sem execução');
         if (!confirmed) throw new Error('a recolha diária da última sessão não terminou: os sinais ainda não são firmes');
         const counts = await runForUser(pool, cfg, userId, clock, { lastFinal, loadSignals: signals, log });
-        await pool.query("UPDATE saxo_automation_runs SET status = 'done', counts = ?, finished_at = NOW(3) WHERE user_id = ? AND run_date = ?", [JSON.stringify(counts), userId, clock.date]);
+        await pool.query("UPDATE saxo_automation_runs SET status = 'done', counts = ?, finished_at = NOW(3) WHERE user_id = ? AND run_date = ? AND run_hour = ?", [JSON.stringify(counts), ...key]);
         done += 1;
       } catch (err) {
-        await pool.query("UPDATE saxo_automation_runs SET status = 'failed', detail = ?, finished_at = NOW(3) WHERE user_id = ? AND run_date = ?", [String(err.message).slice(0, 500), userId, clock.date]);
+        await pool.query("UPDATE saxo_automation_runs SET status = 'failed', detail = ?, finished_at = NOW(3) WHERE user_id = ? AND run_date = ? AND run_hour = ?", [String(err.message).slice(0, 500), ...key]);
         log?.warn?.({ userId, err: err.message }, 'saxo: automação não correu');
       }
     }
@@ -223,13 +236,13 @@ export async function automationStatus(pool, userId) {
   const [[s]] = await pool.query('SELECT enabled FROM saxo_automation_settings WHERE user_id = ?', [userId]);
   const [rows] = await pool.query('SELECT strategy_id, enabled FROM saxo_automation_strategies WHERE user_id = ?', [userId]);
   const on = new Set(rows.filter((r) => r.enabled).map((r) => r.strategy_id));
-  const [[run]] = await pool.query('SELECT run_date, status, counts, detail, started_at, finished_at FROM saxo_automation_runs WHERE user_id = ? ORDER BY run_date DESC LIMIT 1', [userId]);
+  const [[run]] = await pool.query('SELECT run_date, status, counts, detail, started_at, finished_at FROM saxo_automation_runs WHERE user_id = ? ORDER BY run_date DESC, run_hour DESC LIMIT 1', [userId]);
   let counts = {};
   try { counts = run?.counts ? JSON.parse(run.counts) : {}; } catch { counts = {}; }
   return {
     enabled: Boolean(s?.enabled),
     strategies: AVAILABLE_STRATEGIES.map((x) => ({ id: x.id, name: x.name, summary: x.summary, budget: x.budget, enabled: on.has(x.id) })),
-    lastRun: run ? { date: run.run_date, status: run.status, counts, detail: run.detail, finishedAt: run.finished_at?.toISOString() ?? null } : null,
+    lastRun: run ? { date: run.run_date, status: run.status, counts, detail: run.detail, startedAt: run.started_at.toISOString(), finishedAt: run.finished_at?.toISOString() ?? null } : null,
   };
 }
 

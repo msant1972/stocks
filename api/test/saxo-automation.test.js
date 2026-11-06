@@ -1,17 +1,20 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { getStrategy } from '../../shared/strategies/index.js';
-import { buyLimit, buyQuantity, inWindow, lisbonClock, runDueAutomation, selectSignals, signalKey } from '../src/saxo/automation.js';
+import { buyLimit, buyQuantity, lisbonClock, runDueAutomation, runSlot, selectSignals, signalKey } from '../src/saxo/automation.js';
 import { encryptSecret } from '../src/secrets.js';
 import { api, hasTestDb, login, makeInstrument, makeUser, setup, TEST_SECRET_KEY } from './helpers.js';
 
 describe('automação: regras', () => {
-  it('janela: dias úteis das 08:30 às 09:30 de Lisboa, com a hora de Verão', () => {
-    expect(lisbonClock(new Date('2026-11-06T08:30:00Z'))).toEqual({ date: '2026-11-06', time: '08:30', weekday: 'Fri' });
-    expect(lisbonClock(new Date('2026-07-06T07:30:00Z')).time).toBe('08:30'); // UTC+1
-    expect(inWindow({ time: '08:29', weekday: 'Fri' })).toBe(false);
-    expect(inWindow({ time: '08:30', weekday: 'Fri' })).toBe(true);
-    expect(inWindow({ time: '09:30', weekday: 'Fri' })).toBe(false);
-    expect(inWindow({ time: '08:45', weekday: 'Sat' })).toBe(false);
+  it('de hora a hora nos dias úteis, 10 minutos depois de cada recolha (08:23 a 17:23), com a hora de Verão', () => {
+    expect(lisbonClock(new Date('2026-11-06T08:33:00Z'))).toEqual({ date: '2026-11-06', time: '08:33', weekday: 'Fri' });
+    expect(lisbonClock(new Date('2026-07-06T07:33:00Z')).time).toBe('08:33'); // UTC+1
+    expect(runSlot({ time: '08:32', weekday: 'Fri' })).toBeNull();
+    expect(runSlot({ time: '08:33', weekday: 'Fri' })).toBe(8);
+    expect(runSlot({ time: '08:52', weekday: 'Fri' })).toBe(8);
+    expect(runSlot({ time: '08:53', weekday: 'Fri' })).toBeNull();
+    expect(runSlot({ time: '17:33', weekday: 'Fri' })).toBe(17);
+    expect(runSlot({ time: '07:40', weekday: 'Fri' })).toBeNull();
+    expect(runSlot({ time: '18:33', weekday: 'Fri' })).toBeNull();
+    expect(runSlot({ time: '08:33', weekday: 'Sat' })).toBeNull();
   });
 
   it('compra: limite = último preço + 1 % no passo de preço; quantidade pelo orçamento', () => {
@@ -24,20 +27,14 @@ describe('automação: regras', () => {
     expect(buyQuantity(15000, null)).toBe(0);
   });
 
-  it('A-Momentum só usa a sessão fechada; as que executam na abertura usam também hoje; vendas primeiro', () => {
+  it('usa os sinais da sessão em curso e da última sessão; vendas primeiro', () => {
     const items = [
       { date: '2026-11-06', side: 'buy', symbol: 'HOJE.LS' },
       { date: '2026-11-05', side: 'buy', symbol: 'A.LS' },
       { date: '2026-11-05', side: 'sell', symbol: 'B.LS' },
       { date: '2026-11-04', side: 'buy', symbol: 'ANTIGO.LS' },
     ];
-    const ctx = { lastFinal: '2026-11-05', today: '2026-11-06' };
-    expect(selectSignals(items, getStrategy('a-momentum'), ctx).map((s) => s.symbol)).toEqual(['B.LS', 'A.LS']);
-    expect(selectSignals(items, getStrategy('c-ai'), ctx).map((s) => s.symbol)).toEqual(['B.LS', 'A.LS', 'HOJE.LS']);
-  });
-
-  it('todas as estratégias dizem quando o sinal é firme', () => {
-    for (const id of ['a-momentum', 'b-opus', 'c-ai', 'd-reversao']) expect(['open', 'close']).toContain(getStrategy(id).signalTiming);
+    expect(selectSignals(items, { lastFinal: '2026-11-05', today: '2026-11-06' }).map((s) => s.symbol)).toEqual(['B.LS', 'A.LS', 'HOJE.LS']);
   });
 
   it('a chave é igual em qualquer repetição e cabe no limite', () => {
@@ -77,7 +74,7 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
   let ana;
   let userId;
   let galp;
-  const NOW = new Date('2026-11-06T08:35:00Z'); // sexta-feira
+  const NOW = new Date('2026-11-06T08:35:00Z'); // sexta-feira, na execução das 08:33
   const FINAL = '2026-11-05';
   const signal = (over = {}) => ({ instrumentId: galp, symbol: 'GALP.LS', side: 'buy', reason: null, date: FINAL, lastClose: '10', ...over });
   const run = (signals, opts = {}) => runDueAutomation(ctx.pool, ctx.cfg, { now: NOW, loadSignals: async (st) => signals[st.id] ?? [], ...opts });
@@ -175,6 +172,27 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     expect(item).toMatchObject({ outcome: 'sent', strategy: 'a-momentum', strategyName: 'A-Momentum', symbol: 'GALP.LS', order: { side: 'buy', orderType: 'limit', status: 'working', quantity: 1500 } });
   });
 
+  it('corre de hora a hora: novos sinais da sessão em curso saem na hora seguinte, sem repetir os já enviados', async () => {
+    const f = use();
+    await turnOn();
+    const today = signal({ date: '2026-11-06' });
+    const lei = await makeInstrument(ctx.pool, 'NOVO.LS', { closes: ['20', '20'], sessions: [FINAL, '2026-11-06'] });
+    await ctx.pool.query(
+      "INSERT INTO saxo_instruments (instrument_id, environment, uic, saxo_symbol, exchange_id, currency, tradable, order_types, min_size, tick_scheme) VALUES (?, 'sim', 777, 'NOVO:xlis', 'LISB', 'EUR', 1, 'Market,Limit', 1, '{}')",
+      [lei],
+    );
+    expect(await run({ 'a-momentum': [today] })).toBe(1);
+    expect(f.orders).toHaveLength(1);
+    expect(await run({ 'a-momentum': [today] })).toBe(0); // já correu nesta hora
+    await ctx.pool.query("INSERT INTO job_runs (kind, status, started_at, finished_at) VALUES ('fetch_intraday', 'done', '2026-11-06 09:23:00', '2026-11-06 09:25:00')");
+    const novo = signal({ date: '2026-11-06', instrumentId: lei, symbol: 'NOVO.LS', lastClose: '20' });
+    expect(await run({ 'a-momentum': [today, novo] }, { now: new Date('2026-11-06T09:34:00Z') })).toBe(1);
+    expect(f.orders).toHaveLength(2);
+    expect(f.orders[1].body).toMatchObject({ Uic: 777, OrderPrice: 20.2, Amount: 750 });
+    const { lastRun } = (await ana.get('/saxo/automation')).json();
+    expect(lastRun).toMatchObject({ status: 'done', counts: { already: 1, sent: 1 } });
+  });
+
   it('um sinal só se envia uma vez, mesmo noutro dia em que ainda seja elegível', async () => {
     const f = use();
     await turnOn();
@@ -234,14 +252,18 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     expect(lastRun.detail).toMatch(/recolha diária/);
   });
 
-  it('espera pela recolha horária até às 09:00', async () => {
+  it('espera pela recolha da hora; se não chegar, essa hora fica sem execução e diz porquê', async () => {
     const f = use();
     await turnOn();
-    await ctx.pool.query("DELETE FROM job_runs WHERE kind = 'fetch_intraday'");
     const signals = { 'a-momentum': [signal()] };
-    expect(await run(signals)).toBe(0);
-    expect(await run(signals, { now: new Date('2026-11-06T09:01:00Z') })).toBe(1);
-    expect(f.orders).toHaveLength(1);
+    const at = (m) => new Date(`2026-11-06T09:${m}:00Z`);
+    expect(await run(signals, { now: at(34) })).toBe(0); // só há a recolha das 08:23
+    expect((await ana.get('/saxo/automation')).json().lastRun).toBeNull();
+    expect(await run(signals, { now: at(50) })).toBe(0);
+    expect(f.orders).toHaveLength(0);
+    const { lastRun } = (await ana.get('/saxo/automation')).json();
+    expect(lastRun).toMatchObject({ status: 'failed' });
+    expect(lastRun.detail).toMatch(/recolha horária/);
   });
 
   it('ligação à SAXO expirada: nada enviado, repete 5 min depois e envia então', async () => {

@@ -144,8 +144,9 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US49 | Estratégias → Calor: valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
 | US50 | Calor: histograma «Valor mensal negociado» com os meses mais quentes a cores | — | Feito |
 | US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
+| US58 | Automação de hora a hora (10 min depois de cada recolha), com os sinais da sessão em curso e da última sessão | — | Feito |
 | US57 | Charts: lista «Saxo» com os instrumentos da Carteira SAXO | — | Feito |
-| US56 | Automação (grupo SAXO): sinais enviados automaticamente à conta de simulação, com interruptor geral e por estratégia e lista das ordens; Correspondência SAXO passa para o grupo Conta | — | Feito |
+| US56 | Automação (grupo SAXO): sinais enviados automaticamente à conta de simulação, com interruptor geral e por estratégia e lista das ordens; Correspondência SAXO passa para o grupo Administração (antes «Conta») | — | Feito |
 | US55 | Painel Empresa: indicadores ao último preço, intervalo de 52 semanas alargado, resultado por acção e ano fiscal ao lado de cada P/E | — | Feito |
 | US54 | Ordens SAXO num só passo («Confirmar e enviar», sem pré-validação; obrigatória só na conta real), também no envio em lote dos Sinais | — | Feito |
 | US53 | Ordens SAXO: precheck da SAXO só nas ordens a mercado, com stop ou na conta real; a confirmação em dois passos mantém-se | — | Feito |

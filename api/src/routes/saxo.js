@@ -86,14 +86,14 @@ export default async function saxoRoutes(app, { pool, cfg }) {
     enabled: z.boolean(),
     strategies: z.array(z.object({ id: z.string(), name: z.string(), summary: z.string().nullable(), budget: z.number().nullable(), enabled: z.boolean() })),
     lastRun: z.object({
-      date: z.string(), status: z.enum(['running', 'done', 'failed']), counts: z.record(z.string(), z.number()), detail: z.string().nullable(), finishedAt: z.string().nullable(),
+      date: z.string(), status: z.enum(['running', 'done', 'failed']), counts: z.record(z.string(), z.number()), detail: z.string().nullable(), startedAt: z.string(), finishedAt: z.string().nullable(),
     }).nullable(),
   });
 
   app.get('/saxo/automation', {
     schema: {
       tags: ['SAXO'], summary: 'Estado da automação (interruptor geral, estratégias e última execução)',
-      description: 'A automação corre uma vez por dia útil, a partir das 08:30 de Lisboa, e só na conta de simulação. Compras limitadas ao último '
+      description: 'A automação corre de hora a hora nos dias úteis, 10 minutos depois de cada recolha horária (08:33 a 17:33 de Lisboa), com os sinais da sessão em curso e da última sessão, e só na conta de simulação. Compras limitadas ao último '
         + 'preço + 1 %, vendas a mercado do que a automação comprou para essa estratégia; ordens do dia. Desligada por omissão.',
       response: { 200: AutomationStatus },
     },

@@ -37,8 +37,9 @@ export default function SaxoAutomationPage() {
         <div>
           <h1 className="page-title">Automação</h1>
           <p className="page-sub">
-            Lê os sinais das estratégias ligadas e envia as ordens à SAXO Bank sem pedir confirmação, uma vez por dia útil, a partir das 08:30
-            de Lisboa. Compras limitadas ao último preço + 1 %, vendas a mercado; todas as ordens são válidas por 1 dia.
+            Lê os sinais das estratégias ligadas e envia as ordens à SAXO Bank sem pedir confirmação, de hora a hora nos dias úteis, 10 minutos
+            depois de cada actualização do Yahoo (08:33 a 17:33 de Lisboa), com os sinais da sessão em curso e da última sessão. Compras limitadas
+            ao último preço + 1 %, vendas a mercado; todas as ordens são válidas por 1 dia.
           </p>
         </div>
       </div>
@@ -56,14 +57,14 @@ export default function SaxoAutomationPage() {
                 <p className="small muted" style={{ margin: 0 }}>
                   {!s.enabled ? 'Desligada: nenhuma ordem é enviada automaticamente.'
                     : !anyStrategy ? 'Ligada, mas sem nenhuma estratégia ligada: nenhuma ordem é enviada.'
-                      : saxoOk ? 'Ligada: as estratégias ligadas enviam ordens a partir das 08:30 de cada dia útil.' : 'Ligada, mas sem ligação válida à SAXO Bank.'}
+                      : saxoOk ? 'Ligada: as estratégias ligadas enviam ordens de hora a hora, das 08:33 às 17:33 dos dias úteis.' : 'Ligada, mas sem ligação válida à SAXO Bank.'}
                 </p>
               </div>
               <Switch label="Ligar ou desligar a automação" checked={s.enabled} disabled={toggleAll.isPending} onChange={(v) => toggleAll.mutate(v)} />
             </div>
             {s.lastRun && (
               <p className="small muted" style={{ margin: '0.75rem 0 0' }} aria-live="polite">
-                Última execução ({f.date(s.lastRun.date)}): {automationRunText(s.lastRun)}
+                Última execução ({f.dateTime(s.lastRun.startedAt)}): {automationRunText(s.lastRun)}
               </p>
             )}
           </section>
@@ -82,6 +83,7 @@ export default function SaxoAutomationPage() {
               ))}
             </ul>
             <p className="small muted" style={{ margin: '0.75rem 0 0' }}>
+              Os sinais da sessão em curso são calculados com os últimos dados e podem desaparecer até ao fecho; a ordem enviada fica.
               As vendas só vendem o que a automação comprou para essa estratégia: posições manuais ou de outra estratégia não são tocadas.
               Duas estratégias ligadas podem comprar o mesmo instrumento, com o orçamento de cada uma.
             </p>

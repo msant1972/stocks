@@ -5209,10 +5209,11 @@ paths:
       summary: Estado da automação (interruptor geral, estratégias e última execução)
       tags:
         - SAXO
-      description: A automação corre uma vez por dia útil, a partir das 08:30 de
-        Lisboa, e só na conta de simulação. Compras limitadas ao último preço +
-        1 %, vendas a mercado do que a automação comprou para essa estratégia;
-        ordens do dia. Desligada por omissão.
+      description: A automação corre de hora a hora nos dias úteis, 10 minutos depois
+        de cada recolha horária (08:33 a 17:33 de Lisboa), com os sinais da
+        sessão em curso e da última sessão, e só na conta de simulação. Compras
+        limitadas ao último preço + 1 %, vendas a mercado do que a automação
+        comprou para essa estratégia; ordens do dia. Desligada por omissão.
       responses:
         "200":
           description: Default Response
@@ -5266,6 +5267,8 @@ paths:
                       detail:
                         nullable: true
                         type: string
+                      startedAt:
+                        type: string
                       finishedAt:
                         nullable: true
                         type: string
@@ -5274,6 +5277,7 @@ paths:
                       - status
                       - counts
                       - detail
+                      - startedAt
                       - finishedAt
                     additionalProperties: false
                 required:
@@ -5349,6 +5353,8 @@ paths:
                       detail:
                         nullable: true
                         type: string
+                      startedAt:
+                        type: string
                       finishedAt:
                         nullable: true
                         type: string
@@ -5357,6 +5363,7 @@ paths:
                       - status
                       - counts
                       - detail
+                      - startedAt
                       - finishedAt
                     additionalProperties: false
                 required:
@@ -5466,6 +5473,8 @@ paths:
                       detail:
                         nullable: true
                         type: string
+                      startedAt:
+                        type: string
                       finishedAt:
                         nullable: true
                         type: string
@@ -5474,6 +5483,7 @@ paths:
                       - status
                       - counts
                       - detail
+                      - startedAt
                       - finishedAt
                     additionalProperties: false
                 required:
