@@ -58,7 +58,7 @@ export async function testConnection(session) {
   };
 }
 
-async function loadInstrument(pool, instrumentId) {
+export async function loadInstrument(pool, instrumentId) {
   const [[inst]] = await pool.query(
     'SELECT id, symbol, name, exchange, currency, status, isin, mic FROM instruments WHERE id = ?', [instrumentId],
   );
@@ -89,7 +89,7 @@ async function appQuote(pool, instrumentId, maxAgeDays) {
 
 const canonPrice = (p) => (p == null || p === '' ? '' : String(Number(p)));
 
-function parseScheme(saxo) {
+export function parseScheme(saxo) {
   try { return saxo.tick_scheme ? JSON.parse(saxo.tick_scheme) : null; } catch { return null; } // ilegível: a SAXO valida
 }
 
@@ -162,7 +162,8 @@ function stopLeg(accountKey, saxo, p, refPrice) {
 function orderBody(accountKey, saxo, p, refPrice) {
   const body = {
     AccountKey: accountKey, Uic: Number(saxo.uic), AssetType: saxo.asset_type, BuySell: p.side === 'buy' ? 'Buy' : 'Sell',
-    Amount: p.quantity, OrderType: SAXO_TYPE[p.orderType], OrderDuration: { DurationType: 'DayOrder' }, ManualOrder: true,
+    // ManualOrder diz à SAXO se foi uma pessoa a decidir a ordem: as da Automação não foram.
+    Amount: p.quantity, OrderType: SAXO_TYPE[p.orderType], OrderDuration: { DurationType: 'DayOrder' }, ManualOrder: !p.automated,
   };
   if (p.orderType === 'limit') body.OrderPrice = Number(p.limitPrice);
   if (p.stop) body.Orders = [stopLeg(accountKey, saxo, p, refPrice)];

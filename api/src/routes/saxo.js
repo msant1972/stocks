@@ -3,6 +3,8 @@ import { createThrottle } from '../saxo/client.js';
 import * as saxo from '../saxo/service.js';
 import { catalogStatus, startCatalogSync } from '../saxo/catalog-runner.js';
 import { AppError } from '../errors.js';
+import { AVAILABLE_STRATEGIES } from '../../../shared/strategies/index.js';
+import { automationOrders, automationStatus, setAutomationEnabled, setAutomationStrategy } from '../saxo/automation.js';
 import { sendPendingEmails } from '../saxo/watcher.js';
 import { ErrorBody, Id } from '../schemas.js';
 
@@ -77,6 +79,69 @@ export default async function saxoRoutes(app, { pool, cfg }) {
     const r = await saxo.chooseInstrument(pool, await session(req), req.params.instrumentId, req.body.uic);
     return { uic: Number(r.uic), symbol: r.saxo_symbol };
   });
+
+  // ---------- Automação: sinais enviados automaticamente à conta de simulação ----------
+
+  const AutomationStatus = z.object({
+    enabled: z.boolean(),
+    strategies: z.array(z.object({ id: z.string(), name: z.string(), summary: z.string().nullable(), budget: z.number().nullable(), enabled: z.boolean() })),
+    lastRun: z.object({
+      date: z.string(), status: z.enum(['running', 'done', 'failed']), counts: z.record(z.string(), z.number()), detail: z.string().nullable(), finishedAt: z.string().nullable(),
+    }).nullable(),
+  });
+
+  app.get('/saxo/automation', {
+    schema: {
+      tags: ['SAXO'], summary: 'Estado da automação (interruptor geral, estratégias e última execução)',
+      description: 'A automação corre uma vez por dia útil, a partir das 08:30 de Lisboa, e só na conta de simulação. Compras limitadas ao último '
+        + 'preço + 1 %, vendas a mercado do que a automação comprou para essa estratégia; ordens do dia. Desligada por omissão.',
+      response: { 200: AutomationStatus },
+    },
+  }, async (req) => automationStatus(pool, req.user.id));
+
+  app.put('/saxo/automation', {
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['SAXO'], summary: 'Ligar ou desligar a automação (interruptor geral)',
+      body: z.object({ enabled: z.boolean() }), response: { 200: AutomationStatus, 400: ErrorBody },
+    },
+  }, async (req) => {
+    await setAutomationEnabled(pool, req.user.id, req.body.enabled);
+    return automationStatus(pool, req.user.id);
+  });
+
+  app.put('/saxo/automation/strategies/:strategyId', {
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['SAXO'], summary: 'Ligar ou desligar a automação de uma estratégia',
+      params: z.object({ strategyId: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)) }),
+      body: z.object({ enabled: z.boolean() }), response: { 200: AutomationStatus, 400: ErrorBody },
+    },
+  }, async (req) => {
+    await setAutomationStrategy(pool, req.user.id, req.params.strategyId, req.body.enabled);
+    return automationStatus(pool, req.user.id);
+  });
+
+  app.get('/saxo/automation/orders', {
+    schema: {
+      tags: ['SAXO'], summary: 'Sinais tratados pela automação, com o estado real da ordem na SAXO',
+      description: 'outcome: sent (ordem criada; o estado está em order.status), skipped (sem ordem, com o motivo em message) ou failed (não chegou à SAXO).',
+      querystring: z.object({ limit: z.coerce.number().int().min(1).max(200).default(100) }),
+      response: {
+        200: z.object({
+          items: z.array(z.object({
+            id: z.number(), strategy: z.string(), strategyName: z.string(), signalDate: z.string(), signalSide: z.enum(['buy', 'add', 'sell']), reason: z.string().nullable(),
+            outcome: z.enum(['sent', 'skipped', 'failed']), message: z.string().nullable(), createdAt: z.string(),
+            instrumentId: z.number(), symbol: z.string(), name: z.string().nullable(),
+            order: z.object({
+              id: z.number(), saxoOrderId: z.string().nullable(), side: Side, quantity: z.number(), orderType: z.enum(['market', 'limit', 'stop', 'trailing_stop']),
+              limitPrice: z.string().nullable(), status: Status, filledQuantity: z.number().nullable(), fillPrice: z.string().nullable(),
+            }).nullable(),
+          })),
+        }),
+      },
+    },
+  }, async (req) => ({ items: await automationOrders(pool, req.user.id, { limit: req.query.limit }) }));
 
   // ---------- Correspondência do catálogo com a SAXO (administradores) ----------
 

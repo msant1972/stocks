@@ -34,7 +34,7 @@ const NAV_GROUPS = [
       { to: '/saxo/carteira', label: 'Carteira SAXO', icon: 'portfolio' },
       { to: '/saxo/ordens', label: 'Ordens SAXO', icon: 'trades' },
       { to: '/saxo/alertas', label: 'Alertas SAXO', icon: 'alerts' },
-      { to: '/saxo/correspondencia', label: 'Correspondência SAXO', icon: 'link', admin: true },
+      { to: '/saxo/automacao', label: 'Automação', icon: 'automation' },
     ],
   },
   {
@@ -53,6 +53,7 @@ const NAV_GROUPS = [
     title: 'Conta',
     items: [
       { to: '/utilizadores', label: 'Utilizadores', icon: 'users', admin: true },
+      { to: '/saxo/correspondencia', label: 'Correspondência SAXO', icon: 'link', admin: true },
       { to: '/definicoes', label: 'Definições', icon: 'settings' },
     ],
   },

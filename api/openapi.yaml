@@ -1201,7 +1201,10 @@ paths:
       description: Recolhido pelo motor de recolha uma vez por semana e na carga
         inicial. `profile` é null enquanto não houver dados. dividendYield e
         debtToEquity vêm em percentagem; profitMargin e returnOnEquity em
-        fracção.
+        fracção. Os campos de topo são os da recolha; `live` dá a capitalização,
+        os P/E, o P/VC e o dividendo ao último preço, o intervalo de 52 semanas
+        alargado até ele, os resultados por acção de cada P/E e o ano fiscal da
+        estimativa.
       parameters:
         - schema:
             type: integer
@@ -1289,6 +1292,62 @@ paths:
                       low52w:
                         nullable: true
                         type: number
+                      live:
+                        type: object
+                        properties:
+                          repriced:
+                            type: boolean
+                          price:
+                            nullable: true
+                            type: number
+                          priceDate:
+                            nullable: true
+                            type: string
+                          marketCap:
+                            nullable: true
+                            type: number
+                          trailingPe:
+                            nullable: true
+                            type: number
+                          forwardPe:
+                            nullable: true
+                            type: number
+                          priceToBook:
+                            nullable: true
+                            type: number
+                          dividendYield:
+                            nullable: true
+                            type: number
+                          low52w:
+                            nullable: true
+                            type: number
+                          high52w:
+                            nullable: true
+                            type: number
+                          trailingEps:
+                            nullable: true
+                            type: number
+                          forwardEps:
+                            nullable: true
+                            type: number
+                          forwardYear:
+                            nullable: true
+                            type: number
+                        required:
+                          - repriced
+                          - price
+                          - priceDate
+                          - marketCap
+                          - trailingPe
+                          - forwardPe
+                          - priceToBook
+                          - dividendYield
+                          - low52w
+                          - high52w
+                          - trailingEps
+                          - forwardEps
+                          - forwardYear
+                        additionalProperties: false
                       financials:
                         type: array
                         items:
@@ -1354,6 +1413,7 @@ paths:
                       - debtToEquity
                       - high52w
                       - low52w
+                      - live
                       - financials
                     additionalProperties: false
                   fetchedAt:
@@ -1675,6 +1735,12 @@ paths:
                           current:
                             nullable: true
                             type: number
+                          eps:
+                            nullable: true
+                            type: number
+                          epsYear:
+                            nullable: true
+                            type: number
                           median:
                             nullable: true
                             type: number
@@ -1844,6 +1910,9 @@ paths:
                           - dividendYield
                           - fcfYield
                         additionalProperties: false
+                      trailingEps:
+                        nullable: true
+                        type: number
                     required:
                       - price
                       - priceDate
@@ -1855,6 +1924,7 @@ paths:
                       - graham
                       - dcf
                       - metrics
+                      - trailingEps
                     additionalProperties: false
                   fetchedAt:
                     nullable: true
@@ -5133,6 +5203,442 @@ paths:
                     additionalProperties: false
                 required:
                   - error
+                additionalProperties: false
+  /api/v1/saxo/automation:
+    get:
+      summary: Estado da automação (interruptor geral, estratégias e última execução)
+      tags:
+        - SAXO
+      description: A automação corre uma vez por dia útil, a partir das 08:30 de
+        Lisboa, e só na conta de simulação. Compras limitadas ao último preço +
+        1 %, vendas a mercado do que a automação comprou para essa estratégia;
+        ordens do dia. Desligada por omissão.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  strategies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        summary:
+                          nullable: true
+                          type: string
+                        budget:
+                          nullable: true
+                          type: number
+                        enabled:
+                          type: boolean
+                      required:
+                        - id
+                        - name
+                        - summary
+                        - budget
+                        - enabled
+                      additionalProperties: false
+                  lastRun:
+                    nullable: true
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - running
+                          - done
+                          - failed
+                      counts:
+                        type: object
+                        additionalProperties:
+                          type: number
+                      detail:
+                        nullable: true
+                        type: string
+                      finishedAt:
+                        nullable: true
+                        type: string
+                    required:
+                      - date
+                      - status
+                      - counts
+                      - detail
+                      - finishedAt
+                    additionalProperties: false
+                required:
+                  - enabled
+                  - strategies
+                  - lastRun
+                additionalProperties: false
+    put:
+      summary: Ligar ou desligar a automação (interruptor geral)
+      tags:
+        - SAXO
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+              required:
+                - enabled
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  strategies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        summary:
+                          nullable: true
+                          type: string
+                        budget:
+                          nullable: true
+                          type: number
+                        enabled:
+                          type: boolean
+                      required:
+                        - id
+                        - name
+                        - summary
+                        - budget
+                        - enabled
+                      additionalProperties: false
+                  lastRun:
+                    nullable: true
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - running
+                          - done
+                          - failed
+                      counts:
+                        type: object
+                        additionalProperties:
+                          type: number
+                      detail:
+                        nullable: true
+                        type: string
+                      finishedAt:
+                        nullable: true
+                        type: string
+                    required:
+                      - date
+                      - status
+                      - counts
+                      - detail
+                      - finishedAt
+                    additionalProperties: false
+                required:
+                  - enabled
+                  - strategies
+                  - lastRun
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/saxo/automation/strategies/{strategyId}:
+    put:
+      summary: Ligar ou desligar a automação de uma estratégia
+      tags:
+        - SAXO
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+              required:
+                - enabled
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - a-momentum
+              - b-opus
+              - c-ai
+              - d-reversao
+          in: path
+          name: strategyId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  strategies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        summary:
+                          nullable: true
+                          type: string
+                        budget:
+                          nullable: true
+                          type: number
+                        enabled:
+                          type: boolean
+                      required:
+                        - id
+                        - name
+                        - summary
+                        - budget
+                        - enabled
+                      additionalProperties: false
+                  lastRun:
+                    nullable: true
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - running
+                          - done
+                          - failed
+                      counts:
+                        type: object
+                        additionalProperties:
+                          type: number
+                      detail:
+                        nullable: true
+                        type: string
+                      finishedAt:
+                        nullable: true
+                        type: string
+                    required:
+                      - date
+                      - status
+                      - counts
+                      - detail
+                      - finishedAt
+                    additionalProperties: false
+                required:
+                  - enabled
+                  - strategies
+                  - lastRun
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/saxo/automation/orders:
+    get:
+      summary: Sinais tratados pela automação, com o estado real da ordem na SAXO
+      tags:
+        - SAXO
+      description: "outcome: sent (ordem criada; o estado está em order.status),
+        skipped (sem ordem, com o motivo em message) ou failed (não chegou à
+        SAXO)."
+      parameters:
+        - schema:
+            default: 100
+            type: integer
+            minimum: 1
+            maximum: 200
+          in: query
+          name: limit
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: number
+                        strategy:
+                          type: string
+                        strategyName:
+                          type: string
+                        signalDate:
+                          type: string
+                        signalSide:
+                          type: string
+                          enum:
+                            - buy
+                            - add
+                            - sell
+                        reason:
+                          nullable: true
+                          type: string
+                        outcome:
+                          type: string
+                          enum:
+                            - sent
+                            - skipped
+                            - failed
+                        message:
+                          nullable: true
+                          type: string
+                        createdAt:
+                          type: string
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        order:
+                          nullable: true
+                          type: object
+                          properties:
+                            id:
+                              type: number
+                            saxoOrderId:
+                              nullable: true
+                              type: string
+                            side:
+                              type: string
+                              enum:
+                                - buy
+                                - sell
+                            quantity:
+                              type: number
+                            orderType:
+                              type: string
+                              enum:
+                                - market
+                                - limit
+                                - stop
+                                - trailing_stop
+                            limitPrice:
+                              nullable: true
+                              type: string
+                            status:
+                              type: string
+                              enum:
+                                - sending
+                                - working
+                                - filled
+                                - expired
+                                - cancelled
+                                - rejected
+                                - ended
+                                - unknown
+                            filledQuantity:
+                              nullable: true
+                              type: number
+                            fillPrice:
+                              nullable: true
+                              type: string
+                          required:
+                            - id
+                            - saxoOrderId
+                            - side
+                            - quantity
+                            - orderType
+                            - limitPrice
+                            - status
+                            - filledQuantity
+                            - fillPrice
+                          additionalProperties: false
+                      required:
+                        - id
+                        - strategy
+                        - strategyName
+                        - signalDate
+                        - signalSide
+                        - reason
+                        - outcome
+                        - message
+                        - createdAt
+                        - instrumentId
+                        - symbol
+                        - name
+                        - order
+                      additionalProperties: false
+                required:
+                  - items
                 additionalProperties: false
   /api/v1/saxo/catalog:
     get:

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { candidateLabel, comparePortfolios, defaultLimit, defaultStop, filterMatches, normaliseLimit, orderLabel, signalsToOrders } from '../src/lib/saxo.js';
+import { AUTOMATION_STATUS, automationRunText, automationState, candidateLabel, comparePortfolios, defaultLimit, defaultStop, filterMatches, normaliseLimit, orderLabel, signalsToOrders, splitAutomationItems } from '../src/lib/saxo.js';
 
 test('preço limite: aceita vírgula, recusa vazio, zero e lixo', () => {
   assert.equal(normaliseLimit('9,5'), '9.5');
@@ -63,4 +63,17 @@ test('correspondência SAXO: filtro, ordenação e texto dos candidatos', () => 
   assert.deepEqual(filterMatches(items, { view: 'all', q: 'xetr' }).map((i) => i.symbol), ['B.DE']);
   assert.equal(candidateLabel({ symbol: 'BAYN:xetr', description: 'Bayer AG', exchangeId: 'FSE', currency: 'EUR', nameScore: 1 }),
     'BAYN:xetr — Bayer AG · FSE · EUR · nome 100 %');
+});
+
+test('automação: estados, separação das ordens e resumo da execução', () => {
+  assert.equal(AUTOMATION_STATUS.working.label, 'À espera');
+  assert.equal(AUTOMATION_STATUS.filled.label, 'Executada');
+  assert.equal(AUTOMATION_STATUS.cancelled.label, 'Cancelada');
+  const items = [{ id: 1, order: { status: 'working' } }, { id: 2, order: null, message: 'sem posição' }];
+  assert.deepEqual(splitAutomationItems(items), { sent: [items[0]], notSent: [items[1]] });
+  assert.equal(automationState({ order: { status: 'working' }, message: null }), null);
+  assert.equal(automationState({ order: { status: 'rejected' }, message: 'Saldo insuficiente' }), 'Saldo insuficiente');
+  assert.equal(automationRunText({ status: 'done', counts: { sent: 3, skipped: 1 } }), '3 ordens enviadas, 1 sinal ignorado.');
+  assert.equal(automationRunText({ status: 'done', counts: { already: 2 } }), 'sem sinais novos.');
+  assert.equal(automationRunText({ status: 'failed', detail: 'ligação expirada' }), 'não correu: ligação expirada.');
 });

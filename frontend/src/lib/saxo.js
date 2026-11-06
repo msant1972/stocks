@@ -126,3 +126,45 @@ export function candidateLabel(c) {
   const score = c.nameScore == null ? '' : ` · nome ${Math.round(c.nameScore * 100)} %`;
   return `${c.symbol} — ${c.description ?? 'sem descrição'} · ${c.exchangeId ?? '?'} · ${c.currency ?? '?'}${score}`;
 }
+
+
+// ---------- Automação ----------
+
+/** Estado de uma ordem enviada pela automação, tal como a SAXO o indica. */
+export const AUTOMATION_STATUS = {
+  sending: { label: 'A enviar', tone: '' },
+  working: { label: 'À espera', tone: 'badge-accent' },
+  filled: { label: 'Executada', tone: 'badge-positive' },
+  cancelled: { label: 'Cancelada', tone: 'badge-warning' },
+  expired: { label: 'Expirada', tone: 'badge-warning' },
+  rejected: { label: 'Recusada', tone: 'badge-negative' },
+  ended: { label: 'Terminada', tone: '' },
+  unknown: { label: 'Por confirmar', tone: 'badge-warning' },
+};
+
+/** Ordens que chegaram a ser criadas e sinais que ficaram sem ordem. */
+export function splitAutomationItems(items = []) {
+  return { sent: items.filter((i) => i.order), notSent: items.filter((i) => !i.order) };
+}
+
+/** Pormenor do estado: quantidade e preço executados, ou o motivo dado pela SAXO. */
+export function automationState(item) {
+  const o = item.order;
+  if (o?.status === 'filled' && o.filledQuantity != null) {
+    return `${o.filledQuantity.toLocaleString('pt-PT')} a ${Number(o.fillPrice).toLocaleString('pt-PT', { maximumFractionDigits: 4 })}`;
+  }
+  return item.message ?? null;
+}
+
+/** Resumo de uma execução: «3 ordens enviadas, 1 sinal ignorado», ou o motivo da falha. */
+export function automationRunText(run) {
+  if (run.status === 'running') return 'a decorrer.';
+  if (run.status === 'failed') return `não correu: ${run.detail ?? 'erro desconhecido'}.`;
+  const c = run.counts ?? {};
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+  const parts = [];
+  if (c.sent) parts.push(plural(c.sent, 'ordem enviada', 'ordens enviadas'));
+  if (c.skipped) parts.push(plural(c.skipped, 'sinal ignorado', 'sinais ignorados'));
+  if (c.failed) parts.push(plural(c.failed, 'sinal falhado', 'sinais falhados'));
+  return parts.length ? `${parts.join(', ')}.` : 'sem sinais novos.';
+}

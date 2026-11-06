@@ -3,6 +3,7 @@ import { listOrders, openSession } from './service.js';
 import { createStreamManager } from './streaming.js';
 import { refreshDueTokens } from './tokens.js';
 import { maybeWeeklyRecheck } from './catalog-runner.js';
+import { runDueAutomation } from './automation.js';
 
 let sending = false;
 
@@ -57,7 +58,12 @@ export function startOrderWatcher(pool, cfg, log = null) {
     .then(() => stream.sync())
     .then(() => maybeWeeklyRecheck(pool, cfg, log))
     .catch((e) => log?.warn?.({ err: e.message }, 'saxo: vigia falhou'));
-  const timer = setInterval(tick, every);
+  // A automação corre à parte: envia uma ordem por segundo e não pode atrasar a vigia.
+  const fullTick = () => {
+    runDueAutomation(pool, cfg, { log }).catch((e) => log?.warn?.({ err: e.message }, 'saxo: automação falhou'));
+    return tick();
+  };
+  const timer = setInterval(fullTick, every);
   timer.unref();
   return () => { clearInterval(timer); stream.closeAll(); };
 }

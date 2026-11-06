@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { keys, useBestStrategies, useCatalog, useInstrument, usePortfolio, useQuotes, useWatchlist } from '../../lib/queries.js';
@@ -33,7 +33,7 @@ const quotesFromFor = (strategyId, lastSession) => {
  * pedido que não está na lista (ex.: ligação do BackTest) também é mostrado. Sem estratégia escolhida, aplica-se a
  * melhor de cada instrumento. A antiga página do instrumento (/instrumentos/:id) redirecciona para aqui.
  */
-const SOURCES = [{ value: 'lista', label: 'Lista' }, { value: 'carteira', label: 'Carteira' }, { value: 'catalogo', label: 'Catálogo' }];
+const SOURCES = [{ value: 'lista', label: 'Lista' }, { value: 'carteira', label: 'Carteira' }, { value: 'saxo', label: 'Saxo' }, { value: 'catalogo', label: 'Catálogo' }];
 const SORTS = {
   simbolo: { label: 'Símbolo', cmp: (a, b) => a.symbol.localeCompare(b.symbol) },
   sobe: { label: 'Maiores subidas', cmp: (a, b) => (Number(b.latest?.changePct ?? -Infinity) - Number(a.latest?.changePct ?? -Infinity)) || a.symbol.localeCompare(b.symbol) },
@@ -54,15 +54,21 @@ export default function ChartsPage() {
   const watchlist = useWatchlist();
   const catalog = useCatalog(source !== 'lista');
   const portfolio = usePortfolio();
+  const saxoLinked = Boolean(saxo.data?.configured && !saxo.data?.expired);
+  const saxoPortfolio = useQuery({
+    queryKey: ['saxo-portfolio'], queryFn: () => api.get('/saxo/portfolio'),
+    enabled: source === 'saxo' && saxoLinked, retry: false, refetchOnWindowFocus: false,
+  });
   const bestMap = useBestStrategies();
   const qc = useQueryClient();
   const listRef = useRef(null);
 
+  const saxoEmpty = !saxoLinked ? 'Não está ligado à SAXO Bank' : saxoPortfolio.error ? 'Não foi possível ler a Carteira SAXO' : 'A Carteira SAXO não tem posições';
   const base = source === 'lista' ? watchlist : catalog;
-  const held = new Set((portfolio.data?.positions ?? []).map((p) => p.instrumentId));
+  const held = new Set(((source === 'saxo' ? saxoPortfolio.data : portfolio.data)?.positions ?? []).map((p) => p.instrumentId));
   const needle = search.trim().toLowerCase();
   const items = (base.data?.items ?? [])
-    .filter((i) => i.status === 'active' && (source !== 'carteira' || held.has(i.id)))
+    .filter((i) => i.status === 'active' && (!['carteira', 'saxo'].includes(source) || held.has(i.id)))
     .filter((i) => !needle || i.symbol.toLowerCase().includes(needle) || i.name?.toLowerCase().includes(needle))
     .sort(SORTS[sortKey].cmp);
   // Instrumento mostrado: o pedido no endereço (esteja ou não na lista) ou o primeiro da lista.
@@ -156,11 +162,12 @@ export default function ChartsPage() {
     </div>
   );
 
-  if (base.isPending) return <Loading rows={8} />;
+  if (base.isPending || (source === 'saxo' && (saxo.isPending || saxoPortfolio.isLoading))) return <Loading rows={8} />;
   if (base.error) return <ErrorState error={base.error} onRetry={base.refetch} />;
   if (!currentId) {
     const empty = needle ? `Nada encontrado para «${search.trim()}»`
-      : source === 'carteira' ? 'A carteira não tem posições' : source === 'catalogo' ? 'O catálogo não tem instrumentos activos' : 'A sua lista não tem instrumentos activos';
+      : source === 'saxo' ? saxoEmpty
+        : source === 'carteira' ? 'A carteira não tem posições' : source === 'catalogo' ? 'O catálogo não tem instrumentos activos' : 'A sua lista não tem instrumentos activos';
     return (
       <>
         <div className="page-head"><h1 className="page-title">Charts</h1></div>
@@ -265,6 +272,7 @@ export default function ChartsPage() {
             </li>
           ))}
         </ul>
+        {source === 'saxo' && items.length === 0 && !needle && <p className="small muted" style={{ margin: '0.5rem 0' }}>{saxoEmpty}.</p>}
         <dl className="summary-box charts-detail">
           <dt>Instrumento</dt><dd>{current.name ?? current.symbol}</dd>
           {detail.data?.sessions != null && <><dt>Sessões</dt><dd>{detail.data.sessions}</dd></>}

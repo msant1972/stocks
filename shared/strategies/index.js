@@ -19,7 +19,9 @@
  * pode comprar (as anteriores servem só de aquecimento dos indicadores).
  *
  * windowYears: anos em que a estratégia actua (BackTest e página do instrumento); warmupYears: anos de histórico
- * adicionais de que precisa antes dessa janela; reasonLabels: nomes dos motivos de venda para a interface.
+ * adicionais de que precisa antes dessa janela; reasonLabels: nomes dos motivos de venda para a interface;
+ * signalTiming: 'close' se o sinal depende do fecho da sua sessão (só é firme com a sessão fechada); 'open' se é datado na
+ * abertura em que executa, decidido com o fecho anterior (já é firme durante a sessão).
  */
 import { momentum } from '../momentum.js';
 import * as aMomentum from './a-momentum.js';
@@ -32,6 +34,7 @@ const eur = (v) => `${v.toLocaleString('pt-PT')} €`;
 export const STRATEGIES = [
   {
     id: 'a-momentum',
+    signalTiming: 'close',
     name: 'A-Momentum',
     available: true,
     budget: aMomentum.STRATEGY_BUDGET,
@@ -50,6 +53,7 @@ export const STRATEGIES = [
   },
   {
     id: 'b-opus',
+    signalTiming: 'open',
     name: 'B-Opus',
     available: true,
     budget: bOpus.DEFAULT_OPTIONS.budget,
@@ -75,6 +79,7 @@ export const STRATEGIES = [
   },
   {
     id: 'c-ai',
+    signalTiming: 'open',
     name: 'C-AI',
     available: true,
     budget: cAi.DEFAULT_OPTIONS.budget,
@@ -93,6 +98,7 @@ export const STRATEGIES = [
   },
   {
     id: 'd-reversao',
+    signalTiming: 'open',
     name: 'D-Reversão',
     available: true,
     budget: dReversao.DEFAULT_OPTIONS.budget,
