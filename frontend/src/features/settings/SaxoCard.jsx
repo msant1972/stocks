@@ -99,7 +99,7 @@ export default function SaxoCard() {
       <p className="small muted" style={{ margin: '0.25rem 0 1rem' }}>
         Ligação à conta de simulação da SAXO Bank para enviar ordens, sempre com uma pré-validação e uma confirmação; a conta real
         não está activada. Crie uma aplicação no portal de programadores da SAXO (grant type «Code») e guarde aqui a chave e o
-        segredo: o segredo fica cifrado no servidor e nunca é mostrado de novo. As compras e vendas simuladas da aplicação continuam virtuais.
+        segredo: o segredo fica cifrado no servidor e nunca é mostrado de novo. As ordens da aplicação vão para esta conta de simulação.
       </p>
       {q.isPending ? <p className="small muted">A carregar…</p> : q.error ? <Notice tone="error">{errorMessage(q.error)}</Notice> : (
         <div className="stack" style={{ gap: '1.25rem', maxWidth: '36rem' }}>

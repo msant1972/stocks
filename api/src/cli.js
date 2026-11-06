@@ -1,7 +1,7 @@
 /**
  * Administração de contas (não há registo público).
  *
- *   npm run cli -- create-user --email ana@exemplo.pt --name "Ana" [--admin] [--capital 1000000]
+ *   npm run cli -- create-user --email ana@exemplo.pt --name "Ana" [--admin]
  *   npm run cli -- set-password --email ana@exemplo.pt
  *   npm run cli -- set-email --email ana@exemplo.pt --new-email ana.silva@exemplo.pt
  *   npm run cli -- disable-user --email ana@exemplo.pt
@@ -50,7 +50,7 @@ async function main() {
     allowPositionals: true,
     options: {
       email: { type: 'string' }, name: { type: 'string' },
-      admin: { type: 'boolean', default: false }, recheck: { type: 'boolean', default: false }, capital: { type: 'string' }, 'new-email': { type: 'string' },
+      admin: { type: 'boolean', default: false }, recheck: { type: 'boolean', default: false }, 'new-email': { type: 'string' },
     },
   });
   const [command] = positionals;
@@ -63,9 +63,8 @@ async function main() {
         const password = await readNewPassword();
         const id = await createUser(pool, {
           email: values.email, name: values.name, password, isAdmin: values.admin,
-          initialCapital: values.capital ?? cfg.initialCapital,
         });
-        console.log(`utilizador ${id} criado, com carteira de ${values.capital ?? cfg.initialCapital} EUR`);
+        console.log(`utilizador ${id} criado`);
         break;
       }
       case 'set-password': {

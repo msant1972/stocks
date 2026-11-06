@@ -16,7 +16,6 @@ import { AppError } from './errors.js';
 import authRoutes from './routes/auth.js';
 import instrumentRoutes from './routes/instruments.js';
 import watchlistRoutes from './routes/watchlist.js';
-import portfolioRoutes from './routes/portfolio.js';
 import alertRoutes from './routes/alerts.js';
 import integrationRoutes from './routes/integrations.js';
 import saxoRoutes from './routes/saxo.js';
@@ -136,7 +135,6 @@ export async function buildApp({ pool, cfg, logger = true, warm = false }) {
     await api.register(authRoutes, opts);
     await api.register(instrumentRoutes, opts);
     await api.register(watchlistRoutes, opts);
-    await api.register(portfolioRoutes, opts);
     await api.register(alertRoutes, opts);
     await api.register(integrationRoutes, opts);
     await api.register(saxoRoutes, opts);

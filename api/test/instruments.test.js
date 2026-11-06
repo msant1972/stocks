@@ -121,7 +121,7 @@ describe.skipIf(!hasTestDb)('catálogo, histórico e watchlist', () => {
   });
 
   it('só administradores apagam do catálogo, com cotações, listas e alertas; recusa com operações', async () => {
-    await enableMfa(ctx.pool, await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true, initialCapital: '10000' }, FAST_HASH));
+    await enableMfa(ctx.pool, await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true }, FAST_HASH));
     const admin = api(ctx.app, await login(ctx.app, 'admin@exemplo.pt'));
     const argx = await makeInstrument(ctx.pool, 'ARGX.BR', { closes: ['500.00', '510.00'] });
     expect((await ana.post('/watchlist/items', { instrumentId: argx })).statusCode).toBe(204);
@@ -135,8 +135,10 @@ describe.skipIf(!hasTestDb)('catálogo, histórico e watchlist', () => {
     expect((await admin.del(`/instruments/${argx}`)).statusCode).toBe(404);
 
     const held = await makeInstrument(ctx.pool, 'HELD.PA');
-    const [[p]] = await ctx.pool.query("SELECT p.id FROM portfolios p JOIN users u ON u.id = p.user_id WHERE u.email = 'ana@exemplo.pt'");
-    await ctx.pool.query('INSERT INTO positions (portfolio_id, instrument_id, quantity, cost_basis) VALUES (?, ?, 1, 10)', [p.id, held]);
+    const [[u]] = await ctx.pool.query("SELECT id FROM users WHERE email = 'ana@exemplo.pt'");
+    await ctx.pool.query(
+      "INSERT INTO saxo_orders (user_id, instrument_id, idempotency_key, side, quantity, order_type, status) VALUES (?, ?, 'ordem-de-teste', 'buy', 1, 'market', 'filled')", [u.id, held],
+    );
     const refused = await admin.del(`/instruments/${held}`);
     expect(refused.statusCode).toBe(409);
     expect(refused.json().error.code).toBe('INSTRUMENT_IN_USE');

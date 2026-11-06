@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AUTOMATION_STATUS, automationRunText, automationState, candidateLabel, comparePortfolios, defaultLimit, defaultStop, filterMatches, normaliseLimit, orderLabel, signalsToOrders, splitAutomationItems } from '../src/lib/saxo.js';
+import { AUTOMATION_STATUS, automationRunText, automationState, candidateLabel, defaultLimit, defaultStop, filterMatches, heldBySaxo, normaliseLimit, orderLabel, signalsToOrders, splitAutomationItems } from '../src/lib/saxo.js';
 
 test('preço limite: aceita vírgula, recusa vazio, zero e lixo', () => {
   assert.equal(normaliseLimit('9,5'), '9.5');
@@ -31,14 +31,9 @@ test('stop por omissão: 8 % abaixo do preço', () => {
   assert.deepEqual(defaultStop(null), { price: '', distance: '' });
 });
 
-test('carteira virtual lado a lado com a da SAXO', () => {
-  const rows = comparePortfolios(
-    [{ instrumentId: 1, symbol: 'GALP.LS', quantity: 100 }, { instrumentId: 2, symbol: 'BCP.LS', quantity: 50 }],
-    [{ instrumentId: 1, symbol: 'GALP.LS', quantity: 80 }, { instrumentId: null, symbol: 'ASML:xams', quantity: 3 }],
-  );
-  assert.deepEqual(rows.map((r) => [r.symbol, r.virtualQty, r.saxoQty, r.diff]), [
-    ['ASML:xams', 0, 3, 3], ['BCP.LS', 50, 0, -50], ['GALP.LS', 100, 80, -20],
-  ]);
+test('unidades detidas na conta SAXO: soma as posições do mesmo instrumento e ignora as que não estão no catálogo', () => {
+  const held = heldBySaxo([{ instrumentId: 1, quantity: 100 }, { instrumentId: 1, quantity: '20' }, { instrumentId: null, quantity: 3 }]);
+  assert.deepEqual([...held], [[1, 120]]);
 });
 
 test('sinais → ordens: um por instrumento, compras ao orçamento, vendas só do que há na SAXO', () => {

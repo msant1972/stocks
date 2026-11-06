@@ -70,6 +70,7 @@ export default function SaxoBatchDialog({ open, onClose, signals, budget, strate
       }
     }
     qc.invalidateQueries({ queryKey: ['saxo-orders'] });
+    qc.invalidateQueries({ queryKey: ['saxo-portfolio'] });
     setRunning(false);
   }
 

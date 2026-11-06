@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { alertCondition } from '../../lib/alerts.js';
-import { useAlertEvents, useMe, usePortfolio, useStatus, useWatchlist } from '../../lib/queries.js';
+import { useAlertEvents, useMe, useStatus, useWatchlist } from '../../lib/queries.js';
+import { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
 import { getStrategy } from '../../lib/strategy.js';
 import Sparkline from '../../components/finance/Sparkline.jsx';
 import { PnL, PriceChange, QuoteDate, SimulatedBadge } from '../../components/finance/finance.jsx';
@@ -11,44 +12,55 @@ import { EmptyState, ErrorState, Loading } from '../../components/feedback/state
 
 const chartLink = (id, strategy) => `/charts?instrumento=${id}${strategy ? `&estrategia=${strategy}` : ''}`;
 
+/** Valor da carteira: a conta de simulação da SAXO (valor total, saldo, custo das posições e resultado face ao capital inicial). */
 function PortfolioCard() {
-  const { data: p, isPending, error, refetch } = usePortfolio();
-  const history = useQuery({ queryKey: ['portfolio', 'history'], queryFn: () => api.get('/portfolio/history'), staleTime: 5 * 60_000 });
+  const saxo = useSaxoStatus();
+  const { data: status } = useStatus();
+  const ready = Boolean(saxo.data?.configured && !saxo.data?.expired);
+  const q = useQuery({ queryKey: ['saxo-portfolio'], queryFn: () => api.get('/saxo/portfolio'), enabled: ready, retry: false, refetchOnWindowFocus: false });
+  const history = useQuery({ queryKey: ['saxo-portfolio', 'history'], queryFn: () => api.get('/saxo/portfolio/history'), staleTime: 5 * 60_000 });
   const points = history.data?.points ?? [];
+  const p = q.data;
+  const initial = history.data?.initialCapital;
+  const pnl = p?.totalValue != null && initial != null ? p.totalValue - initial : null;
   return (
     <section className="card span-12" aria-labelledby="pf-title">
       <div className="card-head">
-        <h2 id="pf-title" className="card-title">Valor da carteira virtual</h2>
-        <Link to="/carteira" className="small">Ver carteira</Link>
+        <h2 id="pf-title" className="card-title">Valor da carteira</h2>
+        <Link to="/saxo/carteira" className="small">Ver carteira</Link>
       </div>
-      {isPending ? <Loading rows={2} /> : error ? <ErrorState error={error} onRetry={refetch} /> : (
-        <>
-          <div className="spread" style={{ alignItems: 'flex-end' }}>
-            <div>
-              <p className="hero-value">{f.money(p.totalValue, p.currency)}</p>
-              <p className="small muted" style={{ marginTop: 4 }}>
-                {p.valuationDate ? `Valorizado ao último preço disponível (${f.date(p.valuationDate)})` : 'Sem posições: valor igual ao saldo disponível'}
-              </p>
-            </div>
-            {points.length > 1 && (
-              <div style={{ flex: '1 1 10rem', maxWidth: '14rem' }}>
-                <Sparkline values={points.map((x) => x.total)} tone={points.at(-1).total >= history.data.initialCapital ? 'positive' : 'negative'}
-                  label={`Evolução do valor da carteira desde ${f.date(points[0].date)}: de ${f.money(points[0].total)} para ${f.money(points.at(-1).total)}`} />
-                <p className="small muted">Desde {f.date(points[0].date)}</p>
-              </div>
-            )}
-          </div>
-          <div className="stats">
-            <div><p className="stat-label">Saldo virtual disponível</p><p className="stat-value">{f.money(p.cashBalance, p.currency)}</p></div>
-            <div><p className="stat-label">Montante investido (custo)</p><p className="stat-value">{f.money(p.invested, p.currency)}</p></div>
-            <div>
-              <p className="stat-label">Resultado acumulado</p>
-              <p className="stat-value"><PnL value={p.totalPnl} currency={p.currency} /></p>
-              <p className="small muted">Face ao capital inicial de {f.money(p.initialCapital, p.currency)}</p>
-            </div>
-          </div>
-        </>
-      )}
+      {saxo.isPending ? <Loading rows={2} />
+        : !saxo.data?.configured ? <p className="small muted">Ainda não está ligado à SAXO Bank. <Link to="/definicoes">Ligar em Definições</Link></p>
+          : saxo.data.expired ? <p className="small muted">A ligação à SAXO Bank expirou ou foi recusada. <Link to="/definicoes">Volte a ligar em Definições</Link></p>
+            : q.isPending ? <Loading rows={2} />
+              : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : (
+                <>
+                  <div className="spread" style={{ alignItems: 'flex-end' }}>
+                    <div>
+                      <p className="hero-value">{p.totalValue == null ? '—' : f.money(p.totalValue, p.currency)}</p>
+                      <p className="small muted" style={{ marginTop: 4 }}>
+                        Valorizado pela SAXO ao último preço disponível{status?.latestSession ? ` (${f.date(status.latestSession)})` : ''}. Conta de simulação: não é dinheiro real.
+                      </p>
+                    </div>
+                    {points.length > 1 && (
+                      <div style={{ flex: '1 1 10rem', maxWidth: '14rem' }}>
+                        <Sparkline values={points.map((x) => x.total)} tone={initial == null || points.at(-1).total >= initial ? 'positive' : 'negative'}
+                          label={`Evolução do valor da carteira desde ${f.date(points[0].date)}: de ${f.money(points[0].total)} para ${f.money(points.at(-1).total)}`} />
+                        <p className="small muted">Desde {f.date(points[0].date)}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="stats">
+                    <div><p className="stat-label">Saldo disponível</p><p className="stat-value">{p.cashBalance == null ? '—' : f.money(p.cashBalance, p.currency)}</p></div>
+                    <div><p className="stat-label">Montante investido (custo)</p><p className="stat-value">{f.money(p.invested, p.currency)}</p></div>
+                    <div>
+                      <p className="stat-label">Resultado acumulado</p>
+                      <p className="stat-value">{pnl == null ? '—' : <PnL value={pnl} currency={p.currency} />}</p>
+                      {initial != null && <p className="small muted">Face ao capital inicial de {f.money(initial, p.currency)}</p>}
+                    </div>
+                  </div>
+                </>
+              )}
     </section>
   );
 }

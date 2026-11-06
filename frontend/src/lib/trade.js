@@ -1,7 +1,7 @@
 import { STRATEGY_BUDGET } from './strategy.js';
 
 /**
- * Quantidade por omissão de uma compra simulada: as unidades inteiras que cabem no orçamento das estratégias
+ * Quantidade por omissão de uma compra: as unidades inteiras que cabem no orçamento das estratégias
  * (15 000 €) ao preço dado, no mínimo 1. Sem preço conhecido, 1.
  */
 export function budgetQuantity(price, budget = STRATEGY_BUDGET) {

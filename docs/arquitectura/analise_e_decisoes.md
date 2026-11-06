@@ -1,5 +1,7 @@
 # Análise dos documentos — Plataforma de Simulação e Acompanhamento de Acções
 
+> **Nota (6 nov. 2026):** este documento regista a análise inicial. A carteira virtual aqui referida foi retirada por decisão do utilizador: a carteira da aplicação é agora a conta de simulação da SAXO Bank (ver [arquitectura.md](arquitectura.md)).
+
 Data: 18 out. 2026
 Documentos analisados: arquitectura, plano de implementação, guia de estilos UI/UX e diagrama `stocks.drawio.png`.
 

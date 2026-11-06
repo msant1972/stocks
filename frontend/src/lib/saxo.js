@@ -37,30 +37,11 @@ export function defaultStop(price, pct = DEFAULT_STOP_PCT) {
 }
 
 /**
- * Carteira virtual lado a lado com a da SAXO, por instrumento: quantidades e diferença. As posições da SAXO sem
- * correspondência na aplicação aparecem pelo símbolo da SAXO. Ordenado por símbolo.
- */
-export function comparePortfolios(virtualPositions = [], saxoPositions = []) {
-  const rows = new Map();
-  const row = (key, symbol, instrumentId) => {
-    if (!rows.has(key)) rows.set(key, { key, instrumentId, symbol, virtualQty: 0, saxoQty: 0 });
-    return rows.get(key);
-  };
-  for (const p of virtualPositions) row(`i${p.instrumentId}`, p.symbol, p.instrumentId).virtualQty += Number(p.quantity);
-  for (const p of saxoPositions) {
-    const r = p.instrumentId != null ? row(`i${p.instrumentId}`, p.symbol, p.instrumentId) : row(`s${p.symbol}`, p.symbol, null);
-    r.saxoQty += Number(p.quantity);
-  }
-  return [...rows.values()].map((r) => ({ ...r, diff: r.saxoQty - r.virtualQty })).sort((a, b) => a.symbol.localeCompare(b.symbol));
-}
-
-/**
  * Sinais → ordens para a SAXO (uma por instrumento, o sinal mais recente): compras e reforços compram o orçamento ao último
  * preço; vendas vendem o que a conta SAXO tem (sem posição na SAXO, a venda é ignorada).
  */
 export function signalsToOrders(signals = [], saxoPositions = [], budget = 15000) {
-  const held = new Map();
-  for (const p of saxoPositions) if (p.instrumentId != null) held.set(p.instrumentId, (held.get(p.instrumentId) ?? 0) + Number(p.quantity));
+  const held = heldBySaxo(saxoPositions);
   const latest = new Map();
   for (const s of signals) {
     const cur = latest.get(s.instrumentId);
@@ -167,4 +148,11 @@ export function automationRunText(run) {
   if (c.skipped) parts.push(plural(c.skipped, 'sinal ignorado', 'sinais ignorados'));
   if (c.failed) parts.push(plural(c.failed, 'sinal falhado', 'sinais falhados'));
   return parts.length ? `${parts.join(', ')}.` : 'sem sinais novos.';
+}
+
+/** Unidades detidas por instrumento nas posições da conta SAXO (uma posição por compra). */
+export function heldBySaxo(positions = []) {
+  const held = new Map();
+  for (const p of positions) if (p.instrumentId != null) held.set(p.instrumentId, (held.get(p.instrumentId) ?? 0) + Number(p.quantity));
+  return held;
 }

@@ -31,7 +31,7 @@ describe.skipIf(!hasTestDb)('autenticação em dois passos', () => {
   beforeAll(async () => {
     ctx = await setup();
     await makeUser(ctx.pool, 'ana@exemplo.pt');
-    await makeUser(ctx.pool, 'rui@exemplo.pt', '10000.00', { mfa: false });
+    await makeUser(ctx.pool, 'rui@exemplo.pt', { mfa: false });
     await makeUser(ctx.pool, 'eva@exemplo.pt');
   });
   afterAll(async () => {
@@ -43,7 +43,7 @@ describe.skipIf(!hasTestDb)('autenticação em dois passos', () => {
     const { cookie, body } = await loginPassword(ctx.app, 'ana@exemplo.pt');
     expect(body.mfa).toEqual({ enabled: true, pending: 'verify' });
     expect((await inject('GET', '/me', cookie)).json().mfa.pending).toBe('verify');
-    const blocked = await inject('GET', '/portfolio', cookie);
+    const blocked = await inject('GET', '/watchlist', cookie);
     expect(blocked.statusCode).toBe(401);
     expect(blocked.json().error.code).toBe('MFA_REQUIRED');
     expect((await inject('POST', '/auth/mfa/setup', cookie)).statusCode).toBe(409);
@@ -60,7 +60,7 @@ describe.skipIf(!hasTestDb)('autenticação em dois passos', () => {
     const full = `stocks_session=${res.cookies.find((c) => c.name === 'stocks_session').value}`;
     expect(full).not.toBe(cookie);
     expect((await inject('GET', '/me', cookie)).statusCode).toBe(401); // a restrita deixou de existir
-    expect((await inject('GET', '/portfolio', full)).statusCode).toBe(200);
+    expect((await inject('GET', '/watchlist', full)).statusCode).toBe(200);
 
     const again = await loginPassword(ctx.app, 'ana@exemplo.pt');
     const replay = await inject('POST', '/auth/mfa/verify', again.cookie, { code });
@@ -110,10 +110,10 @@ describe.skipIf(!hasTestDb)('autenticação em dois passos', () => {
   });
 
   it('sessões anteriores à activação são obrigadas a configurar o 2.º factor', async () => {
-    const id = await makeUser(ctx.pool, 'antigo@exemplo.pt', '10000.00', { mfa: false });
+    const id = await makeUser(ctx.pool, 'antigo@exemplo.pt', { mfa: false });
     const { createSession } = await import('../src/auth/sessions.js');
     const cookie = `stocks_session=${await createSession(ctx.pool, id, 7)}`; // sessão 'full' de antes da migração
-    const res = await inject('GET', '/portfolio', cookie);
+    const res = await inject('GET', '/watchlist', cookie);
     expect(res.statusCode).toBe(403);
     expect(res.json().error.code).toBe('MFA_SETUP_REQUIRED');
     expect((await inject('GET', '/me', cookie)).json().mfa).toEqual({ enabled: false, pending: 'setup' });
@@ -138,7 +138,7 @@ describe.skipIf(!hasTestDb)('autenticação em dois passos', () => {
   });
 
   it('o administrador pode repor o 2.º factor de outro utilizador', async () => {
-    await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true, initialCapital: '1' }, FAST_HASH);
+    await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true }, FAST_HASH);
     const admin = api(ctx.app, await login(ctx.app, 'admin@exemplo.pt'));
     const anaCookie = await login(ctx.app, 'ana@exemplo.pt');
     const users = (await admin.get('/admin/users')).json().items;
@@ -154,7 +154,7 @@ describe.skipIf(!hasTestDb)('autenticação em dois passos', () => {
   });
 
   it('sem chave de cifra no servidor responde 503 em vez de guardar o segredo em claro', async () => {
-    await makeUser(ctx.pool, 'semchave@exemplo.pt', '10000.00', { mfa: false });
+    await makeUser(ctx.pool, 'semchave@exemplo.pt', { mfa: false });
     const noKey = await buildApp({ pool: ctx.pool, cfg: { ...testConfig(), secretKey: null }, logger: false });
     const res = await noKey.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: 'semchave@exemplo.pt', password: PASSWORD } });
     const cookie = `stocks_session=${res.cookies.find((c) => c.name === 'stocks_session').value}`;

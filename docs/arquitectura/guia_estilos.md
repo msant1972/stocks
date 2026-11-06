@@ -10,11 +10,11 @@ Este guia estabelece uma proposta visual e funcional para implementação. Os va
 
 ### Contexto funcional obrigatório
 
-- Negociação exclusivamente simulada.
-- Carteira e saldo virtuais.
+- Sem dinheiro real: as ordens vão para a conta de simulação da SAXO Bank.
+- A carteira e o saldo são os dessa conta.
 - Histórico diário dos últimos dois anos nos gráficos, com três anos guardados (o primeiro aquece a SMA200), sujeito à disponibilidade dos dados.
 - Alertas por email agrupados num único resumo por utilizador, enviado após a recolha diária das cotações.
-- Instrumentos cotados em EUR e carteira em EUR.
+- Instrumentos cotados em EUR e conta SAXO em EUR.
 - Ausência de cotações em tempo real (durante a sessão só há a vela provisória do dia, actualizada de hora a hora) e de execução real em bolsa.
 
 A interface nunca deve criar a impressão de negociação real ou de acompanhamento em tempo real.
@@ -34,7 +34,7 @@ A sensação de qualidade deve resultar da consistência e da atenção aos deta
 3. Profundidade subtil: fundos, superfícies e elevações distinguem camadas sem competir com os dados.
 4. Continuidade: preservar contexto, filtros e posição de navegação sempre que possível.
 5. Fluidez funcional: feedback imediato, sem bloquear o utilizador para terminar animações.
-6. Honestidade dos dados: mostrar moeda, data da cotação e natureza simulada das operações.
+6. Honestidade dos dados: mostrar moeda, data da cotação e que a conta é de simulação.
 7. Acessibilidade de base: teclado, contraste e movimento reduzido fazem parte do desenho inicial.
 
 As HIG da Apple servem como inspiração de interacção e apresentação, adaptada ao contexto web e não como imposição de componentes nativos.
@@ -120,7 +120,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Barra superior com pesquisa, estado dos dados e menu do utilizador.
 - Área principal com largura confortável e limite proposto de 1440 px.
 - Conteúdo em grelha de 12 colunas.
-- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap); **Carteira** (Carteira, Operações, Alertas); **SAXO** (Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação); **Estratégias** (Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Pechinchas, Calor); **Administração** (Utilizadores e Correspondência SAXO, só administradores, e Definições). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
+- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap, Alertas); **SAXO** (Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação); **Estratégias** (Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Pechinchas, Calor); **Administração** (Utilizadores e Correspondência SAXO, só administradores, e Definições). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
 
 ### Tablet — de 768 a 1199 px
 
@@ -132,8 +132,8 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 ### Telemóvel — abaixo de 768 px
 
 - Conteúdo numa coluna.
-- Navegação inferior com Visão geral, Acompanhar, Charts, Carteira, Sinais e «Mais». «Mais» abre uma folha com todos os módulos, por secções e com «Terminar sessão», e fica destacado quando a página actual não é um dos atalhos.
-- Operações acessíveis na Carteira; Definições através do ícone na barra superior, onde ficam também o atalho para Utilizadores (administradores) e «Terminar sessão».
+- Navegação inferior com Visão geral, Acompanhar, Charts, Carteira SAXO, Sinais e «Mais». «Mais» abre uma folha com todos os módulos, por secções e com «Terminar sessão», e fica destacado quando a página actual não é um dos atalhos.
+- Definições através do ícone na barra superior, onde ficam também o atalho para Utilizadores (administradores) e «Terminar sessão».
 - Modais complexos passam a ecrãs completos ou folhas inferiores acessíveis.
 - Respeitar áreas seguras do dispositivo e reservar espaço para a navegação fixa.
 - Evitar scroll horizontal da página; tabelas podem ter região de scroll própria devidamente identificada.
@@ -144,7 +144,7 @@ Os breakpoints são propostas de implementação. Ajustar ao conteúdo e testar 
 
 ### 5.1. Autenticação
 
-Apresentar um formulário simples, centrado numa superfície limpa, com identificação da aplicação e a mensagem «Acompanha o mercado. Aprende com uma carteira virtual.»
+Apresentar um formulário simples, centrado numa superfície limpa, com identificação da aplicação e a mensagem «Acompanha o mercado. Testa estratégias na conta de simulação da SAXO.»
 
 - Campos com rótulos persistentes.
 - Mostrar/ocultar palavra-passe com nome acessível.
@@ -167,18 +167,18 @@ Hierarquia implementada:
 
 1. Título, indicação discreta «Ambiente de simulação» e data da última sessão das cotações.
 2. Cartão principal com valor da carteira e referência temporal da valorização.
-3. Resumo: saldo virtual, montante investido e resultado acumulado face ao capital inicial, com uma mini-evolução do valor da carteira desde a criação (traço verde ou vermelho conforme esteja acima ou abaixo do capital inicial, com texto alternativo).
+3. Resumo da conta SAXO: saldo disponível, montante investido e resultado acumulado face ao capital inicial, com uma mini-evolução do valor da carteira (traço verde ou vermelho conforme esteja acima ou abaixo do capital inicial, com texto alternativo).
 3a. «Sinais da última sessão» (duas colunas em ecrã largo): sinais de compra (C), reforço (R) e venda (V) das estratégias nos instrumentos da minha lista, com a letra além da cor e ligação para o gráfico com essa estratégia; «Alertas recentes» (os 5 últimos, com a condição e a sessão).
 3b. «Subidas e descidas da minha lista»: as 3 maiores de cada lado na última sessão, com ligação para o gráfico.
 4. «Momento do mercado»: barra com a distribuição do SMA10/SMA200 na última sessão (acima de +1%, entre −1% e +1%, abaixo de −1%, com as cores do HeatMap e as contagens escritas) e duas listas com os 5 instrumentos mais fortes e mais fracos, com ligação a cada um.
 
 5. «Cruzamentos SMA10 / SMA50»: instrumentos cuja SMA10 cruzou a SMA50 nas últimas 5 sessões, em duas tabelas (ascendentes ▲ e descendentes ▼, com contagem), com data do cruzamento («há N sessões») e distância actual entre as médias; scroll próprio quando a lista é longa.
 
-A lista de instrumentos acompanhados fica em Acompanhar e as operações recentes em Operações.
+A lista de instrumentos acompanhados fica em Acompanhar e as ordens em Ordens SAXO.
 
 Evitar chamar «rentabilidade» a um valor cujo método de cálculo ainda não foi definido. Cada resultado deve ter descrição clara do período e da base de cálculo.
 
-A evolução da carteira (mini-gráfico aqui, gráfico completo em Carteira) vem de uma série diária calculada a partir dos movimentos de saldo e das operações, por isso é sempre coerente com o histórico.
+A evolução da carteira (mini-gráfico aqui, gráfico completo em Carteira SAXO) vem das leituras do valor da conta SAXO, guardadas uma por sessão.
 
 ### 5.3. Acompanhamento e detalhe de instrumento
 
@@ -192,7 +192,7 @@ O detalhe do instrumento vive no Charts (5.3a); `/instrumentos/:id` redirecciona
 - Colunas «Mid» e «Desequilíbrio» do livro Euronext (atraso 15 min), com o significado no `title` do cabeçalho: o mid é uma ligação para o Orderbook; o desequilíbrio usa verde acima de +0,1 e vermelho abaixo de −0,1, com «pressão compradora/vendedora/equilibrado» no `title` e para leitores de ecrã. «…» enquanto carrega; «—» sem ISIN-MIC ou quando o livro falha (motivo no `title`).
 - Cabeçalhos ordenáveis (Instrumento, Volume, Variação, Desequilíbrio): botão no cabeçalho com seta (▲/▼ na coluna activa, ↕ nas outras) e `aria-sort`; clicar na mesma coluna inverte o sentido; instrumento começa A→Z e as restantes do maior para o menor; sem valor ficam sempre no fim. No catálogo a ordenação fica no endereço (`?ordem=volume&sentido=desc`). Ordenado por desequilíbrio, uma nota explica que só os instrumentos mostrados entram na ordenação. Em «A minha lista» a ordenação é feita no browser sobre todos os instrumentos e fica guardada no browser.
 - A variação mostra só o valor com sinal e a cor (verde a subir, vermelho a descer), sem as palavras «Subida»/«Descida».
-- Em «A minha lista», remover da lista é um ícone de caixote do lixo. No catálogo, «Acompanhar» e «Remover da lista» são texto, e o caixote do lixo (vermelho, só para administradores) apaga o instrumento do catálogo, depois de uma confirmação que explica que deixa de existir para todos (cotações, listas e alertas) e que não é possível com operações ou posições. Os botões só com ícone têm `title` e nome acessível completo (ex.: «Remover GALP.LS da lista»), e os rótulos ocultos ficam contidos no `.table-wrap` (`position: relative`) para não alargarem a página em telemóvel.
+- Em «A minha lista», remover da lista é um ícone de caixote do lixo. No catálogo, «Acompanhar» e «Remover da lista» são texto, e o caixote do lixo (vermelho, só para administradores) apaga o instrumento do catálogo, depois de uma confirmação que explica que deixa de existir para todos (cotações, listas e alertas) e que não é possível com ordens enviadas à SAXO. Os botões só com ícone têm `title` e nome acessível completo (ex.: «Remover GALP.LS da lista»), e os rótulos ocultos ficam contidos no `.table-wrap` (`position: relative`) para não alargarem a página em telemóvel.
 - Botão «Validar agora (N)» com o número de instrumentos por validar, só visível quando há pendentes. Enquanto houver pendentes, a lista actualiza-se sozinha.
 - Acções «Adicionar instrumento» (símbolo Yahoo, ex.: `GALP.LS`) e «Importar Excel», com modelo descarregável e pré-visualização das linhas válidas, duplicadas e com erro antes de gravar.
 - Estados do instrumento: «A validar», «Activo» e «Inválido» (com o motivo, ex.: «Não está cotado em EUR»).
@@ -215,50 +215,29 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 - Atalhos de teclado (fora de campos de texto, sem modificadores): 1–5 período, 6–0 médias (EMA9, SMA10, SMA50, SMA125, SMA200), T velas ou linha, V volume, M momento; ↑ ↓ mudam de instrumento com o foco no corpo da página, ou na lista. Anunciados nos botões (`aria-keyshortcuts`, `title`) e numa nota por baixo do gráfico.
 - Sítio único do instrumento: gráfico, ações (adicionar ou remover da lista, criar alerta, simular operação, livro de ofertas), menu «Estratégia», avisos (a validar, inválido, cobertura inferior a três anos, só simulável em EUR) e a lista à direita.
 - Inspirado nas plataformas de gráficos: o gráfico ocupa a área principal e a lista de acompanhamento fica à direita (abaixo do gráfico em ecrãs com menos de 1200 px), fixa ao fazer scroll.
-- Lista à escolha: «Lista» (acompanhamento), «Carteira» ou «Catálogo», com pesquisa por símbolo ou nome e ordenação (símbolo, maiores subidas, maiores descidas), no endereço (`?fonte=`, `?ordem=`).
+- Lista à escolha: «Lista» (acompanhamento), «Saxo» (Carteira SAXO) ou «Catálogo», com pesquisa por símbolo ou nome e ordenação (símbolo, maiores subidas, maiores descidas), no endereço (`?fonte=`, `?ordem=`).
 - Lista compacta: símbolo, último preço e variação; o instrumento mostrado fica destacado (fundo e barra de acento, `aria-current`). Clique, setas ↑/↓ na lista ou botões anterior/seguinte (com «n / total») mudam o instrumento sem sair da página.
 - Cabeçalho do gráfico: símbolo, último preço, variação, nome, bolsa e data da cotação; menu «Estratégia» (por omissão a melhor de cada instrumento, «(melhor)» no menu; uma escolha explícita mantém-se ao mudar de instrumento) e «Abrir instrumento».
 - Enquanto chegam as cotações do novo instrumento, o gráfico anterior fica esbatido (`aria-busy`); os vizinhos na lista são pré-carregados.
 - Por baixo da lista, o nome, a melhor estratégia com o resultado e a ligação para o livro de ofertas.
 - Lista sem instrumentos activos: estado vazio com ligação para Acompanhar. Em telemóvel, o acesso é pelo botão «Charts» em Acompanhar.
 
-### 5.4. Carteira virtual
+### 5.4. Carteira SAXO
 
-- Valor total, saldo disponível e resultados claramente separados.
-- Tabela de posições com instrumento, quantidade, custo médio, preço de referência, valor e resultado.
-- Valores numéricos alinhados à direita.
-- Instrumento e mercado identificados sem ambiguidade.
-- Acção «Simular compra» em destaque moderado.
-- Compra e venda com igual clareza; não usar estímulos visuais para incentivar operações frequentes.
+- A carteira da aplicação é a conta de simulação da SAXO: faixa «Conta de simulação da SAXO Bank — não é dinheiro real».
+- Valor total, saldo disponível e montante investido claramente separados.
+- Evolução da carteira: gráfico do valor total sessão a sessão, com o capital inicial a tracejado como referência e um resumo textual; tooltip com o valor das posições, o saldo e a diferença face ao capital inicial. Antes da segunda leitura, uma frase explica quando o gráfico aparece.
+- Tabela de posições com instrumento, quantidade, preço de abertura, preço de referência, valor e resultado, com «Vender» em cada uma; posições fechadas à parte.
+- Valores numéricos alinhados à direita; instrumento e mercado identificados sem ambiguidade.
 
-Evolução da carteira: gráfico do valor total sessão a sessão desde a criação, com o capital inicial a tracejado como referência e um resumo textual (de quanto para quanto, resultado face ao capital inicial); tooltip com o valor das posições, o saldo e o resultado. Sem histórico suficiente (menos de duas sessões), estado vazio.
+### 5.5. Enviar ordem à SAXO
 
-### 5.5. Simular compra ou venda
+Formulário apresentado num modal em desktop e numa vista ampla em telemóvel: lado, quantidade (por omissão, a que cabe no orçamento das estratégias ao último preço), tipo de ordem, preço limite, stop opcional, e o resumo com o valor aproximado. «Confirmar e enviar» envia logo; o recibo mostra o estado e o número da ordem na SAXO. Não usar confettis nem estímulos visuais para incentivar operações frequentes.
 
-Formulário apresentado num modal em desktop e numa vista ampla em telemóvel.
+### 5.6. Ordens SAXO
 
-Conteúdo obrigatório:
-
-- Título «Simular compra» ou «Simular venda».
-- Quantidade inicial da compra: as unidades inteiras que cabem no orçamento das estratégias (15 000 €) ao último preço disponível (com a nota «≈ 15 000 €…»), e não 1; os Sinais continuam a indicar a quantidade da sua própria nota. A venda começa em 1 (ou em todas as unidades, nos Sinais).
-- Instrumento e moeda.
-- Quantidade e validação de valores permitidos.
-- Último preço disponível e data correspondente (durante a sessão, um valor provisório).
-- Total calculado e saldo/quantidade após a operação, identificados como pré-visualização.
-- Mensagem «Esta operação é virtual e não é enviada para a bolsa.»
-- Botão «Confirmar compra simulada» ou «Confirmar venda simulada».
-
-O servidor valida novamente preço e saldo. Se houver mudança relevante face à pré-visualização, actualizar o resumo e pedir nova confirmação em vez de concluir silenciosamente.
-
-Após sucesso, mostrar um recibo simples com preço efectivamente aplicado, quantidade, total e referência da operação. Não usar confettis, sons de jackpot ou contadores de urgência.
-
-### 5.6. Operações
-
-- Lista cronológica com filtros de instrumento, tipo e período.
-- Etiqueta textual «Compra simulada» ou «Venda simulada».
-- Separar instante do pedido e data da cotação usada.
-- Detalhe de cada operação disponível sem depender de hover.
-- Manter valores históricos tal como registados, sem os substituir pelo preço actual.
+- Lista cronológica com o estado real da ordem na SAXO (aberta, executada com quantidade e preço, expirada, cancelada, recusada).
+- Ordens abertas com «Alterar» e «Cancelar».
 
 ### 5.7. Alertas
 
@@ -279,7 +258,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Estado ou data de actualização dos dados, quando disponível.
 - «Autenticação em dois passos»: estado «Activa» e data, códigos de recuperação por usar (aviso a partir de 3 ou menos), «Gerar novos códigos de recuperação» e «Trocar de aplicação»; ambos pedem um código (com alternativa «Usar um código de recuperação»), e trocar de aplicação pede também a palavra-passe e explica que as sessões terminam.
 - Para administradores, atalho para Utilizadores; para todos, «Terminar sessão» (necessário em telemóvel, onde não há barra lateral).
-- Para todos, cartão «SAXO Bank» com o distintivo «Simulação (SIM)» e três blocos: **Aplicação** (campos «App Key» e «App Secret», este de palavra-passe e nunca mostrado de novo; mostra o URL de retorno a registar no portal da SAXO; «Guardar aplicação» e «Remover aplicação»), **Ligação** (estado em texto; «Ligar à SAXO» leva ao login da SAXO e volta a `/definicoes?saxo=ok|erro` com uma mensagem; «Testar ligação» mostra conta e saldo; «Desligar»). Nos Charts, nos Sinais e na Carteira SAXO («Vender»), «Enviar à SAXO» abre um diálogo de duas fases («Pré-validar» → «Confirmar e enviar») com a faixa de aviso «Conta de simulação da SAXO Bank — não é dinheiro real»; nas compras, «Proteger com um stop» (fixo ou móvel, por omissão 8 % abaixo). Nos Sinais, «Enviar sinais à SAXO» abre o envio em lote: tabela com uma ordem por instrumento, «Pré-validar» e «Confirmar e enviar N ordens». Nas Ordens SAXO, «Alterar» abre um diálogo com quantidade e preço e «Confirmar alteração».
+- Para todos, cartão «SAXO Bank» com o distintivo «Simulação (SIM)» e três blocos: **Aplicação** (campos «App Key» e «App Secret», este de palavra-passe e nunca mostrado de novo; mostra o URL de retorno a registar no portal da SAXO; «Guardar aplicação» e «Remover aplicação»), **Ligação** (estado em texto; «Ligar à SAXO» leva ao login da SAXO e volta a `/definicoes?saxo=ok|erro` com uma mensagem; «Testar ligação» mostra conta e saldo; «Desligar»). Nos Charts, nos Sinais e na Carteira SAXO («Vender»), «Enviar à SAXO» abre um diálogo com o resumo e «Confirmar e enviar», que envia logo, com a faixa de aviso «Conta de simulação da SAXO Bank — não é dinheiro real»; nas compras, «Proteger com um stop» (fixo ou móvel, por omissão 8 % abaixo). Nos Sinais, «Enviar sinais à SAXO» abre o envio em lote: tabela com uma ordem por instrumento e «Confirmar e enviar N ordens». Nas Ordens SAXO, «Alterar» abre um diálogo com quantidade e preço e «Confirmar alteração».
 - Para administradores, «Envio de email (SMTP)»: servidor, segurança (STARTTLS, SSL/TLS, sem cifra, com a porta ajustada à escolha), porta, utilizador, «Palavra-passe SMTP» (nunca mostrada; «Definida. Deixe vazio para manter.»), remetente, e os botões «Guardar», «Enviar email de teste» e «Remover palavra-passe». Indicar quem fez a última alteração e que, sem configuração, os alertas não enviam emails.
 
 ### 5.9. HeatMap
@@ -307,7 +286,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Menu «Estratégia» (A-Momentum por omissão, B-Opus, C-AI, D-Reversão; `?estrategia=`). Lista dos sinais da estratégia (compra C, reforço R, venda V com o motivo, com etiqueta de cor e letra) em todos os instrumentos, ordenados do mais recente.
 - Filtro por tipo com contagens e período (última sessão a últimas 10 sessões), guardados no URL.
 - Cada linha: sessão («há N sessões»), sinal, instrumento, preço do sinal, variação desde o sinal (com o último fecho), SMA10/SMA200 actual e botões «Avisar-me» (cria um alerta de sinal da estratégia escolhida nesse instrumento; passa a «Com alerta», desactivado, quando já existe), «Comprar» e «Vender»; «Vender» desactivado quando o instrumento não está na carteira.
-- «Comprar» abre a operação com a quantidade que cabe em 15 000 € ao último fecho; «Vender» abre-a com todas as unidades em carteira. A quantidade continua editável e o modal mostra uma nota com a origem do valor.
+- «Comprar na SAXO» abre a ordem com a quantidade que cabe em 15 000 € ao último fecho; nos sinais de venda, «Vender na SAXO» abre-a com as unidades que a conta tem e fica inactivo sem posição. A quantidade continua editável.
 - Aviso com as regras e a indicação de que são resultados de uma simulação, não recomendações.
 
 ### 5.11a. BackTest
@@ -361,7 +340,7 @@ Não introduzir ecrãs para funcionalidades futuras como se estivessem operacion
 - Primário: fundo accent, uma acção principal por contexto.
 - Secundário: superfície neutra e contorno perceptível.
 - Terciário: texto ou ícone com rótulo acessível.
-- Destrutivo: reservado a acções irreversíveis reais, como apagar uma regra, não à simples venda simulada.
+- Destrutivo: reservado a acções irreversíveis reais, como apagar uma regra, não à simples venda.
 - Altura preferencial mínima de 44 px para interacções frequentes.
 - Estado de carregamento preserva a largura e impede submissões repetidas.
 
@@ -618,8 +597,8 @@ src/
 - [ ] Layout funcional a partir de 320 CSS px, sem scroll horizontal global.
 - [ ] Datas, moedas e valores formatados de forma consistente em pt-PT.
 - [ ] Cotação diária e respectiva data sempre identificadas.
-- [ ] Operações e saldos claramente assinalados como virtuais.
-- [ ] Confirmação de operações preserva contexto e apresenta os valores aplicados.
+- [ ] Conta SAXO claramente assinalada como conta de simulação.
+- [ ] O diálogo de ordem preserva o contexto e apresenta os valores aplicados.
 - [ ] Alertas explicam o envio em resumo e a base diária dos dados.
 - [ ] Estados vazios, erro, carregamento e desactualização desenhados e implementados.
 - [ ] Utilização completa por teclado e foco visível.
@@ -631,4 +610,4 @@ src/
 
 ## 13. Briefing resumido para implementação
 
-> Criar uma interface React premium, serena e fluida para uma plataforma de simulação e acompanhamento de acções. Inspirar-se na clareza e contenção das interfaces Apple sem copiar a marca. Usar tipografia de sistema, grelha consistente, superfícies sólidas, espaços generosos, cantos suaves, sombras discretas e azul como destaque. Disponibilizar temas claro, escuro e sistema. Reservar translucidez para navegação, nunca para os dados. Desenhar Visão geral, Acompanhamento, Detalhe do instrumento, Carteira, Operações, Alertas e Definições. Mostrar sempre a natureza virtual das operações e a data das cotações diárias. Suportar histórico de dois anos nos gráficos (três guardados, para as médias longas) e explicar que os alertas chegam num email de resumo após a actualização diária. Priorizar acessibilidade, navegação por teclado, movimento reduzido, estados de erro e clareza financeira. A experiência deve transmitir confiança e qualidade sem sugerir dados em tempo real nem execução real de ordens.
+> Criar uma interface React premium, serena e fluida para uma plataforma de simulação e acompanhamento de acções. Inspirar-se na clareza e contenção das interfaces Apple sem copiar a marca. Usar tipografia de sistema, grelha consistente, superfícies sólidas, espaços generosos, cantos suaves, sombras discretas e azul como destaque. Disponibilizar temas claro, escuro e sistema. Reservar translucidez para navegação, nunca para os dados. Desenhar Visão geral, Acompanhamento, Detalhe do instrumento, Carteira SAXO, Ordens SAXO, Alertas e Definições. Mostrar sempre que a conta é de simulação e a data das cotações diárias. Suportar histórico de dois anos nos gráficos (três guardados, para as médias longas) e explicar que os alertas chegam num email de resumo após a actualização diária. Priorizar acessibilidade, navegação por teclado, movimento reduzido, estados de erro e clareza financeira. A experiência deve transmitir confiança e qualidade sem sugerir dados em tempo real nem dinheiro real.

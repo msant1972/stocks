@@ -4,6 +4,7 @@ import { createStreamManager } from './streaming.js';
 import { refreshDueTokens } from './tokens.js';
 import { maybeWeeklyRecheck } from './catalog-runner.js';
 import { runDueAutomation } from './automation.js';
+import { takeDueSnapshots } from './history.js';
 
 let sending = false;
 
@@ -57,6 +58,7 @@ export function startOrderWatcher(pool, cfg, log = null) {
     .then(() => watchOrders(pool, cfg, log))
     .then(() => stream.sync())
     .then(() => maybeWeeklyRecheck(pool, cfg, log))
+    .then(() => takeDueSnapshots(pool, cfg, { log }))
     .catch((e) => log?.warn?.({ err: e.message }, 'saxo: vigia falhou'));
   // A automação corre à parte: envia uma ordem por segundo e não pode atrasar a vigia.
   const fullTick = () => {

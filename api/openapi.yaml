@@ -2133,8 +2133,8 @@ paths:
         - Instrumentos
       description: Apaga o instrumento e as suas cotações, pedidos de recolha,
         entradas nas listas de acompanhamento e regras de alerta de todos os
-        utilizadores. Recusado (409 INSTRUMENT_IN_USE) se houver operações
-        simuladas ou posições.
+        utilizadores. Recusado (409 INSTRUMENT_IN_USE) se houver ordens enviadas
+        à SAXO Bank.
       parameters:
         - schema:
             type: integer
@@ -3037,747 +3037,6 @@ paths:
                     additionalProperties: false
                 required:
                   - error
-                additionalProperties: false
-  /api/v1/portfolio:
-    get:
-      summary: Resumo da carteira virtual e posições
-      tags:
-        - Carteira
-      responses:
-        "200":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  currency:
-                    type: string
-                  initialCapital:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  cashBalance:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  invested:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  marketValue:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  totalValue:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  unrealizedPnl:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  realizedPnl:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  totalPnl:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  totalPnlPct:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  valuationDate:
-                    nullable: true
-                    type: string
-                    pattern: ^\d{4}-\d{2}-\d{2}$
-                    description: Data AAAA-MM-DD
-                  positions:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        instrumentId:
-                          type: number
-                        symbol:
-                          type: string
-                        name:
-                          nullable: true
-                          type: string
-                        exchange:
-                          nullable: true
-                          type: string
-                        quantity:
-                          type: number
-                        averageCost:
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        costBasis:
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        price:
-                          nullable: true
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        quoteDate:
-                          nullable: true
-                          type: string
-                          pattern: ^\d{4}-\d{2}-\d{2}$
-                          description: Data AAAA-MM-DD
-                        marketValue:
-                          nullable: true
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        unrealizedPnl:
-                          nullable: true
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        unrealizedPct:
-                          nullable: true
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        realizedPnl:
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                      required:
-                        - instrumentId
-                        - symbol
-                        - name
-                        - exchange
-                        - quantity
-                        - averageCost
-                        - costBasis
-                        - price
-                        - quoteDate
-                        - marketValue
-                        - unrealizedPnl
-                        - unrealizedPct
-                        - realizedPnl
-                      additionalProperties: false
-                required:
-                  - currency
-                  - initialCapital
-                  - cashBalance
-                  - invested
-                  - marketValue
-                  - totalValue
-                  - unrealizedPnl
-                  - realizedPnl
-                  - totalPnl
-                  - totalPnlPct
-                  - valuationDate
-                  - positions
-                additionalProperties: false
-  /api/v1/portfolio/history:
-    get:
-      summary: Evolução diária do valor da carteira virtual
-      tags:
-        - Carteira
-      description: "Em cada sessão desde a criação da carteira: saldo, valor das
-        posições ao fecho dessa sessão e total. Calculada a partir dos
-        movimentos de saldo e das operações. Números (EUR, 2 casas), só para o
-        gráfico."
-      responses:
-        "200":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  initialCapital:
-                    type: number
-                  points:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        date:
-                          type: string
-                          pattern: ^\d{4}-\d{2}-\d{2}$
-                          description: Data AAAA-MM-DD
-                        cash:
-                          type: number
-                        marketValue:
-                          type: number
-                        total:
-                          type: number
-                        netInvested:
-                          type: number
-                      required:
-                        - date
-                        - cash
-                        - marketValue
-                        - total
-                        - netInvested
-                      additionalProperties: false
-                required:
-                  - initialCapital
-                  - points
-                additionalProperties: false
-  /api/v1/portfolio/positions:
-    get:
-      summary: Posições abertas
-      tags:
-        - Carteira
-      responses:
-        "200":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        instrumentId:
-                          type: number
-                        symbol:
-                          type: string
-                        name:
-                          nullable: true
-                          type: string
-                        exchange:
-                          nullable: true
-                          type: string
-                        quantity:
-                          type: number
-                        averageCost:
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        costBasis:
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        price:
-                          nullable: true
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        quoteDate:
-                          nullable: true
-                          type: string
-                          pattern: ^\d{4}-\d{2}-\d{2}$
-                          description: Data AAAA-MM-DD
-                        marketValue:
-                          nullable: true
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        unrealizedPnl:
-                          nullable: true
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        unrealizedPct:
-                          nullable: true
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        realizedPnl:
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                      required:
-                        - instrumentId
-                        - symbol
-                        - name
-                        - exchange
-                        - quantity
-                        - averageCost
-                        - costBasis
-                        - price
-                        - quoteDate
-                        - marketValue
-                        - unrealizedPnl
-                        - unrealizedPct
-                        - realizedPnl
-                      additionalProperties: false
-                required:
-                  - items
-                additionalProperties: false
-  /api/v1/simulated-trades/preview:
-    get:
-      summary: Pré-visualizar uma operação simulada (não grava nada)
-      tags:
-        - Operações
-      parameters:
-        - schema:
-            type: integer
-            minimum: 0
-            exclusiveMinimum: true
-            maximum: 9007199254740991
-          in: query
-          name: instrumentId
-          required: true
-        - schema:
-            type: string
-            enum:
-              - buy
-              - sell
-          in: query
-          name: side
-          required: true
-        - schema:
-            type: integer
-            minimum: 1
-            maximum: 10000000
-          in: query
-          name: quantity
-          required: true
-      responses:
-        "200":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  instrumentId:
-                    type: number
-                  side:
-                    type: string
-                    enum:
-                      - buy
-                      - sell
-                  quantity:
-                    type: number
-                  currency:
-                    type: string
-                  price:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  quoteDate:
-                    type: string
-                    pattern: ^\d{4}-\d{2}-\d{2}$
-                    description: Data AAAA-MM-DD
-                  amount:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  cashAfter:
-                    type: string
-                    description: 'Valor decimal em texto, ex.: "1234.50"'
-                  quantityAfter:
-                    type: number
-                  error:
-                    nullable: true
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - instrumentId
-                  - side
-                  - quantity
-                  - currency
-                  - price
-                  - quoteDate
-                  - amount
-                  - cashAfter
-                  - quantityAfter
-                  - error
-                additionalProperties: false
-        "404":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
-        "409":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
-  /api/v1/simulated-trades:
-    post:
-      summary: Executar compra ou venda simulada ao último preço disponível
-      tags:
-        - Operações
-      description: "O preço é o último disponível: durante a sessão, o valor
-        provisório da recolha horária (cerca de 20 min de atraso); depois do
-        fecho, o fecho do dia. Repetir o pedido com a mesma idempotencyKey
-        devolve a operação original (200) sem a duplicar. Se
-        expectedPrice/expectedQuoteDate não coincidirem com a cotação actual,
-        responde 409 PRICE_CHANGED."
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                instrumentId:
-                  type: integer
-                  minimum: 0
-                  exclusiveMinimum: true
-                  maximum: 9007199254740991
-                side:
-                  type: string
-                  enum:
-                    - buy
-                    - sell
-                quantity:
-                  type: integer
-                  minimum: 1
-                  maximum: 10000000
-                idempotencyKey:
-                  type: string
-                  minLength: 8
-                  maxLength: 64
-                  pattern: ^[A-Za-z0-9_-]+$
-                expectedPrice:
-                  type: string
-                  pattern: ^\d+(\.\d+)?$
-                expectedQuoteDate:
-                  type: string
-                  pattern: ^\d{4}-\d{2}-\d{2}$
-                  description: Data AAAA-MM-DD
-              required:
-                - instrumentId
-                - side
-                - quantity
-                - idempotencyKey
-      responses:
-        "200":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  trade:
-                    type: object
-                    properties:
-                      id:
-                        type: number
-                      instrumentId:
-                        type: number
-                      symbol:
-                        type: string
-                      name:
-                        nullable: true
-                        type: string
-                      side:
-                        type: string
-                        enum:
-                          - buy
-                          - sell
-                      quantity:
-                        type: number
-                      price:
-                        type: string
-                        description: 'Valor decimal em texto, ex.: "1234.50"'
-                      amount:
-                        type: string
-                        description: 'Valor decimal em texto, ex.: "1234.50"'
-                      currency:
-                        type: string
-                      quoteDate:
-                        type: string
-                        pattern: ^\d{4}-\d{2}-\d{2}$
-                        description: Data AAAA-MM-DD
-                      realizedPnl:
-                        nullable: true
-                        type: string
-                        description: 'Valor decimal em texto, ex.: "1234.50"'
-                      requestedAt:
-                        type: string
-                    required:
-                      - id
-                      - instrumentId
-                      - symbol
-                      - name
-                      - side
-                      - quantity
-                      - price
-                      - amount
-                      - currency
-                      - quoteDate
-                      - realizedPnl
-                      - requestedAt
-                    additionalProperties: false
-                  replayed:
-                    type: boolean
-                required:
-                  - trade
-                  - replayed
-                additionalProperties: false
-        "201":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  trade:
-                    type: object
-                    properties:
-                      id:
-                        type: number
-                      instrumentId:
-                        type: number
-                      symbol:
-                        type: string
-                      name:
-                        nullable: true
-                        type: string
-                      side:
-                        type: string
-                        enum:
-                          - buy
-                          - sell
-                      quantity:
-                        type: number
-                      price:
-                        type: string
-                        description: 'Valor decimal em texto, ex.: "1234.50"'
-                      amount:
-                        type: string
-                        description: 'Valor decimal em texto, ex.: "1234.50"'
-                      currency:
-                        type: string
-                      quoteDate:
-                        type: string
-                        pattern: ^\d{4}-\d{2}-\d{2}$
-                        description: Data AAAA-MM-DD
-                      realizedPnl:
-                        nullable: true
-                        type: string
-                        description: 'Valor decimal em texto, ex.: "1234.50"'
-                      requestedAt:
-                        type: string
-                    required:
-                      - id
-                      - instrumentId
-                      - symbol
-                      - name
-                      - side
-                      - quantity
-                      - price
-                      - amount
-                      - currency
-                      - quoteDate
-                      - realizedPnl
-                      - requestedAt
-                    additionalProperties: false
-                  replayed:
-                    type: boolean
-                required:
-                  - trade
-                  - replayed
-                additionalProperties: false
-        "404":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
-        "409":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
-        "422":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  error:
-                    type: object
-                    properties:
-                      code:
-                        type: string
-                      message:
-                        type: string
-                      details: {}
-                    required:
-                      - code
-                      - message
-                    additionalProperties: false
-                required:
-                  - error
-                additionalProperties: false
-    get:
-      summary: Histórico de operações simuladas
-      tags:
-        - Operações
-      parameters:
-        - schema:
-            type: integer
-            minimum: 0
-            exclusiveMinimum: true
-            maximum: 9007199254740991
-          in: query
-          name: instrumentId
-          required: false
-        - schema:
-            type: string
-            enum:
-              - buy
-              - sell
-          in: query
-          name: side
-          required: false
-        - schema:
-            type: string
-            pattern: ^\d{4}-\d{2}-\d{2}$
-          in: query
-          name: from
-          required: false
-          description: Data AAAA-MM-DD
-        - schema:
-            type: string
-            pattern: ^\d{4}-\d{2}-\d{2}$
-          in: query
-          name: to
-          required: false
-          description: Data AAAA-MM-DD
-        - schema:
-            default: 50
-            type: integer
-            minimum: 1
-            maximum: 200
-          in: query
-          name: limit
-          required: false
-        - schema:
-            default: 0
-            type: integer
-            minimum: 0
-            maximum: 9007199254740991
-          in: query
-          name: offset
-          required: false
-      responses:
-        "200":
-          description: Default Response
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  items:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        id:
-                          type: number
-                        instrumentId:
-                          type: number
-                        symbol:
-                          type: string
-                        name:
-                          nullable: true
-                          type: string
-                        side:
-                          type: string
-                          enum:
-                            - buy
-                            - sell
-                        quantity:
-                          type: number
-                        price:
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        amount:
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        currency:
-                          type: string
-                        quoteDate:
-                          type: string
-                          pattern: ^\d{4}-\d{2}-\d{2}$
-                          description: Data AAAA-MM-DD
-                        realizedPnl:
-                          nullable: true
-                          type: string
-                          description: 'Valor decimal em texto, ex.: "1234.50"'
-                        requestedAt:
-                          type: string
-                      required:
-                        - id
-                        - instrumentId
-                        - symbol
-                        - name
-                        - side
-                        - quantity
-                        - price
-                        - amount
-                        - currency
-                        - quoteDate
-                        - realizedPnl
-                        - requestedAt
-                      additionalProperties: false
-                  total:
-                    type: number
-                required:
-                  - items
-                  - total
                 additionalProperties: false
   /api/v1/alerts:
     get:
@@ -6633,7 +5892,7 @@ paths:
                 additionalProperties: false
   /api/v1/saxo/portfolio:
     get:
-      summary: "Carteira da conta SAXO: saldo e posições abertas"
+      summary: "Carteira da conta SAXO: saldo, valor total, custo e posições abertas"
       tags:
         - SAXO
       description: "O SIM não tem preços de mercado: o valor e o resultado das
@@ -6663,6 +5922,9 @@ paths:
                   totalValue:
                     nullable: true
                     type: number
+                  invested:
+                    type: number
+                    description: Custo das posições abertas (quantidade × preço de abertura)
                   positions:
                     type: array
                     items:
@@ -6759,6 +6021,7 @@ paths:
                   - isTrial
                   - cashBalance
                   - totalValue
+                  - invested
                   - positions
                   - closed
                 additionalProperties: false
@@ -6893,6 +6156,53 @@ paths:
                     additionalProperties: false
                 required:
                   - error
+                additionalProperties: false
+  /api/v1/saxo/portfolio/history:
+    get:
+      summary: Evolução do valor da conta SAXO (uma leitura por sessão)
+      tags:
+        - SAXO
+      description: O valor total, o saldo e o valor das posições, tal como a SAXO os
+        dá, guardados no fim de cada sessão, depois da recolha diária.
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currency:
+                    type: string
+                  initialCapital:
+                    type: number
+                  points:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        total:
+                          type: number
+                        cash:
+                          nullable: true
+                          type: number
+                        positions:
+                          nullable: true
+                          type: number
+                      required:
+                        - date
+                        - total
+                        - cash
+                        - positions
+                      additionalProperties: false
+                required:
+                  - currency
+                  - initialCapital
+                  - points
                 additionalProperties: false
   /api/v1/saxo/alerts:
     get:
@@ -7879,9 +7189,6 @@ paths:
                 isAdmin:
                   default: false
                   type: boolean
-                initialCapital:
-                  type: string
-                  pattern: ^\d{1,12}(\.\d{1,2})?$
               required:
                 - email
                 - name

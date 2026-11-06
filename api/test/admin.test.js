@@ -8,7 +8,7 @@ describe.skipIf(!hasTestDb)('gestão de utilizadores', () => {
   let adminId;
   beforeAll(async () => {
     ctx = await setup();
-    adminId = await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true, initialCapital: '10000' }, FAST_HASH);
+    adminId = await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true }, FAST_HASH);
     await makeUser(ctx.pool, 'ana@exemplo.pt');
     admin = api(ctx.app, await login(ctx.app, 'admin@exemplo.pt'));
   });
@@ -29,11 +29,11 @@ describe.skipIf(!hasTestDb)('gestão de utilizadores', () => {
     expect(items[0].lastSeenAt).not.toBeNull();
   });
 
-  it('cria utilizador com carteira e valida os dados', async () => {
-    const res = await admin.post('/admin/users', { email: ' Rui@Exemplo.pt ', name: 'Rui', password: 'palavra-passe-longa', initialCapital: '5000' });
+  it('cria utilizador e valida os dados', async () => {
+    const res = await admin.post('/admin/users', { email: ' Rui@Exemplo.pt ', name: 'Rui', password: 'palavra-passe-longa' });
     expect(res.statusCode).toBe(201);
     const rui = api(ctx.app, await login(ctx.app, 'rui@exemplo.pt', 'palavra-passe-longa'));
-    expect((await rui.get('/portfolio')).json().cashBalance).toBe('5000.00');
+    expect((await rui.get('/watchlist')).statusCode).toBe(200);
     expect((await admin.post('/admin/users', { email: 'rui@exemplo.pt', name: 'Rui', password: 'palavra-passe-longa' })).json().error.code).toBe('EMAIL_EXISTS');
     expect((await admin.post('/admin/users', { email: 'novo@exemplo.pt', name: 'N', password: 'curta' })).json().error.code).toBe('WEAK_PASSWORD');
     expect((await admin.post('/admin/users', { email: 'nao-e-email', name: 'N', password: 'palavra-passe-longa' })).statusCode).toBe(400);
@@ -62,20 +62,18 @@ describe.skipIf(!hasTestDb)('gestão de utilizadores', () => {
     const inst = await makeInstrument(ctx.pool, 'GALP.LS', { closes: ['10'], sessions: recentSessions(1) });
     await anaApi.post('/watchlist/items', { instrumentId: inst });
     await anaApi.post('/alerts', { instrumentId: inst, kind: 'close_above', threshold: '20' });
-    await anaApi.post('/simulated-trades', { instrumentId: inst, side: 'buy', quantity: 1, idempotencyKey: 'chave-de-teste-1' });
+    await ctx.pool.query("INSERT INTO saxo_account_history (user_id, session_date, total_value) VALUES (?, '2026-11-06', 1000)", [ana.id]);
 
     expect((await admin.del(`/admin/users/${ana.id}`)).statusCode).toBe(204);
-    for (const t of ['portfolios', 'watchlist_items', 'alert_rules', 'sessions']) {
+    for (const t of ['saxo_account_history', 'watchlist_items', 'alert_rules', 'sessions']) {
       const [[{ n }]] = await ctx.pool.query(`SELECT COUNT(*) AS n FROM ${t} WHERE user_id = ?`, [ana.id]);
       expect(Number(n)).toBe(0);
     }
-    const [[{ trades }]] = await ctx.pool.query('SELECT COUNT(*) AS trades FROM simulated_trades');
-    expect(Number(trades)).toBe(0);
     expect((await admin.del(`/admin/users/${ana.id}`)).statusCode).toBe(404);
     expect((await admin.del(`/admin/users/${adminId}`)).json().error.code).toBe('CANNOT_DELETE_SELF');
 
     // Um administrador pode remover outro (fica sempre pelo menos ele próprio como administrador).
-    await createUser(ctx.pool, { email: 'admin2@exemplo.pt', name: 'Admin 2', password: PASSWORD, isAdmin: true, initialCapital: '1' }, FAST_HASH);
+    await createUser(ctx.pool, { email: 'admin2@exemplo.pt', name: 'Admin 2', password: PASSWORD, isAdmin: true }, FAST_HASH);
     const admin2 = api(ctx.app, await login(ctx.app, 'admin2@exemplo.pt'));
     expect((await admin2.del(`/admin/users/${adminId}`)).statusCode).toBe(204);
     expect((await admin2.get('/admin/users')).json().items.map((u) => u.email)).not.toContain('admin@exemplo.pt');

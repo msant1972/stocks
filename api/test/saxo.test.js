@@ -399,11 +399,11 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     expect(r.tick_scheme).toContain('DefaultTickSize');
   });
 
-  it('Carteira SAXO: saldo e posições valorizadas ao último preço da aplicação (o SIM não tem preços)', async () => {
+  it('Carteira SAXO: saldo com o que está por liquidar e posições valorizadas ao último preço da aplicação (o SIM não tem preços)', async () => {
     useSaxo({ 'GET /port/v1/positions/me': fx('positions-synthetic') });
     let res = await ana.get('/saxo/portfolio');
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ accountId: '0000000', cashBalance: 1000000, totalValue: 1000000 });
+    expect(res.json()).toMatchObject({ accountId: '0000000', cashBalance: 1000000, totalValue: 1000000, invested: 3000 });
     // Sem correspondência guardada: usa o símbolo da SAXO e não inventa valor.
     expect(res.json().positions).toEqual([{
       positionId: '1000001', instrumentId: null, symbol: 'GALP:xlis', name: 'Galp Energia SGPS SA', currency: 'EUR',

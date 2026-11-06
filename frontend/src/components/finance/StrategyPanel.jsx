@@ -40,7 +40,7 @@ export default function StrategyPanel({ strategy, result, currency = 'EUR', symb
         <h3 id="strategy-title" style={{ fontSize: '1.0625rem', fontWeight: 600 }}>{strategy.name} — simulação no histórico</h3>
         <p className="small muted" style={{ marginTop: 4 }}>
           {strategy.rules}{notes.length > 0 && ` No período: ${notes.join('; ')}.`} Período: {firstDate ? `desde ${f.date(firstDate)}` : 'sem dados suficientes'}.
-          Não altera a carteira virtual.
+          Não envia ordens nem altera a carteira.
         </p>
       </div>
 

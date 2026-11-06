@@ -1,6 +1,6 @@
 #!/bin/sh
 # Cópia diária da base de dados (stocks-backup.service). Guarda os últimos 30 dias.
-# Os dados que importam são utilizadores, carteiras, operações e regras; as cotações são reconstruíveis.
+# Os dados que importam são utilizadores, ordens, regras e o histórico da conta SAXO; as cotações são reconstruíveis.
 set -eu
 umask 077  # a cópia contém hashes de palavras-passe e dados dos utilizadores
 DIR=/var/backups/stocks

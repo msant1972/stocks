@@ -72,7 +72,7 @@ def describe(e: DigestEvent) -> str:
 
 FOOTER = (
     "As condições são avaliadas com cotações diárias, não em tempo real. "
-    "A carteira e as operações da aplicação são simuladas; este email não é uma recomendação de investimento."
+    "As ordens da aplicação vão para a conta de simulação da SAXO; este email não é uma recomendação de investimento."
 )
 
 

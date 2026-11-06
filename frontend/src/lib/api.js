@@ -46,7 +46,7 @@ export function errorMessage(err) {
   return msg.charAt(0).toUpperCase() + msg.slice(1);
 }
 
-/** Chave de idempotência para operações simuladas. */
+/** Chave de idempotência das ordens. */
 export function newIdempotencyKey() {
   return crypto.randomUUID().replaceAll('-', '');
 }

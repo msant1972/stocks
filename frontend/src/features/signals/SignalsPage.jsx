@@ -3,14 +3,14 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useAlerts, usePortfolio } from '../../lib/queries.js';
+import { keys, useAlerts } from '../../lib/queries.js';
+import { heldBySaxo } from '../../lib/saxo.js';
 import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { PriceChange } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Field, Notice, Segmented } from '../../components/ui/controls.jsx';
-import TradeDialog from '../portfolio/TradeDialog.jsx';
 import SaxoOrderDialog, { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
 import SaxoBatchDialog from '../saxo/SaxoBatchDialog.jsx';
 
@@ -29,11 +29,11 @@ export default function SignalsPage() {
   const budget = strategy.budget;
   const side = ['buy', 'add', 'sell'].includes(params.get('tipo')) ? params.get('tipo') : 'all';
   const sessions = PERIODS.includes(params.get('sessoes')) ? params.get('sessoes') : '5';
-  const [trade, setTrade] = useState(null); // { instrument, side, quantity, note }
   const [saxoTrade, setSaxoTrade] = useState(null); // { instrument, side, quantity }
   const [saxoBatch, setSaxoBatch] = useState(false);
   const saxo = useSaxoStatus();
-  const portfolio = usePortfolio();
+  const saxoLinked = Boolean(saxo.data?.configured && !saxo.data?.expired);
+  const saxoPortfolio = useQuery({ queryKey: ['saxo-portfolio'], queryFn: () => api.get('/saxo/portfolio'), enabled: saxoLinked, retry: false, refetchOnWindowFocus: false });
   const alerts = useAlerts();
   const qc = useQueryClient();
   const toast = useToast();
@@ -69,7 +69,7 @@ export default function SignalsPage() {
     setParams(next, { replace: true });
   };
 
-  const held = new Map((portfolio.data?.positions ?? []).map((p) => [p.instrumentId, p.quantity]));
+  const held = heldBySaxo(saxoPortfolio.data?.positions);
   const all = q.data?.items ?? [];
   const items = side === 'all' ? all : all.filter((i) => i.side === side);
   const count = (s) => all.filter((i) => i.side === s).length;
@@ -106,7 +106,7 @@ export default function SignalsPage() {
       <div className="stack">
         <Notice>
           Estratégia {strategy.name}: {strategy.rules}
-          Os sinais resultam de uma simulação sobre dados diários; não são recomendações de investimento. Comprar e Vender abrem uma operação na sua carteira virtual; «Avisar-me» cria um alerta que lhe envia um email quando a estratégia der um sinal neste instrumento.
+          Os sinais resultam de uma simulação sobre dados diários; não são recomendações de investimento. Comprar e Vender abrem uma ordem para a conta de simulação da SAXO; «Avisar-me» cria um alerta que lhe envia um email quando a estratégia der um sinal neste instrumento.
         </Notice>
         {alertError && <Notice tone="error">{alertError}</Notice>}
 
@@ -166,28 +166,18 @@ export default function SignalsPage() {
                             title={alerted.has(i.instrumentId) ? `Já tem um alerta de sinais da ${strategy.name} neste instrumento (ver Alertas)` : `Receber um email quando a ${strategy.name} der um sinal neste instrumento`}>
                             {alerted.has(i.instrumentId) ? 'Com alerta' : 'Avisar-me'}<span className="visually-hidden"> {i.symbol}</span>
                           </Button>{' '}
-                          <Button size="small" onClick={() => setTrade({
-                            instrument, side: 'buy',
-                            // Orçamento da estratégia ao último preço (o que a operação vai usar).
-                            quantity: Math.max(1, Math.floor(budget / Number(i.lastClose))),
-                            note: `≈ ${f.money(budget, 'EUR', 0)} (orçamento da estratégia) ao último preço disponível.`,
-                          })}>
-                            Comprar<span className="visually-hidden"> {i.symbol}</span>
-                          </Button>{' '}
-                          <Button size="small" onClick={() => setTrade({
-                            instrument, side: 'sell', quantity: qty,
-                            note: `Todas as unidades em carteira (${f.quantity(qty)}).`,
-                          })} disabled={qty === 0}
-                            title={qty === 0 ? 'Não tem este instrumento na carteira' : `Tem ${f.quantity(qty)} unidades`}>
-                            Vender<span className="visually-hidden"> {i.symbol}</span>
-                          </Button>
                           {saxo.data?.configured && (
-                            <>{' '}
-                              <Button size="small" onClick={() => setSaxoTrade({ instrument: { ...instrument, latest: { close: i.lastClose } }, side: i.side === 'sell' ? 'sell' : 'buy', quantity: i.side === 'sell' ? null : Math.max(1, Math.floor(budget / Number(i.lastClose))) })}
-                                title="Enviar uma ordem para a conta de simulação da SAXO Bank">
-                                Enviar à SAXO<span className="visually-hidden"> {i.symbol}</span>
+                            i.side === 'sell' ? (
+                              <Button size="small" disabled={qty === 0} onClick={() => setSaxoTrade({ instrument: { ...instrument, latest: { close: i.lastClose } }, side: 'sell', quantity: qty })}
+                                title={qty === 0 ? 'A conta SAXO não tem este instrumento' : `Vender as ${f.quantity(qty)} unidades que a conta SAXO tem`}>
+                                Vender na SAXO<span className="visually-hidden"> {i.symbol}</span>
                               </Button>
-                            </>
+                            ) : (
+                              <Button size="small" onClick={() => setSaxoTrade({ instrument: { ...instrument, latest: { close: i.lastClose } }, side: 'buy', quantity: Math.max(1, Math.floor(budget / Number(i.lastClose))) })}
+                                title={`Comprar na conta de simulação da SAXO: ≈ ${f.money(budget, 'EUR', 0)} (orçamento da estratégia) ao último preço`}>
+                                Comprar na SAXO<span className="visually-hidden"> {i.symbol}</span>
+                              </Button>
+                            )
                           )}
                         </td>
                       </tr>
@@ -200,8 +190,6 @@ export default function SignalsPage() {
         </section>
       </div>
 
-      <TradeDialog open={!!trade} onClose={() => setTrade(null)} instrument={trade?.instrument} initialSide={trade?.side}
-        initialQuantity={trade?.quantity} quantityNote={trade?.note} />
       <SaxoBatchDialog open={saxoBatch} onClose={() => setSaxoBatch(false)} signals={items} budget={budget} strategyName={strategy.name} />
       <SaxoOrderDialog open={!!saxoTrade} onClose={() => setSaxoTrade(null)} instrument={saxoTrade?.instrument} initialSide={saxoTrade?.side} initialQuantity={saxoTrade?.quantity} />
     </>

@@ -9,14 +9,14 @@ function HistoryTooltip({ active, payload, initial }) {
     <div className="card" style={{ padding: '0.5rem 0.75rem', boxShadow: 'var(--shadow-overlay)', minWidth: '12rem' }}>
       <div className="small muted">{f.date(p.date)}</div>
       <div className="num" style={{ fontWeight: 600 }}>{f.money(p.total)}</div>
-      <div className="small muted">Posições {f.money(p.marketValue)} · Saldo {f.money(p.cash)}</div>
+      {p.positions != null && p.cash != null && <div className="small muted">Posições {f.money(p.positions)} · Saldo {f.money(p.cash)}</div>}
       <div className={`small num ${p.total >= initial ? 'positive' : 'negative'}`}>{f.signedMoney(p.total - initial)} face ao capital inicial</div>
     </div>
   );
 }
 
-/** Evolução do valor total da carteira (saldo + posições ao fecho de cada sessão), com o capital inicial como referência. */
-export default function PortfolioHistoryChart({ history }) {
+/** Evolução do valor total da conta SAXO (uma leitura no fim de cada sessão), com o capital inicial como referência. */
+export default function AccountHistoryChart({ history }) {
   const id = useId();
   const { points, initialCapital } = history;
   const last = points.at(-1);
@@ -41,7 +41,7 @@ export default function PortfolioHistoryChart({ history }) {
       </div>
       <p id={`${id}-summary`} className="small muted" style={{ marginTop: '0.5rem' }}>
         De {f.date(points[0].date)} a {f.date(last.date)}: de {f.money(points[0].total)} para {f.money(last.total)}
-        {' '}({f.signedMoney(last.total - initialCapital)} face ao capital inicial). Valor ao fecho de cada sessão; operações simuladas.
+        {' '}({f.signedMoney(last.total - initialCapital)} face ao capital inicial). Valor dado pela SAXO no fim de cada sessão; conta de simulação.
       </p>
     </>
   );

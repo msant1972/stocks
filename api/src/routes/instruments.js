@@ -342,7 +342,7 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     schema: {
       tags: ['Instrumentos'], summary: 'Apagar um instrumento do catálogo (administradores)',
       description: 'Apaga o instrumento e as suas cotações, pedidos de recolha, entradas nas listas de acompanhamento e regras '
-        + 'de alerta de todos os utilizadores. Recusado (409 INSTRUMENT_IN_USE) se houver operações simuladas ou posições.',
+        + 'de alerta de todos os utilizadores. Recusado (409 INSTRUMENT_IN_USE) se houver ordens enviadas à SAXO Bank.',
       params: z.object({ id: Id }),
       response: {
         200: z.object({ symbol: z.string(), watchlists: z.number(), alertRules: z.number(), quotes: z.number() }),

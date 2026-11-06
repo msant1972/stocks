@@ -13,8 +13,6 @@ const ChartsPage = lazy(() => import('../features/charts/ChartsPage.jsx'));
 const HeatmapPage = lazy(() => import('../features/heatmap/HeatmapPage.jsx'));
 const OrderbookPage = lazy(() => import('../features/orderbook/OrderbookPage.jsx'));
 const InstrumentRedirect = lazy(() => import('../features/instruments/InstrumentRedirect.jsx'));
-const PortfolioPage = lazy(() => import('../features/portfolio/PortfolioPage.jsx'));
-const TradesPage = lazy(() => import('../features/trades/TradesPage.jsx'));
 const SaxoOrdersPage = lazy(() => import('../features/saxo/SaxoOrdersPage.jsx'));
 const SaxoPortfolioPage = lazy(() => import('../features/saxo/SaxoPortfolioPage.jsx'));
 const SaxoAlertsPage = lazy(() => import('../features/saxo/SaxoAlertsPage.jsx'));
@@ -54,8 +52,8 @@ export default function App() {
           <Route path="orderbook" element={<OrderbookPage />} />
           <Route path="heatmap" element={<HeatmapPage />} />
           <Route path="instrumentos/:id" element={<InstrumentRedirect />} />
-          <Route path="carteira" element={<PortfolioPage />} />
-          <Route path="operacoes" element={<TradesPage />} />
+          <Route path="carteira" element={<Navigate to="/saxo/carteira" replace />} />
+          <Route path="operacoes" element={<Navigate to="/saxo/ordens" replace />} />
           <Route path="saxo" element={<Navigate to="/saxo/ordens" replace />} />
           <Route path="saxo/carteira" element={<SaxoPortfolioPage />} />
           <Route path="saxo/ordens" element={<SaxoOrdersPage />} />

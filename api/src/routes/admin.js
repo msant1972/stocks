@@ -52,14 +52,11 @@ export default async function adminRoutes(app, { pool, cfg }) {
         name: z.string().trim().min(1).max(120),
         password: Password,
         isAdmin: z.boolean().default(false),
-        initialCapital: z.string().regex(/^\d{1,12}(\.\d{1,2})?$/).optional(),
       }),
       response: { 201: z.object({ id: z.number() }), 400: ErrorBody, 403: ErrorBody, 409: ErrorBody },
     },
   }, async (req, reply) => {
-    const id = await createUser(pool, {
-      ...req.body, initialCapital: req.body.initialCapital ?? cfg.initialCapital,
-    });
+    const id = await createUser(pool, req.body);
     await audit(pool, req.user.id, 'admin.user_create', 'user', id, { email: normaliseEmail(req.body.email), isAdmin: req.body.isAdmin });
     return reply.code(201).send({ id: Number(id) });
   });

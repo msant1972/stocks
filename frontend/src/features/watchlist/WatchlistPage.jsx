@@ -415,7 +415,7 @@ export default function WatchlistPage() {
               O instrumento {toDelete.symbol}{toDelete.name ? ` (${toDelete.name})` : ''} deixa de existir para todos os utilizadores:
               apagam-se as cotações, sai das listas de acompanhamento e as regras de alerta sobre ele são removidas.
             </p>
-            <p className="small muted">Não é possível apagar um instrumento com operações simuladas ou posições numa carteira.</p>
+            <p className="small muted">Não é possível apagar um instrumento com ordens enviadas à SAXO Bank.</p>
             {deleteError && <Notice tone="error">{deleteError}</Notice>}
             <div className="modal-actions">
               <Button onClick={() => setToDelete(null)} disabled={deleteBusy}>Cancelar</Button>

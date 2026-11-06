@@ -22,7 +22,7 @@ describe.skipIf(!hasTestDb)('configuração SMTP', () => {
   beforeAll(async () => {
     ctx = await setup();
     app = await buildApp({ pool: ctx.pool, cfg: { ...testConfig(), secretKey: KEY }, logger: false });
-    await enableMfa(ctx.pool, await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true, initialCapital: '1' }, FAST_HASH));
+    await enableMfa(ctx.pool, await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true }, FAST_HASH));
     await makeUser(ctx.pool, 'ana@exemplo.pt');
     admin = api(app, await login(app, 'admin@exemplo.pt'));
   });

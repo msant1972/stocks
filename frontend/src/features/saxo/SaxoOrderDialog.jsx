@@ -85,6 +85,7 @@ export default function SaxoOrderDialog({ open, onClose, instrument, initialSide
       setSentStop(body.stop ?? null);
       setReceipt(res.order);
       qc.invalidateQueries({ queryKey: ['saxo-orders'] });
+      qc.invalidateQueries({ queryKey: ['saxo-portfolio'] });
     } catch (err) {
       // Numa falha de rede mantém-se a chave: repetir não duplica a ordem. Uma recusa da SAXO já ficou registada como ordem
       // recusada: tentar de novo é uma ordem nova.

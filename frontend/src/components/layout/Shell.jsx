@@ -18,13 +18,6 @@ const NAV_GROUPS = [
       { to: '/charts', label: 'Charts', icon: 'charts' },
       { to: '/orderbook', label: 'Orderbook', icon: 'orderbook' },
       { to: '/heatmap', label: 'HeatMap', icon: 'heatmap' },
-    ],
-  },
-  {
-    title: 'Carteira',
-    items: [
-      { to: '/carteira', label: 'Carteira', icon: 'portfolio' },
-      { to: '/operacoes', label: 'Operações', icon: 'trades' },
       { to: '/alertas', label: 'Alertas', icon: 'alerts' },
     ],
   },
@@ -62,7 +55,7 @@ const visibleGroups = (isAdmin) => NAV_GROUPS
   .map((g) => ({ ...g, items: g.items.filter((n) => !n.admin || isAdmin) }))
   .filter((g) => g.items.length);
 // Atalhos da barra inferior em telemóvel; todos os módulos ficam no botão «Mais».
-const MOBILE_SHORTCUTS = ['/', '/acompanhar', '/charts', '/carteira', '/sinais'];
+const MOBILE_SHORTCUTS = ['/', '/acompanhar', '/charts', '/saxo/carteira', '/sinais'];
 const MOBILE_NAV = NAV_GROUPS.flatMap((g) => g.items).filter((n) => MOBILE_SHORTCUTS.includes(n.to));
 
 function DataStatus() {

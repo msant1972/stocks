@@ -32,13 +32,13 @@ npm test           # node --test: cálculos do momento e da estratégia (shared/
 src/
   app/          rotas e protecção da sessão
   components/   ui (botões, campos, modal), layout, finance (valores, gráfico), feedback (estados, avisos)
-  features/     uma pasta por ecrã: auth, overview, watchlist, instruments, heatmap, portfolio, trades, signals, alerts, users, settings
+  features/     uma pasta por ecrã: auth, overview, watchlist, instruments, heatmap, saxo, signals, alerts, users, settings
   lib/          cliente da API, consultas, formatação pt-PT e tema; momentum.js e strategy.js reexportam ../shared (partilhado com a API)
   styles/       tokens.css (cores e medidas do guia) e global.css
 ```
 
 Princípios aplicados:
 - Os valores monetários chegam da API como strings decimais e só passam a número para apresentação.
-- Cada preço mostra a data da sessão. As operações e os saldos aparecem sempre como simulados.
-- Não há actualizações optimistas do saldo: a interface espera pela confirmação do servidor.
+- Cada preço mostra a data da sessão. A conta SAXO aparece sempre como conta de simulação.
+- Não há actualizações optimistas: a interface espera pela confirmação do servidor.
 - Temas claro, escuro e «Sistema», sem flash no carregamento. O movimento reduzido é respeitado.

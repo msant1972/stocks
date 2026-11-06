@@ -548,7 +548,9 @@ export async function getPortfolio(pool, session) {
   });
   return {
     environment: session.environment, accountId: account.accountId, currency: account.currency, isTrial: account.isTrial,
-    cashBalance: bal?.CashBalance ?? null, totalValue: bal?.TotalValue ?? null, positions, closed,
+    // Saldo com as operações ainda por liquidar: é o que bate certo com o valor total da conta.
+    cashBalance: bal?.CashBalance == null ? null : bal.CashBalance + (bal.TransactionsNotBooked ?? 0), totalValue: bal?.TotalValue ?? null,
+    invested: Number(positions.reduce((sum, p) => sum + p.quantity * (p.openPrice || 0), 0).toFixed(2)), positions, closed,
   };
 }
 

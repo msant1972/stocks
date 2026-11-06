@@ -2,11 +2,12 @@ import { z } from 'zod';
 import { createThrottle } from '../saxo/client.js';
 import * as saxo from '../saxo/service.js';
 import { catalogStatus, startCatalogSync } from '../saxo/catalog-runner.js';
+import { accountHistory } from '../saxo/history.js';
 import { AppError } from '../errors.js';
 import { AVAILABLE_STRATEGIES } from '../../../shared/strategies/index.js';
 import { automationOrders, automationStatus, setAutomationEnabled, setAutomationStrategy } from '../saxo/automation.js';
 import { sendPendingEmails } from '../saxo/watcher.js';
-import { ErrorBody, Id } from '../schemas.js';
+import { ErrorBody, Id, IsoDate } from '../schemas.js';
 
 const Side = z.enum(['buy', 'sell']);
 const Price = z.string().regex(/^\d+(\.\d{1,6})?$/);
@@ -258,12 +259,13 @@ export default async function saxoRoutes(app, { pool, cfg }) {
   app.get('/saxo/portfolio', {
     config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     schema: {
-      tags: ['SAXO'], summary: 'Carteira da conta SAXO: saldo e posições abertas',
+      tags: ['SAXO'], summary: 'Carteira da conta SAXO: saldo, valor total, custo e posições abertas',
       description: 'O SIM não tem preços de mercado: o valor e o resultado das posições usam o último preço da aplicação.',
       response: {
         200: z.object({
           environment: z.enum(['sim', 'live']), accountId: z.string(), currency: z.string(), isTrial: z.boolean(),
           cashBalance: z.number().nullable(), totalValue: z.number().nullable(),
+          invested: z.number().describe('Custo das posições abertas (quantidade × preço de abertura)'),
           positions: z.array(z.object({
             positionId: z.string(), instrumentId: z.number().nullable(), symbol: z.string(), name: z.string().nullable(), currency: z.string(),
             quantity: z.number(), openPrice: z.number(), price: z.number().nullable(), marketValue: z.number().nullable(), pnl: z.number().nullable(),
@@ -277,6 +279,19 @@ export default async function saxoRoutes(app, { pool, cfg }) {
       },
     },
   }, async (req) => saxo.getPortfolio(pool, await session(req)));
+
+  app.get('/saxo/portfolio/history', {
+    schema: {
+      tags: ['SAXO'], summary: 'Evolução do valor da conta SAXO (uma leitura por sessão)',
+      description: 'O valor total, o saldo e o valor das posições, tal como a SAXO os dá, guardados no fim de cada sessão, depois da recolha diária.',
+      response: {
+        200: z.object({
+          currency: z.string(), initialCapital: z.number(),
+          points: z.array(z.object({ date: IsoDate, total: z.number(), cash: z.number().nullable(), positions: z.number().nullable() })),
+        }),
+      },
+    },
+  }, async (req) => ({ ...(await accountHistory(pool, req.user.id)), initialCapital: cfg.saxo.initialCapital }));
 
   app.get('/saxo/alerts', {
     schema: {

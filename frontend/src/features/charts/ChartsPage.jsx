@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useBestStrategies, useCatalog, useInstrument, usePortfolio, useQuotes, useWatchlist } from '../../lib/queries.js';
+import { keys, useBestStrategies, useCatalog, useInstrument, useQuotes, useWatchlist } from '../../lib/queries.js';
 import { InstrumentStatus, PriceChange, QuoteDate } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
@@ -11,7 +11,6 @@ import { Button, Notice, Segmented } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
-import TradeDialog from '../portfolio/TradeDialog.jsx';
 import CompanyPanel from './CompanyPanel.jsx';
 import SaxoOrderDialog, { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
 import AlertDialog from '../alerts/AlertDialog.jsx';
@@ -27,13 +26,13 @@ const quotesFromFor = (strategyId, lastSession) => {
 
 /**
  * Charts: o sítio único do instrumento. O gráfico (velas ou linha, volume, indicadores, momento e estratégia), as
- * ações (lista, alerta, simulação, livro de ofertas) e, à direita, uma lista para passar de um instrumento a outro
- * sem mudar de página (clique, setas ↑/↓ ou botões anterior/seguinte): a de acompanhamento, a carteira ou o
+ * ações (lista, alerta, ordem à SAXO, livro de ofertas) e, à direita, uma lista para passar de um instrumento a outro
+ * sem mudar de página (clique, setas ↑/↓ ou botões anterior/seguinte): a de acompanhamento, a Carteira SAXO ou o
  * catálogo, com pesquisa e ordenação. ?instrumento, ?estrategia, ?fonte e ?ordem ficam no endereço; um instrumento
  * pedido que não está na lista (ex.: ligação do BackTest) também é mostrado. Sem estratégia escolhida, aplica-se a
  * melhor de cada instrumento. A antiga página do instrumento (/instrumentos/:id) redirecciona para aqui.
  */
-const SOURCES = [{ value: 'lista', label: 'Lista' }, { value: 'carteira', label: 'Carteira' }, { value: 'saxo', label: 'Saxo' }, { value: 'catalogo', label: 'Catálogo' }];
+const SOURCES = [{ value: 'lista', label: 'Lista' }, { value: 'saxo', label: 'Saxo' }, { value: 'catalogo', label: 'Catálogo' }];
 const SORTS = {
   simbolo: { label: 'Símbolo', cmp: (a, b) => a.symbol.localeCompare(b.symbol) },
   sobe: { label: 'Maiores subidas', cmp: (a, b) => (Number(b.latest?.changePct ?? -Infinity) - Number(a.latest?.changePct ?? -Infinity)) || a.symbol.localeCompare(b.symbol) },
@@ -44,7 +43,6 @@ export default function ChartsPage() {
   const source = SOURCES.some((s) => s.value === params.get('fonte')) ? params.get('fonte') : 'lista';
   const sortKey = SORTS[params.get('ordem')] ? params.get('ordem') : 'simbolo';
   const [search, setSearch] = useState('');
-  const [trading, setTrading] = useState(false);
   const [saxoOrder, setSaxoOrder] = useState(false);
   const saxo = useSaxoStatus();
   const [alerting, setAlerting] = useState(false);
@@ -53,7 +51,6 @@ export default function ChartsPage() {
   const toast = useToast();
   const watchlist = useWatchlist();
   const catalog = useCatalog(source !== 'lista');
-  const portfolio = usePortfolio();
   const saxoLinked = Boolean(saxo.data?.configured && !saxo.data?.expired);
   const saxoPortfolio = useQuery({
     queryKey: ['saxo-portfolio'], queryFn: () => api.get('/saxo/portfolio'),
@@ -65,10 +62,10 @@ export default function ChartsPage() {
 
   const saxoEmpty = !saxoLinked ? 'Não está ligado à SAXO Bank' : saxoPortfolio.error ? 'Não foi possível ler a Carteira SAXO' : 'A Carteira SAXO não tem posições';
   const base = source === 'lista' ? watchlist : catalog;
-  const held = new Set(((source === 'saxo' ? saxoPortfolio.data : portfolio.data)?.positions ?? []).map((p) => p.instrumentId));
+  const held = new Set((saxoPortfolio.data?.positions ?? []).map((p) => p.instrumentId));
   const needle = search.trim().toLowerCase();
   const items = (base.data?.items ?? [])
-    .filter((i) => i.status === 'active' && (!['carteira', 'saxo'].includes(source) || held.has(i.id)))
+    .filter((i) => i.status === 'active' && (source !== 'saxo' || held.has(i.id)))
     .filter((i) => !needle || i.symbol.toLowerCase().includes(needle) || i.name?.toLowerCase().includes(needle))
     .sort(SORTS[sortKey].cmp);
   // Instrumento mostrado: o pedido no endereço (esteja ou não na lista) ou o primeiro da lista.
@@ -167,7 +164,7 @@ export default function ChartsPage() {
   if (!currentId) {
     const empty = needle ? `Nada encontrado para «${search.trim()}»`
       : source === 'saxo' ? saxoEmpty
-        : source === 'carteira' ? 'A carteira não tem posições' : source === 'catalogo' ? 'O catálogo não tem instrumentos activos' : 'A sua lista não tem instrumentos activos';
+        : source === 'catalogo' ? 'O catálogo não tem instrumentos activos' : 'A sua lista não tem instrumentos activos';
     return (
       <>
         <div className="page-head"><h1 className="page-title">Charts</h1></div>
@@ -220,8 +217,7 @@ export default function ChartsPage() {
             </Button>
             <Button onClick={() => setAlerting(true)} disabled={current.status === 'invalid'}>Criar alerta</Button>
             {current.isinMic && <Link className="button" to={`/orderbook?instrumento=${current.id}`}>Livro de ofertas</Link>}
-            {saxo.data?.configured && <Button onClick={() => setSaxoOrder(true)} disabled={!tradable} title="Enviar uma ordem para a conta de simulação da SAXO Bank">Enviar à SAXO</Button>}
-            <Button variant="primary" onClick={() => setTrading(true)} disabled={!tradable}>Simular operação</Button>
+            {saxo.data?.configured && <Button variant="primary" onClick={() => setSaxoOrder(true)} disabled={!tradable} title="Enviar uma ordem para a conta de simulação da SAXO Bank">Enviar à SAXO</Button>}
           </div>
         </div>
 
@@ -282,7 +278,6 @@ export default function ChartsPage() {
         </dl>
       </aside>
 
-      <TradeDialog open={trading} onClose={() => setTrading(false)} instrument={current} />
       <SaxoOrderDialog open={saxoOrder} onClose={() => setSaxoOrder(false)} instrument={current} />
       <AlertDialog open={alerting} onClose={() => setAlerting(false)} instrument={current} onDone={toast} />
     </div>

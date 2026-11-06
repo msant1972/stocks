@@ -68,8 +68,8 @@ export async function setup() {
 }
 
 /** Utilizador com o 2.º factor já activo (segredo TOTP_SECRET), salvo se mfa = false. */
-export async function makeUser(pool, email, capital = '10000.00', { mfa = true } = {}) {
-  const id = await createUser(pool, { email, name: email.split('@')[0], password: PASSWORD, initialCapital: capital }, FAST_HASH);
+export async function makeUser(pool, email, { mfa = true } = {}) {
+  const id = await createUser(pool, { email, name: email.split('@')[0], password: PASSWORD }, FAST_HASH);
   if (mfa) await enableMfa(pool, id);
   return id;
 }

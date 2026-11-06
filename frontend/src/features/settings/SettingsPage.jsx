@@ -106,14 +106,13 @@ export default function SettingsPage() {
         </section>
 
         <section className="card" aria-labelledby="rules-title">
-          <h2 id="rules-title" className="card-title" style={{ marginBottom: '0.75rem' }}>Regras da simulação</h2>
+          <h2 id="rules-title" className="card-title" style={{ marginBottom: '0.75rem' }}>Regras das ordens</h2>
           <ul style={{ margin: 0, paddingLeft: '1.25rem' }} className="stack small">
-            <li>As operações simuladas são virtuais e não há dinheiro real. Ligado à SAXO Bank (cartão acima), pode enviar ordens para a conta de simulação da SAXO (não é dinheiro real), à parte da carteira virtual.</li>
-            <li>Cada operação usa o último preço disponível (não ajustado) e regista a data dessa cotação: durante a sessão, o valor provisório mais recente, actualizado de hora a hora com cerca de 20 minutos de atraso; depois do fecho, o fecho do dia.</li>
-            <li>Uma compra não pode exceder o saldo virtual; uma venda não pode exceder a quantidade detida. Não há vendas a descoberto.</li>
-            <li>Quantidades inteiras, sem comissões. O custo das posições é o custo médio ponderado.</li>
-            <li>Só são simuláveis instrumentos cotados em EUR. Com cotações com mais de 7 dias, as operações são recusadas.</li>
-            <li>Os gráficos usam o fecho ajustado (dividendos e desdobramentos); dividendos e desdobramentos não alteram as posições.</li>
+            <li>A carteira da aplicação é a conta de simulação da SAXO Bank (cartão acima): as ordens não usam dinheiro real, e a conta real está bloqueada.</li>
+            <li>As ordens são do dia, em quantidades inteiras: se não forem executadas, expiram no fim da sessão. O saldo, as execuções e o valor da conta vêm da SAXO.</li>
+            <li>As estratégias e o BackTest são simulações sobre o histórico, sem comissões, e não enviam ordens; só a Automação envia, quando está ligada.</li>
+            <li>Os preços da aplicação vêm do Yahoo Finance: durante a sessão, o valor provisório mais recente, actualizado de hora a hora.</li>
+            <li>Os gráficos usam o fecho ajustado (dividendos e desdobramentos).</li>
           </ul>
         </section>
 

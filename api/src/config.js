@@ -26,7 +26,6 @@ export function loadConfig(env = process.env) {
     sessionDays: Number(env.STOCKS_SESSION_DAYS || 7),
     // Tentativas de login por IP em 15 minutos.
     loginMaxAttempts: Number(env.STOCKS_LOGIN_MAX_ATTEMPTS || 10),
-    initialCapital: env.STOCKS_INITIAL_CAPITAL || '1000000.00',
     // Dias de calendário a partir dos quais a última cotação é considerada desactualizada
     // e as operações simuladas são recusadas (cobre fins-de-semana e feriados prolongados).
     maxQuoteAgeDays: Number(env.STOCKS_MAX_QUOTE_AGE_DAYS || 7),
@@ -51,6 +50,8 @@ export function loadConfig(env = process.env) {
       watchSeconds: Number(env.STOCKS_SAXO_WATCH_SECONDS ?? 60), // vigia das ordens abertas; 0 desliga
       // Ligação do catálogo inteiro: pausa entre instrumentos (até 4 pedidos cada; fica abaixo dos limites da SAXO)
       // e revalidação automática semanal (false desliga).
+      // Capital com que a conta de simulação da SAXO começou: a SAXO não o indica e é a base do resultado acumulado.
+      initialCapital: Number(env.STOCKS_SAXO_INITIAL_CAPITAL ?? 1_000_000),
       // Precheck da SAXO em todas as ordens (por omissão só a mercado, com stop ou na conta real).
       alwaysPrecheck: env.STOCKS_SAXO_ALWAYS_PRECHECK === 'true',
       catalogPauseMs: Number(env.STOCKS_SAXO_CATALOG_PAUSE_MS ?? 1200),

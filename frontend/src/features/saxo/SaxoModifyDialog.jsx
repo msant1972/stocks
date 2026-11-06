@@ -30,6 +30,7 @@ export default function SaxoModifyDialog({ order, onClose }) {
     try {
       await api.patch(`/saxo/orders/${order.id}`, { ...(qty !== order.quantity ? { quantity: qty } : {}), ...(Number(price) !== Number(current) ? { price } : {}) });
       await qc.invalidateQueries({ queryKey: ['saxo-orders'] });
+      qc.invalidateQueries({ queryKey: ['saxo-portfolio'] });
       onClose();
     } catch (err) {
       setError(err);

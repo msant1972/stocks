@@ -101,7 +101,7 @@ export default function BacktestPage() {
           <h1 className="page-title">BackTest</h1>
           <p className="page-sub">
             Uma estratégia aplicada a cada instrumento nos últimos 2 anos, para ver onde funciona e onde não funciona.
-            Simulação no histórico, sem comissões; não altera a carteira virtual nem é uma recomendação.
+            Simulação no histórico, sem comissões; não envia ordens nem é uma recomendação.
           </p>
         </div>
         <div className="row" style={{ alignItems: 'center' }}>

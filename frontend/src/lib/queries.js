@@ -6,8 +6,6 @@ export const keys = {
   me: ['me'],
   status: ['status'],
   watchlist: ['watchlist'],
-  portfolio: ['portfolio'],
-  trades: (filters) => ['trades', filters],
   alerts: ['alerts'],
   alertEvents: ['alerts', 'events'],
   instrument: (id) => ['instrument', Number(id)],
@@ -38,14 +36,8 @@ export const useBestStrategies = () => useQuery({
   queryKey: keys.bestStrategies, queryFn: () => api.get('/strategies/best'), staleTime: 10 * 60_000,
   select: (d) => new Map(d.items.map((i) => [i.instrumentId, i])),
 });
-export const usePortfolio = () => useQuery({ queryKey: keys.portfolio, queryFn: () => api.get('/portfolio') });
 export const useAlerts = () => useQuery({ queryKey: keys.alerts, queryFn: () => api.get('/alerts') });
 export const useAlertEvents = () => useQuery({ queryKey: keys.alertEvents, queryFn: () => api.get('/alerts/events?limit=20') });
-
-export function useTrades(filters = {}) {
-  const qs = new URLSearchParams(Object.entries(filters).filter(([, v]) => v != null && v !== '')).toString();
-  return useQuery({ queryKey: keys.trades(filters), queryFn: () => api.get(`/simulated-trades${qs ? `?${qs}` : ''}`) });
-}
 
 /** Detalhe do instrumento; enquanto está «A validar», volta a consultar a cada 10 s. */
 export function useInstrument(id, enabled = true) {

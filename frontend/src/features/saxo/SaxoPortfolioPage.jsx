@@ -1,14 +1,14 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { usePortfolio } from '../../lib/queries.js';
-import { comparePortfolios } from '../../lib/saxo.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { PnL } from '../../components/finance/finance.jsx';
 import { Button, Notice } from '../../components/ui/controls.jsx';
 import SaxoOrderDialog, { SIM_BANNER, useSaxoStatus } from './SaxoOrderDialog.jsx';
+
+const AccountHistoryChart = lazy(() => import('../../components/finance/AccountHistoryChart.jsx'));
 
 const muted = <span className="muted">—</span>;
 
@@ -16,17 +16,16 @@ export default function SaxoPortfolioPage() {
   const token = useSaxoStatus();
   const ready = Boolean(token.data?.configured && !token.data?.expired);
   const q = useQuery({ queryKey: ['saxo-portfolio'], queryFn: () => api.get('/saxo/portfolio'), enabled: ready, retry: false, refetchOnWindowFocus: false });
-  const virtual = usePortfolio();
+  const history = useQuery({ queryKey: ['saxo-portfolio', 'history'], queryFn: () => api.get('/saxo/portfolio/history'), staleTime: 5 * 60_000 });
   const [selling, setSelling] = useState(null); // { instrument, quantity }
   const d = q.data;
-  const compare = d && virtual.data ? comparePortfolios(virtual.data.positions, d.positions) : [];
 
   return (
     <>
       <div className="page-head">
         <div>
           <h1 className="page-title">Carteira SAXO</h1>
-          <p className="page-sub">Saldo e posições da conta de simulação da SAXO Bank. É à parte da carteira virtual da aplicação.</p>
+          <p className="page-sub">A carteira da aplicação: saldo, evolução do valor e posições da conta de simulação da SAXO Bank.</p>
         </div>
         {ready && <Button onClick={() => q.refetch()} busy={q.isFetching}>Actualizar</Button>}
       </div>
@@ -41,7 +40,20 @@ export default function SaxoPortfolioPage() {
               <dt>Conta</dt><dd>{d.accountId}{d.isTrial ? ' · simulação' : ''}</dd>
               <dt>Saldo</dt><dd>{d.cashBalance == null ? '—' : f.money(d.cashBalance, d.currency)}</dd>
               <dt>Valor total da conta</dt><dd>{d.totalValue == null ? '—' : f.money(d.totalValue, d.currency)}</dd>
+              <dt>Montante investido (custo)</dt><dd>{f.money(d.invested, d.currency)}</dd>
             </dl>
+          </section>
+
+          <section className="card" aria-labelledby="saxo-history-title">
+            <h2 id="saxo-history-title" className="card-title">Evolução da carteira</h2>
+            {history.isPending ? <Loading rows={3} /> : history.error ? <ErrorState error={history.error} onRetry={history.refetch} />
+              : history.data.points.length < 2 ? (
+                <p className="small muted">O valor da conta é guardado no fim de cada sessão; o gráfico aparece a partir da segunda leitura.</p>
+              ) : (
+                <Suspense fallback={<Loading rows={3} label="A carregar o gráfico…" />}>
+                  <AccountHistoryChart history={history.data} />
+                </Suspense>
+              )}
           </section>
 
           <section className="card" aria-labelledby="saxo-pos-title">
@@ -113,34 +125,6 @@ export default function SaxoPortfolioPage() {
                         <td className="r">{c.openPrice == null ? muted : f.price(c.openPrice, c.currency)}</td>
                         <td className="r">{c.closePrice == null ? muted : f.price(c.closePrice, c.currency)}</td>
                         <td className="r">{c.pnl == null ? muted : <PnL value={c.pnl} currency={c.currency} />}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-
-          <section className="card" aria-labelledby="saxo-cmp-title">
-            <h2 id="saxo-cmp-title" className="card-title">Comparação com a carteira virtual</h2>
-            <p className="small muted" style={{ margin: '0.25rem 0 1rem' }}>
-              Quantidades de cada instrumento na carteira virtual da aplicação e na conta SAXO, para ver se as duas seguem a mesma estratégia.
-            </p>
-            {virtual.isPending ? <Loading rows={2} /> : compare.length === 0 ? (
-              <p className="small muted">Nenhuma das carteiras tem posições.</p>
-            ) : (
-              <div className="table-wrap" tabIndex={0} aria-label="Comparação das carteiras">
-                <table className="data">
-                  <thead>
-                    <tr><th scope="col">Instrumento</th><th scope="col" className="r">Carteira virtual</th><th scope="col" className="r">SAXO</th><th scope="col" className="r">Diferença</th></tr>
-                  </thead>
-                  <tbody>
-                    {compare.map((r) => (
-                      <tr key={r.key}>
-                        <td>{r.instrumentId ? <Link to={`/instrumentos/${r.instrumentId}`} className="row-link">{r.symbol}</Link> : r.symbol}</td>
-                        <td className="r">{f.quantity(r.virtualQty)}</td>
-                        <td className="r">{f.quantity(r.saxoQty)}</td>
-                        <td className="r">{r.diff === 0 ? <span className="muted">igual</span> : <span className={r.diff > 0 ? 'positive' : 'negative'}>{r.diff > 0 ? '+' : ''}{f.quantity(r.diff)}</span>}</td>
                       </tr>
                     ))}
                   </tbody>

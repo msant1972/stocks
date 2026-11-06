@@ -29,18 +29,18 @@ Detalhe em [Análise e decisões](analise_e_decisoes.md).
 
 - Grupo privado de utilizadores; contas criadas por administradores.
 - yfinance atrás de um adaptador substituível, com versão fixada.
-- Instrumentos e carteira em EUR; catálogo global partilhado com importação de Excel.
+- Instrumentos e conta SAXO em EUR; catálogo global partilhado com importação de Excel.
 - Recolha nos dias úteis às 19h01 de Lisboa (fechos definitivos) e de hora a hora durante a sessão; cotações nunca apagadas.
 - Operações ao último fecho não ajustado; gráficos e indicadores sobre o fecho ajustado.
 - Quantidades inteiras, sem posições curtas nem comissões; custo médio ponderado.
-- Capital virtual inicial de 1 000 000 € por omissão.
+- Carteira: a conta de simulação da SAXO Bank, com 1 000 000 € à partida (a carteira virtual própria foi retirada a 6 nov. 2026); um só utilizador por agora.
 
 ### 2.3. Fora do âmbito (mantém-se)
 
 - Negociação real (a conta real da SAXO fica bloqueada), pagamentos e custódia.
 - Cotações em tempo real e alertas intradiários (a recolha horária guarda só a vela provisória do dia).
 - Negociação automática: a estratégia só é simulada no histórico e não executa operações.
-- Aplicações móveis nativas, carteiras multimoeda, vendas a descoberto e tratamento completo de dividendos e desdobramentos.
+- Aplicações móveis nativas, contas multimoeda, vendas a descoberto e tratamento completo de dividendos e desdobramentos.
 - Alta disponibilidade.
 
 ## 3. Execução das fases
@@ -103,7 +103,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US02b | Adicionar e importar instrumentos | P0 | Feito |
 | US03 | Histórico diário | P0 | Feito |
 | US04 | Lista de acompanhamento | P1 | Feito |
-| US05 | Carteira virtual | P0 | Feito |
+| US05 | Carteira virtual (retirada a 6 nov. 2026, US59) | P0 | Feito |
 | US06 | Compra simulada | P0 | Feito |
 | US07 | Venda simulada | P0 | Feito |
 | US08 | Posições e resultados | P0 | Feito |
@@ -144,6 +144,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US49 | Estratégias → Calor: valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
 | US50 | Calor: histograma «Valor mensal negociado» com os meses mais quentes a cores | — | Feito |
 | US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
+| US59 | Carteira virtual retirada e dados apagados: a carteira é a conta de simulação da SAXO, com o valor guardado por sessão para o gráfico da evolução; Visão geral e Sinais passam a usá-la | — | Feito |
 | US58 | Automação de hora a hora (10 min depois de cada recolha), com os sinais da sessão em curso e da última sessão | — | Feito |
 | US57 | Charts: lista «Saxo» com os instrumentos da Carteira SAXO | — | Feito |
 | US56 | Automação (grupo SAXO): sinais enviados automaticamente à conta de simulação, com interruptor geral e por estratégia e lista das ordens; Correspondência SAXO passa para o grupo Administração (antes «Conta») | — | Feito |
@@ -177,7 +178,7 @@ O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pul
 | Alterações no yfinance (429, endpoints) | Novas tentativas com espera progressiva; testes com fornecedor simulado | Mitigado |
 | Dados do fornecedor incorrectos | Validação das sessões; releitura de 7 dias; datas visíveis | Mitigado (ex.: fechos repetidos observados a 16 out.) |
 | Eventos societários | Gráficos ajustados; limitação documentada | Aceite |
-| Gastos concorrentes do saldo | Transacções, bloqueio da carteira, testes concorrentes | Resolvido |
+| Gastos concorrentes do saldo | Transacções, bloqueio da carteira, testes concorrentes (a carteira virtual foi retirada a 6 nov. 2026) | Resolvido |
 | Alertas repetidos | Chave única por regra e sessão; reserva por utilizador | Resolvido |
 | Aceitação SMTP ambígua | Estado `uncertain`, sem reenvio cego | Resolvido |
 | Servidor único | Dumps diários e autobackup do VPS (cópia fora do servidor) | Mitigado; falta testar o restauro no servidor actual; indisponibilidade conjunta aceite |

@@ -41,25 +41,22 @@ function CreateUserDialog({ open, onClose, onDone }) {
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [capital, setCapital] = useState('1000000');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
   function close() {
-    setEmail(''); setName(''); setPassword(''); setIsAdmin(false); setCapital('1000000'); setError(null); setBusy(false);
+    setEmail(''); setName(''); setPassword(''); setIsAdmin(false); setError(null); setBusy(false);
     onClose();
   }
 
-  const capitalValue = capital.trim().replace(/\s/g, '').replace(',', '.');
-  const capitalOk = /^\d{1,12}(\.\d{1,2})?$/.test(capitalValue) && Number(capitalValue) > 0;
-  const valid = /\S+@\S+\.\S+/.test(email) && name.trim() && password.length >= MIN_PASSWORD && capitalOk;
+  const valid = /\S+@\S+\.\S+/.test(email) && name.trim() && password.length >= MIN_PASSWORD;
 
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     try {
-      await api.post('/admin/users', { email, name, password, isAdmin, initialCapital: capitalValue });
+      await api.post('/admin/users', { email, name, password, isAdmin });
       qc.invalidateQueries({ queryKey: ['admin-users'] });
       onDone(`Utilizador ${email.trim().toLowerCase()} criado`);
       close();
@@ -75,9 +72,6 @@ function CreateUserDialog({ open, onClose, onDone }) {
         <Field label="Email">{(p) => <input {...p} className="input" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />}</Field>
         <Field label="Nome">{(p) => <input {...p} className="input" autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />}</Field>
         <PasswordField value={password} onChange={setPassword} />
-        <Field label="Capital virtual inicial (EUR)" error={capital && !capitalOk ? 'Indique um valor positivo, ex.: 1000000.' : null}>
-          {(p) => <input {...p} className="input num" inputMode="decimal" value={capital} onChange={(e) => setCapital(e.target.value)} />}
-        </Field>
         <label className="row" style={{ gap: '0.5rem', cursor: 'pointer' }}>
           <input type="checkbox" checked={isAdmin} onChange={(e) => setIsAdmin(e.target.checked)} style={{ width: 18, height: 18 }} />
           Administrador (pode gerir utilizadores)
@@ -158,7 +152,7 @@ function DeleteUserDialog({ user, onClose, onDone }) {
       {user && (
         <>
           <Notice tone="warning">
-            Vai apagar <strong>{user.email}</strong> e todos os seus dados: carteira virtual, operações, lista de acompanhamento e alertas.
+            Vai apagar <strong>{user.email}</strong> e todos os seus dados: ligação e ordens SAXO, lista de acompanhamento e alertas.
             Não é possível desfazer.
           </Notice>
           <Field label="Para confirmar, escreva o email do utilizador">
@@ -232,7 +226,7 @@ export default function UsersPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Utilizadores</h1>
-          <p className="page-sub">Contas com acesso à aplicação. Cada utilizador tem a sua carteira virtual.</p>
+          <p className="page-sub">Contas com acesso à aplicação. Cada utilizador liga a sua conta SAXO.</p>
         </div>
         <Button variant="primary" onClick={() => setAdding(true)}><Icon name="plus" size={18} />Adicionar utilizador</Button>
       </div>

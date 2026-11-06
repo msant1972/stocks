@@ -37,14 +37,6 @@ export function roundDiv(a, b) {
   return negative ? -q : q;
 }
 
-/** Montante em cêntimos de quantity × price (price com até 6 casas). */
-export function amountCents(quantity, price) {
-  return roundDiv(BigInt(quantity) * toScaled(price, 6), 10_000n);
-}
-
-export const cents = (value) => toScaled(value, 2);
-export const fromCents = (n) => fromScaled(n, 2);
-
 /** Rácio a/b com `scale` casas decimais, como string. */
 export function ratio(a, b, scale) {
   return fromScaled(roundDiv(a * 10n ** BigInt(scale), b), scale);

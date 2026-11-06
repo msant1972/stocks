@@ -9,7 +9,7 @@ Recolhe cotações diárias através do yfinance e grava-as no MariaDB. Esta é 
 - **Sem duplicações:** a chave primária é (instrumento, data de sessão) e a gravação usa `INSERT ... ON DUPLICATE KEY UPDATE`.
 - **Falhas:** as falhas de rede e de limite de pedidos voltam à fila com espera progressiva (2, 4, 8... minutos), até 5 tentativas. Uma falha num instrumento não interrompe os restantes. Uma falha de rede nunca invalida um instrumento.
 - **Vários processos:** os pedidos são reservados com `SELECT ... FOR UPDATE SKIP LOCKED`, e o mesmo instrumento nunca é recolhido por dois processos ao mesmo tempo.
-- **Preços:** `close` é o fecho não ajustado, usado nas operações simuladas. `adj_close` é o fecho ajustado, usado nos gráficos.
+- **Preços:** `close` é o fecho não ajustado, usado como preço real (limites das ordens, valor das posições, estratégias). `adj_close` é o fecho ajustado, usado nos gráficos.
 - **Retenção:** não se apaga nada. Os três anos definem apenas a profundidade da carga inicial.
 
 O yfinance fica isolado em `fetcher/provider.py`, atrás da interface `QuoteProvider`, para poder ser substituído por outro fornecedor.

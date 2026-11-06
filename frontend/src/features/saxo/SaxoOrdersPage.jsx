@@ -25,7 +25,7 @@ export default function SaxoOrdersPage() {
   const conn = useQuery({ queryKey: ['saxo-connection'], queryFn: () => api.get('/saxo/connection'), enabled: Boolean(token.data?.configured && !token.data?.expired), retry: false, staleTime: 60_000 });
   const cancel = useMutation({
     mutationFn: (id) => api.del(`/saxo/orders/${id}`),
-    onSettled: () => { qc.invalidateQueries({ queryKey: ['saxo-orders'] }); qc.invalidateQueries({ queryKey: ['saxo-connection'] }); },
+    onSettled: () => { qc.invalidateQueries({ queryKey: ['saxo-orders'] }); qc.invalidateQueries({ queryKey: ['saxo-portfolio'] }); qc.invalidateQueries({ queryKey: ['saxo-connection'] }); },
   });
   const total = orders.data?.total ?? 0;
   const s = token.data;

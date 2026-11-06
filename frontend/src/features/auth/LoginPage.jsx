@@ -53,7 +53,7 @@ function PasswordStep({ onDone }) {
   }
 
   return (
-    <Card title="Entrar" sub="Acompanha o mercado. Aprende com uma carteira virtual.">
+    <Card title="Entrar" sub="Acompanha o mercado. Testa estratégias na conta de simulação da SAXO.">
       <form onSubmit={submit} className="stack" style={{ gap: '1rem' }} noValidate>
         {error && <Notice tone="error">{error}</Notice>}
         <Field label="Email">

@@ -103,7 +103,7 @@ describe('frontend compilado', () => {
     expect(js.headers['content-type']).toContain('javascript');
     expect(js.headers['cache-control']).toContain('immutable');
     expect((await app.inject({ url: '/assets/inexistente.js' })).statusCode).toBe(404);
-    const spa = await app.inject({ url: '/carteira' });
+    const spa = await app.inject({ url: '/saxo/carteira' });
     expect(spa.headers['content-type']).toContain('text/html');
     const missing = await app.inject({ url: '/api/v1/nada' });
     expect(missing.statusCode).toBe(404);

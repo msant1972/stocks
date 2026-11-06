@@ -87,13 +87,9 @@ export async function deleteInstrument(pool, userId, instrumentId) {
   return withTransaction(pool, async (conn) => {
     const [[inst]] = await conn.query('SELECT id, symbol FROM instruments WHERE id = ? FOR UPDATE', [instrumentId]);
     if (!inst) throw notFound('Instrumento');
-    const [[{ trades }]] = await conn.query(
-      `SELECT (SELECT COUNT(*) FROM simulated_trades WHERE instrument_id = ?)
-            + (SELECT COUNT(*) FROM positions WHERE instrument_id = ?) AS trades`,
-      [instrumentId, instrumentId],
-    );
-    if (Number(trades) > 0) {
-      throw new AppError(409, 'INSTRUMENT_IN_USE', `${inst.symbol} tem operações simuladas ou posições numa carteira e não pode ser apagado`);
+    const [[{ orders }]] = await conn.query('SELECT COUNT(*) AS orders FROM saxo_orders WHERE instrument_id = ?', [instrumentId]);
+    if (Number(orders) > 0) {
+      throw new AppError(409, 'INSTRUMENT_IN_USE', `${inst.symbol} tem ordens enviadas à SAXO Bank e não pode ser apagado`);
     }
     const [w] = await conn.query('DELETE FROM watchlist_items WHERE instrument_id = ?', [instrumentId]);
     const [r] = await conn.query('DELETE FROM alert_rules WHERE instrument_id = ?', [instrumentId]); // eventos em cascata
