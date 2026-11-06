@@ -23,6 +23,9 @@ export function axisMoney(value) {
   return nf(0).format(value);
 }
 
+/** Título do P/E estimado, com o ano fiscal da estimativa: «P/E (estimado 2027)». */
+export const forwardPeLabel = (year) => (year ? `P/E (estimado ${year})` : 'P/E (estimado)');
+
 /** Percentagem a partir de uma fracção (0.0428 → «4,28 %») ou de um valor já em % (fraction = false). */
 export function pctOf(value, { fraction = true, digits = 2 } = {}) {
   if (value == null || !Number.isFinite(Number(value))) return '—';

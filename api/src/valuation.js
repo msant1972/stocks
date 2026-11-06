@@ -77,6 +77,53 @@ export function currentMetrics(row, close) {
   };
 }
 
+/** Resultado por acção a 12 meses na moeda da cotação: o implícito no P/E do Yahoo (preço de referência / P/E) ou, sem ele, o EPS. */
+export function trailingEps(row) {
+  const ref = pos(n(row.ref_price));
+  const pe = pos(n(row.trailing_pe));
+  return ref && pe ? ref / pe : n(row.eps);
+}
+
+/**
+ * Ano fiscal do P/E estimado. O `forwardEps` do Yahoo é a estimativa do ano seguinte ao corrente («+1y»), e o ano corrente
+ * muda quando saem as contas anuais: é o ano a seguir às últimas contas conhecidas (por convenção, publicadas até ao fim de
+ * Março, como em availableFrom; um perfil com contas em atraso não recua). asOf: data da recolha, AAAA-MM-DD.
+ */
+export function forwardEpsYear(financials, asOf) {
+  if (!asOf) return null;
+  const year = Number(asOf.slice(0, 4));
+  const known = asOf.slice(5, 7) >= '04' ? year - 1 : year - 2;
+  const last = Math.max(known, ...(financials ?? []).map((f) => Number(f.year)).filter(Number.isFinite));
+  return last + 2;
+}
+
+/**
+ * Indicadores do cabeçalho do painel Empresa ao último preço. O Yahoo dá-os ao preço do dia da recolha semanal (ref_price):
+ * a capitalização e os rácios de preço escalam com fecho / ref_price; os resultados por acção ficam como estão. O intervalo
+ * de 52 semanas alarga-se com os mínimos e máximos desde a recolha (range) e com o último preço.
+ * repriced = false: sem preço de referência ou sem fecho, os valores ficam os da recolha.
+ */
+export function liveProfile(row, close, closeDate, financials, range = {}) {
+  const c = pos(n(close));
+  const ref = pos(n(row.ref_price));
+  const k = c && ref ? c / ref : null;
+  const scale = (x) => (n(x) == null ? null : n(x) * (k ?? 1));
+  const dy = n(row.dividend_yield);
+  const low = [n(row.low_52w), n(range.low), c].filter((x) => x != null);
+  const high = [n(row.high_52w), n(range.high), c].filter((x) => x != null);
+  const forwardPe = pos(n(row.forward_pe));
+  return {
+    repriced: k != null, price: c, priceDate: closeDate ?? null,
+    marketCap: scale(row.market_cap), trailingPe: scale(row.trailing_pe), forwardPe: scale(row.forward_pe), priceToBook: scale(row.price_to_book),
+    dividendYield: dy == null ? null : dy / (k ?? 1),
+    low52w: low.length && n(row.low_52w) != null ? Math.min(...low) : null,
+    high52w: high.length && n(row.high_52w) != null ? Math.max(...high) : null,
+    trailingEps: trailingEps(row),
+    forwardEps: ref && forwardPe ? ref / forwardPe : n(row.forward_eps),
+    forwardYear: forwardEpsYear(financials, row.fetched_at ? new Date(row.fetched_at).toISOString().slice(0, 10) : null),
+  };
+}
+
 export const SECTOR_METRICS = [
   { key: 'pe', label: 'P/E', cheapWhen: 'low' },
   { key: 'pb', label: 'Preço / valor contabilístico', cheapWhen: 'low' },
@@ -156,7 +203,7 @@ export function annualEps(f) {
 export function peHistory(row, financials, closes) {
   const out = { verdict: null, current: null, median: null, p25: null, p75: null, points: 0, series: [] };
   if (!sameCurrency(row)) return { ...out, reason: 'currency' };
-  const eps = (financials ?? []).map((f) => ({ from: availableFrom(f.year), eps: annualEps(f) })).filter((e) => e.eps != null)
+  const eps = (financials ?? []).map((f) => ({ year: f.year, from: availableFrom(f.year), eps: annualEps(f) })).filter((e) => e.eps != null)
     .sort((a, b) => a.from.localeCompare(b.from));
   if (eps.length === 0) return { ...out, reason: 'no-eps' };
   const series = [];
@@ -165,7 +212,7 @@ export function peHistory(row, financials, closes) {
     while (i + 1 < eps.length && eps[i + 1].from <= q.date) i += 1;
     if (i < 0) continue;
     const c = n(q.close);
-    if (eps[i].eps > 0 && c > 0) series.push({ date: q.date, pe: c / eps[i].eps });
+    if (eps[i].eps > 0 && c > 0) series.push({ date: q.date, pe: c / eps[i].eps, eps: eps[i].eps, year: eps[i].year });
   }
   if (series.length < THRESHOLDS.historyMinPoints) return { ...out, points: series.length, reason: 'short' };
   const sorted = series.map((s) => s.pe).sort((a, b) => a - b);
@@ -176,7 +223,7 @@ export function peHistory(row, financials, closes) {
   const thin = series.filter((_, j) => j % 5 === (series.length - 1) % 5);
   return {
     verdict: current < p25 ? 'cheap' : current > p75 ? 'expensive' : 'fair',
-    current, median: quantile(sorted, 0.5), p25, p75, points: series.length,
+    current, eps: series.at(-1).eps, epsYear: series.at(-1).year, median: quantile(sorted, 0.5), p25, p75, points: series.length,
     from: series[0].date, series: thin.map((s) => ({ date: s.date, pe: Math.round(s.pe * 100) / 100 })),
   };
 }
@@ -291,5 +338,6 @@ export function valuation({ row, close, closeDate, financials, closes, peers }) 
     summary: overallVerdict([sector.verdict, history.verdict, analysts.verdict, grahamNumber.verdict]),
     sector, history, analysts, graham: grahamNumber, dcf,
     metrics: currentMetrics(row, close),
+    trailingEps: trailingEps(row),
   };
 }

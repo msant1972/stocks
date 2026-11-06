@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  analystTargets, annualEps, cheapness, currentMetrics, dcfValue, graham, overallVerdict, peHistory, reverseDcf, revenueGrowth,
+  analystTargets, annualEps, cheapness, currentMetrics, dcfValue, forwardEpsYear, graham, liveProfile, overallVerdict, peHistory, reverseDcf, revenueGrowth,
   sectorComparison, valuation,
 } from '../src/valuation.js';
 
@@ -76,6 +76,8 @@ describe('P/E face à própria história', () => {
     expect(r.from).toBe('2024-04-01');
     expect(r.median).toBe(10);
     expect(r.verdict).toBe('fair');
+    expect(r.eps).toBeGreaterThan(0);
+    expect(r.epsYear).toBe(fin.at(-1).year);
   });
 
   it('barato abaixo do 1.º quartil, caro acima do 3.º; sem dados suficientes não decide', () => {
@@ -87,6 +89,48 @@ describe('P/E face à própria história', () => {
     expect(peHistory(GALP, fin, rising.slice(0, 100))).toMatchObject({ verdict: null, reason: 'short' });
     expect(peHistory({ ...GALP, financial_currency: 'USD' }, fin, rising)).toMatchObject({ verdict: null, reason: 'currency' });
     expect(peHistory(GALP, [{ year: 2022, dilutedEps: -1 }], rising).points).toBe(0);
+  });
+});
+
+describe('cabeçalho do painel Empresa ao último preço', () => {
+  // Rheinmetall: perfil de 4 nov. 2026 (a 1003,40 €) visto com o preço de 6 nov. (810,20 €).
+  const RHM = {
+    ref_price: '1003.4', market_cap: '46826737664', trailing_pe: '38.967', forward_pe: '18.9647', price_to_book: '9.4175',
+    dividend_yield: '1.15', eps: '25.75', forward_eps: '52.9089', low_52w: '909', high_52w: '1966', fetched_at: new Date('2026-11-04T20:52:49Z'),
+  };
+  const fin = [{ year: 2024 }, { year: 2025 }];
+
+  it('escala capitalização, P/E, P/VC e dividendo; os resultados por acção não mudam', () => {
+    const l = liveProfile(RHM, '810.2', '2026-11-06', fin);
+    expect(l).toMatchObject({ repriced: true, price: 810.2, priceDate: '2026-11-06', forwardYear: 2027 });
+    expect(l.marketCap / 1e9).toBeCloseTo(37.81, 2);
+    expect(l.trailingPe).toBeCloseTo(31.46, 2);
+    expect(l.forwardPe).toBeCloseTo(15.31, 2);
+    expect(l.priceToBook).toBeCloseTo(7.6, 2);
+    expect(l.dividendYield).toBeCloseTo(1.42, 2);
+    expect(l.trailingEps).toBeCloseTo(25.75, 2);
+    expect(l.forwardEps).toBeCloseTo(52.91, 2);
+  });
+
+  it('o intervalo de 52 semanas alarga-se com os extremos desde a recolha e com o último preço', () => {
+    expect(liveProfile(RHM, '810.2', '2026-11-06', fin, { low: '798', high: '1010' })).toMatchObject({ low52w: 798, high52w: 1966 });
+    expect(liveProfile(RHM, '810.2', '2026-11-06', fin)).toMatchObject({ low52w: 810.2, high52w: 1966 });
+    expect(liveProfile(RHM, '2000', '2026-11-06', fin)).toMatchObject({ low52w: 909, high52w: 2000 });
+    expect(liveProfile({ ...RHM, low_52w: null, high_52w: null }, '810.2', '2026-11-06', fin)).toMatchObject({ low52w: null, high52w: null });
+  });
+
+  it('sem preço de referência ou sem fecho ficam os valores da recolha', () => {
+    expect(liveProfile({ ...RHM, ref_price: null }, '810.2', '2026-11-06', fin)).toMatchObject({ repriced: false, trailingPe: 38.967, marketCap: 46826737664, trailingEps: 25.75, forwardEps: 52.9089 });
+    expect(liveProfile(RHM, null, null, fin)).toMatchObject({ repriced: false, trailingPe: 38.967, dividendYield: 1.15 });
+  });
+
+  it('ano fiscal do P/E estimado', () => {
+    expect(forwardEpsYear([{ year: 2025 }], '2026-11-04')).toBe(2027);
+    expect(forwardEpsYear([{ year: 2025 }], '2027-02-15')).toBe(2027); // contas de 2026 ainda por publicar
+    expect(forwardEpsYear([{ year: 2026 }], '2027-04-10')).toBe(2028);
+    expect(forwardEpsYear([{ year: 2026 }], '2026-11-04')).toBe(2028); // ano fiscal até Março (Ryanair)
+    expect(forwardEpsYear([{ year: 2024 }], '2026-11-04')).toBe(2027); // contas em atraso
+    expect(forwardEpsYear([], null)).toBeNull();
   });
 });
 

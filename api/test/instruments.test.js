@@ -229,6 +229,20 @@ describe.skipIf(!hasTestDb)('perfil da empresa', () => {
       financials: [{ year: 2024, revenue: 21311e6, operatingIncome: 2550e6, netIncome: 1040e6, ebitda: null }],
     });
     expect(res.fetchedAt).toMatch(/^\d{4}-/);
+    // Sem preço de referência, os valores ficam os da recolha; o intervalo de 52 semanas vem sempre em `live`.
+    expect(res.profile.live).toMatchObject({ repriced: false, trailingPe: 14.078, marketCap: 14347606016, high52w: 23.18, low52w: 10 }); // o último preço (10) ficou abaixo do mínimo do Yahoo
+  });
+
+  it('o perfil traz a capitalização e os P/E ao último preço e o intervalo alargado', async () => {
+    const id = await makeInstrument(ctx.pool, 'AOVIVO.LS', { closes: ['8', '10'] });
+    await ctx.pool.query(
+      `INSERT INTO company_profiles (instrument_id, status, currency, ref_price, market_cap, trailing_pe, forward_pe, price_to_book, dividend_yield, eps,
+         high_52w, low_52w, financials, fetched_at)
+       VALUES (?, 'ok', 'EUR', 20, 2000, 40, 20, 4, 1, 0.5, 30, 15, ?, NOW(3) - INTERVAL 30 DAY)`,
+      [id, JSON.stringify([{ year: 2025, dilutedEps: 0.4 }])],
+    );
+    const { live } = (await ana.get(`/instruments/${id}/profile`)).json().profile;
+    expect(live).toMatchObject({ repriced: true, price: 10, marketCap: 1000, trailingPe: 20, forwardPe: 10, priceToBook: 2, dividendYield: 2, low52w: 8, high52w: 30, trailingEps: 0.5, forwardEps: 1 });
   });
 
   it('valorização: null sem perfil; com perfil, compara com o sector, analistas e Graham', async () => {

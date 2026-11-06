@@ -9,7 +9,7 @@ import {
   UnexpectedFormatError, UpstreamError,
 } from '../orderbook/index.js';
 import { latestQuotes } from '../services/quotes.js';
-import { annualEps, parseFinancials, valuation } from '../valuation.js';
+import { annualEps, liveProfile, parseFinancials, valuation } from '../valuation.js';
 import { allValuations } from '../services/valuations.js';
 
 export function mapInstrument(r, quotes) {
@@ -53,6 +53,11 @@ const CompanyProfileResponse = z.object({
     currency: z.string().nullable(), financialCurrency: z.string().nullable(),
     marketCap: N, trailingPe: N, forwardPe: N, priceToBook: N, dividendYield: N, beta: N, eps: N, profitMargin: N,
     returnOnEquity: N, debtToEquity: N, high52w: N, low52w: N,
+    live: z.object({
+      repriced: z.boolean(), price: N, priceDate: z.string().nullable(),
+      marketCap: N, trailingPe: N, forwardPe: N, priceToBook: N, dividendYield: N, low52w: N, high52w: N,
+      trailingEps: N, forwardEps: N, forwardYear: N,
+    }),
     financials: z.array(z.object({
       year: z.number(), revenue: N, operatingIncome: N, netIncome: N, ebitda: N, dilutedEps: N, freeCashFlow: N, equity: N, shares: N,
     })),
@@ -74,7 +79,7 @@ const ValuationResponse = z.object({
       })),
     }),
     history: z.object({
-      verdict: Verdict, current: N, median: N, p25: N, p75: N, points: z.number(), from: z.string().optional(), reason: z.string().optional(),
+      verdict: Verdict, current: N, eps: N.optional(), epsYear: N.optional(), median: N, p25: N, p75: N, points: z.number(), from: z.string().optional(), reason: z.string().optional(),
       series: z.array(z.object({ date: z.string(), pe: z.number() })),
     }),
     analysts: z.object({
@@ -87,6 +92,7 @@ const ValuationResponse = z.object({
       assumptions: z.object({ discount: z.number(), terminal: z.number(), years: z.number() }),
     }),
     metrics: z.object({ pe: N, pb: N, evEbitda: N, dividendYield: N, fcfYield: N }),
+    trailingEps: N,
   }).nullable(),
   fetchedAt: z.string().nullable(),
   source: z.string(),
@@ -228,7 +234,9 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     schema: {
       tags: ['Instrumentos'], summary: 'Perfil da empresa (actividade, indicadores e contas anuais; fonte: Yahoo)',
       description: 'Recolhido pelo motor de recolha uma vez por semana e na carga inicial. `profile` é null enquanto não houver dados. '
-        + 'dividendYield e debtToEquity vêm em percentagem; profitMargin e returnOnEquity em fracção.',
+        + 'dividendYield e debtToEquity vêm em percentagem; profitMargin e returnOnEquity em fracção. Os campos de topo são os da recolha; '
+        + '`live` dá a capitalização, os P/E, o P/VC e o dividendo ao último preço, o intervalo de 52 semanas alargado até ele, os resultados '
+        + 'por acção de cada P/E e o ano fiscal da estimativa.',
       params: z.object({ id: Id }),
       response: { 200: CompanyProfileResponse, 404: ErrorBody },
     },
@@ -236,7 +244,17 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     const [[inst]] = await pool.query('SELECT id FROM instruments WHERE id = ?', [req.params.id]);
     if (!inst) throw notFound('Instrumento');
     const [[r]] = await pool.query('SELECT * FROM company_profiles WHERE instrument_id = ?', [req.params.id]);
-    return { profile: r && r.status === 'ok' && r.fetched_at ? mapProfile(r) : null, fetchedAt: r?.fetched_at?.toISOString() ?? null, source: 'Yahoo Finance' };
+    if (!r || r.status !== 'ok' || !r.fetched_at) return { profile: null, fetchedAt: r?.fetched_at?.toISOString() ?? null, source: 'Yahoo Finance' };
+    const latest = (await latestQuotes(pool, [Number(req.params.id)])).get(Number(req.params.id));
+    const [[range]] = await pool.query(
+      `SELECT MIN(COALESCE(low, close)) AS low, MAX(COALESCE(high, close)) AS high
+         FROM daily_quotes WHERE instrument_id = ? AND session_date >= DATE(?)`, [req.params.id, r.fetched_at],
+    );
+    const profile = mapProfile(r);
+    return {
+      profile: { ...profile, live: liveProfile(r, latest?.close, latest?.date, profile.financials, range) },
+      fetchedAt: r.fetched_at.toISOString(), source: 'Yahoo Finance',
+    };
   });
 
   app.get('/valuations', {

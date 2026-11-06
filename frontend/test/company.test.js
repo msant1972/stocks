@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-  axisMoney, bigMoney, metricValue, pctOf, peerPosition, rangePosition, ratio, shortSummary, signedPctOf, verdictSentence,
+  axisMoney, bigMoney, forwardPeLabel, metricValue, pctOf, peerPosition, rangePosition, ratio, shortSummary, signedPctOf, verdictSentence,
 } from '../src/lib/company.js';
 
 const n = (s) => s.replace(/\s/g, ' '); // o Intl usa espaços não separáveis
@@ -63,4 +63,9 @@ test('percentagens com sinal, posição no sector e valores dos indicadores', ()
   assert.equal(n(metricValue('pe', 14.078)), '14,1×');
   assert.equal(n(metricValue('dividendYield', 3.4)), '3,4 %');
   assert.equal(metricValue('pb', null), '—');
+});
+
+test('título do P/E estimado com o ano fiscal', () => {
+  assert.equal(forwardPeLabel(2027), 'P/E (estimado 2027)');
+  assert.equal(forwardPeLabel(null), 'P/E (estimado)');
 });

@@ -69,7 +69,7 @@ export default function ValuationSection({ instrumentId }) {
     <section aria-labelledby="valuation-title" className="valuation">
       <div className="spread" style={{ margin: '1rem 0 0.25rem' }}>
         <h3 id="valuation-title" className="small" style={{ margin: 0 }}>Valorização</h3>
-        <span className="small muted">Fecho de {f.date(v.priceDate)}: {f.price(v.price, cur)}</span>
+        <span className="small muted">Último preço ({f.date(v.priceDate)}): {f.price(v.price, cur)}</span>
       </div>
       <p style={{ margin: '0 0 0.75rem' }}>
         <span className={`badge ${overall.badge}`} style={{ fontSize: '0.9375rem' }}>{overall.label}</span>{' '}
@@ -90,6 +90,7 @@ export default function ValuationSection({ instrumentId }) {
                   </div>
                   <PositionBar position={1 - m.cheapness} label={`${m.label}: ${peerPosition(m.cheapness, m.peers)}`} />
                   <div className="small muted">{peerPosition(m.cheapness, m.peers)}</div>
+                  {m.key === 'pe' && v.trailingEps != null && <div className="small muted">Com o resultado por acção de 12 meses ({f.price(v.trailingEps, cur)}).</div>}
                 </li>
               ))}
             </ul>
@@ -108,7 +109,9 @@ export default function ValuationSection({ instrumentId }) {
               <Suspense fallback={<Loading rows={1} label="A carregar…" />}>
                 <PeHistoryChart series={history.series} p25={history.p25} p75={history.p75} median={history.median} />
               </Suspense>
-              <p className="small muted" style={{ marginBottom: 0 }}>Com o último resultado anual por acção conhecido em cada dia. A faixa sombreada vai do 1.º ao 3.º quartil.</p>
+              <p className="small muted" style={{ marginBottom: 0 }}>
+                Com o último resultado anual por acção conhecido em cada dia (agora {f.price(history.eps, cur)}, de {history.epsYear}). A faixa sombreada vai do 1.º ao 3.º quartil.
+              </p>
             </>
           ) : <p className="small muted">{HISTORY_REASON[history.reason] ?? 'Sem dados.'}</p>}
         </Criterion>
@@ -142,7 +145,7 @@ export default function ValuationSection({ instrumentId }) {
                 <strong className="num">{signedPctOf(graham.ratio - 1)}</strong> face a ele.
               </p>
               <p className="small muted" style={{ marginBottom: 0 }}>
-                √(22,5 × resultado por acção × valor contabilístico por acção). Pensado para empresas estáveis: penaliza as de crescimento rápido.
+                √(22,5 × resultado por acção de 12 meses ({f.price(graham.eps, cur)}) × valor contabilístico por acção ({f.price(graham.bookValue, cur)})). Pensado para empresas estáveis: penaliza as de crescimento rápido.
               </p>
             </>
           ) : <p className="small muted">Precisa de lucro e de capitais próprios positivos.</p>}

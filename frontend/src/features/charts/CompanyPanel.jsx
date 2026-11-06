@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { bigMoney, pctOf, rangePosition, ratio, shortSummary } from '../../lib/company.js';
+import { bigMoney, forwardPeLabel, pctOf, rangePosition, ratio, shortSummary } from '../../lib/company.js';
 import { Loading } from '../../components/feedback/states.jsx';
 import ValuationSection from './ValuationSection.jsx';
 
@@ -32,15 +32,18 @@ export default function CompanyPanel({ instrumentId, lastPrice }) {
 
   const cur = p.financialCurrency || p.currency || 'EUR';
   const summary = shortSummary(p.summary);
-  const pos = rangePosition(lastPrice, p.low52w, p.high52w);
+  const live = p.live;
+  const quoteCur = p.currency || 'EUR';
+  const pos = rangePosition(live.price ?? lastPrice, live.low52w, live.high52w);
   const where = [p.city, p.country].filter(Boolean).join(', ');
+  const epsNote = (eps) => (eps == null ? null : `resultado por acção ${f.price(eps, quoteCur)}`);
   const metrics = [
-    ['Capitalização', bigMoney(p.marketCap, p.currency || 'EUR')],
-    ['P/E (12 meses)', ratio(p.trailingPe, { negativeIsNa: true })],
-    ['P/E (estimado)', ratio(p.forwardPe, { negativeIsNa: true })],
-    ['Preço / valor contabilístico', ratio(p.priceToBook)],
-    ['Dividendo (rendimento)', pctOf(p.dividendYield, { fraction: false })],
-    ['Resultado por acção', p.eps == null ? '—' : f.price(p.eps, p.currency || 'EUR')],
+    ['Capitalização', bigMoney(live.marketCap, quoteCur)],
+    ['P/E (12 meses)', ratio(live.trailingPe, { negativeIsNa: true }), epsNote(live.trailingEps)],
+    [forwardPeLabel(live.forwardYear), ratio(live.forwardPe, { negativeIsNa: true }), epsNote(live.forwardEps)],
+    ['Preço / valor contabilístico', ratio(live.priceToBook)],
+    ['Dividendo (rendimento)', pctOf(live.dividendYield, { fraction: false })],
+    ['Resultado por acção (12 meses)', p.eps == null ? '—' : f.price(p.eps, quoteCur)],
     ['Margem líquida', pctOf(p.profitMargin)],
     ['Rentabilidade dos capitais próprios', pctOf(p.returnOnEquity)],
     ['Dívida / capitais próprios', pctOf(p.debtToEquity, { fraction: false, digits: 0 })],
@@ -76,12 +79,12 @@ export default function CompanyPanel({ instrumentId, lastPrice }) {
       )}
 
       <dl className="company-metrics">
-        {metrics.map(([k, v]) => <div key={k}><dt className="small muted">{k}</dt><dd className="num">{v}</dd></div>)}
-        {p.low52w != null && p.high52w != null && (
+        {metrics.map(([k, v, note]) => <div key={k}><dt className="small muted">{k}</dt><dd className="num">{v}{note && <div className="small muted">{note}</div>}</dd></div>)}
+        {live.low52w != null && live.high52w != null && (
           <div className="company-range">
             <dt className="small muted">Intervalo de 52 semanas</dt>
             <dd>
-              <span className="num">{f.price(p.low52w, p.currency || 'EUR')} – {f.price(p.high52w, p.currency || 'EUR')}</span>
+              <span className="num">{f.price(live.low52w, quoteCur)} – {f.price(live.high52w, quoteCur)}</span>
               {pos != null && (
                 <span className="range-bar" role="img" aria-label={`Último preço a ${Math.round(pos * 100)} % do intervalo`}>
                   <span className="range-dot" style={{ left: `${pos * 100}%` }} />
@@ -91,6 +94,11 @@ export default function CompanyPanel({ instrumentId, lastPrice }) {
           </div>
         )}
       </dl>
+      <p className="small muted" style={{ margin: '0.5rem 0 0' }}>
+        {live.repriced
+          ? <>Capitalização, P/E, preço / valor contabilístico e dividendo ao último preço ({f.price(live.price, quoteCur)}, {f.date(live.priceDate)}). Resultados por acção e restantes indicadores: Yahoo Finance{q.data.fetchedAt ? `, ${f.date(q.data.fetchedAt.slice(0, 10))}` : ''}.</>
+          : <>Indicadores do Yahoo Finance{q.data.fetchedAt ? ` de ${f.date(q.data.fetchedAt.slice(0, 10))}` : ''}, ao preço desse dia.</>}
+      </p>
 
       <ValuationSection instrumentId={instrumentId} />
 
