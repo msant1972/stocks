@@ -9,8 +9,8 @@ import { nearestTick } from './ticks.js';
 /**
  * Automação: lê os sinais das estratégias ligadas e envia as ordens à conta de SIMULAÇÃO da SAXO, sem intervenção.
  *
- * Quando: de hora a hora nos dias úteis, 10 minutos depois de cada recolha horária do Yahoo (08:23 a 17:23 → 08:33 a 17:33 de
- * Lisboa). Que sinais: os da sessão em curso, calculados com os últimos dados, e os da última sessão. Um sinal da sessão em
+ * Quando: de hora a hora nos dias úteis, 10 minutos depois de cada recolha horária do Yahoo, com as bolsas abertas (recolhas das
+ * 08:23 às 15:23 → execuções das 08:33 às 15:33 de Lisboa; as bolsas fecham às 16:30). Que sinais: os da sessão em curso, calculados com os últimos dados, e os da última sessão. Um sinal da sessão em
  * curso pode depender de um fecho que ainda vai mudar: uma vez enviado, a ordem fica, mesmo que o sinal desapareça depois.
  * Ordens, ambas do dia: compra limitada a último preço + 1 %, com o orçamento da estratégia; venda a mercado do que a
  * automação comprou para essa estratégia (no máximo o que a conta tem), nunca de posições manuais ou de outra estratégia.
@@ -20,9 +20,18 @@ import { nearestTick } from './ticks.js';
 
 export const BUY_LIMIT_MARKUP = 0.01;
 const FIRST_HOUR = 8;   // recolhas horárias: 08:23 a 17:23 (deploy/systemd/stocks-intraday.timer)
-const LAST_HOUR = 17;
 const SLOT_FROM = 33;   // 10 minutos depois da recolha
 const SLOT_TO = 53;     // sem recolha até aqui, esta hora fica sem execução
+/**
+ * Bolsas do catálogo (Euronext, Xetra, Milão, Madrid, Viena, Helsínquia, Dublin): 08:00 às 16:30 de Lisboa todo o ano (mudam de
+ * hora em simultâneo). Uma ordem do dia enviada depois do fecho expira sem ser executada (6 nov. 2026: 17 de 18 enviadas às
+ * 16:33). A execução de cada hora tem de acabar CLOSE_MARGIN_MIN antes do fecho: a última é a das 15:33. Os sinais vistos
+ * depois disso entram na execução das 08:33 da sessão seguinte, como sinais da última sessão (já com o fecho definitivo).
+ */
+export const MARKET_CLOSE = '16:30';
+const CLOSE_MARGIN_MIN = 15;
+const toMin = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+export const LAST_HOUR = Math.floor((toMin(MARKET_CLOSE) - CLOSE_MARGIN_MIN - SLOT_TO) / 60); // 15
 const LATE_MINUTE = 50; // a partir daqui, a falta da recolha da hora fica registada como falha
 const RETRY_MS = 5 * 60_000;  // depois de uma falha (ex.: ligação expirada), volta a tentar dentro da janela
 const STUCK_MS = 15 * 60_000; // «a correr» há mais do que isto: a API reiniciou a meio
@@ -35,7 +44,7 @@ export function lisbonClock(now = new Date()) {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}`, weekday: parts.weekday };
 }
 
-/** Hora da execução em curso (8 a 17), ou null fora dos 20 minutos a seguir aos 10 minutos depois de cada recolha. */
+/** Hora da execução em curso (8 a LAST_HOUR, com as bolsas abertas), ou null fora dos 20 minutos a seguir aos 10 minutos depois de cada recolha. */
 export function runSlot({ time, weekday }) {
   if (['Sat', 'Sun'].includes(weekday)) return null;
   const [hour, minute] = time.split(':').map(Number);

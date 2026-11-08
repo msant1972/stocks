@@ -1,17 +1,21 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { buyLimit, buyQuantity, lisbonClock, runDueAutomation, runSlot, selectSignals, signalKey } from '../src/saxo/automation.js';
+import { buyLimit, buyQuantity, LAST_HOUR, lisbonClock, runDueAutomation, runSlot, selectSignals, signalKey } from '../src/saxo/automation.js';
 import { encryptSecret } from '../src/secrets.js';
 import { api, hasTestDb, login, makeInstrument, makeUser, setup, TEST_SECRET_KEY } from './helpers.js';
 
 describe('automação: regras', () => {
-  it('de hora a hora nos dias úteis, 10 minutos depois de cada recolha (08:23 a 17:23), com a hora de Verão', () => {
+  it('de hora a hora nos dias úteis, 10 minutos depois de cada recolha, só com as bolsas abertas (08:33 a 15:33), com a hora de Verão', () => {
     expect(lisbonClock(new Date('2026-11-06T08:33:00Z'))).toEqual({ date: '2026-11-06', time: '08:33', weekday: 'Fri' });
     expect(lisbonClock(new Date('2026-07-06T07:33:00Z')).time).toBe('08:33'); // UTC+1
     expect(runSlot({ time: '08:32', weekday: 'Fri' })).toBeNull();
     expect(runSlot({ time: '08:33', weekday: 'Fri' })).toBe(8);
     expect(runSlot({ time: '08:52', weekday: 'Fri' })).toBe(8);
     expect(runSlot({ time: '08:53', weekday: 'Fri' })).toBeNull();
-    expect(runSlot({ time: '17:33', weekday: 'Fri' })).toBe(17);
+    expect(runSlot({ time: '15:33', weekday: 'Fri' })).toBe(15);
+    expect(runSlot({ time: '15:52', weekday: 'Fri' })).toBe(15); // acaba antes das 16:15 (fecho às 16:30)
+    expect(runSlot({ time: '16:33', weekday: 'Fri' })).toBeNull(); // bolsas fechadas: as ordens do dia expirariam
+    expect(runSlot({ time: '17:33', weekday: 'Fri' })).toBeNull();
+    expect(LAST_HOUR).toBe(15);
     expect(runSlot({ time: '07:40', weekday: 'Fri' })).toBeNull();
     expect(runSlot({ time: '18:33', weekday: 'Fri' })).toBeNull();
     expect(runSlot({ time: '08:33', weekday: 'Sat' })).toBeNull();
@@ -273,6 +277,23 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     // A-Momentum com a sessão do sinal ainda provisória: o fecho do BackTest ainda não se conhece.
     await ctx.pool.query('UPDATE daily_quotes SET provisional = 1 WHERE session_date = ?', [FINAL]);
     expect((await ana.get('/saxo/automation/comparison')).json().items.find((i) => i.strategy === 'a-momentum').expectedPrice).toBeNull();
+  });
+
+  it('com as bolsas fechadas não envia: o sinal da tarde segue na execução das 08:33 da sessão seguinte', async () => {
+    const f = use();
+    await turnOn('c-ai');
+    const friday = signal({ date: '2026-11-06' }); // visto na sexta à tarde, depois do fecho das 16:30
+    await ctx.pool.query("INSERT INTO job_runs (kind, status, started_at, finished_at) VALUES ('fetch_intraday', 'done', '2026-11-06 16:23:00', '2026-11-06 16:28:00')");
+    expect(await run({ 'c-ai': [friday] }, { now: new Date('2026-11-06T16:35:00Z') })).toBe(0);
+    expect(f.orders).toHaveLength(0);
+    // Segunda-feira: a recolha diária de sexta confirmou a sessão e a recolha das 08:23 já correu.
+    await ctx.pool.query(
+      `INSERT INTO job_runs (kind, status, started_at, finished_at) VALUES
+       ('fetch_update', 'done', '2026-11-06 19:01:00', '2026-11-06 19:10:00'), ('fetch_intraday', 'done', '2026-11-09 08:23:00', '2026-11-09 08:28:00')`,
+    );
+    expect(await run({ 'c-ai': [friday] }, { now: new Date('2026-11-09T08:35:00Z') })).toBe(1);
+    expect(f.orders).toHaveLength(1);
+    expect(f.orders[0].body).toMatchObject({ BuySell: 'Buy', OrderType: 'Limit', OrderDuration: { DurationType: 'DayOrder' } });
   });
 
   it('recusa da SAXO fica registada com a ordem e não se repete', async () => {

@@ -107,7 +107,7 @@ export default function SaxoAutomationPage() {
           <h1 className="page-title">Automação</h1>
           <p className="page-sub">
             Lê os sinais das estratégias ligadas e envia as ordens à SAXO Bank sem pedir confirmação, de hora a hora nos dias úteis, 10 minutos
-            depois de cada actualização do Yahoo (08:33 a 17:33 de Lisboa), com os sinais da sessão em curso e da última sessão. Compras limitadas
+            depois de cada actualização do Yahoo, só com as bolsas abertas (08:33 a 15:33 de Lisboa; os sinais vistos depois do fecho seguem às 08:33 da sessão seguinte), com os sinais da sessão em curso e da última sessão. Compras limitadas
             ao último preço + 1 %, vendas a mercado; todas as ordens são válidas por 1 dia.
           </p>
         </div>
@@ -126,7 +126,7 @@ export default function SaxoAutomationPage() {
                 <p className="small muted" style={{ margin: 0 }}>
                   {!s.enabled ? 'Desligada: nenhuma ordem é enviada automaticamente.'
                     : !anyStrategy ? 'Ligada, mas sem nenhuma estratégia ligada: nenhuma ordem é enviada.'
-                      : saxoOk ? 'Ligada: as estratégias ligadas enviam ordens de hora a hora, das 08:33 às 17:33 dos dias úteis.' : 'Ligada, mas sem ligação válida à SAXO Bank.'}
+                      : saxoOk ? 'Ligada: as estratégias ligadas enviam ordens de hora a hora, das 08:33 às 15:33 dos dias úteis (com as bolsas abertas).' : 'Ligada, mas sem ligação válida à SAXO Bank.'}
                 </p>
               </div>
               <Switch label="Ligar ou desligar a automação" checked={s.enabled} disabled={toggleAll.isPending} onChange={(v) => toggleAll.mutate(v)} />
