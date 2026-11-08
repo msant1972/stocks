@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { bigMoney } from '../../lib/company.js';
-import { allFrameIds, biggestMoves, colorSlots, deltaLabel, frameRows } from '../../lib/timelapse.js';
+import { allFrameIds, biggestMoves, changeText, changeTone, deltaLabel, frameRows, toneLegend } from '../../lib/timelapse.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Notice, Segmented } from '../../components/ui/controls.jsx';
 
@@ -15,14 +15,14 @@ const ROW = 26; // altura de cada barra, em px
 
 /**
  * Timelapse: o top 30 dos instrumentos pelo valor negociado das últimas 1, 5 ou 10 sessões, animado sessão a sessão nas
- * últimas 22 sessões (uma sessão a cada 2 s). Mostra quem ganha e quem perde peso no top. Cada instrumento tem a sua cor
- * (8 cores, que se repetem); clicar numa barra destaca esse instrumento. Universo: a minha lista, as posições da conta SAXO
- * ou todo o catálogo.
+ * últimas 22 sessões (uma sessão a cada 2 s). Mostra quem ganha e quem perde peso no top. A cor da barra é a variação do
+ * preço nessas sessões (verde sobe, cinzento quase não mexe, vermelho desce); clicar numa barra destaca esse instrumento.
+ * Universo: a minha lista, as posições da conta SAXO ou todo o catálogo.
  */
 export default function TimelapsePage() {
   const [params, setParams] = useSearchParams();
   const universe = UNIVERSES.some((u) => u.value === params.get('universo')) ? params.get('universo') : 'catalogo';
-  const windowSize = WINDOWS.includes(Number(params.get('sessoes'))) ? Number(params.get('sessoes')) : 10;
+  const windowSize = WINDOWS.includes(Number(params.get('sessoes'))) ? Number(params.get('sessoes')) : 5;
   const setParam = (key, value) => setParams((cur) => { const next = new URLSearchParams(cur); next.set(key, value); return next; }, { replace: true });
   const q = useQuery({
     queryKey: ['market', 'timelapse', universe, windowSize],
@@ -44,7 +44,6 @@ export default function TimelapsePage() {
   }, [playing, index, last]);
 
   const ids = useMemo(() => allFrameIds(frames), [frames]);
-  const colors = useMemo(() => colorSlots(ids), [ids]);
   const names = useMemo(() => new Map((q.data?.instruments ?? []).map((i) => [i.id, i])), [q.data]);
   const rows = useMemo(() => (frames.length ? frameRows(frames, Math.min(index, last), ids) : []), [frames, index, last, ids]);
   const frame = frames[Math.min(index, last)];
@@ -62,7 +61,7 @@ export default function TimelapsePage() {
           <p className="page-sub">
             Os {top} instrumentos com mais valor negociado {windowSize === 1 ? 'em cada sessão' : `nas últimas ${windowSize} sessões`}, sessão a sessão nas
             últimas 22: quem ganha e quem perde peso no top. Valor negociado = volume × (abertura + mínimo + máximo + fecho) / 4, em euros.
-            Clique numa barra para seguir esse instrumento.
+            A cor é a variação do preço nessas sessões. Clique numa barra para seguir esse instrumento.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -79,6 +78,12 @@ export default function TimelapsePage() {
           <h2 id="tl-title" className="card-title">Top {top} · valor negociado {windowSize === 1 ? 'da sessão' : `de ${windowSize} sessões`}</h2>
           {q.data && <span className="small muted">{q.data.size} instrumentos no universo</span>}
         </div>
+        <div className="legend-chips" style={{ margin: '0.25rem 0 0.5rem' }} aria-label={`Cor: variação do preço ${windowSize === 1 ? 'na sessão' : `nas ${windowSize} sessões`}`}>
+          <span className="small muted" style={{ alignSelf: 'center' }}>Preço {windowSize === 1 ? 'na sessão' : `nas ${windowSize} sessões`}:</span>
+          {toneLegend(windowSize).map((x) => (
+            <span key={x.tone} className="legend-chip static"><span className="swatch-box" style={{ background: `var(--div-${x.tone})` }} />{x.label}</span>
+          ))}
+        </div>
         {q.isPending ? <Loading rows={8} label="A calcular o top de cada sessão…" />
           : q.error ? (['SAXO_NO_TOKEN', 'SAXO_TOKEN_EXPIRED'].includes(q.error.code)
             ? <Notice tone="info">{errorMessage(q.error)} <Link to="/definicoes">Abrir Definições</Link></Notice>
@@ -87,26 +92,26 @@ export default function TimelapsePage() {
               <EmptyState title="Sem dados">{universe === 'lista' ? 'A sua lista não tem instrumentos com negócios.' : universe === 'saxo' ? 'A conta SAXO não tem posições de instrumentos do catálogo.' : 'Ainda não há sessões suficientes.'}</EmptyState>
             ) : (
               <>
+                <div className="timelapse-date" aria-hidden="true">
+                  <span className="num">{f.date(frame.date)}</span>
+                  {windowSize > 1 && <span className="small muted">{windowSize} sessões desde {f.date(frame.from)}</span>}
+                </div>
                 <div className={`timelapse-chart${focus != null ? ' has-focus' : ''}`} style={{ height: `${top * ROW + 8}px` }} role="group"
                   aria-label={`Top ${top} na sessão de ${f.date(frame.date)}`}>
                   {rows.map((r) => (
                     <button type="button" key={r.id} className={`timelapse-row${r.rank == null ? ' is-out' : ''}${focus === r.id ? ' is-focus' : ''}`}
                       style={{ transform: `translateY(${(r.rank ?? top) * ROW}px)` }} tabIndex={r.rank == null ? -1 : 0} aria-hidden={r.rank == null}
                       aria-pressed={focus === r.id} onClick={() => setFocus((cur) => (cur === r.id ? null : r.id))}
-                      aria-label={r.rank == null ? undefined : `${r.rank + 1}.º ${sym(r.id)}, ${bigMoney(r.value)}${deltaLabel(r) ? `, ${deltaLabel(r)}` : ''}${focus === r.id ? ' (destacado)' : ''}`}
+                      aria-label={r.rank == null ? undefined : `${r.rank + 1}.º ${sym(r.id)}, ${bigMoney(r.value)}${r.change != null ? `, preço ${changeText(r.change)}` : ''}${deltaLabel(r) ? `, posição ${deltaLabel(r)}` : ''}${focus === r.id ? ' (destacado)' : ''}`}
                       title={names.get(r.id)?.name ?? ''}>
                       <span className="timelapse-label">{r.rank == null ? '' : `${r.rank + 1}. `}{sym(r.id)}</span>
                       <span className="timelapse-track">
-                        <span className="timelapse-bar" data-color={colors.get(r.id)} style={{ width: `calc((100% - var(--tl-value-space)) * ${Math.max(0.005, r.value / max)})` }} />
-                        <span className="timelapse-value num">{r.rank == null ? '' : bigMoney(r.value)}</span>
+                        <span className="timelapse-bar" data-tone={changeTone(r.change, windowSize) ?? 'none'} style={{ width: `calc((100% - var(--tl-value-space)) * ${Math.max(0.005, r.value / max)})` }} />
+                        <span className="timelapse-value num">{r.rank == null ? '' : <>{bigMoney(r.value)}{r.change != null && <> · {changeText(r.change)}</>}</>}</span>
                       </span>
-                      <span className={`timelapse-delta small ${r.isNew || r.delta > 0 ? 'positive' : r.delta < 0 ? 'negative' : 'muted'}`}>{deltaLabel(r)}</span>
+                      <span className="timelapse-delta small muted">{deltaLabel(r)}</span>
                     </button>
                   ))}
-                  <div className="timelapse-date" aria-hidden="true">
-                    <span className="num">{f.date(frame.date)}</span>
-                    {windowSize > 1 && <span className="small muted">{windowSize} sessões desde {f.date(frame.from)}</span>}
-                  </div>
                 </div>
 
                 <div className="timelapse-controls">
@@ -137,13 +142,14 @@ export default function TimelapsePage() {
                   <summary className="small">Ver os dados desta sessão</summary>
                   <div className="table-wrap" tabIndex={0} aria-label={`Top ${top} na sessão de ${f.date(frame.date)}`}>
                     <table className="data">
-                      <thead><tr><th scope="col" className="r">#</th><th scope="col">Instrumento</th><th scope="col" className="r">Valor negociado ({windowSize === 1 ? '1 sessão' : `${windowSize} sessões`})</th><th scope="col" className="r">Variação</th></tr></thead>
+                      <thead><tr><th scope="col" className="r">#</th><th scope="col">Instrumento</th><th scope="col" className="r">Valor negociado ({windowSize === 1 ? '1 sessão' : `${windowSize} sessões`})</th><th scope="col" className="r">Preço</th><th scope="col" className="r">Posição</th></tr></thead>
                       <tbody>
                         {rows.filter((r) => r.rank != null).sort((a, b) => a.rank - b.rank).map((r) => (
                           <tr key={r.id}>
                             <td className="r num">{r.rank + 1}</td>
-                            <td><span className="swatch-inline" style={{ background: `var(--cat-${colors.get(r.id)})` }} /> <Link to={`/charts?instrumento=${r.id}`} className="row-link">{sym(r.id)}</Link> <span className="small muted">{names.get(r.id)?.name}</span></td>
+                            <td><span className="swatch-inline" style={{ background: `var(--div-${changeTone(r.change, windowSize) ?? 'flat'})` }} /> <Link to={`/charts?instrumento=${r.id}`} className="row-link">{sym(r.id)}</Link> <span className="small muted">{names.get(r.id)?.name}</span></td>
                             <td className="r num">{bigMoney(r.value)}</td>
+                            <td className="r num">{changeText(r.change) || '—'}</td>
                             <td className="r">{deltaLabel(r) || '—'}</td>
                           </tr>
                         ))}

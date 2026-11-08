@@ -57,24 +57,31 @@ describe('capitalização (Calor)', () => {
   });
 });
 
-describe('timelapse: top do valor negociado de 10 sessões', () => {
+describe('timelapse: top do valor negociado e variação do preço', () => {
   const dates = Array.from({ length: 12 }, (_, i) => `2026-10-${String(i + 1).padStart(2, '0')}`);
-  // A negoceia 100 por sessão; B 0 até à 9.ª e depois 1000; C só no universo «outro».
-  const rows = dates.flatMap((date, i) => [{ id: 1, date, value: 100 }, ...(i >= 9 ? [{ id: 2, date, value: '1000' }] : []), { id: 3, date, value: 5 }]);
+  // A negoceia 100 por sessão a preço fixo; B só nas duas últimas sessões, 1000 cada, e o preço sobe de 10 para 12;
+  // C negoceia 5 e falta na 11.ª sessão (feriado local: conta o fecho anterior).
+  const rows = dates.flatMap((date, i) => [
+    { id: 1, date, value: 100, price: 50 },
+    { id: 2, date, value: i >= 10 ? '1000' : 0, price: i >= 11 ? 12 : 10 },
+    ...(i === 10 ? [] : [{ id: 3, date, value: 5, price: 20 + i }]),
+  ]);
 
-  it('soma as 10 sessões até cada data e ordena; B passa à frente quando ganha peso', () => {
-    const f = buildFrames(dates, rows, { window: 10, sessions: 22, top: 2 });
-    expect(f.map((x) => [x.from, x.date])).toEqual([['2026-10-01', '2026-10-10'], ['2026-10-02', '2026-10-11'], ['2026-10-03', '2026-10-12']]);
-    expect(f[0].items).toEqual([{ id: 1, value: 1000 }, { id: 2, value: 1000 }]); // empate: o id mais baixo primeiro
-    expect(f[2].items).toEqual([{ id: 2, value: 3000 }, { id: 1, value: 1000 }]);
+  it('soma as sessões até cada data, ordena e calcula a variação do preço desde o fecho anterior à janela', () => {
+    const f = buildFrames(dates, rows, { window: 10, sessions: 22, top: 3 });
+    expect(f.map((x) => [x.from, x.date])).toEqual([['2026-10-02', '2026-10-11'], ['2026-10-03', '2026-10-12']]);
+    expect(f[0].items).toEqual([{ id: 1, value: 1000, change: 0 }, { id: 2, value: 1000, change: 0 }, { id: 3, value: 45, change: 0.45 }]); // empate: o id mais baixo primeiro
+    expect(f[1].items[0]).toEqual({ id: 2, value: 2000, change: 0.2 });
+    expect(f[1].items[2].change).toBeCloseTo(31 / 21 - 1, 6); // C: de 21 (fecho de 2 out.) a 31
   });
 
-  it('só o universo pedido, só os últimos `sessions` pontos e sem valores nulos', () => {
-    const f = buildFrames(dates, rows, { only: new Set([1, 3]), window: 10, sessions: 2, top: 30 });
+  it('só o universo pedido, só os últimos `sessions` pontos, sem valores nulos e sem universo vazio', () => {
+    const f = buildFrames(dates, rows, { only: new Set([1, 3]), window: 1, sessions: 2, top: 30 });
     expect(f.map((x) => x.date)).toEqual(['2026-10-11', '2026-10-12']);
-    expect(f[1].items).toEqual([{ id: 1, value: 1000 }, { id: 3, value: 50 }]);
-    expect(buildFrames(dates.slice(0, 5), rows)).toEqual([]); // menos de 10 sessões: nenhum ponto
+    expect(f[0].items).toEqual([{ id: 1, value: 100, change: 0 }]); // C não negociou a 11
+    expect(f[1].items.map((x) => x.id)).toEqual([1, 3]);
+    expect(buildFrames(dates.slice(0, 5), rows, { window: 10 })).toEqual([]); // sem sessões suficientes
     expect(buildFrames([], [])).toEqual([]);
-    expect(buildFrames(dates, rows, { only: new Set() })).toEqual([]); // universo vazio: sem sessões vazias
+    expect(buildFrames(dates, rows, { only: new Set() })).toEqual([]);
   });
 });

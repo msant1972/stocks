@@ -8067,9 +8067,10 @@ paths:
         - Mercado
       description: "Valor negociado de uma sessão = volume × (abertura + mínimo +
         máximo + fecho) / 4, em euros; cada ponto soma as `window` sessões (1, 5
-        ou 10; por omissão 10) até essa data. Universo: lista (a minha lista),
-        saxo (posições da conta SAXO; sem ligação, os erros SAXO_*) ou catalogo.
-        A sessão em curso fica de fora (`partialExcluded`)."
+        ou 10; por omissão 5) até essa data; `change` é a variação do preço
+        (fecho ajustado) nessas sessões, em fracção. Universo: lista (a minha
+        lista), saxo (posições da conta SAXO; sem ligação, os erros SAXO_*) ou
+        catalogo. A sessão em curso fica de fora (`partialExcluded`)."
       parameters:
         - schema:
             default: catalogo
@@ -8082,7 +8083,7 @@ paths:
           name: universe
           required: false
         - schema:
-            default: 10
+            default: 5
             type: integer
             minimum: -9007199254740991
             maximum: 9007199254740991
@@ -8156,9 +8157,13 @@ paths:
                                 type: number
                               value:
                                 type: number
+                              change:
+                                nullable: true
+                                type: number
                             required:
                               - id
                               - value
+                              - change
                             additionalProperties: false
                       required:
                         - date

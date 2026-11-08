@@ -160,10 +160,12 @@ test('Timelapse: anima o top sessão a sessão, nos três universos', async () =
   await expect(page.getByText('A conta SAXO não tem posições de instrumentos do catálogo.')).toBeVisible();
   await page.getByRole('group', { name: 'Universo' }).getByRole('button', { name: 'A minha lista' }).click();
   await expect(page.locator('.timelapse-row:not(.is-out)')).toHaveCount(2);
-  // Cada instrumento com a sua cor; clicar numa barra destaca-o; 1 sessão em vez de 10.
-  const bars = page.locator('.timelapse-row:not(.is-out) .timelapse-bar');
-  const fills = await bars.evaluateAll((els) => els.map((el) => getComputedStyle(el).backgroundColor));
-  expect(new Set(fills).size).toBe(fills.length);
+  // Cor pela variação do preço (verde, cinzento, vermelho), com legenda; clicar numa barra destaca-a; 5 sessões por omissão.
+  await expect(page.getByRole('heading', { name: 'Top 30 · valor negociado de 5 sessões' })).toBeVisible();
+  const tones = await page.locator('.timelapse-row:not(.is-out) .timelapse-bar').evaluateAll((els) => els.map((el) => el.dataset.tone));
+  expect(tones.every((t) => /^(up|down)-[123]$|^flat$/.test(t))).toBe(true);
+  await expect(page.getByLabel(/Cor: variação do preço nas 5 sessões/)).toContainText('±2 %');
+  await expect(page.locator('.timelapse-row:not(.is-out) .timelapse-value').first()).toContainText(/%/);
   await page.locator('.timelapse-row:not(.is-out)').first().click();
   await expect(page.locator('.timelapse-row.is-focus')).toHaveCount(1);
   await expect(page.getByText(/^Sessão \d+ de 22:/)).toContainText('A seguir');

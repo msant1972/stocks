@@ -147,12 +147,13 @@ describe.skipIf(!hasTestDb)('timelapse: top do valor negociado', () => {
   });
 
   it('catálogo e lista: top por 10 sessões, do mais antigo para o mais recente', async () => {
-    const res = await ana.get('/market/timelapse');
+    const res = await ana.get('/market/timelapse?window=10');
     expect(res.statusCode).toBe(200);
     const b = res.json();
     expect(b).toMatchObject({ universe: 'catalogo', window: 10, sessions: 22, top: 30, size: 2, partialExcluded: null });
-    expect(b.frames.map((f) => f.date)).toEqual(['2026-10-10', '2026-10-11', '2026-10-12']);
-    expect(b.frames[0]).toMatchObject({ from: '2026-10-01', items: [{ value: 200000 }, { id: a, value: 100000 }] });
+    expect(b.frames.map((f) => f.date)).toEqual(['2026-10-11', '2026-10-12']);
+    expect(b.frames[0]).toMatchObject({ from: '2026-10-02', items: [{ value: 200000, change: 0 }, { id: a, value: 100000, change: 0 }] });
+    expect((await ana.get('/market/timelapse')).json().window).toBe(5); // por omissão, 5 sessões
     expect(b.instruments.map((i) => i.symbol).sort()).toEqual(['A.LS', 'B.LS']);
     const lista = (await ana.get('/market/timelapse?universe=lista')).json();
     expect(lista).toMatchObject({ universe: 'lista', size: 1, instruments: [{ id: a, symbol: 'A.LS' }] });
@@ -162,9 +163,9 @@ describe.skipIf(!hasTestDb)('timelapse: top do valor negociado', () => {
   it('sessões somadas: 1, 5 ou 10', async () => {
     const one = (await ana.get('/market/timelapse?window=1')).json();
     expect(one).toMatchObject({ window: 1 });
-    expect(one.frames).toHaveLength(12); // 12 sessões de dados: um ponto por sessão
-    expect(one.frames[0]).toMatchObject({ from: '2026-10-01', date: '2026-10-01', items: [{ value: 20000 }, { id: a, value: 10000 }] });
-    expect((await ana.get('/market/timelapse?window=5')).json().frames[0]).toMatchObject({ from: '2026-10-01', date: '2026-10-05' });
+    expect(one.frames).toHaveLength(11); // 12 sessões de dados: a primeira só serve de referência do preço
+    expect(one.frames[0]).toMatchObject({ from: '2026-10-02', date: '2026-10-02', items: [{ value: 20000 }, { id: a, value: 10000 }] });
+    expect((await ana.get('/market/timelapse?window=5')).json().frames[0]).toMatchObject({ from: '2026-10-02', date: '2026-10-06' });
     expect((await ana.get('/market/timelapse?window=3')).statusCode).toBe(400);
   });
 

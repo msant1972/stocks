@@ -393,7 +393,7 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .automation-strategies li:first-child { border-top: 0; }
 
 /* Timelapse: barras que deslizam para a nova posição a cada sessão */
-.timelapse-chart { position: relative; overflow: hidden; margin-top: 0.5rem; --tl-value-space: 6.5rem; /* espaço do valor à direita da barra */ }
+.timelapse-chart { position: relative; overflow: hidden; margin-top: 0.5rem; --tl-value-space: 10rem; /* espaço do valor e da variação à direita da barra */ }
 .timelapse-row {
   position: absolute; left: 0; right: 0; top: 0; height: 22px; width: 100%;
   display: grid; grid-template-columns: 9rem 1fr 3.5rem; align-items: center; gap: 0.5rem;
@@ -406,18 +406,18 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .timelapse-row.is-focus .timelapse-label { font-weight: 600; }
 .timelapse-label { font-size: 0.8125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .timelapse-track { position: relative; display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
-.timelapse-bar { height: 16px; border-radius: 0 4px 4px 0; background: var(--series-price); transition: width 1.2s ease; flex: none; }
+.timelapse-bar { height: 16px; border-radius: 0 4px 4px 0; background: var(--series-price); transition: width 1.2s ease, background-color 1.2s ease; flex: none; }
 .timelapse-value { font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; }
 .timelapse-delta { text-align: right; white-space: nowrap; }
-.timelapse-date { position: absolute; right: 4.5rem; bottom: 0.25rem; display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
-.timelapse-date .num { font-size: 2rem; font-weight: 600; color: var(--text-secondary); opacity: 0.6; }
+.timelapse-date { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.25rem; }
+.timelapse-date .num { font-size: 1.5rem; font-weight: 600; }
 .timelapse-controls { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-top: 0.75rem; flex-wrap: wrap; }
 .timelapse-buttons { display: flex; gap: 0.375rem; }
 .timelapse-scrub { width: 100%; margin-top: 0.5rem; accent-color: var(--accent); }
-.timelapse-bar[data-color="1"] { background: var(--cat-1); } .timelapse-bar[data-color="2"] { background: var(--cat-2); }
-.timelapse-bar[data-color="3"] { background: var(--cat-3); } .timelapse-bar[data-color="4"] { background: var(--cat-4); }
-.timelapse-bar[data-color="5"] { background: var(--cat-5); } .timelapse-bar[data-color="6"] { background: var(--cat-6); }
-.timelapse-bar[data-color="7"] { background: var(--cat-7); } .timelapse-bar[data-color="8"] { background: var(--cat-8); }
-@media (max-width: 640px) { .timelapse-row { grid-template-columns: 6rem 1fr 3rem; } .timelapse-value { display: none; } .timelapse-chart { --tl-value-space: 0rem; } .timelapse-date { display: none; } } /* a data está na linha por baixo */
+.timelapse-bar[data-tone="up-1"] { background: var(--div-up-1); } .timelapse-bar[data-tone="up-2"] { background: var(--div-up-2); }
+.timelapse-bar[data-tone="up-3"] { background: var(--div-up-3); } .timelapse-bar[data-tone="flat"] { background: var(--div-flat); }
+.timelapse-bar[data-tone="down-1"] { background: var(--div-down-1); } .timelapse-bar[data-tone="down-2"] { background: var(--div-down-2); }
+.timelapse-bar[data-tone="down-3"] { background: var(--div-down-3); } .timelapse-bar[data-tone="none"] { background: var(--div-flat); }
+@media (max-width: 640px) { .timelapse-row { grid-template-columns: 6rem 1fr 3rem; } .timelapse-value { display: none; } .timelapse-chart { --tl-value-space: 0rem; } }
 @media (prefers-reduced-motion: reduce) { .timelapse-row, .timelapse-bar { transition: none; } }
 

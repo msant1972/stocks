@@ -4,11 +4,13 @@
  * As sessões são as do calendário comum do catálogo: um feriado local conta como sessão sem negócios desse instrumento.
  */
 
-export const WINDOW = 10;   // sessões somadas em cada ponto, por omissão (também 1 ou 5)
+export const WINDOWS = [1, 5, 10];
+export const WINDOW = 5;    // sessões somadas em cada ponto, por omissão (também 1 ou 10)
+const MAX_WINDOW = Math.max(...WINDOWS);
 export const SESSIONS = 22; // pontos da animação
 export const TOP = 30;
 
-/** Datas de sessão mais recentes do catálogo, por ordem (as necessárias para 22 pontos de 10 sessões). */
+/** Datas de sessão mais recentes do catálogo (as necessárias para 22 pontos de 10 sessões, mais uma de referência do preço). */
 export const DATES_SQL = `
   SELECT DISTINCT q.session_date AS date
     FROM daily_quotes q JOIN instruments i ON i.id = q.instrument_id
@@ -18,14 +20,20 @@ export const DATES_SQL = `
 
 export const VALUES_SQL = `
   SELECT q.instrument_id AS id, q.session_date AS date,
-         q.volume * (COALESCE(q.open, q.close) + COALESCE(q.high, q.close) + COALESCE(q.low, q.close) + q.close) / 4 AS value
+         q.volume * (COALESCE(q.open, q.close) + COALESCE(q.high, q.close) + COALESCE(q.low, q.close) + q.close) / 4 AS value,
+         COALESCE(q.adj_close, q.close) AS price
     FROM daily_quotes q JOIN instruments i ON i.id = q.instrument_id
-   WHERE i.status = 'active' AND q.session_date >= ? AND q.volume > 0`;
+   WHERE i.status = 'active' AND q.session_date >= ?`;
+
+/** Sessões a pedir: as 22 da animação, as 9 anteriores para a soma de 10 e mais uma para a variação do preço. */
+export const DATES_NEEDED = 22 + MAX_WINDOW;
 
 /**
- * Pontos da animação. dates: sessões por ordem cronológica; rows: { id, date, value } de cada instrumento e sessão.
- * only: conjunto de ids do universo (null = todos). Devolve [{ date, from, items: [{ id, value }] }], do mais antigo para
- * o mais recente, com no máximo `sessions` pontos; cada ponto tem os `top` maiores valores das `window` sessões até `date`.
+ * Pontos da animação. dates: sessões por ordem cronológica; rows: { id, date, value, price } de cada instrumento e sessão.
+ * only: conjunto de ids do universo (null = todos). Devolve [{ date, from, items: [{ id, value, change }] }], do mais antigo
+ * para o mais recente, com no máximo `sessions` pontos; cada ponto tem os `top` maiores valores das `window` sessões até
+ * `date`. change: variação do preço (fecho ajustado) nessas sessões, do fecho anterior a `from` ao fecho de `date` (um
+ * feriado local usa o último fecho conhecido; null sem fecho de referência).
  */
 export function buildFrames(dates, rows, { only = null, window = WINDOW, sessions = SESSIONS, top = TOP } = {}) {
   const index = new Map(dates.map((d, i) => [d, i]));
@@ -35,18 +43,24 @@ export function buildFrames(dates, rows, { only = null, window = WINDOW, session
     if (only && !only.has(id)) continue;
     const i = index.get(r.date);
     if (i == null) continue;
-    if (!byId.has(id)) byId.set(id, new Float64Array(dates.length));
-    byId.get(id)[i] += Number(r.value) || 0;
+    if (!byId.has(id)) byId.set(id, { value: new Float64Array(dates.length), price: new Array(dates.length).fill(null) });
+    const e = byId.get(id);
+    e.value[i] += Number(r.value) || 0;
+    if (Number(r.price) > 0) e.price[i] = Number(r.price);
   }
+  // Último fecho conhecido em cada sessão (um feriado local repete o anterior).
+  for (const e of byId.values()) for (let i = 1; i < dates.length; i++) if (e.price[i] == null) e.price[i] = e.price[i - 1];
   if (byId.size === 0) return []; // universo vazio (ex.: conta SAXO sem posições): nada para animar
   const frames = [];
-  for (let end = Math.max(window - 1, dates.length - sessions); end < dates.length; end++) {
-    if (end < window - 1) continue;
+  // Cada ponto precisa das `window` sessões e do fecho da sessão anterior (referência da variação do preço).
+  for (let end = Math.max(window, dates.length - sessions); end < dates.length; end++) {
     const items = [];
-    for (const [id, v] of byId) {
+    for (const [id, e] of byId) {
       let sum = 0;
-      for (let k = end - window + 1; k <= end; k++) sum += v[k];
-      if (sum > 0) items.push({ id, value: Math.round(sum) });
+      for (let k = end - window + 1; k <= end; k++) sum += e.value[k];
+      const ref = e.price[end - window];
+      const change = ref && e.price[end] ? Math.round((e.price[end] / ref - 1) * 1e6) / 1e6 : null;
+      if (sum > 0) items.push({ id, value: Math.round(sum), change });
     }
     items.sort((a, b) => b.value - a.value || a.id - b.id);
     frames.push({ date: dates[end], from: dates[end - window + 1], items: items.slice(0, top) });

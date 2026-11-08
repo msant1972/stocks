@@ -224,9 +224,10 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 
 ### 5.3b. Timelapse
 
-- Barras horizontais ordenadas (uma por instrumento, 30), que deslizam para a nova posição a cada sessão; a data da sessão em grande, esbatida, no canto inferior, sem tapar a coluna das variações.
-- Cor por instrumento com as 8 cores categóricas validadas (`--cat-1…8`, claro e escuro), fixa durante a animação; o símbolo e a posição ficam sempre escritos à esquerda, por isso a cor ajuda mas não é a única identificação. Clicar numa barra destaca-a (as outras a 25 %).
-- Variação de posição em texto (▲ 3, ▼ 1, novo, =); valores em texto secundário, nunca na cor da série.
+- Barras horizontais ordenadas (uma por instrumento, 30), que deslizam para a nova posição a cada sessão; a data da sessão em destaque por cima do gráfico.
+- Cor da barra = variação do preço nas sessões somadas, numa escala divergente: verdes (sobe), cinzento (quase não mexe), vermelhos (desce), 3 intensidades por lado, com legenda dos limites em %. A faixa neutra cresce com as sessões somadas (±1 %, ±2 %, ±3 %). Verde e vermelho foram pedidos pelo utilizador; como se confundem no daltonismo vermelho-verde, cada intensidade tem luminosidade bem diferente e a variação está sempre escrita em texto ao lado do valor.
+- Variação de posição em texto neutro (▲ 3, ▼ 1, novo, =), para não competir com as cores do preço; valores em texto secundário.
+- Clicar numa barra destaca-a (as outras a 25 %).
 - Controlos por baixo: data de início, primeira, anterior, reproduzir/pausa, seguinte, última, data de fim e uma barra de tempo; com «reduzir movimento», sem animação.
 
 ### 5.4. Carteira SAXO
