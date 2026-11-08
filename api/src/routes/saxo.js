@@ -73,11 +73,12 @@ export default async function saxoRoutes(app, { pool, cfg }) {
     config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     schema: {
       tags: ['SAXO'], summary: 'Escolher o instrumento da SAXO que corresponde ao da aplicação',
+      description: 'Administradores: qualquer instrumento da SAXO. Restantes: só um dos candidatos propostos (SAXO_AMBIGUOUS) de um instrumento ainda sem ligação (403).',
       params: z.object({ instrumentId: Id }), body: z.object({ uic: z.number().int().positive() }),
       response: { 200: z.object({ uic: z.number(), symbol: z.string() }), 400: ErrorBody, ...Errors },
     },
   }, async (req) => {
-    const r = await saxo.chooseInstrument(pool, await session(req), req.params.instrumentId, req.body.uic);
+    const r = await saxo.chooseInstrument(pool, await session(req), req.params.instrumentId, req.body.uic, { isAdmin: req.user.isAdmin });
     return { uic: Number(r.uic), symbol: r.saxo_symbol };
   });
 

@@ -105,6 +105,28 @@ paths:
                 required:
                   - error
                 additionalProperties: false
+        "429":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
   /api/v1/auth/mfa/verify:
     post:
       summary: "Iniciar sessão (2.º passo: código da aplicação ou de recuperação)"
@@ -4223,6 +4245,9 @@ paths:
       summary: Escolher o instrumento da SAXO que corresponde ao da aplicação
       tags:
         - SAXO
+      description: "Administradores: qualquer instrumento da SAXO. Restantes: só um
+        dos candidatos propostos (SAXO_AMBIGUOUS) de um instrumento ainda sem
+        ligação (403)."
       requestBody:
         required: true
         content:

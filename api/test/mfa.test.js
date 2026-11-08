@@ -75,6 +75,21 @@ describe.skipIf(!hasTestDb)('autenticação em dois passos', () => {
     expect((await inject('GET', '/me', cookie)).statusCode).toBe(401);
   });
 
+  it('códigos errados contam por conta, somando sessões: ao fim de 10 em 15 min recusa sem verificar', async () => {
+    ctx.cfg.testNoRateLimit = true; // só o limite por conta, não o por IP (os testes seguintes fazem mais pedidos)
+    for (let s = 0; s < 2; s++) {
+      const { cookie } = await loginPassword(ctx.app, 'eva@exemplo.pt');
+      for (let i = 0; i < 5; i++) await inject('POST', '/auth/mfa/verify', cookie, { code: '000000' });
+    }
+    await clearStep('eva@exemplo.pt');
+    const { cookie } = await loginPassword(ctx.app, 'eva@exemplo.pt');
+    const res = await inject('POST', '/auth/mfa/verify', cookie, { code: totp(TOTP_SECRET) });
+    expect(res.statusCode).toBe(429);
+    expect(res.json().error.code).toBe('MFA_THROTTLED');
+    await ctx.pool.query("DELETE FROM audit_log WHERE action = 'auth.mfa_failed'"); // os testes seguintes usam a eva
+    ctx.cfg.testNoRateLimit = false;
+  });
+
   it('sem 2.º factor, o login obriga a configurá-lo e devolve códigos de recuperação', async () => {
     const { cookie, body } = await loginPassword(ctx.app, 'rui@exemplo.pt');
     expect(body.mfa).toEqual({ enabled: false, pending: 'setup' });

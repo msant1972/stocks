@@ -199,7 +199,7 @@ export default async function adminRoutes(app, { pool, cfg }) {
   }, async (req) => {
     if (!cfg.alertsPython) throw new AppError(501, 'TEST_UNAVAILABLE', 'o motor de alertas não está disponível neste servidor');
     try {
-      const { stdout } = await run(cfg.alertsPython, ['-m', 'alerts', 'test', '--to', req.user.email], { timeout: 60_000, env: process.env });
+      const { stdout } = await run(cfg.alertsPython, ['-m', 'alerts', 'test', `--to=${req.user.email}`], { timeout: 60_000, env: process.env });
       await audit(pool, req.user.id, 'admin.smtp_test', 'smtp_settings', 1, { ok: true });
       return { ok: true, message: stdout.trim().split('\n').at(-1) || 'email de teste enviado' };
     } catch (err) {

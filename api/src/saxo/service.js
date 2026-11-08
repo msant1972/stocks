@@ -68,8 +68,21 @@ export async function loadInstrument(pool, instrumentId) {
 }
 
 /** Escolha manual de um candidato (revalidado nos detalhes da SAXO). Substitui a correspondência que houver. */
-export async function chooseInstrument(pool, session, instrumentId, uic) {
+export async function chooseInstrument(pool, session, instrumentId, uic, { isAdmin = false } = {}) {
   const inst = await loadInstrument(pool, instrumentId);
+  // A correspondência é partilhada (ordens de todos os utilizadores e da automação): fora da administração só se escolhe
+  // entre os candidatos que a SAXO propôs para um instrumento ainda sem ligação (ex.: SAXO_AMBIGUOUS no diálogo da ordem).
+  if (!isAdmin) {
+    if (await storedResolution(pool, inst.id, session.environment)) {
+      throw new AppError(403, 'FORBIDDEN', 'este instrumento já está ligado à SAXO Bank; só um administrador o pode mudar');
+    }
+    const [[issue]] = await pool.query('SELECT candidates FROM saxo_match_issues WHERE instrument_id = ? AND environment = ?', [inst.id, session.environment]);
+    let candidates = [];
+    try { candidates = JSON.parse(issue?.candidates ?? '[]'); } catch { candidates = []; }
+    if (!candidates.some((c) => Number(c.uic) === Number(uic))) {
+      throw new AppError(403, 'FORBIDDEN', 'escolha um dos instrumentos da SAXO propostos para este instrumento');
+    }
+  }
   const account = await pickAccount(session.client, inst.currency);
   const d = await session.client.get(`/ref/v1/instruments/details/${Number(uic)}/Stock`, { AccountKey: account.accountKey });
   if (!d?.Uic) throw new AppError(422, 'SAXO_INSTRUMENT_NOT_FOUND', 'instrumento não encontrado na SAXO Bank');

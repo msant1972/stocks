@@ -60,10 +60,16 @@ export function selectSignals(items, { lastFinal, today }) {
 /** Chave de idempotência da ordem, igual em qualquer repetição do mesmo sinal. */
 export const signalKey = (s, strategyId) => `auto-${strategyId}-${s.instrumentId}-${s.date.replaceAll('-', '')}-${s.side}`;
 
-/** Unidades que a automação tem de uma estratégia num instrumento: compras executadas menos vendas executadas. */
+/**
+ * Unidades que a automação tem de uma estratégia num instrumento: compras executadas menos vendas executadas e menos as
+ * vendas ainda abertas (inteiras), para um segundo sinal de venda não vender outra vez o que já está à venda.
+ */
 async function strategyHolding(pool, userId, strategyId, instrumentId) {
   const [[r]] = await pool.query(
-    `SELECT COALESCE(SUM(CASE WHEN o.side = 'buy' THEN COALESCE(o.filled_quantity, 0) ELSE -COALESCE(o.filled_quantity, 0) END), 0) AS qty
+    `SELECT COALESCE(SUM(CASE
+              WHEN o.side = 'buy' THEN COALESCE(o.filled_quantity, 0)
+              WHEN o.status IN ('sending', 'working', 'unknown') THEN -GREATEST(o.quantity, COALESCE(o.filled_quantity, 0))
+              ELSE -COALESCE(o.filled_quantity, 0) END), 0) AS qty
        FROM saxo_automation_orders a JOIN saxo_orders o ON o.id = a.order_id
       WHERE a.user_id = ? AND a.strategy_id = ? AND a.instrument_id = ?`,
     [userId, strategyId, instrumentId],
@@ -85,7 +91,7 @@ export async function lastFinalSession(pool, today) {
 const FATAL = new Set(['SAXO_TOKEN_EXPIRED', 'SAXO_NO_TOKEN', 'SAXO_LIVE_BLOCKED']);
 
 /** Trata um sinal; devolve o resultado para as contagens. Erros de ligação sobem e param a execução (sem registar o sinal). */
-async function handleSignal(pool, cfg, session, s, strategy, { getHeld, wait }) {
+async function handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld, wait }) {
   const userId = session.userId;
   const unique = [userId, strategy.id, s.instrumentId, s.date, s.side];
   const [[seen]] = await pool.query(
@@ -112,6 +118,8 @@ async function handleSignal(pool, cfg, session, s, strategy, { getHeld, wait }) 
     const quantity = Math.min(own, held);
     if (quantity <= 0) return finish('skipped', 'a conta SAXO já não tem esta posição');
     params = { side: 'sell', quantity, orderType: 'market' };
+    // Já conta como vendida para as estratégias seguintes desta execução (a posição da conta só é lida uma vez).
+    takeHeld(s.instrumentId, quantity);
   } else {
     const quantity = buyQuantity(strategy.budget, s.lastClose);
     if (quantity < 1) return finish('skipped', `o orçamento da estratégia não chega para uma unidade a ${s.lastClose}`);
@@ -159,13 +167,14 @@ export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSign
     }
     return held.get(instrumentId) ?? 0;
   };
+  const takeHeld = (instrumentId, quantity) => held?.set(instrumentId, (held.get(instrumentId) ?? 0) - quantity);
   const counts = {};
   for (const { strategy_id: id } of rows) {
     const strategy = getStrategy(id);
     if (!strategy?.available) continue;
     const items = selectSignals(await loadSignals(strategy), { lastFinal, today: clock.date });
     for (const s of items) {
-      const outcome = await handleSignal(pool, cfg, session, s, strategy, { getHeld, wait });
+      const outcome = await handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld, wait });
       counts[outcome] = (counts[outcome] ?? 0) + 1;
     }
   }

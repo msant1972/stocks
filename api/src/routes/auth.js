@@ -17,9 +17,31 @@ const RecoveryCodes = z.object({ recoveryCodes: z.array(z.string()) });
 
 const pendingFor = (stage, enabled) => (stage === 'mfa_verify' ? 'verify' : enabled ? null : 'setup');
 
+// Limites por conta, somando todas as sessões e IPs (os limites por IP e por sessão não travam quem muda de IP ou de sessão).
+const ACCOUNT_WINDOW_MINUTES = 15;
+export const MAX_LOGIN_FAILURES_PER_ACCOUNT = 20; // palavras-passe erradas para o mesmo email
+export const MAX_CODE_FAILURES_PER_ACCOUNT = 10;  // códigos errados do 2.º factor para a mesma conta
+
 export default async function authRoutes(app, { pool, cfg, cookieOptions }) {
   const restrictedCookie = { ...cookieOptions, maxAge: RESTRICTED_MINUTES * 60 };
   const codeLimit = { rateLimit: { max: 20, timeWindow: '15 minutes' } };
+
+  /** Tentativas falhadas recentes de uma acção do registo de auditoria (por utilizador, ou pelo email no detalhe). */
+  async function recentFailures(action, { userId = null, detail = null }) {
+    const [[r]] = await pool.query(
+      `SELECT COUNT(*) AS n FROM audit_log
+        WHERE action = ? AND created_at > NOW(3) - INTERVAL ? MINUTE AND ${userId != null ? 'user_id = ?' : 'detail = ?'}`,
+      [action, ACCOUNT_WINDOW_MINUTES, userId ?? detail],
+    );
+    return Number(r.n);
+  }
+
+  /** Antes de verificar um código: demasiados códigos errados nesta conta → 429, sem verificar. */
+  async function guardCodes(req) {
+    if (await recentFailures('auth.mfa_failed', { userId: req.user.id }) >= MAX_CODE_FAILURES_PER_ACCOUNT) {
+      throw new AppError(429, 'MFA_THROTTLED', `demasiados códigos errados nesta conta; tente daqui a ${ACCOUNT_WINDOW_MINUTES} minutos`);
+    }
+  }
 
   /** Código errado: conta na sessão e, ao fim de MAX_MFA_FAILURES, termina-a. */
   async function wrongCode(req, reply) {
@@ -46,10 +68,15 @@ export default async function authRoutes(app, { pool, cfg, cookieOptions }) {
       description: 'Cria uma sessão restrita de 15 minutos. O passo seguinte é indicado em mfa.pending: '
         + '"verify" (POST /auth/mfa/verify) ou "setup" (POST /auth/mfa/setup e /auth/mfa/enable).',
       body: z.object({ email: z.string().max(255), password: z.string().max(200) }),
-      response: { 200: Session, 401: ErrorBody },
+      response: { 200: Session, 401: ErrorBody, 429: ErrorBody },
     },
   }, async (req, reply) => {
     const email = normaliseEmail(req.body.email);
+    // Por email (exista ou não a conta, para não revelar quais existem): ao fim de muitas falhas, recusa sem verificar.
+    if (await recentFailures('auth.login_failed', { detail: JSON.stringify({ email }) }) >= MAX_LOGIN_FAILURES_PER_ACCOUNT) {
+      await burnPasswordCheck(req.body.password);
+      throw new AppError(429, 'LOGIN_THROTTLED', `demasiadas tentativas para esta conta; tente daqui a ${ACCOUNT_WINDOW_MINUTES} minutos`);
+    }
     const [[u]] = await pool.query(
       'SELECT id, email, name, is_admin, password_hash, totp_enabled_at FROM users WHERE email = ? AND disabled_at IS NULL',
       [email],
@@ -79,6 +106,7 @@ export default async function authRoutes(app, { pool, cfg, cookieOptions }) {
     },
   }, async (req, reply) => {
     if (req.mfa.stage !== 'mfa_verify') throw new AppError(409, 'MFA_NOT_PENDING', 'esta sessão não está à espera de um código');
+    await guardCodes(req);
     const key = mfa.requireKey(cfg);
     const method = await mfa.verifyCode(pool, key, req.user.id, req.body.code);
     if (!method) throw await wrongCode(req, reply);
@@ -118,6 +146,7 @@ export default async function authRoutes(app, { pool, cfg, cookieOptions }) {
     },
   }, async (req, reply) => {
     canSetup(req);
+    await guardCodes(req);
     const codes = await mfa.enable(pool, mfa.requireKey(cfg), req.user.id, req.body.code);
     if (!codes) throw await wrongCode(req, reply);
     // enable() terminou todas as sessões, incluindo esta: cria-se uma nova, completa.
@@ -155,6 +184,7 @@ export default async function authRoutes(app, { pool, cfg, cookieOptions }) {
       response: { 200: RecoveryCodes, 400: ErrorBody, 401: ErrorBody },
     },
   }, async (req, reply) => {
+    await guardCodes(req);
     const method = await mfa.verifyCode(pool, mfa.requireKey(cfg), req.user.id, req.body.code);
     if (!method) throw await wrongCode(req, reply);
     return { recoveryCodes: await mfa.regenerateRecoveryCodes(pool, req.user.id) };
@@ -174,6 +204,7 @@ export default async function authRoutes(app, { pool, cfg, cookieOptions }) {
     if (!(await verifyPassword(req.body.password, u.password_hash))) {
       throw new AppError(400, 'INVALID_CREDENTIALS', 'a palavra-passe está incorrecta');
     }
+    await guardCodes(req);
     const method = await mfa.verifyCode(pool, mfa.requireKey(cfg), req.user.id, req.body.code);
     if (!method) throw await wrongCode(req, reply);
     await withTransaction(pool, async (conn) => {

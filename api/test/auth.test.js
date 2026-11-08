@@ -26,6 +26,26 @@ describe.skipIf(!hasTestDb)('autenticação e sessões', () => {
     }
   });
 
+  it('muitas palavras-passe erradas para o mesmo email recusam o login por 15 min, exista ou não a conta', async () => {
+    await makeUser(ctx.pool, 'ze@exemplo.pt');
+    for (const email of ['ze@exemplo.pt', 'fantasma@exemplo.pt']) {
+      const rows = Array.from({ length: 20 }, () => ['auth.login_failed', JSON.stringify({ email })]);
+      await ctx.pool.query('INSERT INTO audit_log (action, detail) VALUES ?', [rows]);
+      const res = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password: PASSWORD } });
+      expect(res.statusCode).toBe(429);
+      expect(res.json().error.code).toBe('LOGIN_THROTTLED');
+    }
+    await ctx.pool.query("UPDATE audit_log SET created_at = NOW(3) - INTERVAL 16 MINUTE WHERE action = 'auth.login_failed'");
+    const ok = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: 'ze@exemplo.pt', password: PASSWORD } });
+    expect(ok.statusCode).toBe(200);
+  });
+
+  it('a documentação da API só abre com sessão', async () => {
+    expect((await ctx.app.inject({ method: 'GET', url: '/api/docs/json' })).statusCode).toBe(401);
+    const cookie = await login(ctx.app, 'ana@exemplo.pt');
+    expect((await ctx.app.inject({ method: 'GET', url: '/api/docs/json', headers: { cookie } })).statusCode).toBe(200);
+  });
+
   it('inicia sessão com cookie HttpOnly e SameSite=Strict, e termina-a', async () => {
     const res = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: ' ANA@exemplo.pt ', password: PASSWORD } });
     expect(res.statusCode).toBe(200);
@@ -41,12 +61,17 @@ describe.skipIf(!hasTestDb)('autenticação e sessões', () => {
     expect((await api(ctx.app, cookie).get('/me')).statusCode).toBe(401);
   });
 
-  it('cada login apaga as sessões expiradas do utilizador', async () => {
+  it('cada login apaga as sessões expiradas, de todos os utilizadores', async () => {
     const [[{ id }]] = await ctx.pool.query("SELECT id FROM users WHERE email = 'ana@exemplo.pt'");
     await ctx.pool.query("INSERT INTO sessions (token_hash, user_id, stage, expires_at) VALUES (REPEAT('a', 64), ?, 'mfa_verify', NOW(3) - INTERVAL 1 DAY)", [id]);
     await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: 'ana@exemplo.pt', password: PASSWORD } });
     const [[{ n }]] = await ctx.pool.query('SELECT COUNT(*) AS n FROM sessions WHERE user_id = ? AND expires_at <= NOW(3)', [id]);
     expect(Number(n)).toBe(0);
+    await ctx.pool.query("INSERT INTO sessions (token_hash, user_id, stage, expires_at) VALUES (REPEAT('b', 64), ?, 'mfa_verify', NOW(3) - INTERVAL 1 DAY)", [id]);
+    await makeUser(ctx.pool, 'outra@exemplo.pt');
+    await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: 'outra@exemplo.pt', password: PASSWORD } });
+    const [[{ m }]] = await ctx.pool.query('SELECT COUNT(*) AS m FROM sessions WHERE expires_at <= NOW(3)');
+    expect(Number(m)).toBe(0);
   });
 
   it('não guarda o token em claro', async () => {

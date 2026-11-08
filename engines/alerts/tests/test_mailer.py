@@ -47,3 +47,29 @@ def test_mensagem_recusada_continua_a_ser_falha(monkeypatch):
     monkeypatch.setattr(smtplib, "SMTP", lambda *a, **k: FakeSmtp(data_code=554))
     with pytest.raises(SendFailed):
         SmtpMailer(SETTINGS).send(message())
+
+
+class LoginSmtp(FakeSmtp):
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.logged_in = False
+
+    def login(self, user, password):
+        self.logged_in = True
+
+
+def test_autenticacao_sem_tls_num_servidor_remoto_e_recusada(monkeypatch):
+    servers = []
+    monkeypatch.setattr(smtplib, "SMTP", lambda *a, **k: servers.append(LoginSmtp()) or servers[-1])
+    remote = SmtpSettings(host="smtp.exemplo.pt", port=25, user="ana", password="segredo", sender="stocks@exemplo.pt", security="none")
+    with pytest.raises(SendFailed, match="sem TLS"):
+        SmtpMailer(remote).send(message())
+    assert not servers[0].logged_in  # a palavra-passe nunca saiu
+
+
+def test_autenticacao_sem_tls_num_servidor_local_e_aceite(monkeypatch):
+    servers = []
+    monkeypatch.setattr(smtplib, "SMTP", lambda *a, **k: servers.append(LoginSmtp()) or servers[-1])
+    local = SmtpSettings(host="localhost", port=25, user="ana", password="segredo", sender="stocks@exemplo.pt", security="none")
+    SmtpMailer(local).send(message())
+    assert servers[0].logged_in

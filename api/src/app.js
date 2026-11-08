@@ -34,6 +34,10 @@ export async function buildApp({ pool, cfg, logger = true, warm = false }) {
     logger: logger && {
       level: cfg.logLevel,
       redact: ['req.headers.cookie', 'req.headers.authorization', 'res.headers["set-cookie"]'],
+      // O retorno da SAXO traz o código de autorização e o state no endereço: não ficam nos registos.
+      serializers: {
+        req: (req) => ({ method: req.method, url: String(req.url).replace(/^(\/api\/v1\/integrations\/saxo\/callback)\?.*$/, '$1?…'), host: req.host, remoteAddress: req.ip }),
+      },
     },
     trustProxy: '127.0.0.1',
     bodyLimit: 256 * 1024,
@@ -87,7 +91,19 @@ export async function buildApp({ pool, cfg, logger = true, warm = false }) {
     },
     transform: jsonSchemaTransform,
   });
-  await app.register(swaggerUi, { routePrefix: '/api/docs' });
+  // Documentação da API só para quem tem sessão completa (não se publica o mapa da API a visitantes anónimos).
+  await app.register(swaggerUi, {
+    routePrefix: '/api/docs',
+    uiHooks: {
+      onRequest: async (req, reply) => {
+        const user = await resolveSession(pool, req.cookies?.[SESSION_COOKIE], cfg.sessionDays);
+        if (!user || user.stage !== 'full' || !user.mfaEnabled) {
+          return reply.code(401).send({ error: { code: 'UNAUTHENTICATED', message: 'sessão inexistente ou expirada' } });
+        }
+        return undefined;
+      },
+    },
+  });
 
   app.get('/health/live', { schema: { hide: true } }, async () => ({ status: 'ok' }));
   app.get('/health/ready', { schema: { hide: true } }, async (req, reply) => {

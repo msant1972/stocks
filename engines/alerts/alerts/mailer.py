@@ -6,6 +6,8 @@ from email.utils import make_msgid
 
 from .config import SmtpSettings
 
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
 
 class SendFailed(Exception):
     """O servidor não aceitou a mensagem; é seguro voltar a tentar mais tarde."""
@@ -37,6 +39,9 @@ class SmtpMailer:
                     smtp.starttls(context=context)
                     smtp.ehlo()
                 if s.user:
+                    # Sem TLS, a palavra-passe iria às claras pela rede: só se aceita num servidor da própria máquina.
+                    if s.security == "none" and s.host not in LOCAL_HOSTS:
+                        raise SendFailed("autenticação SMTP sem TLS recusada: escolha STARTTLS ou SSL (ou um servidor local)")
                     smtp.login(s.user, s.password or "")
                 code, resp = smtp.mail(s.sender)
                 if code != 250:

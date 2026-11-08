@@ -253,9 +253,13 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     expect(res.statusCode).toBe(409);
     expect(res.json().error).toMatchObject({ code: 'SAXO_AMBIGUOUS' });
     expect(res.json().error.details.candidates.map((c) => c.uic)).toEqual([23737, 999]);
+    const outsider = await ana.post(`/saxo/instruments/${galp}/match`, { uic: 555 });
+    expect(outsider.statusCode).toBe(403); // fora da administração, só os candidatos propostos
     const choose = await ana.post(`/saxo/instruments/${galp}/match`, { uic: 23737 });
     expect(choose.json()).toEqual({ uic: 23737, symbol: 'GALP:xlis' });
     expect((await preview()).statusCode).toBe(200);
+    const change = await ana.post(`/saxo/instruments/${galp}/match`, { uic: 999 });
+    expect(change.statusCode).toBe(403); // já ligado: só um administrador muda a correspondência
   });
 
   it('instrumento que não existe na SAXO → 422', async () => {

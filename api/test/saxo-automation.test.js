@@ -217,6 +217,33 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     expect(sell.OrderPrice).toBeUndefined();
   });
 
+  it('duas estratégias a vender o mesmo instrumento na mesma execução não vendem mais do que a conta tem', async () => {
+    const f = use({ positions: [[23737, 1200]] });
+    await turnOn('a-momentum');
+    await turnOn('b-opus');
+    await run({ 'a-momentum': [signal()], 'b-opus': [signal()] });
+    await ctx.pool.query("UPDATE saxo_orders SET status = 'filled', filled_quantity = 1000, fill_price = 10");
+    await ctx.pool.query('DELETE FROM saxo_automation_runs');
+    await run({ 'a-momentum': [signal({ side: 'sell' })], 'b-opus': [signal({ side: 'sell' })] });
+    const sells = f.orders.filter((o) => o.body.BuySell === 'Sell').map((o) => o.body.Amount);
+    expect(sells).toEqual([1000, 200]);
+  });
+
+  it('uma venda ainda aberta conta como vendida: outro sinal de venda não vende de novo', async () => {
+    const f = use({ positions: [[23737, 1000]] });
+    await turnOn();
+    await run({ 'a-momentum': [signal()] });
+    await ctx.pool.query("UPDATE saxo_orders SET status = 'filled', filled_quantity = 1000, fill_price = 10");
+    await ctx.pool.query('DELETE FROM saxo_automation_runs');
+    await run({ 'a-momentum': [signal({ side: 'sell' })] });
+    expect(f.orders.filter((o) => o.body.BuySell === 'Sell')).toHaveLength(1);
+    await ctx.pool.query("UPDATE saxo_orders SET status = 'working' WHERE side = 'sell'");
+    await ctx.pool.query('DELETE FROM saxo_automation_runs');
+    await run({ 'a-momentum': [signal({ side: 'sell', date: '2026-11-06' })] });
+    expect(f.orders.filter((o) => o.body.BuySell === 'Sell')).toHaveLength(1);
+    expect((await list()).find((i) => i.signalDate === '2026-11-06')).toMatchObject({ outcome: 'skipped' });
+  });
+
   it('venda sem posição da automação: não vende posições manuais nem as de outra estratégia', async () => {
     const f = use({ positions: [[23737, 500]] });
     await turnOn();
