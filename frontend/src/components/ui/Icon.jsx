@@ -32,6 +32,7 @@ const PATHS = {
   charts: 'M7 3v3m0 12v3M5 6h4v12H5V6Zm10-1v4m0 8v4m-2-12h4v8h-4V9Z',
   link: 'M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1',
   automation: 'M13 3 5 14h6l-1 7 8-11h-6l1-7Z',
+  timelapse: 'M4 6h12M4 12h8M4 18h15M19 3v6m3-3h-6',
   heatmap: 'M3 4h10v9H3V4Zm12 0h6v5h-6V4Zm0 7h6v9h-6v-9ZM3 15h10v5H3v-5Z',
 };
 

@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { IsoDate } from '../schemas.js';
 import { TURNOVER_SQL, turnoverSeries, turnoverSummary, yearsBeforeIso } from '../services/turnover.js';
 import { MARKET_CAP_COVERAGE_SQL, MARKET_CAP_SQL, marketCapByDate } from '../services/marketcap.js';
+import { buildFrames, DATES_SQL, SESSIONS, TOP, VALUES_SQL, WINDOW } from '../services/timelapse.js';
+import { getPortfolio, openSession } from '../saxo/service.js';
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
 const NEUTRAL_BAND = 1;       // % — a mesma zona neutra da estratégia
@@ -28,7 +30,7 @@ async function computeMomentum(pool) {
   }));
 }
 
-export default async function marketRoutes(app, { pool }) {
+export default async function marketRoutes(app, { pool, cfg }) {
   let cache = null;
   let turnoverCache = null;
   let capCache = null;
@@ -37,6 +39,16 @@ export default async function marketRoutes(app, { pool }) {
    * Série diária do catálogo (valor negociado ou capitalização): janela de 2 anos com a SMA200, resumo e a sessão em
    * curso à parte. `sql` recebe a data inicial; `toSessions` converte as linhas em { date, value, instruments } por sessão.
    */
+  /** A sessão `date` é a de hoje e só tem dados da recolha horária (ainda não fechou)? */
+  async function isProvisional(date) {
+    const [[runs]] = await pool.query(
+      `SELECT (SELECT MAX(started_at) FROM job_runs WHERE kind = 'fetch_update' AND status = 'done') AS daily,
+              (SELECT MAX(started_at) FROM job_runs WHERE kind = 'fetch_intraday' AND status = 'done') AS intraday`,
+    );
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date());
+    return Boolean(date === today && runs.intraday && (!runs.daily || runs.intraday > runs.daily));
+  }
+
   async function dailySeries(sql, toSessions = (rows) => rows) {
     const [[last]] = await pool.query("SELECT MAX(last_session) AS d FROM instruments WHERE status = 'active'");
     let points = [];
@@ -45,12 +57,7 @@ export default async function marketRoutes(app, { pool }) {
       const [rows] = await pool.query(sql, [yearsBeforeIso(last.d, 4)]);
       points = turnoverSeries(toSessions(rows), { years: 2, smaN: 200 });
     }
-    const [[runs]] = await pool.query(
-      `SELECT (SELECT MAX(started_at) FROM job_runs WHERE kind = 'fetch_update' AND status = 'done') AS daily,
-              (SELECT MAX(started_at) FROM job_runs WHERE kind = 'fetch_intraday' AND status = 'done') AS intraday`,
-    );
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Lisbon' }).format(new Date());
-    const provisional = Boolean(points.at(-1)?.date === today && runs.intraday && (!runs.daily || runs.intraday > runs.daily));
+    const provisional = await isProvisional(points.at(-1)?.date);
     // A sessão em curso tem só parte do dia: fica à parte, fora do gráfico e da comparação com a média.
     const partial = provisional ? { date: points.at(-1).date, value: points.at(-1).value, instruments: points.at(-1).instruments } : null;
     if (provisional) points = points.slice(0, -1);
@@ -106,6 +113,70 @@ export default async function marketRoutes(app, { pool }) {
       capCache = { at: Date.now(), payload: { ...(await dailySeries(MARKET_CAP_SQL, marketCapByDate)), coverage, currency: 'EUR' } };
     }
     return capCache.payload;
+  });
+
+  // ---------- Timelapse: top 30 do valor negociado de 10 sessões, nas últimas 22 sessões ----------
+
+  let timelapseCache = null;
+  /** Sessões e valores negociados de todo o catálogo (10 min em cache); o universo filtra-se depois. */
+  async function timelapseData() {
+    if (timelapseCache && Date.now() - timelapseCache.at < CACHE_MS) return timelapseCache;
+    const [[last]] = await pool.query("SELECT MAX(last_session) AS d FROM instruments WHERE status = 'active'");
+    if (!last?.d) return { at: Date.now(), dates: [], rows: [], partial: null };
+    const since = yearsBeforeIso(last.d, 1); // 22 + 9 sessões cabem com folga em 3 meses; 1 ano evita surpresas
+    const [d] = await pool.query(DATES_SQL, [since, SESSIONS + WINDOW]);
+    let dates = d.map((r) => r.date).reverse();
+    // A sessão em curso só tem parte do dia: ficaria sempre por baixo. Fica de fora até a recolha diária a fechar.
+    const partial = (await isProvisional(dates.at(-1))) ? dates.at(-1) : null;
+    if (partial) dates = dates.slice(0, -1);
+    dates = dates.slice(-(SESSIONS + WINDOW - 1));
+    const [rows] = dates.length ? await pool.query(VALUES_SQL, [dates[0]]) : [[]];
+    const [names] = await pool.query("SELECT id, symbol, name FROM instruments WHERE status = 'active'");
+    timelapseCache = { at: Date.now(), dates, rows, partial, names: new Map(names.map((n) => [Number(n.id), n])) };
+    return timelapseCache;
+  }
+
+  /** Ids do universo: a lista de acompanhamento, as posições da conta SAXO ou todo o catálogo (null). */
+  async function universeIds(universe, userId) {
+    if (universe === 'catalogo') return null;
+    if (universe === 'lista') {
+      const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [userId]);
+      return new Set(w.map((r) => Number(r.instrument_id)));
+    }
+    const p = await getPortfolio(pool, await openSession(pool, cfg, userId));
+    return new Set(p.positions.map((x) => x.instrumentId).filter((x) => x != null));
+  }
+
+  app.get('/market/timelapse', {
+    schema: {
+      tags: ['Mercado'], summary: 'Top 30 do valor negociado de 10 sessões, em cada uma das últimas 22 sessões (Timelapse)',
+      description: 'Valor negociado de uma sessão = volume × (abertura + mínimo + máximo + fecho) / 4, em euros; cada ponto soma as 10 sessões '
+        + 'até essa data. Universo: lista (a minha lista), saxo (posições da conta SAXO; sem ligação, os erros SAXO_*) ou catalogo. '
+        + 'A sessão em curso fica de fora (`partialExcluded`).',
+      querystring: z.object({ universe: z.enum(['lista', 'saxo', 'catalogo']).default('catalogo') }),
+      response: {
+        200: z.object({
+          universe: z.enum(['lista', 'saxo', 'catalogo']), window: z.number(), sessions: z.number(), top: z.number(),
+          size: z.number().describe('Instrumentos no universo'),
+          partialExcluded: IsoDate.nullable(),
+          instruments: z.array(z.object({ id: z.number(), symbol: z.string(), name: z.string().nullable() })),
+          frames: z.array(z.object({ date: IsoDate, from: IsoDate, items: z.array(z.object({ id: z.number(), value: z.number() })) })),
+        }),
+        409: z.object({}).passthrough(), 502: z.object({}).passthrough(),
+      },
+    },
+  }, async (req) => {
+    const { universe } = req.query;
+    const data = await timelapseData();
+    const only = await universeIds(universe, req.user.id);
+    const frames = buildFrames(data.dates, data.rows, { only });
+    const ids = new Set(frames.flatMap((f) => f.items.map((i) => i.id)));
+    const instruments = [...ids].map((id) => data.names.get(id)).filter(Boolean)
+      .map((n) => ({ id: Number(n.id), symbol: n.symbol, name: n.name ?? null }));
+    return {
+      universe, window: WINDOW, sessions: SESSIONS, top: TOP, size: only ? only.size : data.names.size,
+      partialExcluded: data.partial, instruments, frames,
+    };
   });
 
   app.get('/market/momentum', {

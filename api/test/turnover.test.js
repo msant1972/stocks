@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { turnoverSeries, turnoverSummary, yearsBeforeIso } from '../src/services/turnover.js';
 import { marketCapByDate } from '../src/services/marketcap.js';
+import { buildFrames } from '../src/services/timelapse.js';
 
 const days = (n, start = '2023-01-02') => {
   const out = [];
@@ -53,5 +54,27 @@ describe('capitalização (Calor)', () => {
       { date: '2025-01-10', value: 120, instruments: 1 },
     ]);
     expect(marketCapByDate([])).toEqual([]);
+  });
+});
+
+describe('timelapse: top do valor negociado de 10 sessões', () => {
+  const dates = Array.from({ length: 12 }, (_, i) => `2026-10-${String(i + 1).padStart(2, '0')}`);
+  // A negoceia 100 por sessão; B 0 até à 9.ª e depois 1000; C só no universo «outro».
+  const rows = dates.flatMap((date, i) => [{ id: 1, date, value: 100 }, ...(i >= 9 ? [{ id: 2, date, value: '1000' }] : []), { id: 3, date, value: 5 }]);
+
+  it('soma as 10 sessões até cada data e ordena; B passa à frente quando ganha peso', () => {
+    const f = buildFrames(dates, rows, { window: 10, sessions: 22, top: 2 });
+    expect(f.map((x) => [x.from, x.date])).toEqual([['2026-10-01', '2026-10-10'], ['2026-10-02', '2026-10-11'], ['2026-10-03', '2026-10-12']]);
+    expect(f[0].items).toEqual([{ id: 1, value: 1000 }, { id: 2, value: 1000 }]); // empate: o id mais baixo primeiro
+    expect(f[2].items).toEqual([{ id: 2, value: 3000 }, { id: 1, value: 1000 }]);
+  });
+
+  it('só o universo pedido, só os últimos `sessions` pontos e sem valores nulos', () => {
+    const f = buildFrames(dates, rows, { only: new Set([1, 3]), window: 10, sessions: 2, top: 30 });
+    expect(f.map((x) => x.date)).toEqual(['2026-10-11', '2026-10-12']);
+    expect(f[1].items).toEqual([{ id: 1, value: 1000 }, { id: 3, value: 50 }]);
+    expect(buildFrames(dates.slice(0, 5), rows)).toEqual([]); // menos de 10 sessões: nenhum ponto
+    expect(buildFrames([], [])).toEqual([]);
+    expect(buildFrames(dates, rows, { only: new Set() })).toEqual([]); // universo vazio: sem sessões vazias
   });
 });

@@ -11,6 +11,7 @@ import OverviewPage from '../features/overview/OverviewPage.jsx';
 const WatchlistPage = lazy(() => import('../features/watchlist/WatchlistPage.jsx'));
 const ChartsPage = lazy(() => import('../features/charts/ChartsPage.jsx'));
 const HeatmapPage = lazy(() => import('../features/heatmap/HeatmapPage.jsx'));
+const TimelapsePage = lazy(() => import('../features/timelapse/TimelapsePage.jsx'));
 const OrderbookPage = lazy(() => import('../features/orderbook/OrderbookPage.jsx'));
 const InstrumentRedirect = lazy(() => import('../features/instruments/InstrumentRedirect.jsx'));
 const SaxoOrdersPage = lazy(() => import('../features/saxo/SaxoOrdersPage.jsx'));
@@ -51,6 +52,7 @@ export default function App() {
           <Route path="charts" element={<ChartsPage />} />
           <Route path="orderbook" element={<OrderbookPage />} />
           <Route path="heatmap" element={<HeatmapPage />} />
+          <Route path="timelapse" element={<TimelapsePage />} />
           <Route path="instrumentos/:id" element={<InstrumentRedirect />} />
           <Route path="carteira" element={<Navigate to="/saxo/carteira" replace />} />
           <Route path="operacoes" element={<Navigate to="/saxo/ordens" replace />} />

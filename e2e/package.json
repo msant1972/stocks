@@ -1,0 +1,12 @@
+{
+  "name": "stocks-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Testes no navegador (Playwright): a aplicação inteira contra a base de dados de testes e uma SAXO falsa.",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0"
+  }
+}

@@ -18,6 +18,7 @@ const NAV_GROUPS = [
       { to: '/charts', label: 'Charts', icon: 'charts' },
       { to: '/orderbook', label: 'Orderbook', icon: 'orderbook' },
       { to: '/heatmap', label: 'HeatMap', icon: 'heatmap' },
+      { to: '/timelapse', label: 'Timelapse', icon: 'timelapse' },
       { to: '/alertas', label: 'Alertas', icon: 'alerts' },
     ],
   },

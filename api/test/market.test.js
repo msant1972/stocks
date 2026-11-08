@@ -127,3 +127,41 @@ describe.skipIf(!hasTestDb)('calor: capitalização do catálogo', () => {
     expect(b).toMatchObject({ partial: null, coverage: { total: 3, withShares: 2 }, currency: 'EUR' });
   });
 });
+
+describe.skipIf(!hasTestDb)('timelapse: top do valor negociado', () => {
+  let ctx;
+  let ana;
+  let a;
+  beforeAll(async () => {
+    ctx = await setup();
+    await makeUser(ctx.pool, 'tl@exemplo.pt');
+    ana = api(ctx.app, await login(ctx.app, 'tl@exemplo.pt'));
+    const sessions = Array.from({ length: 12 }, (_, i) => new Date(Date.UTC(2026, 9, 1 + i)).toISOString().slice(0, 10));
+    a = await makeInstrument(ctx.pool, 'A.LS', { closes: sessions.map(() => '10'), sessions }); // 10 000 por sessão
+    await makeInstrument(ctx.pool, 'B.LS', { closes: sessions.map(() => '20'), sessions });     // 20 000 por sessão
+    await ana.post('/watchlist/items', { instrumentId: a });
+  });
+  afterAll(async () => {
+    await ctx.app.close();
+    await ctx.pool.end();
+  });
+
+  it('catálogo e lista: top por 10 sessões, do mais antigo para o mais recente', async () => {
+    const res = await ana.get('/market/timelapse');
+    expect(res.statusCode).toBe(200);
+    const b = res.json();
+    expect(b).toMatchObject({ universe: 'catalogo', window: 10, sessions: 22, top: 30, size: 2, partialExcluded: null });
+    expect(b.frames.map((f) => f.date)).toEqual(['2026-10-10', '2026-10-11', '2026-10-12']);
+    expect(b.frames[0]).toMatchObject({ from: '2026-10-01', items: [{ value: 200000 }, { id: a, value: 100000 }] });
+    expect(b.instruments.map((i) => i.symbol).sort()).toEqual(['A.LS', 'B.LS']);
+    const lista = (await ana.get('/market/timelapse?universe=lista')).json();
+    expect(lista).toMatchObject({ universe: 'lista', size: 1, instruments: [{ id: a, symbol: 'A.LS' }] });
+    expect(lista.frames.every((f) => f.items.length === 1 && f.items[0].id === a)).toBe(true);
+  });
+
+  it('Saxo sem ligação: diz que não está ligado', async () => {
+    const res = await ana.get('/market/timelapse?universe=saxo');
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe('SAXO_NO_TOKEN');
+  });
+});
