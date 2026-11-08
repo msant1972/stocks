@@ -254,6 +254,27 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     expect(item.message).toMatch(/sem posição/);
   });
 
+  it('face ao BackTest: preço executado contra o do BackTest (fecho na A-Momentum, abertura nas outras) e ordens não executadas', async () => {
+    await turnOn('a-momentum');
+    await turnOn('b-opus');
+    await run({ 'a-momentum': [signal()], 'b-opus': [signal({ price: '9.900000' })] });
+    const setBy = (strategy, sql) => ctx.pool.query(`UPDATE saxo_orders o JOIN saxo_automation_orders a ON a.order_id = o.id SET ${sql} WHERE a.strategy_id = ?`, [strategy]);
+    await setBy('a-momentum', "o.status = 'filled', o.filled_quantity = o.quantity, o.fill_price = 10.2");
+    await setBy('b-opus', "o.status = 'expired'");
+    const res = await ana.get('/saxo/automation/comparison');
+    expect(res.statusCode).toBe(200);
+    const { summary, items } = res.json();
+    expect(summary).toMatchObject({ sent: 2, filled: 1, missed: 1, pending: 0, fillRatePct: 50, measured: 1, deviationPct: 2 });
+    const a = items.find((i) => i.strategy === 'a-momentum');
+    expect(a).toMatchObject({ execution: 'close', expectedPrice: 10, fillPrice: 10.2, state: 'filled', deviationPct: 2 });
+    expect(a.effect).toBeCloseTo(0.2 * a.filledQuantity, 2);
+    expect(summary.effect).toBeCloseTo(a.effect, 2);
+    expect(items.find((i) => i.strategy === 'b-opus')).toMatchObject({ execution: 'open', expectedPrice: 9.9, state: 'missed', deviationPct: null });
+    // A-Momentum com a sessão do sinal ainda provisória: o fecho do BackTest ainda não se conhece.
+    await ctx.pool.query('UPDATE daily_quotes SET provisional = 1 WHERE session_date = ?', [FINAL]);
+    expect((await ana.get('/saxo/automation/comparison')).json().items.find((i) => i.strategy === 'a-momentum').expectedPrice).toBeNull();
+  });
+
   it('recusa da SAXO fica registada com a ordem e não se repete', async () => {
     const f = use({ fail: () => json({ ErrorInfo: { Message: 'Saldo insuficiente' } }, 400) });
     await turnOn();

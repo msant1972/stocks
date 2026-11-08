@@ -6,6 +6,8 @@ import * as f from '../../lib/format.js';
 import { PnL } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Segmented } from '../../components/ui/controls.jsx';
+import { conditionParams, conditionQuery, describeConditions, readConditions, windowSummary } from '../../lib/testConditions.js';
+import { ConditionControls, ConditionsNote } from './Conditions.jsx';
 import SortHeader, { nextSort } from '../../components/ui/SortHeader.jsx';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
@@ -68,9 +70,10 @@ export default function BacktestPage() {
     setParam(s.key === 'total' && s.dir === 'desc' ? { ordem: null, sentido: null } : { ordem: s.key, sentido: s.dir });
   };
 
+  const conditions = readConditions(params);
   const bt = useQuery({
-    queryKey: ['backtest', strategyId, scope],
-    queryFn: () => api.get(`/backtest?strategy=${strategyId}&scope=${scope}`),
+    queryKey: ['backtest', strategyId, scope, conditions.period, conditions.costs],
+    queryFn: () => api.get(`/backtest?strategy=${strategyId}&scope=${scope}&${conditionQuery(conditions)}`),
     staleTime: 5 * 60_000,
   });
   const items = bt.data?.items;
@@ -100,8 +103,8 @@ export default function BacktestPage() {
         <div>
           <h1 className="page-title">BackTest</h1>
           <p className="page-sub">
-            Uma estratégia aplicada a cada instrumento nos últimos 2 anos, para ver onde funciona e onde não funciona.
-            Simulação no histórico, sem comissões; não envia ordens nem é uma recomendação.
+            Uma estratégia aplicada a cada instrumento {describeConditions(conditions)}, para ver onde funciona e onde não funciona.
+            Simulação no histórico; não envia ordens nem é uma recomendação.
           </p>
         </div>
         <div className="row" style={{ alignItems: 'center' }}>
@@ -110,6 +113,7 @@ export default function BacktestPage() {
           <StrategySelect value={strategyId} onChange={(id) => setParam({ estrategia: id === DEFAULT_STRATEGY_ID ? null : id })} />
           <Segmented label="Instrumentos" value={scope} onChange={(v) => setParam({ lista: v === 'watchlist' ? '1' : null })}
             options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />
+          <ConditionControls conditions={conditions} onChange={(c) => setParam(conditionParams(c))} />
         </div>
       </div>
 
@@ -131,7 +135,10 @@ export default function BacktestPage() {
                   <Stat label="Com perda" value={`${stats.losses}${pctOf(stats.losses, stats.traded)}`} tone="negative" />
                   <Stat label="Melhor que comprar e manter" value={`${stats.beat}${pctOf(stats.beat, stats.traded)}`} />
                   <Stat label="Soma dos resultados" value={<PnL value={stats.sum.toFixed(2)} />}
-                    hint={bt.data.budget ? `${bt.data.budget.toLocaleString('pt-PT')} € por compra` : null} />
+                    hint={bt.data.budget ? `${bt.data.budget.toLocaleString('pt-PT')} € por compra${conditions.costs ? ', depois dos custos' : ''}` : null} />
+                </div>
+                <div style={{ marginTop: '0.75rem' }}>
+                  <ConditionsNote data={{ ...windowSummary(items), costModel: bt.data.costModel }} conditions={conditions} />
                 </div>
               </section>
 

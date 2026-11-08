@@ -28,18 +28,19 @@ def instrument(conn, symbol):
     return row
 
 
-def test_initial_load_covers_three_years_of_weekdays(conn, settings):
+def test_initial_load_covers_five_years_of_weekdays(conn, settings):
+    """5 anos: os 2 dos gráficos e do BackTest, os 2 do período de verificação e 1 de aquecimento das médias."""
     provider = FakeProvider()
     db.add_instrument(conn, "ASML.AS")
     assert run_pending(conn, provider, settings, TODAY) == 1
 
     row = instrument(conn, "ASML.AS")
     assert row["status"] == "active" and row["currency"] == "EUR"
-    assert row["first_session"] >= date(2023, 10, 16)
-    assert row["first_session"] <= date(2023, 10, 20)
+    assert row["first_session"] >= date(2021, 10, 18)
+    assert row["first_session"] <= date(2021, 10, 22)
     assert row["last_session"] == TODAY
     sessions = count(conn, "SELECT COUNT(*) FROM daily_quotes")
-    assert 775 <= sessions <= 790
+    assert 1300 <= sessions <= 1310
     # Fins-de-semana não são inventados.
     assert count(conn, "SELECT COUNT(*) FROM daily_quotes WHERE DAYOFWEEK(session_date) IN (1, 7)") == 0
     # Os dois anos mostrados nos gráficos já têm SMA200.

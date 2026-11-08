@@ -183,6 +183,38 @@ test('Timelapse: anima o top sessão a sessão, nos três universos', async () =
   await expect(page.getByRole('heading', { level: 1 })).toContainText(symbol);
 });
 
+test('Laboratório: experiências já feitas, registar uma nova e mudar o estado sem perder o resto', async () => {
+  await page.goto('/laboratorio');
+  await expect(page.getByRole('heading', { level: 1, name: 'Laboratório' })).toBeVisible();
+  await expect(page.locator('.lab-card')).toHaveCount(11);
+  await page.getByRole('button', { name: 'Nova experiência' }).click();
+  const dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Título').fill('Stops mais largos na C-AI');
+  await dialog.getByLabel('Hipótese').fill('Menos vendas por ruído');
+  await dialog.getByRole('button', { name: 'Registar' }).click();
+  const card = page.locator('.lab-card', { hasText: 'Stops mais largos na C-AI' });
+  await expect(card).toContainText('Ideia');
+  await card.getByRole('button', { name: /Editar/ }).click();
+  await dialog.getByLabel('Estado').selectOption('dropped');
+  await dialog.getByLabel('Resultado').fill('Não melhorou');
+  await dialog.getByRole('button', { name: 'Guardar' }).click();
+  await expect(card).toContainText('Abandonada');
+  await expect(card).toContainText('Menos vendas por ruído'); // a hipótese fica
+  await expect(card).toContainText(/decidida a/);
+  await page.getByRole('group', { name: 'Estado' }).getByRole('button', { name: /Abandonada/ }).click();
+  await expect(page.locator('.lab-card')).toHaveCount(5);
+});
+
+test('Comparar: custos e período de verificação, e a classificação nas quatro condições', async () => {
+  await page.goto('/comparar?custos=1');
+  await expect(page.getByText(/depois dos custos estimados da SAXO/)).toBeVisible();
+  await expect(page.getByText(/Custos estimados: comissão de 0,08 %/)).toBeVisible();
+  await page.getByRole('group', { name: 'Período' }).getByRole('button', { name: 'Verificação' }).click();
+  await expect(page).toHaveURL(/periodo=verificacao/);
+  await expect(page.getByRole('heading', { name: 'A classificação aguenta?' })).toBeVisible();
+  await expect(page.getByLabel('Posição das estratégias em cada condição')).toContainText('C-AI', { timeout: 30_000 });
+});
+
 test('todas as páginas abrem sem erros', async () => {
   const pages = [
     ['/', 'Visão geral'], ['/acompanhar', null], ['/charts', null], ['/orderbook', null], ['/heatmap', null], ['/timelapse', 'Timelapse'], ['/alertas', 'Alertas'],

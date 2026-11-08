@@ -1,12 +1,13 @@
 import { momentum } from '../../../shared/momentum.js';
 import { yearsBefore } from '../routes/instruments.js';
+import { SIGNAL_HISTORY_YEARS } from '../../../shared/strategies/index.js';
 
 export const MAX_SESSIONS = 20; // o máximo de sessões que o pedido aceita
 
 /**
  * Aplica uma estratégia do registo (a mesma da página do instrumento) a todos os instrumentos activos e
- * devolve por instrumento os sinais das últimas MAX_SESSIONS sessões. A A-Momentum usa todo o histórico (para
- * reconstruir a posição virtual de cada um); as estratégias com aquecimento recebem todo o histórico e actuam
+ * devolve por instrumento os sinais das últimas MAX_SESSIONS sessões. A A-Momentum usa os últimos SIGNAL_HISTORY_YEARS
+ * anos de histórico (para reconstruir a posição virtual de cada um, sempre com a mesma janela); as estratégias com aquecimento recebem todo o histórico e actuam
  * na janela do BackTest. Um instrumento de cada vez, guardando só o fim da série: carregar e guardar todas as
  * cotações esgotava a memória da API.
  */
@@ -18,8 +19,8 @@ export async function computeAll(pool, strategy) {
   for (const inst of instruments) {
     const [quotes] = await pool.query(
       `SELECT session_date AS date, open, high, low, close, adj_close AS adjClose, volume, sma10, sma125, sma200
-         FROM daily_quotes WHERE instrument_id = ? ORDER BY session_date`,
-      [inst.id],
+         FROM daily_quotes WHERE instrument_id = ? AND session_date >= ? ORDER BY session_date`,
+      [inst.id, yearsBefore(inst.last_session, SIGNAL_HISTORY_YEARS)],
     );
     if (!quotes.length) continue;
     const mom = momentum(quotes);

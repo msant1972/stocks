@@ -11,7 +11,7 @@ import { createPool } from '../api/src/db.js';
 import { loadConfig } from '../api/src/config.js';
 import { yearsBefore } from '../api/src/routes/instruments.js';
 import { momentum } from '../shared/momentum.js';
-import { getStrategy } from '../shared/strategies/index.js';
+import { getStrategy, SIGNAL_HISTORY_YEARS } from '../shared/strategies/index.js';
 
 const SESSIONS = 15; // sinais das últimas sessões (cobre a recuperação de sessões em atraso do motor de alertas)
 
@@ -25,13 +25,15 @@ try {
   for (const { instrument_id: id, strategy: sid } of pairs) {
     const st = getStrategy(sid);
     if (!st) continue;
-    const [quotes] = await pool.query(
+    const [all] = await pool.query(
       `SELECT session_date AS date, open, high, low, close, adj_close AS adjClose, volume, sma10, sma125, sma200
          FROM daily_quotes WHERE instrument_id = ? AND NOT provisional ORDER BY session_date`,
       [id],
     );
-    if (!quotes.length) continue;
-    const last = quotes.at(-1).date;
+    if (!all.length) continue;
+    const last = all.at(-1).date;
+    // A mesma janela de histórico que GET /signals (shared/strategies: SIGNAL_HISTORY_YEARS).
+    const quotes = all.filter((q) => q.date >= yearsBefore(last, SIGNAL_HISTORY_YEARS));
     const from = st.warmupYears > 0 ? yearsBefore(last, st.windowYears) : undefined;
     const r = st.run(quotes, { mom: momentum(quotes), from });
     const since = quotes[Math.max(0, quotes.length - SESSIONS)].date;

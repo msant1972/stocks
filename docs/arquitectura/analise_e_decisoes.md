@@ -85,7 +85,7 @@ Se a carteira for em EUR e o catálogo tiver acções americanas, a regra do pla
 ### 4.4. Retenção móvel de dois anos
 Dois anos por ticker são cerca de 500 linhas; mil tickers durante dez anos ficam abaixo de 3 milhões de linhas, o que o MariaDB gere sem esforço. Apagar dados antigos acrescenta um processo, testes e risco (gráficos que encolhem) sem ganho. **Proposta:** os «dois anos» passam a ser só a profundidade da carga inicial; não apagar nada no MVP.
 
-**Decisão posterior:** a carga inicial passou a **três anos** (`STOCKS_HISTORY_YEARS=3`). A SMA200 só tem valor a partir da 200.ª sessão (cerca de 10 meses); com três anos guardados, os dois anos mostrados nos gráficos e usados nas estratégias têm sempre a SMA200 completa. Nada é apagado.
+**Decisão posterior:** a carga inicial passou a **três anos** (`STOCKS_HISTORY_YEARS=3`). A SMA200 só tem valor a partir da 200.ª sessão (cerca de 10 meses); com três anos guardados, os dois anos mostrados nos gráficos e usados nas estratégias têm sempre a SMA200 completa. Nada é apagado. A 8 nov. 2026 passou a **cinco anos** (`STOCKS_HISTORY_YEARS=5`), para o BackTest ter um período de verificação com dados que não serviram para afinar as estratégias.
 
 ### 4.5. Preços ajustados e eventos societários
 O plano diz bem para não misturar séries. **Proposta concreta:** guardar o fecho não ajustado e o fecho ajustado na mesma linha; as operações simuladas usam o não ajustado (é o preço que «existiu»); os gráficos usam o ajustado. Um desdobramento numa acção detida continua a distorcer a posição; no MVP, sinalizar e documentar como limitação.

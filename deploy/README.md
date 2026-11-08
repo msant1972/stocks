@@ -34,7 +34,7 @@ Os serviços correm com o utilizador de sistema `stocks-svc` (sem login nem sudo
   sudo systemctl restart mariadb stocks-api   # só se já estiverem instalados
   ```
 - O DNS de `stocks.graus.pt` a apontar para o IP público do servidor.
-- As portas **80 e 443** abertas na firewall: o Caddy precisa delas para obter o certificado. A 3000 e a 3306 não devem ser abertas (a API e o MariaDB só escutam em `127.0.0.1`). No servidor actual, a firewall `ufw` está **desligada** por decisão do administrador (não se liga sem lhe perguntar); só o SSH (22), o Caddy (80 e 443) escutam fora de `127.0.0.1`, e o SSH tem o `fail2ban`. Para a ligar, só com entrada nas portas 22/tcp (SSH), 80/tcp, 443/tcp e 443/udp (HTTP/3) e saída livre (Yahoo, Euronext, SAXO, SMTP, GitHub):
+- As portas **80 e 443** abertas na firewall: o Caddy precisa delas para obter o certificado. A 3000 e a 3306 não devem ser abertas (a API e o MariaDB só escutam em `127.0.0.1`). No servidor actual, a firewall `ufw` está **desligada** por decisão do administrador (não se liga sem lhe perguntar); só o SSH (22), o Caddy (80 e 443) escutam fora de `127.0.0.1`. Desde 8 nov. 2026 há uma **firewall externa** (do fornecedor, fora do servidor) que só deixa chegar ao SSH os IPs de casa e do escritório do administrador; o `fail2ban` fica como segunda camada. Os IPs autorizados gerem-se no painel dessa firewall, não neste repositório. Para a ligar, só com entrada nas portas 22/tcp (SSH), 80/tcp, 443/tcp e 443/udp (HTTP/3) e saída livre (Yahoo, Euronext, SAXO, SMTP, GitHub):
   ```bash
   sudo ufw default deny incoming && sudo ufw default allow outgoing
   sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 443/udp
@@ -115,7 +115,7 @@ sudo systemctl start stocks-daily                  # forçar recolha e alertas a
 sudo systemctl start stocks-backup                 # forçar uma cópia de segurança
 ```
 
-Depois de aumentar `STOCKS_HISTORY_YEARS` (hoje 3 por omissão), completar o histórico dos instrumentos já existentes:
+Depois de aumentar `STOCKS_HISTORY_YEARS` (5 por omissão desde 8 nov. 2026; era 3), completar o histórico dos instrumentos já existentes (feito em produção a 8 nov. 2026, ao passar para 5):
 
 ```bash
 sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/engines/fetcher && .venv/bin/python -m fetcher backfill'
@@ -172,7 +172,7 @@ Uso típico: MariaDB ~1,2 GB, API ~150 MB (picos de ~500 MB com os workers), mot
 
 ## Protecção do SSH (fail2ban)
 
-O servidor aceita login SSH por palavra-passe (decisão do administrador) e está exposto a milhares de tentativas automáticas por dia (8 446 falhadas num dia, a 3 nov. 2026, com nomes como `root`, `ubuntu` ou `admin`). O `fail2ban` (`deploy/fail2ban/stocks.local`, instalado pelo `install.sh`) bloqueia durante 1 hora o IP que falhe 5 vezes em 10 minutos, e os bloqueios repetidos duplicam, até uma semana. Usa regras `nftables` próprias, independentes da `ufw`.
+O servidor aceita login SSH por palavra-passe (decisão do administrador). Até 8 nov. 2026 esteve exposto a milhares de tentativas automáticas por dia (8 446 falhadas num dia, a 3 nov. 2026, com nomes como `root`, `ubuntu` ou `admin`); desde então, uma firewall externa só deixa chegar à porta 22 os IPs de casa e do escritório do administrador. Para entrar a partir de outro sítio, é preciso primeiro acrescentar esse IP na firewall externa (ou usar a consola do fornecedor do VPS). O `fail2ban` (`deploy/fail2ban/stocks.local`, instalado pelo `install.sh`) bloqueia durante 1 hora o IP que falhe 5 vezes em 10 minutos, e os bloqueios repetidos duplicam, até uma semana. Usa regras `nftables` próprias, independentes da `ufw`.
 
 Desde 4 nov. 2026, `deploy/ssh/10-stocks.conf` (instalado pelo `install.sh` em `/etc/ssh/sshd_config.d/`, validado com `sshd -t` antes de recarregar) proíbe o login directo do `root` (`PermitRootLogin no`: entra-se como `stocks` e usa-se `sudo`), reduz as tentativas por ligação para 3 e o tempo para autenticar para 30 s, e desliga o reencaminhamento de X11. O acesso por palavra-passe mantém-se. Para voltar a permitir o `root`, apagar a linha `PermitRootLogin` desse ficheiro e correr o `install.sh`.
 

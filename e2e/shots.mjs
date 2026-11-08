@@ -5,7 +5,7 @@ const [out, w = '1920', h = '1080'] = process.argv.slice(2);
 const base = `http://127.0.0.1:${process.env.STOCKS_E2E_PORT ?? 3999}`;
 const pages = ['/', '/acompanhar', '/charts', '/orderbook', '/heatmap', '/timelapse', '/alertas', '/saxo/carteira', '/saxo/ordens',
   '/saxo/alertas', '/saxo/automacao', '/sinais', '/backtest', '/comparar', '/winners-loosers', '/promessas', '/pechinchas', '/calor',
-  '/utilizadores', '/saxo/correspondencia', '/definicoes'];
+  '/laboratorio', '/utilizadores', '/saxo/correspondencia', '/definicoes'];
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: Number(w), height: Number(h) }, locale: 'pt-PT', timezoneId: 'Europe/Lisbon' });
 await page.goto(base + '/');

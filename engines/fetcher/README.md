@@ -4,13 +4,13 @@ Recolhe cotações diárias através do yfinance e grava-as no MariaDB. Esta é 
 
 ## O que faz
 
-- **Carga inicial:** quando um símbolo é adicionado, fica no estado `pending` e é criado um pedido em `fetch_jobs`. O motor consulta o fornecedor e grava os últimos três anos de sessões (`STOCKS_HISTORY_YEARS`), para a SMA200 estar completa nos dois anos mostrados. Depois marca o instrumento como `active`, ou como `invalid` se a moeda não for EUR ou se o símbolo não existir.
+- **Carga inicial:** quando um símbolo é adicionado, fica no estado `pending` e é criado um pedido em `fetch_jobs`. O motor consulta o fornecedor e grava os últimos cinco anos de sessões (`STOCKS_HISTORY_YEARS`, 5 por omissão): a SMA200 completa nos dois anos mostrados e os dois anteriores para o período de verificação do BackTest. Depois marca o instrumento como `active`, ou como `invalid` se a moeda não for EUR ou se o símbolo não existir.
 - **Actualização diária:** `update` pede uma recolha para cada instrumento activo. Cada recolha volta a ler os últimos 7 dias, para apanhar correcções do fornecedor.
 - **Sem duplicações:** a chave primária é (instrumento, data de sessão) e a gravação usa `INSERT ... ON DUPLICATE KEY UPDATE`.
 - **Falhas:** as falhas de rede e de limite de pedidos voltam à fila com espera progressiva (2, 4, 8... minutos), até 5 tentativas. Uma falha num instrumento não interrompe os restantes. Uma falha de rede nunca invalida um instrumento.
 - **Vários processos:** os pedidos são reservados com `SELECT ... FOR UPDATE SKIP LOCKED`, e o mesmo instrumento nunca é recolhido por dois processos ao mesmo tempo.
 - **Preços:** `close` é o fecho não ajustado, usado como preço real (limites das ordens, valor das posições, estratégias). `adj_close` é o fecho ajustado, usado nos gráficos.
-- **Retenção:** não se apaga nada. Os três anos definem apenas a profundidade da carga inicial.
+- **Retenção:** não se apaga nada. Os cinco anos definem apenas a profundidade da carga inicial.
 
 O yfinance fica isolado em `fetcher/provider.py`, atrás da interface `QuoteProvider`, para poder ser substituído por outro fornecedor.
 

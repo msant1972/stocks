@@ -1,9 +1,12 @@
 import { Link, useSearchParams } from 'react-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Segmented } from '../../components/ui/controls.jsx';
+import { conditionParams, conditionQuery, describeConditions, readConditions } from '../../lib/testConditions.js';
+import { rankings } from '../../lib/compare.js';
+import { ConditionControls, ConditionsNote } from '../backtest/Conditions.jsx';
 
 const kEur = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${(v / 1000).toLocaleString('pt-PT', { maximumFractionDigits: 0 })} k€`);
 const pct = (v) => (v == null ? '—' : `${v.toLocaleString('pt-PT', { maximumFractionDigits: 1 })}%`);
@@ -67,20 +70,80 @@ function Persistence({ p }) {
   );
 }
 
-/** Comparar: as estratégias lado a lado nos últimos 2 anos, com comprar e manter como referência. */
+const COMBOS = [
+  { period: 'recent', costs: false, label: 'Últimos 2 anos' },
+  { period: 'recent', costs: true, label: 'Últimos 2 anos, com custos' },
+  { period: 'verification', costs: false, label: 'Verificação' },
+  { period: 'verification', costs: true, label: 'Verificação, com custos' },
+];
+
+/**
+ * A experiência «custos e período de verificação»: a ordem das estratégias pelo resultado sobre o capital em cada
+ * combinação. Se a ordem se mantém, a classificação é de confiar; se muda muito, não era.
+ */
+function Consistency({ scope }) {
+  const qs = useQueries({
+    queries: COMBOS.map((c) => ({
+      queryKey: ['strategies', 'compare', scope, c.period, c.costs],
+      queryFn: () => api.get(`/strategies/compare?scope=${scope}&${conditionQuery(c)}`),
+      staleTime: 10 * 60_000,
+    })),
+  });
+  const ready = qs.every((q) => q.data);
+  const failed = qs.find((q) => q.error);
+  const r = ready ? rankings(qs.map((q) => q.data.items)) : null;
+  return (
+    <section className="card" aria-labelledby="consistency-title">
+      <div className="card-head">
+        <h2 id="consistency-title" className="card-title">A classificação aguenta?</h2>
+        {r && <span className={`badge ${r.stable ? 'badge-positive' : 'badge-warning'}`}>{r.stable ? 'mesma ordem nas quatro condições' : 'a ordem muda'}</span>}
+      </div>
+      <p className="small muted" style={{ marginTop: 0 }}>
+        Posição de cada estratégia pelo resultado sobre o capital máximo investido (1.º = melhor), com e sem custos, nos últimos 2 anos e nos
+        2 anos antes (verificação: dados que não serviram para afinar as estratégias). Entre parêntesis, o resultado sobre o capital.
+      </p>
+      {failed ? <ErrorState error={failed.error} onRetry={() => qs.forEach((q) => q.refetch())} />
+        : !r ? <Loading rows={4} label="A calcular as quatro condições (o período de verificação demora mais na primeira vez)…" /> : (
+          <div className="table-wrap" tabIndex={0} aria-label="Posição das estratégias em cada condição">
+            <table className="data">
+              <thead>
+                <tr><th scope="col">Estratégia</th>{COMBOS.map((c) => <th key={c.label} scope="col" className="r">{c.label}</th>)}</tr>
+              </thead>
+              <tbody>
+                {r.rows.map((row) => (
+                  <tr key={row.id}>
+                    <th scope="row">{row.name}</th>
+                    {row.cells.map((c, k) => (
+                      <td key={COMBOS[k].label} className="r num" style={{ fontWeight: c.rank === 1 ? 600 : 400 }}>
+                        {c.rank}.º <span className="muted">({pct(c.value)})</span>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+    </section>
+  );
+}
+
+/** Comparar: as estratégias lado a lado, nos últimos 2 anos ou no período de verificação, com ou sem custos. */
 export default function ComparePage() {
   const [params, setParams] = useSearchParams();
   const scope = params.get('lista') === '1' ? 'watchlist' : 'all';
+  const conditions = readConditions(params);
   const cmp = useQuery({
-    queryKey: ['strategies', 'compare', scope],
-    queryFn: () => api.get(`/strategies/compare?scope=${scope}`),
+    queryKey: ['strategies', 'compare', scope, conditions.period, conditions.costs],
+    queryFn: () => api.get(`/strategies/compare?scope=${scope}&${conditionQuery(conditions)}`),
     staleTime: 10 * 60_000,
   });
-  const setScope = (v) => setParams((p) => {
+  const setParam = (changes) => setParams((p) => {
     const next = new URLSearchParams(p);
-    if (v === 'watchlist') next.set('lista', '1'); else next.delete('lista');
+    for (const [k, v] of Object.entries(changes)) { if (v == null) next.delete(k); else next.set(k, v); }
     return next;
   }, { replace: true });
+  const setScope = (v) => setParam({ lista: v === 'watchlist' ? '1' : null });
 
   const d = cmp.data;
   const columns = d ? [...d.items, d.buyHold] : [];
@@ -96,7 +159,7 @@ export default function ComparePage() {
         <div>
           <h1 className="page-title">Comparar estratégias</h1>
           <p className="page-sub">
-            As estratégias lado a lado nos últimos {d?.years ?? 2} anos, com {d ? f.money(d.budget, 'EUR', 0) : '15 000 €'} por compra e sem comissões,
+            As estratégias lado a lado {describeConditions(conditions, d?.years ?? 2)}, com {d ? f.money(d.budget, 'EUR', 0) : '15 000 €'} por compra,
             e comprar e manter como referência. Simulação no histórico; não são recomendações.
           </p>
         </div>
@@ -104,6 +167,7 @@ export default function ComparePage() {
           <Link className="button mobile-only-inline" to="/backtest">BackTest</Link>
           <Segmented label="Instrumentos" value={scope} onChange={setScope}
             options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />
+          <ConditionControls conditions={conditions} onChange={(c) => setParam(conditionParams(c))} />
         </div>
       </div>
 
@@ -149,6 +213,7 @@ export default function ComparePage() {
                   </tbody>
                 </table>
               </div>
+              <div style={{ marginTop: '0.75rem' }}><ConditionsNote data={d} conditions={conditions} /></div>
               {d.persistence && <Persistence p={d.persistence} />}
               <p className="small muted" style={{ marginTop: '0.75rem' }}>
                 A negrito, o melhor valor entre as estratégias. O resultado sobre o capital mede o rendimento por euro investido: as estratégias
@@ -159,6 +224,7 @@ export default function ComparePage() {
             </>
           )}
       </section>
+      <Consistency scope={scope} />
     </>
   );
 }

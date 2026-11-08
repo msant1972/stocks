@@ -41,6 +41,7 @@ const NAV_GROUPS = [
       { to: '/promessas', label: 'Promessas', icon: 'promise' },
       { to: '/pechinchas', label: 'Pechinchas', icon: 'bargain' },
       { to: '/calor', label: 'Calor', icon: 'heat' },
+      { to: '/laboratorio', label: 'Laboratório', icon: 'lab' },
     ],
   },
   {

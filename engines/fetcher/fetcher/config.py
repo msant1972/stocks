@@ -11,7 +11,7 @@ class Settings:
     db_name: str
     # Três anos: a SMA200 precisa de 200 sessões (~10 meses) antes de ter valor, e assim os dois anos
     # mostrados nos gráficos e usados na estratégia têm sempre médias completas.
-    history_years: int = 3
+    history_years: int = 5
     max_attempts: int = 5
     # Dias recolhidos para trás na actualização incremental, para apanhar correcções do fornecedor.
     incremental_overlap_days: int = 7
@@ -25,6 +25,6 @@ def load_settings() -> Settings:
         db_user=os.environ.get("STOCKS_DB_USER", "stocks"),
         db_password=os.environ["STOCKS_DB_PASSWORD"],
         db_name=os.environ.get("STOCKS_DB_NAME", "stocks"),
-        history_years=int(os.environ.get("STOCKS_HISTORY_YEARS", "3")),
+        history_years=int(os.environ.get("STOCKS_HISTORY_YEARS", "5")),
         max_attempts=int(os.environ.get("STOCKS_FETCH_MAX_ATTEMPTS", "5")),
     )

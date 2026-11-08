@@ -12,7 +12,7 @@ Este guia estabelece uma proposta visual e funcional para implementação. Os va
 
 - Sem dinheiro real: as ordens vão para a conta de simulação da SAXO Bank.
 - A carteira e o saldo são os dessa conta.
-- Histórico diário dos últimos dois anos nos gráficos, com três anos guardados (o primeiro aquece a SMA200), sujeito à disponibilidade dos dados.
+- Histórico diário dos últimos dois anos nos gráficos, com cinco anos guardados (o BackTest usa os dois anteriores como período de verificação), sujeito à disponibilidade dos dados.
 - Alertas por email agrupados num único resumo por utilizador, enviado após a recolha diária das cotações.
 - Instrumentos cotados em EUR e conta SAXO em EUR.
 - Ausência de cotações em tempo real (durante a sessão só há a vela provisória do dia, actualizada de hora a hora) e de execução real em bolsa.

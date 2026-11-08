@@ -5,7 +5,7 @@ import { catalogStatus, startCatalogSync } from '../saxo/catalog-runner.js';
 import { accountHistory } from '../saxo/history.js';
 import { AppError } from '../errors.js';
 import { AVAILABLE_STRATEGIES } from '../../../shared/strategies/index.js';
-import { automationOrders, automationStatus, setAutomationEnabled, setAutomationStrategy } from '../saxo/automation.js';
+import { automationComparison, automationOrders, automationStatus, setAutomationEnabled, setAutomationStrategy } from '../saxo/automation.js';
 import { sendPendingEmails } from '../saxo/watcher.js';
 import { ErrorBody, Id, IsoDate } from '../schemas.js';
 
@@ -144,6 +144,31 @@ export default async function saxoRoutes(app, { pool, cfg }) {
       },
     },
   }, async (req) => ({ items: await automationOrders(pool, req.user.id, { limit: req.query.limit }) }));
+
+  app.get('/saxo/automation/comparison', {
+    schema: {
+      tags: ['SAXO'], summary: 'Automação face ao BackTest: preço executado contra o preço do BackTest, e ordens não executadas',
+      description: 'Por ordem enviada pela automação: expectedPrice é o preço a que o BackTest executaria o sinal (fecho definitivo da '
+        + 'sessão do sinal na A-Momentum, null enquanto a sessão não fecha; abertura ou stop nas restantes); deviationPct > 0 é pior do '
+        + 'que o BackTest (compra mais cara, venda mais barata) e effect o mesmo em euros. state: filled, pending, missed (expirou, '
+        + 'cancelada ou recusada sem execução) ou unknown. No resumo, deviationPct é a média pesada pelo valor e fillRatePct a '
+        + 'percentagem de ordens executadas entre as que terminaram.',
+      response: {
+        200: z.object({
+          summary: z.object({
+            sent: z.number(), filled: z.number(), missed: z.number(), pending: z.number(), unknown: z.number(),
+            fillRatePct: z.number().nullable(), measured: z.number(), deviationPct: z.number().nullable(), effect: z.number(),
+          }),
+          items: z.array(z.object({
+            id: z.number(), strategy: z.string(), strategyName: z.string(), execution: z.enum(['close', 'open']),
+            instrumentId: z.number(), symbol: z.string(), signalDate: z.string(), side: Side, quantity: z.number(), filledQuantity: z.number(),
+            expectedPrice: z.number().nullable(), fillPrice: z.number().nullable(), limitPrice: z.number().nullable(),
+            state: z.enum(['filled', 'pending', 'missed', 'unknown']), deviationPct: z.number().nullable(), effect: z.number().nullable(), sentAt: z.string(),
+          })),
+        }),
+      },
+    },
+  }, async (req) => automationComparison(pool, req.user.id));
 
   // ---------- Correspondência do catálogo com a SAXO (administradores) ----------
 

@@ -19,7 +19,7 @@ Os três pendentes da versão 1 foram fechados pelo administrador a 18 out. 2026
 ### 2.1. Requisitos (todos cumpridos)
 
 - Negociação exclusivamente simulada e acompanhamento de acções; sem operações reais. Opcionalmente, envio de ordens para a conta de simulação (SIM) da SAXO Bank.
-- Histórico de três anos por instrumento (dois mostrados nos gráficos), com granularidade diária.
+- Histórico de cinco anos por instrumento (dois mostrados nos gráficos e simulados, dois de verificação do BackTest, um de aquecimento), com granularidade diária.
 - Alertas por email com no máximo uma notificação por hora, cumprido com um resumo por utilizador após cada recolha diária e um intervalo mínimo de 60 minutos.
 - Cinco módulos: interface React, API Node.js, MariaDB, motor de recolha Python e motor de alertas Python.
 
@@ -144,6 +144,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US49 | Estratégias → Calor: valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
 | US50 | Calor: histograma «Valor mensal negociado» com os meses mais quentes a cores | — | Feito |
 | US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
+| US64 | Laboratório (registo das experiências), Automação face ao BackTest e BackTest/Comparar com custos SAXO e período de verificação; histórico de 5 anos | — | Feito |
 | US63 | Revisão de segurança do backend (BD, motores e API): limites de tentativas por conta no login e no 2.º factor, correspondência SAXO protegida, Automação sem vender a mais, SMTP sem palavra-passe às claras, documentação da API só com sessão, limpeza de sessões e registos sem o código OAuth | — | Feito |
 | US62 | Interface revista: todas as páginas com a largura toda do ecrã (como o Charts), menu e cartões compactos, cartões lado a lado em ecrãs largos, gráficos à altura da janela; Timelapse: duplo clique abre o instrumento no Charts | — | Feito |
 | US61 | Timelapse: cor pela variação do preço (verde, cinzento, vermelho) e 5 sessões somadas por omissão | — | Feito |
@@ -190,7 +191,7 @@ O CI no GitHub Actions corre estes testes em cada push para `main` e em cada pul
 | Desenvolvimento no servidor de produção | Base de testes separada; publicação só com `install.sh` | Pendente: ambiente de testes separado |
 | Aumento do âmbito | Alterações pequenas, com testes e commit por funcionalidade | Em curso |
 | Memória da API em cálculos sobre o catálogo | Um instrumento de cada vez, cálculos partilhados entre pedidos, cache só do necessário | Resolvido a 24 out. 2026 (incidente 502); medir antes de cada novo módulo deste tipo |
-| Estratégias e Promessas ajustadas a um período curto | Separação por ano e validação fora da amostra; avisos na interface | Aceite: só 3 anos de dados (2 simulados); revalidar com mais histórico |
+| Estratégias e Promessas ajustadas a um período curto | Separação por ano; período de verificação (os 2 anos antes dos usados para afinar) e custos estimados no BackTest e no Comparar; avisos na interface | Mitigado desde 8 nov. 2026 (5 anos de histórico); as Promessas continuam só com 3 anos |
 
 ## 8. Próximos passos
 

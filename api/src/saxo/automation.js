@@ -101,7 +101,8 @@ async function handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld
   let id = seen?.id;
   if (!id) {
     const [ins] = await pool.query(
-      'INSERT INTO saxo_automation_orders (user_id, strategy_id, instrument_id, signal_date, signal_side, reason) VALUES (?, ?, ?, ?, ?, ?)', [...unique, s.reason],
+      'INSERT INTO saxo_automation_orders (user_id, strategy_id, instrument_id, signal_date, signal_side, reason, signal_price) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [...unique, s.reason, s.price ?? null],
     );
     id = ins.insertId;
   }
@@ -289,4 +290,64 @@ export async function automationOrders(pool, userId, { limit = 100 } = {}) {
       limitPrice: r.limit_price, status: r.status, filledQuantity: r.filled_quantity == null ? null : Number(r.filled_quantity), fillPrice: r.fill_price,
     },
   }));
+}
+
+/**
+ * Automação face ao BackTest: para cada ordem enviada, o preço a que o BackTest executaria o sinal (o fecho definitivo da
+ * sessão do sinal na A-Momentum; a abertura, ou o preço do stop, nas restantes, guardado no envio) e o preço a que a SAXO
+ * executou. desvio > 0: pior do que o BackTest (compra mais cara ou venda mais barata). As ordens que expiraram ou foram
+ * canceladas sem execução são sinais que o BackTest conta e a conta não fez.
+ */
+export async function automationComparison(pool, userId, { limit = 200 } = {}) {
+  const [rows] = await pool.query(
+    `SELECT a.id, a.strategy_id, a.signal_date, a.signal_side, a.signal_price, a.created_at,
+            i.id AS instrument_id, i.symbol,
+            o.side, o.quantity, o.status, o.filled_quantity, o.fill_price, o.limit_price,
+            q.open AS day_open, q.close AS day_close, q.provisional
+       FROM saxo_automation_orders a
+       JOIN instruments i ON i.id = a.instrument_id
+       JOIN saxo_orders o ON o.id = a.order_id
+       LEFT JOIN daily_quotes q ON q.instrument_id = a.instrument_id AND q.session_date = a.signal_date
+      WHERE a.user_id = ? AND a.outcome = 'sent'
+      ORDER BY a.created_at DESC, a.id DESC LIMIT ?`, [userId, limit],
+  );
+  const items = rows.map((r) => {
+    const strategy = getStrategy(r.strategy_id);
+    const atClose = strategy?.execution === 'close';
+    const expected = atClose
+      ? (r.day_close != null && !r.provisional ? Number(r.day_close) : null)
+      : (r.signal_price != null ? Number(r.signal_price) : r.day_open != null ? Number(r.day_open) : null);
+    const filledQty = Number(r.filled_quantity ?? 0);
+    const fill = r.fill_price == null ? null : Number(r.fill_price);
+    const state = filledQty > 0 ? 'filled' : ['working', 'sending'].includes(r.status) ? 'pending' : r.status === 'unknown' ? 'unknown' : 'missed';
+    let deviationPct = null;
+    let effect = null;
+    if (state === 'filled' && fill && expected) {
+      const worse = r.side === 'buy' ? fill - expected : expected - fill;
+      deviationPct = Math.round((worse / expected) * 10000) / 100;
+      effect = Math.round(worse * filledQty * 100) / 100;
+    }
+    return {
+      id: Number(r.id), strategy: r.strategy_id, strategyName: strategy?.name ?? r.strategy_id, execution: atClose ? 'close' : 'open',
+      instrumentId: Number(r.instrument_id), symbol: r.symbol, signalDate: r.signal_date, side: r.side,
+      quantity: Number(r.quantity), filledQuantity: filledQty, expectedPrice: expected, fillPrice: fill,
+      limitPrice: r.limit_price == null ? null : Number(r.limit_price), state, deviationPct, effect, sentAt: r.created_at.toISOString(),
+    };
+  });
+  const filled = items.filter((x) => x.state === 'filled');
+  const missed = items.filter((x) => x.state === 'missed').length;
+  const measured = filled.filter((x) => x.deviationPct != null);
+  const notional = measured.reduce((a, x) => a + x.expectedPrice * x.filledQuantity, 0);
+  const effect = measured.reduce((a, x) => a + x.effect, 0);
+  return {
+    summary: {
+      sent: items.length, filled: filled.length, missed, pending: items.filter((x) => x.state === 'pending').length,
+      unknown: items.filter((x) => x.state === 'unknown').length,
+      fillRatePct: filled.length + missed ? Math.round((filled.length / (filled.length + missed)) * 1000) / 10 : null,
+      measured: measured.length,
+      deviationPct: notional > 0 ? Math.round((effect / notional) * 10000) / 100 : null,
+      effect: Math.round(effect * 100) / 100,
+    },
+    items,
+  };
 }

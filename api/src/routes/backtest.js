@@ -3,8 +3,33 @@ import { AVAILABLE_STRATEGIES, DEFAULT_STRATEGY_ID, getStrategy, STRATEGIES } fr
 import { IsoDate } from '../schemas.js';
 import { computeStrategiesParallel } from '../services/strategyRuns.js';
 import * as promessas from '../../../shared/promessas.js';
+import { DEFAULT_COSTS, describeCosts } from '../../../shared/costs.js';
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
+const VERIFICATION_CACHE_MS = 6 * 3600_000; // período de verificação: dados antigos, só a data de fim avança
+
+const Period = z.enum(['recent', 'verification']).default('recent')
+  .describe('recent: os últimos 2 anos; verification: os 2 anos antes deles (dados que não serviram para afinar as estratégias)');
+const Costs = z.enum(['true', 'false']).default('false')
+  .describe('true: resultados depois dos custos estimados (comissão, spread e custódia da SAXO; ver costModel)');
+const CostModel = z.object({
+  commissionPct: z.number(), commissionMin: z.number(), spreadPct: z.number(), custodyPctYear: z.number(), text: z.string(),
+});
+const costModel = () => ({ ...DEFAULT_COSTS, text: describeCosts() });
+
+/** Linha do BackTest depois dos custos: resultado, % sobre o capital, por ano, operações com ganho e comprar e manter. */
+export function netOfCosts(r) {
+  const round2 = (x) => Math.round(x * 100) / 100;
+  const total = round2(r.total - r.costs);
+  const buyHoldPnl = r.buyHoldPnl == null ? null : round2(r.buyHoldPnl - (r.buyHoldCosts ?? 0));
+  return {
+    ...r, total, realized: round2(r.realized - r.costsFirstYear - (r.openPosition ? 0 : r.costsSecondYear)),
+    unrealized: r.openPosition ? round2(r.unrealized - r.costsSecondYear) : r.unrealized,
+    totalPct: r.peakCost > 0 ? Math.round((total / r.peakCost) * 10000) / 100 : 0,
+    firstYear: round2(r.firstYear - r.costsFirstYear), secondYear: round2(r.secondYear - r.costsSecondYear), wins: r.winsNet,
+    buyHoldPnl, buyHoldPct: buyHoldPnl == null || !r.buyHoldCost ? r.buyHoldPct : Math.round((buyHoldPnl / r.buyHoldCost) * 10000) / 100,
+  };
+}
 
 const Money = z.number().describe('EUR, 2 casas');
 const Row = z.object({
@@ -20,6 +45,11 @@ const Row = z.object({
   investedSessions: z.number().describe('Sessões da janela com posição aberta'),
   firstYear: Money.describe('Resultado das vendas feitas no 1.º ano da janela'),
   secondYear: Money.describe('Resultado das vendas do 2.º ano e da posição aberta'),
+  windowFrom: IsoDate.describe('Início da janela (o período pedido); fromDate depois disto: histórico incompleto'),
+  costs: Money.describe('Custos estimados das ordens (comissão, spread e custódia), já descontados com costs=true'),
+  costsFirstYear: Money, costsSecondYear: Money, orders: z.number().describe('Ordens (compras, reforços e vendas)'),
+  winsNet: z.number().describe('Operações fechadas com ganho depois dos custos'),
+  buyHoldCost: Money.nullable(), buyHoldCosts: Money.nullable(),
 });
 
 export default async function backtestRoutes(app, { pool, cfg, warmup = () => {} }) {
@@ -43,19 +73,27 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       querystring: z.object({
         scope: z.enum(['all', 'watchlist']).default('all'),
         strategy: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)).default(DEFAULT_STRATEGY_ID),
+        period: Period, costs: Costs,
       }),
       response: {
         200: z.object({
-          strategy: StrategyInfo, years: z.number(), budget: z.number().nullable(), computedAt: z.string(), items: z.array(Row),
+          strategy: StrategyInfo, years: z.number(), budget: z.number().nullable(), computedAt: z.string(),
+          period: z.enum(['recent', 'verification']), costs: z.boolean(), costModel: CostModel, items: z.array(Row),
         }),
       },
     },
   }, async (req) => {
     const strategy = getStrategy(req.query.strategy);
-    const entry = await results(strategy);
+    const { period } = req.query;
+    const withCosts = req.query.costs === 'true';
+    const entry = (await ensure([strategy], period))[0];
     let { items } = entry;
     if (req.query.scope === 'watchlist') items = await onlyWatchlist(req.user.id, items);
-    return { strategy: info(strategy), years: strategy.windowYears, budget: strategy.budget, computedAt: new Date(entry.at).toISOString(), items };
+    if (withCosts) items = items.map(netOfCosts);
+    return {
+      strategy: info(strategy), years: strategy.windowYears, budget: strategy.budget, computedAt: new Date(entry.at).toISOString(),
+      period, costs: withCosts, costModel: costModel(), items,
+    };
   });
 
   // ---------- Comparação das estratégias (página «Comparar») ----------
@@ -76,10 +114,13 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       tags: ['Estratégia'], summary: 'Comparação das estratégias disponíveis nos últimos 2 anos, com comprar e manter como referência',
       description: 'Agrega os resultados do BackTest de cada estratégia (cache de 10 minutos). O 1.º ano conta as vendas feitas '
         + 'nesse ano; o 2.º, as restantes e a posição aberta. buyHold: 15 000 € no início da janela, mantidos até ao fim.',
-      querystring: z.object({ scope: z.enum(['all', 'watchlist']).default('all') }),
+      querystring: z.object({ scope: z.enum(['all', 'watchlist']).default('all'), period: Period, costs: Costs }),
       response: {
         200: z.object({
           computedAt: z.string(), years: z.number(), budget: z.number(), instruments: z.number(), items: z.array(StrategyStats), buyHold: StrategyStats,
+          period: z.enum(['recent', 'verification']), costs: z.boolean(), costModel: CostModel,
+          fromDate: IsoDate.nullable().describe('Início mais comum da janela'), toDate: IsoDate.nullable().describe('Fim mais comum da janela'),
+          fullHistory: z.number().describe('Instrumentos com histórico em toda a janela'),
           persistence: z.object({
             computedAt: z.string(), anchor: IsoDate,
             groups: z.array(z.object({ group: z.enum(['gain', 'mixed', 'loss']), n: z.number(), gain: z.number(), mixed: z.number(), loss: z.number(), avgStrategies: z.number(), avgBuyHold: z.number() })),
@@ -88,9 +129,11 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       },
     },
   }, async (req) => {
-    const computed = await ensure(AVAILABLE_STRATEGIES);
+    const { period } = req.query;
+    const withCosts = req.query.costs === 'true';
+    const computed = await ensure(AVAILABLE_STRATEGIES, period);
     const ids = req.query.scope === 'watchlist' ? await watchlistIds(req.user.id) : null;
-    const rowsOf = (k) => computed[k].items.filter((it) => !ids || ids.has(it.instrumentId));
+    const rowsOf = (k) => computed[k].items.filter((it) => !ids || ids.has(it.instrumentId)).map((it) => (withCosts ? netOfCosts(it) : it));
     const sum = (a) => Math.round(a.reduce((x, v) => x + v, 0) * 100) / 100;
     const stats = (id, name, rows, value, extra) => {
       const totals = rows.map(value).sort((a, b) => a - b);
@@ -128,10 +171,18 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       fields: () => ({ positions: ref.length, winRate: null, investedPct: 100, firstYear: null, secondYear: null, bestIn: null }),
     });
     const oldest = Math.min(...computed.map((e) => e.at));
+    const mode = (xs) => { const n = new Map(); for (const x of xs) n.set(x, (n.get(x) ?? 0) + 1); return [...n].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null; };
+    const refRows = rowsOf(refIdx);
+    const fromDate = mode(refRows.map((r) => r.windowFrom));
+    // Histórico em toda a janela: pelo menos 95 % das sessões do instrumento com mais sessões na janela.
+    const maxSessions = Math.max(0, ...refRows.map((r) => r.sessions));
+    const fullHistory = refRows.filter((r) => maxSessions > 0 && r.sessions >= 0.95 * maxSessions).length;
     return {
       computedAt: new Date(oldest).toISOString(), years: AVAILABLE_STRATEGIES[0].windowYears, budget: AVAILABLE_STRATEGIES[0].budget,
       instruments: new Set(computed.flatMap((e) => e.items.map((i) => i.instrumentId)).filter((id) => !ids || ids.has(id))).size,
-      items, buyHold, persistence: await readAnalysis('winner_persistence').then((r) => r && { computedAt: r.computedAt, anchor: r.anchor, groups: r.groups }),
+      items, buyHold, period, costs: withCosts, costModel: costModel(), fromDate, toDate: mode(refRows.map((r) => r.toDate)), fullHistory,
+      persistence: period === 'recent'
+        ? await readAnalysis('winner_persistence').then((r) => r && { computedAt: r.computedAt, anchor: r.anchor, groups: r.groups }) : null,
     };
   });
 
@@ -310,16 +361,20 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
    * paralelo, por causa da memória). force recalcula mesmo as recentes.
    */
   let running = Promise.resolve();
-  const fresh = (st) => { const e = cache.get(st.id); return e && Date.now() - e.at <= CACHE_MS; };
-  function recompute(strategies, force = false) {
+  const key = (st, period) => (period === 'recent' ? st.id : `${period}:${st.id}`);
+  const fresh = (st, period = 'recent') => {
+    const e = cache.get(key(st, period));
+    return e && Date.now() - e.at <= (period === 'recent' ? CACHE_MS : VERIFICATION_CACHE_MS);
+  };
+  function recompute(strategies, force = false, period = 'recent') {
     const job = running.then(async () => {
-      const missing = force ? strategies : strategies.filter((st) => !fresh(st));
+      const missing = force ? strategies : strategies.filter((st) => !fresh(st, period));
       if (missing.length) {
         const at = Date.now();
-        const computed = await computeStrategiesParallel(pool, cfg.db, missing, app.log);
-        for (const st of missing) cache.set(st.id, { at, items: computed.get(st.id) });
+        const computed = await computeStrategiesParallel(pool, cfg.db, missing, app.log, period);
+        for (const st of missing) cache.set(key(st, period), { at, items: computed.get(st.id) });
       }
-      return strategies.map((st) => cache.get(st.id));
+      return strategies.map((st) => cache.get(key(st, period)));
     });
     running = job.catch(() => {});
     return job;
@@ -328,14 +383,15 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
    * Stale-while-revalidate: com resultados em cache (mesmo antigos) responde de imediato e recalcula em segundo
    * plano; só espera quando ainda não há nenhum (primeiro pedido, se o cálculo antecipado não terminou).
    */
-  function ensure(strategies) {
-    if (strategies.every((st) => cache.has(st.id))) {
-      if (!strategies.every(fresh)) recompute(strategies).catch((err) => app.log.warn({ err }, 'estratégias: recálculo falhou'));
-      return Promise.resolve(strategies.map((st) => cache.get(st.id)));
+  function ensure(strategies, period = 'recent') {
+    if (strategies.every((st) => cache.has(key(st, period)))) {
+      if (!strategies.every((st) => fresh(st, period))) {
+        recompute(strategies, false, period).catch((err) => app.log.warn({ err }, 'estratégias: recálculo falhou'));
+      }
+      return Promise.resolve(strategies.map((st) => cache.get(key(st, period))));
     }
-    return recompute(strategies);
+    return recompute(strategies, false, period);
   }
-  const results = async (strategy) => (await ensure([strategy]))[0];
 
   // Cálculo antecipado: arranque e cada recolha concluída (services/warmup.js). Estratégias primeiro (as Promessas usam-nas).
   warmup(() => recompute(AVAILABLE_STRATEGIES, true));

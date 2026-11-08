@@ -19,13 +19,25 @@
  * pode comprar (as anteriores servem só de aquecimento dos indicadores).
  *
  * windowYears: anos em que a estratégia actua (BackTest e página do instrumento); warmupYears: anos de histórico
- * adicionais de que precisa antes dessa janela; reasonLabels: nomes dos motivos de venda para a interface.
+ * adicionais de que precisa antes dessa janela; reasonLabels: nomes dos motivos de venda para a interface;
+ * execution: preço a que o BackTest executa um sinal na data do sinal: 'close' (fecho dessa sessão) ou 'open' (abertura;
+ * o sinal indica o preço em `price`, que nos stops é o próprio stop). Referência da comparação com a Automação.
  */
 import { momentum } from '../momentum.js';
 import * as aMomentum from './a-momentum.js';
 import * as bOpus from './b-opus.js';
 import * as cAi from './c-ai.js';
 import * as dReversao from './d-reversao.js';
+
+/**
+ * Anos de histórico com que os Sinais (e as regras de alerta de sinal) correm as estratégias. A A-Momentum reconstrói a
+ * posição desde o início do histórico: fixar a janela mantém os sinais iguais quando a base guarda mais anos (5, para o
+ * período de verificação do BackTest).
+ */
+export const SIGNAL_HISTORY_YEARS = 3;
+
+/** Períodos do BackTest e do Comparar: os últimos windowYears anos, ou os windowYears anos antes deles (verificação). */
+export const PERIODS = Object.freeze({ recent: 0, verification: 2 });
 
 const eur = (v) => `${v.toLocaleString('pt-PT')} €`;
 
@@ -35,6 +47,7 @@ export const STRATEGIES = [
     name: 'A-Momentum',
     available: true,
     budget: aMomentum.STRATEGY_BUDGET,
+    execution: 'close',
     summary: 'Momento do SMA10/SMA200 em tendência de subida, com reforços a cada +10% e protecção de 15%',
     rules: `Compra ${eur(aMomentum.STRATEGY_BUDGET)} quando o SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a subir», `
       + 'só com o preço acima da sua média de 200 sessões (não compra acções em queda); '
@@ -53,6 +66,7 @@ export const STRATEGIES = [
     name: 'B-Opus',
     available: true,
     budget: bOpus.DEFAULT_OPTIONS.budget,
+    execution: 'open',
     summary: 'Tendência e momentum ajustado ao risco, decisão semanal, reforços a +10%, stop chandelier de 4 × ATR',
     rules: `Na última sessão de cada semana, sem posição, compra ${eur(bOpus.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho `
       + 'e a SMA50 estão acima da SMA200, o M1 ((SMA10 − SMA125) / ATR22) e o M2 (momentum de 12 meses sem o último, '
@@ -78,6 +92,7 @@ export const STRATEGIES = [
     name: 'C-AI',
     available: true,
     budget: cAi.DEFAULT_OPTIONS.budget,
+    execution: 'open',
     summary: 'Tendência (SMA200) com momentum positivo, stop chandelier de 5 × ATR e reforços só com momentum forte',
     rules: `Sem posição, compra ${eur(cAi.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho está acima da SMA200 e o M2 `
       + '(momentum de 12 meses sem o último, dividido pela volatilidade) é positivo. Vende tudo só quando o preço toca o stop '
@@ -96,6 +111,7 @@ export const STRATEGIES = [
     name: 'D-Reversão',
     available: true,
     budget: dReversao.DEFAULT_OPTIONS.budget,
+    execution: 'open',
     summary: 'Reversão à média: compra quedas anormais (z < −2,5 face à média de 20 sessões) e vende no ressalto',
     rules: `Sem posição, compra ${eur(dReversao.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho fica mais de `
       + `${String(-dReversao.DEFAULT_OPTIONS.zEntry).replace('.', ',')} desvios-padrão abaixo da média das últimas `

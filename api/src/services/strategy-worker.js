@@ -6,7 +6,7 @@ import { computeStrategies } from './strategyRuns.js';
 
 const pool = createPool({ ...workerData.db, connectionLimit: 2 });
 try {
-  const out = await computeStrategies(pool, workerData.ids.map(getStrategy), { part: workerData.part, of: workerData.of });
+  const out = await computeStrategies(pool, workerData.ids.map(getStrategy), { part: workerData.part, of: workerData.of, period: workerData.period });
   parentPort.postMessage(Object.fromEntries(out));
 } finally {
   await pool.end();

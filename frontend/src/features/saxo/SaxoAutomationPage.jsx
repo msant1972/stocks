@@ -9,6 +9,75 @@ import { SIM_BANNER, useSaxoStatus } from './SaxoOrderDialog.jsx';
 
 const SIDE = { buy: 'Compra', add: 'Reforço', sell: 'Venda' };
 
+const STATE = {
+  filled: { label: 'executada', tone: 'badge-positive' }, pending: { label: 'à espera', tone: '' },
+  missed: { label: 'não executada', tone: 'badge-warning' }, unknown: { label: 'por confirmar', tone: 'badge-warning' },
+};
+const signedPct = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`);
+
+/**
+ * Automação face ao BackTest: o preço a que a SAXO executou cada ordem contra o preço que o BackTest assume (o fecho da
+ * sessão do sinal na A-Momentum; a abertura, ou o stop, nas restantes), e as ordens que não chegaram a ser executadas.
+ */
+function Comparison() {
+  const q = useQuery({ queryKey: ['saxo-automation-comparison'], queryFn: () => api.get('/saxo/automation/comparison'), staleTime: 60_000 });
+  const d = q.data;
+  return (
+    <section className="card" aria-labelledby="auto-cmp-title">
+      <div className="card-head">
+        <h2 id="auto-cmp-title" className="card-title">Automação face ao BackTest</h2>
+      </div>
+      <p className="small muted" style={{ marginTop: 0 }}>
+        Quanto a execução real se afasta do que o BackTest assume. Desvio positivo = pior do que o BackTest (compra mais cara ou venda mais
+        barata). As ordens não executadas (compras limitadas que expiraram, por exemplo) são operações que o BackTest conta e a conta não fez.
+      </p>
+      {q.isPending ? <Loading rows={3} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : d.summary.sent === 0 ? (
+        <EmptyState title="Ainda sem ordens para comparar">
+          Ligue a automação numa estratégia; cada ordem enviada aparece aqui com o preço executado ao lado do preço do BackTest.
+        </EmptyState>
+      ) : (
+        <>
+          <dl className="kpis">
+            <div><dt>Ordens enviadas</dt><dd>{d.summary.sent}</dd></div>
+            <div><dt>Executadas</dt><dd>{d.summary.fillRatePct == null ? '—' : `${d.summary.fillRatePct.toLocaleString('pt-PT')} %`}</dd></div>
+            <div><dt>Desvio médio do preço</dt><dd>{signedPct(d.summary.deviationPct)}</dd></div>
+            <div><dt>Efeito no resultado</dt><dd>{d.summary.measured ? f.signedMoney(-d.summary.effect) : '—'}</dd></div>
+          </dl>
+          <p className="small muted" style={{ margin: '0.5rem 0 0.75rem' }}>
+            {d.summary.filled} executadas, {d.summary.missed} não executadas, {d.summary.pending} à espera{d.summary.unknown ? `, ${d.summary.unknown} por confirmar` : ''}.
+            O desvio médio é pesado pelo valor das {d.summary.measured} ordens executadas com preço do BackTest conhecido (o fecho da A-Momentum
+            só se conhece depois do fecho da sessão).
+          </p>
+          <div className="table-wrap" tabIndex={0} aria-label="Ordens da automação face ao BackTest">
+            <table className="data">
+              <thead>
+                <tr>
+                  <th scope="col">Sinal</th><th scope="col">Estratégia</th><th scope="col">Instrumento</th><th scope="col">Ordem</th>
+                  <th scope="col" className="r">BackTest</th><th scope="col" className="r">Executado</th><th scope="col" className="r">Desvio</th><th scope="col">Estado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.items.map((i) => (
+                  <tr key={i.id}>
+                    <td className="small" style={{ whiteSpace: 'nowrap' }}>{f.date(i.signalDate)}</td>
+                    <td>{i.strategyName}<div className="small muted">{i.execution === 'close' ? 'ao fecho' : 'na abertura'}</div></td>
+                    <td><Link to={`/instrumentos/${i.instrumentId}`} className="row-link">{i.symbol}</Link></td>
+                    <td>{i.side === 'buy' ? 'Compra' : 'Venda'} <span className="num">{f.quantity(i.quantity)}</span></td>
+                    <td className="r num">{i.expectedPrice == null ? <span className="muted">—</span> : f.price(i.expectedPrice)}</td>
+                    <td className="r num">{i.fillPrice == null ? <span className="muted">—</span> : f.price(i.fillPrice)}</td>
+                    <td className="r num">{signedPct(i.deviationPct)}</td>
+                    <td><span className={`badge ${STATE[i.state].tone}`}>{STATE[i.state].label}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 /**
  * Automação: lê os sinais das estratégias ligadas e envia as ordens à conta de simulação da SAXO, sem confirmação.
  * Interruptor geral (desligado por omissão), um por estratégia e a lista das ordens com o estado real na SAXO.
@@ -50,7 +119,7 @@ export default function SaxoAutomationPage() {
 
       {status.isPending ? <Loading rows={3} /> : status.error ? <ErrorState error={status.error} onRetry={status.refetch} /> : (
         <div className="grid">
-          <section className="card span-12 xl-span-4" aria-labelledby="auto-enable-title">
+          <section className="card span-12 xl-span-4" style={{ alignSelf: 'start' }} aria-labelledby="auto-enable-title">
             <div className="spread">
               <div>
                 <h2 id="auto-enable-title" className="card-title">Enable</h2>
@@ -135,6 +204,7 @@ export default function SaxoAutomationPage() {
           </details>
         )}
       </section>
+      <Comparison />
     </>
   );
 }
