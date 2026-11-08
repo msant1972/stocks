@@ -80,7 +80,7 @@ export default function SettingsPage() {
           <p className="page-sub">{me?.user.name} · {me?.user.email}</p>
         </div>
       </div>
-      <div className="stack">
+      <div className="card-columns">
         {me?.user.isAdmin && (
           <section className="card spread" aria-labelledby="admin-title">
             <div>

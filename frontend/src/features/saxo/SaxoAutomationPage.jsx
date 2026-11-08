@@ -49,8 +49,8 @@ export default function SaxoAutomationPage() {
       {failure && <Notice tone="error">{errorMessage(failure)}</Notice>}
 
       {status.isPending ? <Loading rows={3} /> : status.error ? <ErrorState error={status.error} onRetry={status.refetch} /> : (
-        <>
-          <section className="card" aria-labelledby="auto-enable-title">
+        <div className="grid">
+          <section className="card span-12 xl-span-4" aria-labelledby="auto-enable-title">
             <div className="spread">
               <div>
                 <h2 id="auto-enable-title" className="card-title">Enable</h2>
@@ -69,7 +69,7 @@ export default function SaxoAutomationPage() {
             )}
           </section>
 
-          <section className="card" aria-labelledby="auto-strategies-title">
+          <section className="card span-12 xl-span-8" aria-labelledby="auto-strategies-title">
             <h2 id="auto-strategies-title" className="card-title">Estratégias</h2>
             <ul className="automation-strategies">
               {s.strategies.map((x) => (
@@ -88,7 +88,7 @@ export default function SaxoAutomationPage() {
               Duas estratégias ligadas podem comprar o mesmo instrumento, com o orçamento de cada uma.
             </p>
           </section>
-        </>
+        </div>
       )}
 
       <section className="card" aria-labelledby="auto-orders-title">

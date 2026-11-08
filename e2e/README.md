@@ -17,4 +17,7 @@ set -a; . ../.env; set +a
 npm test                          # compila o frontend, arranca o servidor na porta 3999 e corre os testes
 ```
 
+`shots.mjs` tira capturas de ecrã de todas as páginas com o servidor já a correr (`node server.mjs` noutro terminal;
+`node shots.mjs <pasta> [largura] [altura]`, `FULL=1` para a página inteira, `ONLY=/,/charts` para algumas), para rever a interface.
+
 Não fazem parte do CI (precisam de um navegador e da base de testes). Correr antes de alterações grandes à interface.

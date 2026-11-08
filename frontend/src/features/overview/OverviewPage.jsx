@@ -24,7 +24,7 @@ function PortfolioCard() {
   const initial = history.data?.initialCapital;
   const pnl = p?.totalValue != null && initial != null ? p.totalValue - initial : null;
   return (
-    <section className="card span-12" aria-labelledby="pf-title">
+    <section className="card span-12 xl-span-8" aria-labelledby="pf-title">
       <div className="card-head">
         <h2 id="pf-title" className="card-title">Valor da carteira</h2>
         <Link to="/saxo/carteira" className="small">Ver carteira</Link>
@@ -79,7 +79,7 @@ function SignalsTodayCard() {
   const q = useQuery({ queryKey: ['signals', 'watchlist', 1], queryFn: () => api.get('/signals/watchlist?sessions=1'), staleTime: 5 * 60_000 });
   const items = q.data?.items ?? [];
   return (
-    <section className="card span-6" aria-labelledby="sg-title">
+    <section className="card span-6 xl-span-4" aria-labelledby="sg-title">
       <div className="card-head">
         <div>
           <h2 id="sg-title" className="card-title">Sinais da última sessão</h2>
@@ -115,7 +115,7 @@ function RecentAlertsCard() {
   const events = useAlertEvents();
   const items = (events.data?.items ?? []).slice(0, 5);
   return (
-    <section className="card span-6" aria-labelledby="al-title">
+    <section className="card span-6 xl-span-4" aria-labelledby="al-title">
       <div className="card-head">
         <h2 id="al-title" className="card-title">Alertas recentes</h2>
         <Link to="/alertas" className="small">Ver alertas</Link>
@@ -167,7 +167,7 @@ function MoversCard() {
   const up = withChange.filter((i) => Number(i.latest.changePct) > 0).sort((a, b) => Number(b.latest.changePct) - Number(a.latest.changePct)).slice(0, 3);
   const down = withChange.filter((i) => Number(i.latest.changePct) < 0).sort((a, b) => Number(a.latest.changePct) - Number(b.latest.changePct)).slice(0, 3);
   return (
-    <section className="card span-12" aria-labelledby="mv-title">
+    <section className="card span-12 xl-span-8" aria-labelledby="mv-title">
       <div className="card-head">
         <h2 id="mv-title" className="card-title">Subidas e descidas da minha lista</h2>
         <Link to="/charts" className="small">Ver gráficos</Link>
@@ -210,7 +210,7 @@ function MarketMomentumCard() {
   const q = useQuery({ queryKey: ['market-momentum'], queryFn: () => api.get('/market/momentum?top=5'), staleTime: 5 * 60_000 });
   const m = q.data;
   return (
-    <section className="card span-12" aria-labelledby="mm-title">
+    <section className="card span-12 xl-span-6" aria-labelledby="mm-title">
       <div className="card-head">
         <div>
           <h2 id="mm-title" className="card-title">Momento do mercado</h2>
@@ -294,7 +294,7 @@ function CrossoversCard() {
   const q = useQuery({ queryKey: ['market-crossovers', 5], queryFn: () => api.get('/market/crossovers?sessions=5'), staleTime: 5 * 60_000 });
   const c = q.data;
   return (
-    <section className="card span-12" aria-labelledby="cx-title">
+    <section className="card span-12 xl-span-6" aria-labelledby="cx-title">
       <div className="card-head">
         <div>
           <h2 id="cx-title" className="card-title">Cruzamentos SMA10 / SMA50</h2>

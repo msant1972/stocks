@@ -116,10 +116,14 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 
 ### Desktop — a partir de 1200 px
 
-- Barra lateral de cerca de 232 px.
+- Barra lateral de cerca de 232 px, compacta (entradas de 34 px), para o menu inteiro caber num ecrã de 1080 px de altura.
 - Barra superior com pesquisa, estado dos dados e menu do utilizador.
-- Área principal com largura confortável e limite proposto de 1440 px.
-- Conteúdo em grelha de 12 colunas.
+- Área principal com **a largura toda do ecrã** em todas as páginas (como no Charts), com margens de 20 px e 16 px entre blocos; só os textos de introdução (`.page-sub`) limitam a largura (110 caracteres) para se lerem bem.
+- Cartões com 20 px de espaço interno, linhas das tabelas de 8 px; título da página de 26 px.
+- Conteúdo em grelha de 12 colunas; a partir de 1500 px há classes `xl-span-4/6/8` para pôr mais cartões lado a lado (Visão geral: carteira e sinais, alertas e subidas/descidas, momento e cruzamentos; Automação: Enable e Estratégias). Cartões independentes (Definições) em duas colunas (`.card-columns`).
+- Indicadores soltos numa linha (`.kpis`: rótulo por cima e valor), em vez de uma caixa de resumo num cartão próprio (conta SAXO na Carteira e nas Ordens).
+- Gráficos com altura proporcional à janela (`.chart-box`: 38 % da altura, entre 320 e 520 px; HeatMap: a altura que resta; Timelapse: barras de 20 a 32 px para o top caber na janela).
+- Listas e campos dentro de barras de ferramentas usam a variante compacta (`.select-sm`, `.input-sm`, 40 px).
 - Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap, Timelapse, Alertas); **SAXO** (Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação); **Estratégias** (Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Pechinchas, Calor); **Administração** (Utilizadores e Correspondência SAXO, só administradores, e Definições). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
 
 ### Tablet — de 768 a 1199 px
@@ -227,7 +231,7 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 - Barras horizontais ordenadas (uma por instrumento, 30), que deslizam para a nova posição a cada sessão; a data da sessão em destaque por cima do gráfico.
 - Cor da barra = variação do preço nas sessões somadas, numa escala divergente: verdes (sobe), cinzento (quase não mexe), vermelhos (desce), 3 intensidades por lado, com legenda dos limites em %. A faixa neutra cresce com as sessões somadas (±1 %, ±2 %, ±3 %). Verde e vermelho foram pedidos pelo utilizador; como se confundem no daltonismo vermelho-verde, cada intensidade tem luminosidade bem diferente e a variação está sempre escrita em texto ao lado do valor.
 - Variação de posição em texto neutro (▲ 3, ▼ 1, novo, =), para não competir com as cores do preço; valores em texto secundário.
-- Clicar numa barra destaca-a (as outras a 25 %).
+- Clicar numa barra destaca-a (as outras a 25 %); duplo clique abre esse instrumento no Charts, com a lista do universo escolhido.
 - Controlos por baixo: data de início, primeira, anterior, reproduzir/pausa, seguinte, última, data de fim e uma barra de tempo; com «reduzir movimento», sem animação.
 
 ### 5.4. Carteira SAXO

@@ -45,30 +45,30 @@ img, svg { display: block; }
 .sidebar {
   position: fixed; inset: 0 auto 0 0; width: var(--sidebar-width); z-index: 30;
   display: flex; flex-direction: column; gap: 0.25rem; overflow-y: auto;
-  padding: 1.25rem 0.875rem; background: var(--surface); border-right: 1px solid var(--border);
+  padding: 1rem 0.75rem; background: var(--surface); border-right: 1px solid var(--border);
 }
-.brand { display: flex; align-items: center; gap: 0.625rem; padding: 0.25rem 0.625rem 1.25rem; font-weight: 600; font-size: 1.0625rem; }
+.brand { display: flex; align-items: center; gap: 0.625rem; padding: 0.125rem 0.625rem 0.75rem; font-weight: 600; font-size: 1.0625rem; }
 .brand-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); color: var(--on-accent); display: grid; place-items: center; }
 .nav-group { display: flex; flex-direction: column; gap: 0.125rem; }
-.nav-group + .nav-group { margin-top: 0.5rem; }
-.nav-group-title { padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
+.nav-group + .nav-group { margin-top: 0.375rem; }
+.nav-group-title { padding: 0.125rem 0.75rem; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-secondary); }
 .nav-link {
-  display: flex; align-items: center; gap: 0.75rem; min-height: 2.5rem;
-  padding: 0.5rem 0.75rem; border-radius: var(--radius-control);
-  color: var(--text); text-decoration: none; font-weight: 500;
+  display: flex; align-items: center; gap: 0.75rem; min-height: 2.125rem;
+  padding: 0.3125rem 0.75rem; border-radius: var(--radius-control);
+  color: var(--text); text-decoration: none; font-weight: 500; font-size: 0.9375rem; line-height: 1.25;
   transition: background var(--duration-fast) var(--ease-out);
 }
 .nav-link:hover { background: var(--surface-muted); }
 .nav-link[aria-current="page"] { background: var(--surface-muted); color: var(--accent); }
 .nav-link svg { flex: none; }
-.sidebar-foot { margin-top: auto; padding: 0.75rem; }
+.sidebar-foot { margin-top: auto; padding: 0.75rem 0.75rem 0; }
 
 .main-area { margin-left: var(--sidebar-width); min-width: 0; }
 
 .topbar {
   position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; gap: 1rem;
-  min-height: 3.75rem; padding: 0.625rem 2.5rem;
+  min-height: 3.5rem; padding: 0.5rem 1.25rem;
   background: var(--topbar-bg);
   -webkit-backdrop-filter: saturate(180%) blur(16px); backdrop-filter: saturate(180%) blur(16px);
   border-bottom: 1px solid var(--border);
@@ -77,11 +77,14 @@ img, svg { display: block; }
 .topbar-search { flex: 1; max-width: 28rem; }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
 
-.content { max-width: var(--content-max); margin: 0 auto; padding: 2rem 2.5rem 3rem; }
+/* Todas as páginas ocupam a largura toda do ecrã (como o Charts); os textos corridos limitam a sua própria largura. */
+.content { margin: 0; padding: 1rem 1.25rem 1.5rem; }
+/* Blocos de topo de cada página (avisos, filtros, cartões) sempre separados; as margens verticais colapsam com as do .page-head. */
+.content > :not(dialog) + :not(dialog) { margin-top: 1rem; }
 
-.page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.5rem; }
-.page-title { font-size: 1.875rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
-.page-sub { margin-top: 0.25rem; color: var(--text-secondary); }
+.page-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.75rem 1rem; margin-bottom: 1rem; }
+.page-title { font-size: 1.625rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+.page-sub { margin-top: 0.125rem; color: var(--text-secondary); max-width: 110ch; }
 
 .mobile-nav { display: none; }
 .meta-end { text-align: right; }
@@ -94,13 +97,13 @@ img, svg { display: block; }
 @media (max-width: 767px) { .meta-end { text-align: left; } }
 .scrim { display: none; }
 
-.grid { display: grid; gap: 1.5rem; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+.grid { display: grid; gap: 1rem; grid-template-columns: repeat(12, minmax(0, 1fr)); }
 .span-12 { grid-column: span 12; }
 .span-8 { grid-column: span 8; }
 .span-6 { grid-column: span 6; }
 .span-4 { grid-column: span 4; }
-.filters { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); margin-bottom: 1.25rem; }
-.stack { display: flex; flex-direction: column; gap: 1.5rem; }
+.filters { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); margin-bottom: 1rem; }
+.stack { display: flex; flex-direction: column; gap: 1rem; }
 .row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
 .spread { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
 
@@ -110,9 +113,9 @@ img, svg { display: block; }
   .shell[data-nav-open="true"] .sidebar { transform: none; }
   .shell[data-nav-open="true"] .scrim { display: block; position: fixed; inset: 0; z-index: 25; background: var(--scrim); }
   .main-area { margin-left: 0; }
-  .topbar { padding: 0.625rem 1.5rem; }
+  .topbar { padding: 0.5rem 1.25rem; }
   .topbar .menu-button { display: inline-flex; }
-  .content { padding: 1.5rem 1.5rem 3rem; }
+  .content { padding: 1rem 1.25rem 2rem; }
   .span-8, .span-4 { grid-column: span 12; }
   .span-6 { grid-column: span 6; }
 }
@@ -123,7 +126,7 @@ img, svg { display: block; }
   .topbar { padding: 0.5rem 1rem; }
   .topbar-search { max-width: none; }
   .content { padding: 1.25rem 1rem calc(5.5rem + env(safe-area-inset-bottom)); }
-  .page-title { font-size: 1.625rem; }
+  .page-title { font-size: 1.5rem; }
   .span-6 { grid-column: span 12; }
   .grid { gap: 1rem; }
   .stack { gap: 1rem; }
@@ -144,18 +147,18 @@ img, svg { display: block; }
 /* ---------- Componentes ---------- */
 
 .card {
-  min-width: 0; padding: 1.5rem;
+  min-width: 0; padding: 1.25rem;
   border: 1px solid var(--border); border-radius: var(--radius-card);
   background: var(--surface); box-shadow: var(--shadow-card);
 }
 .card-title { font-size: 1.125rem; font-weight: 600; }
-.card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
+.card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem; }
 @media (max-width: 767px) { .card { padding: 1rem; } }
 
 .hero-value { font-size: 2.5rem; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 @media (max-width: 767px) { .hero-value { font-size: 2.125rem; } }
 
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: 1rem; margin-top: 1.25rem; }
 .stat-label { font-size: 0.875rem; color: var(--text-secondary); }
 .stat-value { font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
 
@@ -186,9 +189,11 @@ img, svg { display: block; }
   background: var(--surface); font-size: 1rem;
 }
 .input[aria-invalid="true"] { border-color: var(--negative); }
+.select-sm, .input-sm { width: auto; min-height: 2.5rem; padding: 0.375rem 0.75rem; font-size: 0.9375rem; }
 .field-help { font-size: 0.875rem; color: var(--text-secondary); }
 .field-error { font-size: 0.875rem; color: var(--negative); }
 
+.stack > .segmented { align-self: flex-start; }
 .segmented { display: inline-flex; padding: 0.25rem; gap: 0.25rem; border-radius: var(--radius-control); background: var(--surface-muted); }
 .segmented button {
   min-height: 2.25rem; min-width: 2.75rem; padding: 0.25rem 0.75rem; border: 0; border-radius: 0.5rem;
@@ -226,7 +231,7 @@ img, svg { display: block; }
 .table-wrap:focus-visible { outline-offset: 0; }
 table.data { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
 table.data th { text-align: left; font-weight: 500; color: var(--text-secondary); font-size: 0.8125rem; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
-table.data td { padding: 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.data td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
 table.data tr:last-child td { border-bottom: 0; }
 table.data .r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 table.data th.r { text-align: right; }
@@ -279,7 +284,7 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .empty { display: flex; flex-direction: column; align-items: flex-start; gap: 0.75rem; padding: 1rem 0; color: var(--text-secondary); }
 .empty strong { color: var(--text); }
 
-.chart-box { height: 320px; }
+.chart-box { height: clamp(320px, 38vh, 520px); }
 .chart-box-small { height: 170px; }
 .cx-name { max-width: 11rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 767px) { .cx-name { max-width: 6.5rem; } }
@@ -292,7 +297,7 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .orderbook-table tr.ob-total td.ob-sep { border-left: 2px solid var(--surface); }
 .momentum-bar { display: flex; gap: 2px; height: 14px; border-radius: 7px; overflow: hidden; }
 .momentum-bar span { display: block; min-width: 4px; }
-.heatmap-box { height: min(640px, 70vh); min-height: 360px; }
+.heatmap-box { height: calc(100vh - 17rem); min-height: 360px; }
 .legend-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .legend-chip {
   display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.25rem; padding: 0.25rem 0.75rem;
@@ -326,7 +331,7 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .charts-page { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1rem; align-items: start; }
 .charts-main { padding: 1rem 1.25rem; }
 /* Charts: ocupa a largura toda do ecrã, sem a coluna central limitada das outras páginas. */
-.content.content-wide { max-width: none; padding: 1rem 1.25rem 1.25rem; }
+.content.content-wide { padding: 1rem 1.25rem 1.25rem; }
 /* Painéis do gráfico (preço, volume, momento): ocupam a altura que o JavaScript calcula (useStageHeight). */
 .chart-stage { display: flex; flex-direction: column; gap: 2px; height: 560px; min-height: 360px; }
 .chart-pane { min-height: 0; }
@@ -336,7 +341,7 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .chart-pane-fill { flex: 1 1 0; min-height: 0; }
 .charts-head { margin-bottom: 0.75rem; align-items: flex-start; }
 .charts-actions { gap: 0.5rem; justify-content: flex-end; }
-.charts-side { position: sticky; top: 4.75rem; display: flex; flex-direction: column; gap: 0.5rem; height: calc(100vh - 5.75rem); padding: 1rem; }
+.charts-side { position: sticky; top: 4.5rem; display: flex; flex-direction: column; gap: 0.5rem; height: calc(100vh - 5.5rem); padding: 1rem; }
 .charts-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; min-height: 0; flex: 1; }
 .charts-list-head, .charts-item { display: grid; grid-template-columns: minmax(0, 1fr) auto 4.5rem; gap: 0.5rem; padding: 0.375rem 0.5rem; }
 .charts-list-head .r, .charts-item .r { text-align: right; }
@@ -395,7 +400,7 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 /* Timelapse: barras que deslizam para a nova posição a cada sessão */
 .timelapse-chart { position: relative; overflow: hidden; margin-top: 0.5rem; --tl-value-space: 10rem; /* espaço do valor e da variação à direita da barra */ }
 .timelapse-row {
-  position: absolute; left: 0; right: 0; top: 0; height: 22px; width: 100%;
+  position: absolute; left: 0; right: 0; top: 0; height: calc(var(--tl-row, 26px) - 4px); width: 100%;
   display: grid; grid-template-columns: 9rem 1fr 3.5rem; align-items: center; gap: 0.5rem;
   padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer;
   transition: transform 1.2s ease, opacity 0.6s ease; will-change: transform;
@@ -406,7 +411,7 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .timelapse-row.is-focus .timelapse-label { font-weight: 600; }
 .timelapse-label { font-size: 0.8125rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .timelapse-track { position: relative; display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
-.timelapse-bar { height: 16px; border-radius: 0 4px 4px 0; background: var(--series-price); transition: width 1.2s ease, background-color 1.2s ease; flex: none; }
+.timelapse-bar { height: calc(var(--tl-row, 26px) - 10px); border-radius: 0 4px 4px 0; background: var(--series-price); transition: width 1.2s ease, background-color 1.2s ease; flex: none; }
 .timelapse-value { font-size: 0.75rem; color: var(--text-secondary); white-space: nowrap; }
 .timelapse-delta { text-align: right; white-space: nowrap; }
 .timelapse-date { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; margin-top: 0.25rem; }
@@ -421,3 +426,18 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 @media (max-width: 640px) { .timelapse-row { grid-template-columns: 6rem 1fr 3rem; } .timelapse-value { display: none; } .timelapse-chart { --tl-value-space: 0rem; } }
 @media (prefers-reduced-motion: reduce) { .timelapse-row, .timelapse-bar { transition: none; } }
 
+
+/* Ecrãs largos (≥ 1500 px): mais cartões lado a lado na grelha de 12 colunas. */
+@media (min-width: 1500px) {
+  .xl-span-4 { grid-column: span 4; }
+  .xl-span-6 { grid-column: span 6; }
+  .xl-span-8 { grid-column: span 8; }
+}
+/* Cartões independentes (Definições) em colunas que se enchem por ordem; uma só coluna em ecrãs estreitos. */
+.card-columns { columns: 2 36rem; column-gap: 1rem; }
+.card-columns > * { break-inside: avoid; margin-bottom: 1rem; }
+/* Indicadores numa linha (conta SAXO): rótulo por cima e valor, lado a lado em ecrãs largos. */
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(12rem, 42%), 1fr)); gap: 0.75rem 1.5rem; margin: 0; }
+.kpis dt { font-size: 0.875rem; color: var(--text-secondary); }
+.kpis dd { margin: 0; font-size: 1.25rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (max-width: 767px) { .kpis dd { font-size: 1.0625rem; } }

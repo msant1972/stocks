@@ -38,16 +38,17 @@ export default function SaxoOrdersPage() {
           <p className="page-sub">Ordens enviadas por esta aplicação para a conta de simulação da SAXO Bank, com o estado actualizado.</p>
         </div>
       </div>
+      <div className="stack">
       <Notice tone="warning">{SIM_BANNER}</Notice>
 
       {s && !s.configured && <Notice tone="info">Ainda não está ligado à SAXO Bank. <Link to="/definicoes">Ligar em Definições</Link></Notice>}
       {s?.expired && <Notice tone="warning">A ligação à SAXO Bank expirou ou foi recusada. <Link to="/definicoes">Volte a ligar em Definições</Link></Notice>}
       {conn.data && (
         <section className="card" aria-label="Conta SAXO">
-          <dl className="summary-box">
-            <dt>Conta</dt><dd>{conn.data.accountId}{conn.data.isTrial ? ' · simulação' : ''}</dd>
-            <dt>Saldo</dt><dd>{conn.data.cashBalance == null ? '—' : f.money(conn.data.cashBalance, conn.data.currency)}</dd>
-            <dt>Valor total</dt><dd>{conn.data.totalValue == null ? '—' : f.money(conn.data.totalValue, conn.data.currency)}</dd>
+          <dl className="kpis">
+            <div><dt>Valor total</dt><dd>{conn.data.totalValue == null ? '—' : f.money(conn.data.totalValue, conn.data.currency)}</dd></div>
+            <div><dt>Saldo</dt><dd>{conn.data.cashBalance == null ? '—' : f.money(conn.data.cashBalance, conn.data.currency)}</dd></div>
+            <div><dt>Conta</dt><dd>{conn.data.accountId}{conn.data.isTrial ? ' · simulação' : ''}</dd></div>
           </dl>
         </section>
       )}
@@ -121,6 +122,7 @@ export default function SaxoOrdersPage() {
             </>
           )}
       </section>
+      </div>
       <SaxoModifyDialog order={editing} onClose={() => setEditing(null)} />
     </>
   );

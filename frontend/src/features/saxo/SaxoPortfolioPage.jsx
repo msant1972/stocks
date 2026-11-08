@@ -29,6 +29,7 @@ export default function SaxoPortfolioPage() {
         </div>
         {ready && <Button onClick={() => q.refetch()} busy={q.isFetching}>Actualizar</Button>}
       </div>
+      <div className="stack">
       <Notice tone="warning">{SIM_BANNER}</Notice>
       {token.data && !token.data.configured && <Notice tone="info">Ainda não está ligado à SAXO Bank. <Link to="/definicoes">Ligar em Definições</Link></Notice>}
       {token.data?.expired && <Notice tone="warning">A ligação à SAXO Bank expirou ou foi recusada. <Link to="/definicoes">Volte a ligar em Definições</Link></Notice>}
@@ -36,11 +37,11 @@ export default function SaxoPortfolioPage() {
       {ready && (q.isPending ? <Loading rows={4} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : (
         <>
           <section className="card" aria-label="Conta SAXO">
-            <dl className="summary-box">
-              <dt>Conta</dt><dd>{d.accountId}{d.isTrial ? ' · simulação' : ''}</dd>
-              <dt>Saldo</dt><dd>{d.cashBalance == null ? '—' : f.money(d.cashBalance, d.currency)}</dd>
-              <dt>Valor total da conta</dt><dd>{d.totalValue == null ? '—' : f.money(d.totalValue, d.currency)}</dd>
-              <dt>Montante investido (custo)</dt><dd>{f.money(d.invested, d.currency)}</dd>
+            <dl className="kpis">
+              <div><dt>Valor total da conta</dt><dd>{d.totalValue == null ? '—' : f.money(d.totalValue, d.currency)}</dd></div>
+              <div><dt>Saldo</dt><dd>{d.cashBalance == null ? '—' : f.money(d.cashBalance, d.currency)}</dd></div>
+              <div><dt>Montante investido (custo)</dt><dd>{f.money(d.invested, d.currency)}</dd></div>
+              <div><dt>Conta</dt><dd>{d.accountId}{d.isTrial ? ' · simulação' : ''}</dd></div>
             </dl>
           </section>
 
@@ -134,6 +135,7 @@ export default function SaxoPortfolioPage() {
           </section>
         </>
       ))}
+      </div>
       <SaxoOrderDialog open={Boolean(selling)} onClose={() => { setSelling(null); q.refetch(); }} instrument={selling?.instrument} initialSide="sell" initialQuantity={selling?.quantity} />
     </>
   );

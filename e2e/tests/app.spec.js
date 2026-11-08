@@ -175,6 +175,12 @@ test('Timelapse: anima o top sessão a sessão, nos três universos', async () =
   await expect(page.locator('.timelapse-row.is-focus')).toHaveCount(0); // dados novos: larga o destaque
   await page.getByText('Ver os dados desta sessão').click();
   await expect(page.locator('details').getByRole('table')).toContainText('GALP.LS');
+  // Duplo clique numa barra abre esse instrumento no Charts, com a lista do universo escolhido.
+  const first = page.locator('.timelapse-row:not(.is-out)').first();
+  const symbol = (await first.locator('.timelapse-label').innerText()).replace(/^\d+\.\s*/, '');
+  await first.dblclick();
+  await expect(page).toHaveURL(/\/charts\?instrumento=\d+&fonte=lista/);
+  await expect(page.getByRole('heading', { level: 1 })).toContainText(symbol);
 });
 
 test('todas as páginas abrem sem erros', async () => {

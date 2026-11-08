@@ -17,11 +17,11 @@ function Chooser({ item, onChoose, busy }) {
     <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center', flexWrap: 'wrap' }}>
       <label htmlFor={id} className="visually-hidden">Instrumento da SAXO para {item.symbol}</label>
       {item.candidates.length ? (
-        <select id={id} value={uic} onChange={(e) => setUic(e.target.value)} style={{ maxWidth: '22rem' }}>
+        <select id={id} className="select select-sm" value={uic} onChange={(e) => setUic(e.target.value)} style={{ maxWidth: '22rem' }}>
           {item.candidates.map((c) => <option key={c.uic} value={c.uic}>{candidateLabel(c)}</option>)}
         </select>
       ) : (
-        <input id={id} inputMode="numeric" placeholder="Uic da SAXO" value={uic} onChange={(e) => setUic(e.target.value.replace(/\D/g, ''))} style={{ width: '8rem' }} />
+        <input id={id} className="input input-sm" inputMode="numeric" placeholder="Uic da SAXO" value={uic} onChange={(e) => setUic(e.target.value.replace(/\D/g, ''))} style={{ width: '8rem' }} />
       )}
       <Button size="small" busy={busy} disabled={!uic} onClick={() => onChoose(Number(uic))}>Escolher</Button>
     </div>
@@ -108,7 +108,7 @@ export default function SaxoMatchPage() {
             <Segmented label="Mostrar" value={view} onChange={setView}
               options={[{ value: 'todo', label: 'Por resolver' }, { value: 'linked', label: 'Ligados' }, { value: 'all', label: 'Todos' }]} />
             <label className="visually-hidden" htmlFor="saxo-match-q">Procurar</label>
-            <input id="saxo-match-q" type="search" placeholder="Procurar" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: '10rem' }} />
+            <input id="saxo-match-q" className="input input-sm" type="search" placeholder="Procurar" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: '10rem' }} />
           </div>
         </div>
         {(choose.error || unlink.error) && <Notice tone="error">{errorMessage(choose.error ?? unlink.error)}</Notice>}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
@@ -11,7 +11,18 @@ import { Button, Notice, Segmented } from '../../components/ui/controls.jsx';
 const WINDOWS = [1, 5, 10];
 const UNIVERSES = [{ value: 'lista', label: 'A minha lista' }, { value: 'saxo', label: 'Saxo' }, { value: 'catalogo', label: 'Catálogo' }];
 const STEP_MS = 2000;
-const ROW = 26; // altura de cada barra, em px
+/** Altura de cada barra (px): o top inteiro cabe na altura da janela, entre 20 e 32 px por linha. */
+function useRowHeight(top) {
+  const calc = () => Math.max(20, Math.min(32, Math.floor(((typeof window === 'undefined' ? 1080 : window.innerHeight) - 470) / Math.max(top, 1))));
+  const [row, setRow] = useState(calc);
+  useEffect(() => {
+    const onResize = () => setRow(calc());
+    onResize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [top]); // eslint-disable-line react-hooks/exhaustive-deps
+  return row;
+}
 
 /**
  * Timelapse: o top 30 dos instrumentos pelo valor negociado das últimas 1, 5 ou 10 sessões, animado sessão a sessão nas
@@ -21,6 +32,7 @@ const ROW = 26; // altura de cada barra, em px
  */
 export default function TimelapsePage() {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const universe = UNIVERSES.some((u) => u.value === params.get('universo')) ? params.get('universo') : 'catalogo';
   const windowSize = WINDOWS.includes(Number(params.get('sessoes'))) ? Number(params.get('sessoes')) : 5;
   const setParam = (key, value) => setParams((cur) => { const next = new URLSearchParams(cur); next.set(key, value); return next; }, { replace: true });
@@ -49,6 +61,7 @@ export default function TimelapsePage() {
   const frame = frames[Math.min(index, last)];
   const top = q.data?.top ?? 30;
   const max = frame?.items[0]?.value || 1;
+  const ROW = useRowHeight(top);
   const moves = useMemo(() => biggestMoves(frames), [frames]);
   const sym = (id) => names.get(id)?.symbol ?? String(id);
   const play = () => { if (index >= last) setIndex(0); setPlaying(true); };
@@ -61,12 +74,12 @@ export default function TimelapsePage() {
           <p className="page-sub">
             Os {top} instrumentos com mais valor negociado {windowSize === 1 ? 'em cada sessão' : `nas últimas ${windowSize} sessões`}, sessão a sessão nas
             últimas 22: quem ganha e quem perde peso no top. Valor negociado = volume × (abertura + mínimo + máximo + fecho) / 4, em euros.
-            A cor é a variação do preço nessas sessões. Clique numa barra para seguir esse instrumento.
+            A cor é a variação do preço nessas sessões. Clique numa barra para seguir esse instrumento; duplo clique abre-o no Charts.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <label className="small" htmlFor="tl-window">Sessões somadas</label>
-          <select id="tl-window" value={windowSize} onChange={(e) => setParam('sessoes', e.target.value)} style={{ width: 'auto' }}>
+          <select id="tl-window" className="select select-sm" value={windowSize} onChange={(e) => setParam('sessoes', e.target.value)}>
             {WINDOWS.map((w) => <option key={w} value={w}>{w === 1 ? '1 sessão' : `${w} sessões`}</option>)}
           </select>
           <Segmented label="Universo" value={universe} onChange={(v) => setParam('universo', v)} options={UNIVERSES} />
@@ -96,14 +109,15 @@ export default function TimelapsePage() {
                   <span className="num">{f.date(frame.date)}</span>
                   {windowSize > 1 && <span className="small muted">{windowSize} sessões desde {f.date(frame.from)}</span>}
                 </div>
-                <div className={`timelapse-chart${focus != null ? ' has-focus' : ''}`} style={{ height: `${top * ROW + 8}px` }} role="group"
+                <div className={`timelapse-chart${focus != null ? ' has-focus' : ''}`} style={{ height: `${top * ROW + 8}px`, '--tl-row': `${ROW}px` }} role="group"
                   aria-label={`Top ${top} na sessão de ${f.date(frame.date)}`}>
                   {rows.map((r) => (
                     <button type="button" key={r.id} className={`timelapse-row${r.rank == null ? ' is-out' : ''}${focus === r.id ? ' is-focus' : ''}`}
                       style={{ transform: `translateY(${(r.rank ?? top) * ROW}px)` }} tabIndex={r.rank == null ? -1 : 0} aria-hidden={r.rank == null}
                       aria-pressed={focus === r.id} onClick={() => setFocus((cur) => (cur === r.id ? null : r.id))}
+                      onDoubleClick={() => navigate(`/charts?instrumento=${r.id}&fonte=${universe}`)}
                       aria-label={r.rank == null ? undefined : `${r.rank + 1}.º ${sym(r.id)}, ${bigMoney(r.value)}${r.change != null ? `, preço ${changeText(r.change)}` : ''}${deltaLabel(r) ? `, posição ${deltaLabel(r)}` : ''}${focus === r.id ? ' (destacado)' : ''}`}
-                      title={names.get(r.id)?.name ?? ''}>
+                      title={`${names.get(r.id)?.name ?? sym(r.id)} · duplo clique abre no Charts`}>
                       <span className="timelapse-label">{r.rank == null ? '' : `${r.rank + 1}. `}{sym(r.id)}</span>
                       <span className="timelapse-track">
                         <span className="timelapse-bar" data-tone={changeTone(r.change, windowSize) ?? 'none'} style={{ width: `calc((100% - var(--tl-value-space)) * ${Math.max(0.005, r.value / max)})` }} />

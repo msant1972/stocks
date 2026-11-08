@@ -144,6 +144,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US49 | Estratégias → Calor: valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
 | US50 | Calor: histograma «Valor mensal negociado» com os meses mais quentes a cores | — | Feito |
 | US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
+| US62 | Interface revista: todas as páginas com a largura toda do ecrã (como o Charts), menu e cartões compactos, cartões lado a lado em ecrãs largos, gráficos à altura da janela; Timelapse: duplo clique abre o instrumento no Charts | — | Feito |
 | US61 | Timelapse: cor pela variação do preço (verde, cinzento, vermelho) e 5 sessões somadas por omissão | — | Feito |
 | US60 | Timelapse (Mercado): animação do top 30 por valor negociado de 10 sessões nas últimas 22 sessões, com universo lista, Saxo ou catálogo; testes no navegador (Playwright) | — | Feito |
 | US59 | Carteira virtual retirada e dados apagados: a carteira é a conta de simulação da SAXO, com o valor guardado por sessão para o gráfico da evolução; Visão geral e Sinais passam a usá-la | — | Feito |
