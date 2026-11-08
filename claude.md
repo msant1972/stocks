@@ -1,8 +1,8 @@
 # Stocks — Plataforma de Simulação e Acompanhamento de Acções
 
-Aplicação para acompanhar acções da Euronext (EUR), consultar o histórico diário (três anos guardados, dois mostrados), gerir uma carteira virtual com operações simuladas e receber alertas por email.
+Aplicação para acompanhar acções cotadas em EUR (Euronext, Xetra, Madrid, Helsínquia, Viena…), consultar o histórico diário (três anos guardados, dois mostrados), testar estratégias e receber alertas por email.
 
-A negociação da aplicação é exclusivamente simulada e nunca toca em dinheiro real. Opcionalmente, cada utilizador pode enviar ordens para a **conta de simulação (SIM) da SAXO Bank** (grupo «SAXO» do menu), sempre com pré-validação e confirmação; a conta real da SAXO está bloqueada por omissão.
+A carteira é a **conta de simulação (SIM) da SAXO Bank**: as ordens vão para essa conta (grupo «SAXO» do menu), com um passo de confirmação, e o valor da conta é guardado em cada sessão para o gráfico da evolução. Não há carteira virtual própria (foi retirada a 6 nov. 2026). A conta real da SAXO está bloqueada por omissão. A Automação pode enviar sozinha as ordens dos sinais das estratégias escolhidas, só na conta de simulação e desligada por omissão. Para já, a aplicação tem um só utilizador.
 
 ## Módulos
 
@@ -15,6 +15,8 @@ A negociação da aplicação é exclusivamente simulada e nunca toca em dinheir
 | `engines/fetcher/` | Motor de recolha de cotações | Python (yfinance) |
 | `engines/alerts/` | Motor de alertas por email | Python |
 | `scripts/` | Análises fora da aplicação (ex.: ablação da B-Opus) | Node.js |
+| `e2e/` | Testes no navegador (Playwright) e capturas de ecrã de todas as páginas (`shots.mjs`) | Node.js |
+| `deploy/` | Instalação no servidor: systemd, Caddy, MariaDB, fail2ban, SSH | Shell |
 
 ## Documentação
 
@@ -24,6 +26,14 @@ A negociação da aplicação é exclusivamente simulada e nunca toca em dinheir
 - [Análise e decisões](docs/arquitectura/analise_e_decisoes.md)
 - Especificações: [livro de ofertas](docs/arquitectura/orderbook-spec.md), [estratégia B-Opus](docs/arquitectura/B-Opus.md) (e [ablação](docs/arquitectura/b-opus-ablacao.md)), [estratégia C-AI](docs/arquitectura/C-AI.md), [estratégia D-Reversão](docs/arquitectura/D-Reversao.md), [Promessas](docs/arquitectura/promessas.md)
 
-Módulos da interface: Visão geral, Acompanhar, Charts, Orderbook, HeatMap, Carteira, Operações, Alertas, Carteira SAXO, Ordens SAXO, Alertas SAXO, Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Utilizadores (administradores) e Definições.
+Módulos da interface, por grupo do menu:
+
+- Visão geral
+- **Mercado:** Acompanhar, Charts, Orderbook, HeatMap, Timelapse, Alertas
+- **SAXO:** Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação
+- **Estratégias:** Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Pechinchas, Calor
+- **Administração:** Utilizadores e Correspondência SAXO (administradores), Definições
+
+Todas as páginas usam a largura toda do ecrã (ver o [guia de estilos](docs/arquitectura/guia_estilos.md), secção 4).
 
 usar o /model opusplan

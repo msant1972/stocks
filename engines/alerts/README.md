@@ -38,7 +38,7 @@ Variáveis de ambiente:
 |---|---|
 | `STOCKS_DB_*` | Igual ao motor de recolha |
 | `STOCKS_SMTP_HOST`, `STOCKS_SMTP_PORT` | Servidor SMTP. A porta por omissão é 587, ou 465 com `ssl` |
-| `STOCKS_SMTP_SECURITY` | `starttls` (omissão), `ssl` ou `none` |
+| `STOCKS_SMTP_SECURITY` | `starttls` (omissão), `ssl` ou `none`. Com `none` não há autenticação para servidores remotos (a palavra-passe iria às claras): o envio falha com «autenticação SMTP sem TLS recusada»; só `localhost`, `127.0.0.1` ou `::1` a aceitam |
 | `STOCKS_SMTP_USER`, `STOCKS_SMTP_PASSWORD` | Credenciais, se o servidor as exigir |
 | `STOCKS_SMTP_FROM` | Remetente, ex.: `Stocks <alertas@graus.pt>` |
 | `STOCKS_PUBLIC_ORIGIN` | Endereço da aplicação, usado na ligação «Gerir alertas» |

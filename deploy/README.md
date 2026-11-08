@@ -34,7 +34,7 @@ Os serviços correm com o utilizador de sistema `stocks-svc` (sem login nem sudo
   sudo systemctl restart mariadb stocks-api   # só se já estiverem instalados
   ```
 - O DNS de `stocks.graus.pt` a apontar para o IP público do servidor.
-- As portas **80 e 443** abertas na firewall: o Caddy precisa delas para obter o certificado. A 3000 e a 3306 não devem ser abertas (a API e o MariaDB só escutam em `127.0.0.1`). No servidor actual, a firewall `ufw` só aceita ligações de entrada nas portas 22/tcp (SSH), 80/tcp, 443/tcp e 443/udp (HTTP/3); as de saída são livres (Yahoo, Euronext, SMTP, GitHub):
+- As portas **80 e 443** abertas na firewall: o Caddy precisa delas para obter o certificado. A 3000 e a 3306 não devem ser abertas (a API e o MariaDB só escutam em `127.0.0.1`). No servidor actual, a firewall `ufw` está **desligada** por decisão do administrador (não se liga sem lhe perguntar); só o SSH (22), o Caddy (80 e 443) escutam fora de `127.0.0.1`, e o SSH tem o `fail2ban`. Para a ligar, só com entrada nas portas 22/tcp (SSH), 80/tcp, 443/tcp e 443/udp (HTTP/3) e saída livre (Yahoo, Euronext, SAXO, SMTP, GitHub):
   ```bash
   sudo ufw default deny incoming && sudo ufw default allow outgoing
   sudo ufw allow 22/tcp && sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw allow 443/udp
