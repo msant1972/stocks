@@ -8061,15 +8061,15 @@ paths:
                 additionalProperties: false
   /api/v1/market/timelapse:
     get:
-      summary: Top 30 do valor negociado de 10 sessões, em cada uma das últimas 22
-        sessões (Timelapse)
+      summary: Top 30 do valor negociado de 1, 5 ou 10 sessões, em cada uma das
+        últimas 22 sessões (Timelapse)
       tags:
         - Mercado
       description: "Valor negociado de uma sessão = volume × (abertura + mínimo +
-        máximo + fecho) / 4, em euros; cada ponto soma as 10 sessões até essa
-        data. Universo: lista (a minha lista), saxo (posições da conta SAXO; sem
-        ligação, os erros SAXO_*) ou catalogo. A sessão em curso fica de fora
-        (`partialExcluded`)."
+        máximo + fecho) / 4, em euros; cada ponto soma as `window` sessões (1, 5
+        ou 10; por omissão 10) até essa data. Universo: lista (a minha lista),
+        saxo (posições da conta SAXO; sem ligação, os erros SAXO_*) ou catalogo.
+        A sessão em curso fica de fora (`partialExcluded`)."
       parameters:
         - schema:
             default: catalogo
@@ -8080,6 +8080,14 @@ paths:
               - catalogo
           in: query
           name: universe
+          required: false
+        - schema:
+            default: 10
+            type: integer
+            minimum: -9007199254740991
+            maximum: 9007199254740991
+          in: query
+          name: window
           required: false
       responses:
         "200":

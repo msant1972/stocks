@@ -159,6 +159,15 @@ describe.skipIf(!hasTestDb)('timelapse: top do valor negociado', () => {
     expect(lista.frames.every((f) => f.items.length === 1 && f.items[0].id === a)).toBe(true);
   });
 
+  it('sessões somadas: 1, 5 ou 10', async () => {
+    const one = (await ana.get('/market/timelapse?window=1')).json();
+    expect(one).toMatchObject({ window: 1 });
+    expect(one.frames).toHaveLength(12); // 12 sessões de dados: um ponto por sessão
+    expect(one.frames[0]).toMatchObject({ from: '2026-10-01', date: '2026-10-01', items: [{ value: 20000 }, { id: a, value: 10000 }] });
+    expect((await ana.get('/market/timelapse?window=5')).json().frames[0]).toMatchObject({ from: '2026-10-01', date: '2026-10-05' });
+    expect((await ana.get('/market/timelapse?window=3')).statusCode).toBe(400);
+  });
+
   it('Saxo sem ligação: diz que não está ligado', async () => {
     const res = await ana.get('/market/timelapse?universe=saxo');
     expect(res.statusCode).toBe(409);

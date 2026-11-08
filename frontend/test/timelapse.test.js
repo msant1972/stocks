@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { allFrameIds, biggestMoves, deltaLabel, frameRows } from '../src/lib/timelapse.js';
+import { allFrameIds, biggestMoves, colorSlots, deltaLabel, frameRows } from '../src/lib/timelapse.js';
 
 const frames = [
   { date: 'd1', items: [{ id: 1, value: 30 }, { id: 2, value: 20 }, { id: 3, value: 10 }] },
@@ -19,4 +19,11 @@ test('timelapse: posições, variação, entradas e saídas', () => {
   assert.deepEqual([r[2], r[1], r[4], { delta: 0 }].map((x) => deltaLabel({ isNew: false, ...x })), ['▲ 1', '▼ 1', 'novo', '=']);
   assert.deepEqual(biggestMoves(frames), { up: { id: 2, delta: 1 }, down: { id: 1, delta: -1 } });
   assert.deepEqual(biggestMoves([frames[0]]), { up: null, down: null });
+});
+
+test('timelapse: cada instrumento mantém a cor; vizinhos com cores diferentes; 8 cores', () => {
+  const slots = colorSlots([10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+  assert.deepEqual([...slots.values()], [1, 2, 3, 4, 5, 6, 7, 8, 1, 2]);
+  assert.equal(slots.get(12), 3);
+  assert.deepEqual([...colorSlots([])], []);
 });

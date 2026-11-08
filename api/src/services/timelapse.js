@@ -4,7 +4,7 @@
  * As sessões são as do calendário comum do catálogo: um feriado local conta como sessão sem negócios desse instrumento.
  */
 
-export const WINDOW = 10;   // sessões somadas em cada ponto
+export const WINDOW = 10;   // sessões somadas em cada ponto, por omissão (também 1 ou 5)
 export const SESSIONS = 22; // pontos da animação
 export const TOP = 30;
 

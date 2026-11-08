@@ -32,6 +32,9 @@
   --series-sma50: #eda100;
   --series-sma125: #e87ba4;
   --series-sma200: #008300;
+  /* Paleta categórica (identidade), por esta ordem: validada para daltonismo nos dois temas (Timelapse). */
+  --cat-1: #2a78d6; --cat-2: #eb6834; --cat-3: #1baf7a; --cat-4: #eda100;
+  --cat-5: #e87ba4; --cat-6: #008300; --cat-7: #6250d6; --cat-8: #e34948;
   /* HeatMap: texto branco com contraste ≥ 4,98:1 nas três cores (iguais nos dois temas). */
   --heat-up: #1a7f45;
   --heat-flat: #6b7079;
@@ -68,6 +71,8 @@
   --series-sma50: #c98500;
   --series-sma125: #d55181;
   --series-sma200: #008300;
+  --cat-1: #3987e5; --cat-2: #d95926; --cat-3: #199e70; --cat-4: #c98500;
+  --cat-5: #d55181; --cat-6: #008300; --cat-7: #9085e9; --cat-8: #e66767;
   /* No escuro a escala inverte o brilho: o mais quente é o mais vivo. */
   --heat-month-1: #5e3216;
   --heat-month-2: #9a4a1c;

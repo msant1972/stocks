@@ -149,11 +149,14 @@ export default async function marketRoutes(app, { pool, cfg }) {
 
   app.get('/market/timelapse', {
     schema: {
-      tags: ['Mercado'], summary: 'Top 30 do valor negociado de 10 sessões, em cada uma das últimas 22 sessões (Timelapse)',
-      description: 'Valor negociado de uma sessão = volume × (abertura + mínimo + máximo + fecho) / 4, em euros; cada ponto soma as 10 sessões '
-        + 'até essa data. Universo: lista (a minha lista), saxo (posições da conta SAXO; sem ligação, os erros SAXO_*) ou catalogo. '
+      tags: ['Mercado'], summary: 'Top 30 do valor negociado de 1, 5 ou 10 sessões, em cada uma das últimas 22 sessões (Timelapse)',
+      description: 'Valor negociado de uma sessão = volume × (abertura + mínimo + máximo + fecho) / 4, em euros; cada ponto soma as `window` sessões '
+        + '(1, 5 ou 10; por omissão 10) até essa data. Universo: lista (a minha lista), saxo (posições da conta SAXO; sem ligação, os erros SAXO_*) ou catalogo. '
         + 'A sessão em curso fica de fora (`partialExcluded`).',
-      querystring: z.object({ universe: z.enum(['lista', 'saxo', 'catalogo']).default('catalogo') }),
+      querystring: z.object({
+        universe: z.enum(['lista', 'saxo', 'catalogo']).default('catalogo'),
+        window: z.coerce.number().int().refine((w) => [1, 5, 10].includes(w), 'sessões: 1, 5 ou 10').default(WINDOW),
+      }),
       response: {
         200: z.object({
           universe: z.enum(['lista', 'saxo', 'catalogo']), window: z.number(), sessions: z.number(), top: z.number(),
@@ -166,15 +169,15 @@ export default async function marketRoutes(app, { pool, cfg }) {
       },
     },
   }, async (req) => {
-    const { universe } = req.query;
+    const { universe, window } = req.query;
     const data = await timelapseData();
     const only = await universeIds(universe, req.user.id);
-    const frames = buildFrames(data.dates, data.rows, { only });
+    const frames = buildFrames(data.dates, data.rows, { only, window });
     const ids = new Set(frames.flatMap((f) => f.items.map((i) => i.id)));
     const instruments = [...ids].map((id) => data.names.get(id)).filter(Boolean)
       .map((n) => ({ id: Number(n.id), symbol: n.symbol, name: n.name ?? null }));
     return {
-      universe, window: WINDOW, sessions: SESSIONS, top: TOP, size: only ? only.size : data.names.size,
+      universe, window, sessions: SESSIONS, top: TOP, size: only ? only.size : data.names.size,
       partialExcluded: data.partial, instruments, frames,
     };
   });

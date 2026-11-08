@@ -53,3 +53,14 @@ export function biggestMoves(frames = []) {
   });
   return { up, down };
 }
+
+export const PALETTE_SIZE = 8;
+
+/**
+ * Cor de cada instrumento (índice 1–8 de --cat-N): fixa durante a animação e atribuída pela ordem da primeira aparição
+ * (ids de allFrameIds), por isso instrumentos vizinhos na primeira sessão nunca partilham cor. Só há 8 cores que se
+ * distinguem: repetem-se, e o símbolo ao lado de cada barra continua a ser a identificação.
+ */
+export function colorSlots(ids = []) {
+  return new Map(ids.map((id, i) => [id, (i % PALETTE_SIZE) + 1]));
+}
