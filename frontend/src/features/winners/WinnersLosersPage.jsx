@@ -9,6 +9,7 @@ import * as f from '../../lib/format.js';
 import { PnL } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Dialog, Notice, Segmented } from '../../components/ui/controls.jsx';
+import WatchButton from '../../components/finance/WatchButton.jsx';
 import SortHeader, { nextSort } from '../../components/ui/SortHeader.jsx';
 
 const pctTone = (v) => (v > 0 ? 'positive' : v < 0 ? 'negative' : '');
@@ -26,18 +27,6 @@ function sortRows(rows, { key, dir }) {
 }
 
 /** Botão de ícone para pôr ou tirar o instrumento de «A minha lista». */
-function WatchButton({ row, busy, onToggle }) {
-  const label = row.inWatchlist ? `Remover ${row.symbol} da minha lista` : `Adicionar ${row.symbol} à minha lista`;
-  return (
-    <Button size="small" variant="ghost" className={`icon-button wl-watch${row.inWatchlist ? ' in' : ''}`} busy={busy}
-      onClick={() => onToggle(row)} title={row.inWatchlist ? 'Na minha lista: remover' : 'Adicionar à minha lista'} aria-pressed={row.inWatchlist}>
-      <Icon name={row.inWatchlist ? 'trash' : 'plus'} size={18} />
-      <span className="visually-hidden">{label}</span>
-    </Button>
-  );
-}
-
-/** Tabela de um grupo (todas ganham / todas perdem), ordenável por qualquer coluna. */
 function GroupTable({ id, title, tone, rows, strategies, initialDir, note, pendingIds, onToggle, bulk }) {
   const [sort, setSort] = useState({ key: 'total', dir: initialDir });
   const defaults = { symbol: 'asc', total: initialDir, buyHoldPct: initialDir, ...Object.fromEntries(strategies.map((s) => [s.id, initialDir])) };
@@ -85,7 +74,7 @@ function GroupTable({ id, title, tone, rows, strategies, initialDir, note, pendi
                     </td>
                   ))}
                   <td className={`r num ${pctTone(r.buyHoldPct)}`}>{r.buyHoldPct == null ? '—' : f.pct(r.buyHoldPct.toFixed(1))}</td>
-                  <td className="r"><WatchButton row={r} busy={pendingIds.has(r.instrumentId)} onToggle={onToggle} /></td>
+                  <td className="r"><WatchButton row={r} inWatchlist={r.inWatchlist} busy={pendingIds.has(r.instrumentId)} onToggle={onToggle} /></td>
                 </tr>
               ))}
             </tbody>
