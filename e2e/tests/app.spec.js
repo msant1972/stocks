@@ -247,3 +247,22 @@ test('telemóvel: a barra inferior tem a Carteira SAXO', async ({ browser }) => 
   await expect(m).toHaveURL(/\/saxo\/carteira$/);
   await ctx.close();
 });
+
+test('WinnersLoosers: cartão dos resultados mistos e remoção em bloco da minha lista (perdedores e mistos)', async () => {
+  await page.goto('/winners-loosers');
+  const mixed = page.locator('section', { has: page.getByRole('heading', { name: 'Resultados mistos' }) });
+  await expect(mixed).toBeVisible();
+  const rows = await mixed.locator('tbody tr').count();
+  expect(rows).toBeGreaterThan(0); // os dados de teste (GALP e BCP) têm resultados mistos
+  // Perdedores: o botão está sempre visível; sem nenhum na lista, desactivado.
+  const loss = page.locator('section', { has: page.getByRole('heading', { name: 'Perdem com todas as estratégias' }) });
+  await expect(loss.getByRole('button', { name: /Remover da lista \(0\)/ })).toBeDisabled();
+  // Mistos: remove em bloco os que estão na lista.
+  await mixed.getByRole('button', { name: new RegExp(`Remover da lista \\(${rows}\\)`) }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('resultados mistos');
+  await dialog.getByRole('button', { name: `Remover ${rows}` }).click();
+  await expect(mixed.getByRole('button', { name: /Remover da lista \(0\)/ })).toBeDisabled();
+  const list = await (await page.request.get('/api/v1/watchlist')).json();
+  expect(list.items).toHaveLength(0);
+});

@@ -46,25 +46,35 @@ export default async function signalRoutes(app, { pool, warmup = () => {} }) {
   for (const st of AVAILABLE_STRATEGIES) warmup(() => recompute(st, true));
 
   const SignalWithStrategy = Signal.extend({ strategy: z.string() });
+  async function watchlistIds(userId) {
+    const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [userId]);
+    return new Set(w.map((r) => Number(r.instrument_id)));
+  }
   const sessionsQuery = z.coerce.number().int().min(1).max(MAX_SESSIONS).default(5);
 
   app.get('/signals', {
     schema: {
-      tags: ['Sinais'], summary: 'Sinais de uma estratégia em todos os instrumentos (últimas N sessões)',
+      tags: ['Sinais'], summary: 'Sinais de uma estratégia nos instrumentos da minha lista ou em todo o catálogo (últimas N sessões)',
       description: 'Estratégias: ' + AVAILABLE_STRATEGIES.map((x) => `${x.id} (${x.name}: ${x.rules})`).join(' ')
         + ' Simulação; não são recomendações.',
       querystring: z.object({
         sessions: sessionsQuery,
         strategy: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)).default(DEFAULT_STRATEGY_ID),
+        scope: z.enum(['all', 'watchlist']).default('all').describe('watchlist: só os instrumentos da minha lista (página Sinais)'),
       }),
       response: {
-        200: z.object({ strategy: z.string(), sessions: z.number(), latestSession: IsoDate.nullable(), items: z.array(Signal) }),
+        200: z.object({
+          strategy: z.string(), sessions: z.number(), scope: z.enum(['all', 'watchlist']),
+          instruments: z.number().nullable().describe('Instrumentos da minha lista (scope=watchlist); null em todo o catálogo'),
+          latestSession: IsoDate.nullable(), items: z.array(Signal),
+        }),
       },
     },
   }, async (req) => {
     const strategy = getStrategy(req.query.strategy);
-    const { items, latestSession } = buildItems(await entryFor(strategy), req.query.sessions, strategy.id);
-    return { strategy: strategy.id, sessions: req.query.sessions, latestSession, items };
+    const mine = req.query.scope === 'watchlist' ? await watchlistIds(req.user.id) : null;
+    const { items, latestSession } = buildItems(await entryFor(strategy), req.query.sessions, strategy.id, mine);
+    return { strategy: strategy.id, sessions: req.query.sessions, scope: req.query.scope, instruments: mine ? mine.size : null, latestSession, items };
   });
 
   app.get('/signals/watchlist', {
@@ -76,8 +86,7 @@ export default async function signalRoutes(app, { pool, warmup = () => {} }) {
       response: { 200: z.object({ sessions: z.number(), latestSession: IsoDate.nullable(), items: z.array(SignalWithStrategy) }) },
     },
   }, async (req) => {
-    const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [req.user.id]);
-    const mine = new Set(w.map((r) => Number(r.instrument_id)));
+    const mine = await watchlistIds(req.user.id);
     const items = [];
     let latestSession = null;
     for (const st of AVAILABLE_STRATEGIES) {

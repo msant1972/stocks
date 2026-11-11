@@ -57,8 +57,8 @@ export default function SignalsPage() {
     }
   }
   const q = useQuery({
-    queryKey: ['signals', strategyId, sessions],
-    queryFn: () => api.get(`/signals?strategy=${strategyId}&sessions=${sessions}`),
+    queryKey: ['signals', strategyId, sessions, 'watchlist'],
+    queryFn: () => api.get(`/signals?strategy=${strategyId}&sessions=${sessions}&scope=watchlist`),
     placeholderData: (prev) => prev,
     staleTime: 5 * 60_000,
   });
@@ -79,7 +79,7 @@ export default function SignalsPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Sinais</h1>
-          <p className="page-sub">Compras, reforços e vendas da estratégia {strategy.name} aplicada virtualmente a todos os instrumentos.</p>
+          <p className="page-sub">Compras, reforços e vendas da estratégia {strategy.name} aplicada virtualmente aos instrumentos da minha lista{q.data?.instruments != null ? ` (${q.data.instruments})` : ''}.</p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <Link className="button mobile-only-inline" to="/backtest">BackTest</Link>
@@ -121,7 +121,11 @@ export default function SignalsPage() {
             </div>
           </div>
           {q.isPending ? <Loading rows={6} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : items.length === 0 ? (
-            <EmptyState title="Sem sinais no período">Experimente alargar o período ou mudar o tipo de sinal.</EmptyState>
+            q.data.instruments === 0 ? (
+              <EmptyState title="A sua lista está vazia" action={<Link className="button" to="/acompanhar">Acompanhar instrumentos</Link>}>
+                Os sinais são calculados para os instrumentos da sua lista.
+              </EmptyState>
+            ) : <EmptyState title="Sem sinais no período">Experimente alargar o período ou mudar o tipo de sinal.</EmptyState>
           ) : (
             <div className="table-wrap" tabIndex={0} aria-label="Tabela de sinais" style={{ opacity: q.isFetching ? 0.6 : 1 }}>
               <table className="data">

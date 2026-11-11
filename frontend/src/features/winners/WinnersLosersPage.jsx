@@ -106,7 +106,7 @@ export default function WinnersLosersPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const [pendingIds, setPendingIds] = useState(new Set());
-  const [bulk, setBulk] = useState(null); // { action: 'add' | 'remove', rows }
+  const [bulk, setBulk] = useState(null); // { action: 'add' | 'remove', group: 'gain' | 'loss' | 'mixed', rows }
   const [bulkBusy, setBulkBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -167,10 +167,21 @@ export default function WinnersLosersPage() {
     if (!data) return null;
     const needle = q.trim().toLowerCase();
     const items = needle ? data.items.filter((i) => i.symbol.toLowerCase().includes(needle) || (i.name ?? '').toLowerCase().includes(needle)) : data.items;
-    return { gain: items.filter((i) => i.group === 'gain'), loss: items.filter((i) => i.group === 'loss') };
+    return { gain: items.filter((i) => i.group === 'gain'), loss: items.filter((i) => i.group === 'loss'), mixed: items.filter((i) => i.group === 'mixed') };
   }, [data, q]);
 
   const names = data?.strategies.map((s) => s.name).join(', ').replace(/, ([^,]*)$/, ' e $1');
+  /** Remover da minha lista, em bloco, os instrumentos do grupo que lá estão; sempre visível, desactivado sem nenhum. */
+  const removeButton = (rows, group) => {
+    const toRemove = rows.filter((r) => r.inWatchlist);
+    return (
+      <Button size="small" variant="danger" className="button-ghost" disabled={toRemove.length === 0}
+        title={toRemove.length === 0 ? 'Nenhum destes instrumentos está na sua lista' : 'Remover estes instrumentos da sua lista'}
+        onClick={() => setBulk({ action: 'remove', group, rows: toRemove })}>
+        <Icon name="trash" size={16} />Remover da lista ({toRemove.length})
+      </Button>
+    );
+  };
   const sumOf = (g) => data.items.filter((i) => i.group === g).reduce((s, i) => s + i.total, 0);
 
   return (
@@ -179,7 +190,7 @@ export default function WinnersLosersPage() {
         <div>
           <h1 className="page-title">WinnersLoosers</h1>
           <p className="page-sub">
-            Instrumentos em que todas as estratégias ganham, e em que todas perdem{names ? ` (${names})` : ''}, nos últimos 2 anos.
+            Instrumentos em que todas as estratégias ganham, em que todas perdem{names ? ` (${names})` : ''} e em que os resultados são mistos, nos últimos 2 anos.
             Simulação no histórico, sem comissões; não é uma recomendação.
           </p>
         </div>
@@ -238,22 +249,19 @@ export default function WinnersLosersPage() {
                 bulk={(() => {
                   const toAdd = filtered.gain.filter((r) => !r.inWatchlist);
                   return toAdd.length > 0 && (
-                    <Button size="small" onClick={() => setBulk({ action: 'add', rows: toAdd })}>
+                    <Button size="small" onClick={() => setBulk({ action: 'add', group: 'gain', rows: toAdd })}>
                       <Icon name="plus" size={16} />Adicionar à lista ({toAdd.length})
                     </Button>
                   );
                 })()} />
               <GroupTable id="wl-loss" title="Perdem com todas as estratégias" tone="loss" rows={filtered.loss} strategies={data.strategies} initialDir="asc"
                 pendingIds={pendingIds} onToggle={toggle}
-                bulk={(() => {
-                  const toRemove = filtered.loss.filter((r) => r.inWatchlist);
-                  return toRemove.length > 0 && (
-                    <Button size="small" variant="danger" className="button-ghost" onClick={() => setBulk({ action: 'remove', rows: toRemove })}>
-                      <Icon name="trash" size={16} />Remover da lista ({toRemove.length})
-                    </Button>
-                  );
-                })()}
+                bulk={removeButton(filtered.loss, 'loss')}
                 note="Acções em queda ou sem tendência, ou com subidas em saltos bruscos: as estratégias de tendência entram em recuperações curtas e saem com perda." />
+              <GroupTable id="wl-mixed" title="Resultados mistos" tone="mixed" rows={filtered.mixed} strategies={data.strategies} initialDir="desc"
+                pendingIds={pendingIds} onToggle={toggle}
+                bulk={removeButton(filtered.mixed, 'mixed')}
+                note="Umas estratégias ganham e outras perdem: o resultado depende da estratégia escolhida. A coluna de cada estratégia mostra qual funciona neste instrumento." />
 
               <p className="small muted">
                 Os mesmos resultados do BackTest ({f.money(data.budget ?? 15000, 'EUR', 0)} por compra, janela de {data.years} anos, sem comissões), calculados às{' '}
@@ -263,13 +271,13 @@ export default function WinnersLosersPage() {
           )}
 
       <Dialog open={bulk != null} onClose={() => !bulkBusy && setBulk(null)}
-        title={bulk?.action === 'add' ? 'Adicionar os ganhadores à minha lista?' : 'Remover os perdedores da minha lista?'}>
+        title={bulk?.action === 'add' ? 'Adicionar os ganhadores à minha lista?' : bulk?.group === 'mixed' ? 'Remover os instrumentos com resultados mistos da minha lista?' : 'Remover os perdedores da minha lista?'}>
         {bulk && (
           <div className="stack" style={{ gap: '1rem' }}>
             <p>
               {bulk.action === 'add'
                 ? `Vai acompanhar ${bulk.rows.length} ${bulk.rows.length === 1 ? 'instrumento' : 'instrumentos'} que ganham com todas as estratégias:`
-                : `Vai deixar de acompanhar ${bulk.rows.length} ${bulk.rows.length === 1 ? 'instrumento' : 'instrumentos'} que perdem com todas as estratégias:`}
+                : `Vai deixar de acompanhar ${bulk.rows.length} ${bulk.rows.length === 1 ? 'instrumento' : 'instrumentos'} ${bulk.group === 'mixed' ? 'com resultados mistos nas estratégias' : 'que perdem com todas as estratégias'}:`}
             </p>
             <p className="small muted" style={{ maxHeight: '9rem', overflowY: 'auto' }}>{bulk.rows.map((r) => r.symbol).join(', ')}</p>
             {bulk.action === 'remove' && <p className="small muted">As posições, operações e alertas destes instrumentos não são alterados.</p>}

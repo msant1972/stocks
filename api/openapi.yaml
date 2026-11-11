@@ -8564,7 +8564,8 @@ paths:
                 additionalProperties: false
   /api/v1/signals:
     get:
-      summary: Sinais de uma estratégia em todos os instrumentos (últimas N sessões)
+      summary: Sinais de uma estratégia nos instrumentos da minha lista ou em todo o
+        catálogo (últimas N sessões)
       tags:
         - Sinais
       description: "Estratégias: a-momentum (A-Momentum: Compra 15 000 € quando o
@@ -8624,6 +8625,16 @@ paths:
           in: query
           name: strategy
           required: false
+        - schema:
+            default: all
+            type: string
+            enum:
+              - all
+              - watchlist
+          in: query
+          name: scope
+          required: false
+          description: "watchlist: só os instrumentos da minha lista (página Sinais)"
       responses:
         "200":
           description: Default Response
@@ -8635,6 +8646,16 @@ paths:
                   strategy:
                     type: string
                   sessions:
+                    type: number
+                  scope:
+                    type: string
+                    enum:
+                      - all
+                      - watchlist
+                  instruments:
+                    nullable: true
+                    description: Instrumentos da minha lista (scope=watchlist); null em todo o
+                      catálogo
                     type: number
                   latestSession:
                     nullable: true
@@ -8704,6 +8725,8 @@ paths:
                 required:
                   - strategy
                   - sessions
+                  - scope
+                  - instruments
                   - latestSession
                   - items
                 additionalProperties: false

@@ -144,6 +144,8 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US49 | Estratégias → Calor: valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
 | US50 | Calor: histograma «Valor mensal negociado» com os meses mais quentes a cores | — | Feito |
 | US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
+| US66 | WinnersLoosers: cartão «Resultados mistos» e remoção em bloco da minha lista nos perdedores e nos mistos; Sinais só nos instrumentos da minha lista | — | Feito |
+| US65 | Estratégia E-Ondas (correcções numa tendência de subida, inversão confirmada), a partir do desenho do utilizador na A2A.MI; especificação em [E-Ondas.md](E-Ondas.md) | — | Por implementar |
 | US64 | Laboratório (registo das experiências), Automação face ao BackTest e BackTest/Comparar com custos SAXO e período de verificação; histórico de 5 anos | — | Feito |
 | US63 | Revisão de segurança do backend (BD, motores e API): limites de tentativas por conta no login e no 2.º factor, correspondência SAXO protegida, Automação sem vender a mais, SMTP sem palavra-passe às claras, documentação da API só com sessão, limpeza de sessões e registos sem o código OAuth | — | Feito |
 | US62 | Interface revista: todas as páginas com a largura toda do ecrã (como o Charts), menu e cartões compactos, cartões lado a lado em ecrãs largos, gráficos à altura da janela; Timelapse: duplo clique abre o instrumento no Charts | — | Feito |

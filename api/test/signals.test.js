@@ -47,4 +47,16 @@ describe.skipIf(!hasTestDb)('sinais da estratégia', () => {
     expect(mine.items.find((i) => i.strategy === 'a-momentum')).toMatchObject({ symbol: 'COMPRA.LS', side: 'buy', sessionsAgo: 0 });
     expect(mine.items.every((i) => i.symbol === 'COMPRA.LS')).toBe(true);
   });
+
+  it('página Sinais: scope=watchlist aplica a estratégia só aos instrumentos da minha lista', async () => {
+    // Do teste anterior: COMPRA.LS está na lista.
+    const mine = (await ana.get('/signals?sessions=5&scope=watchlist')).json();
+    expect(mine).toMatchObject({ scope: 'watchlist', instruments: 1 });
+    expect(mine.items.map((i) => i.symbol)).toEqual(['COMPRA.LS']);
+    const [[{ id }]] = await ctx.pool.query("SELECT id FROM instruments WHERE symbol = 'COMPRA.LS'");
+    expect((await ana.del(`/watchlist/items/${id}`)).statusCode).toBe(204);
+    const none = (await ana.get('/signals?sessions=5&scope=watchlist')).json();
+    expect(none).toMatchObject({ instruments: 0, items: [] });
+    expect((await ana.get('/signals?sessions=5')).json()).toMatchObject({ scope: 'all', instruments: null }); // todo o catálogo, por omissão
+  });
 });

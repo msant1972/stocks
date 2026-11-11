@@ -24,7 +24,7 @@ A carteira é a **conta de simulação (SIM) da SAXO Bank**: as ordens vão para
 - [Plano de implementação](docs/arquitectura/plano_implementacao.md)
 - [Guia de estilos UI/UX](docs/arquitectura/guia_estilos.md)
 - [Análise e decisões](docs/arquitectura/analise_e_decisoes.md)
-- Especificações: [livro de ofertas](docs/arquitectura/orderbook-spec.md), [estratégia B-Opus](docs/arquitectura/B-Opus.md) (e [ablação](docs/arquitectura/b-opus-ablacao.md)), [estratégia C-AI](docs/arquitectura/C-AI.md), [estratégia D-Reversão](docs/arquitectura/D-Reversao.md), [Promessas](docs/arquitectura/promessas.md)
+- Especificações: [livro de ofertas](docs/arquitectura/orderbook-spec.md), [estratégia B-Opus](docs/arquitectura/B-Opus.md) (e [ablação](docs/arquitectura/b-opus-ablacao.md)), [estratégia C-AI](docs/arquitectura/C-AI.md), [estratégia D-Reversão](docs/arquitectura/D-Reversao.md), [estratégia E-Ondas, por implementar](docs/arquitectura/E-Ondas.md), [Promessas](docs/arquitectura/promessas.md)
 
 Módulos da interface, por grupo do menu:
 
