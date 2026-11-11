@@ -84,3 +84,20 @@ test('VT: último fecho × volume, e valor compacto para a tabela', async () => 
   assert.equal(compactMoney(850), '850 €');
   assert.equal(compactMoney(null), '—');
 });
+
+test('Acompanhar: ordenar pela melhor estratégia (resultado), sem cálculo no fim, e pelas outras colunas', async () => {
+  const { sortInstruments, SORT_DEFAULT_DIR } = await import('../src/lib/instrumentSort.js');
+  const items = [
+    { id: 1, symbol: 'AAA', latest: { close: '10', volume: 100, changePct: '1' } },
+    { id: 2, symbol: 'BBB', latest: { close: '1', volume: 5000, changePct: '-2' } },
+    { id: 3, symbol: 'CCC', latest: null },
+    { id: 4, symbol: 'DDD', latest: { close: '5', volume: 10, changePct: '0' } },
+  ];
+  const best = new Map([[1, { strategyId: 'c-ai', total: 1200 }], [2, { strategyId: 'a-momentum', total: -300 }], [4, { strategyId: 'b-opus', total: 4500 }]]);
+  const order = (key, dir = SORT_DEFAULT_DIR[key]) => sortInstruments(items, { key, dir }, { best }).map((i) => i.symbol);
+  assert.equal(SORT_DEFAULT_DIR.best, 'desc');
+  assert.deepEqual(order('best'), ['DDD', 'AAA', 'BBB', 'CCC']); // «Nenhuma ganha» (negativo) antes de sem cálculo
+  assert.deepEqual(order('best', 'asc'), ['BBB', 'AAA', 'DDD', 'CCC']);
+  assert.deepEqual(order('turnover'), ['BBB', 'AAA', 'DDD', 'CCC']); // 5000 €, 1000 €, 50 €
+  assert.deepEqual(sortInstruments(items, { key: 'best', dir: 'desc' }).map((i) => i.symbol), ['AAA', 'BBB', 'CCC', 'DDD']); // ainda sem dados: por símbolo
+});

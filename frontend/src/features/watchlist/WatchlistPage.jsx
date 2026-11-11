@@ -11,6 +11,7 @@ import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Dialog, Notice } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
 import SortHeader, { nextSort } from '../../components/ui/SortHeader.jsx';
+import { SORT_DEFAULT_DIR, sortInstruments } from '../../lib/instrumentSort.js';
 import AddInstrumentsDialog from './AddInstrumentsDialog.jsx';
 
 const ISIN_MIC_RE = /^[A-Z]{2}[A-Z0-9]{9}[0-9]-[A-Z0-9]{4}$/;
@@ -110,29 +111,8 @@ const LIST_SORT_KEY = 'stocks.ordemLista';
 const readStored = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
 const store = (key, value) => { try { localStorage.setItem(key, value); } catch { /* sem armazenamento: só nesta sessão */ } };
 
-const SORT_DEFAULT_DIR = { symbol: 'asc', volume: 'desc', turnover: 'desc', change: 'desc', imbalance: 'desc' };
-const SERVER_SORTS = ['symbol', 'volume', 'turnover', 'change'];
+const SERVER_SORTS = ['symbol', 'volume', 'turnover', 'change']; // o resto (melhor estratégia, desequilíbrio) ordena-se no browser
 
-/** Ordena localmente; os instrumentos sem valor ficam sempre no fim. */
-function sortItems(items, { key, dir }, summary) {
-  const value = {
-    symbol: (i) => i.symbol,
-    volume: (i) => i.latest?.volume ?? null,
-    turnover: (i) => f.lastTurnover(i.latest),
-    change: (i) => (i.latest?.changePct == null ? null : Number(i.latest.changePct)),
-    imbalance: (i) => summary.byId.get(i.id)?.imbalance ?? null,
-  }[key];
-  const sign = dir === 'asc' ? 1 : -1;
-  return [...items].sort((a, b) => {
-    const va = value(a);
-    const vb = value(b);
-    if (va == null || vb == null) return (va == null) - (vb == null) || a.symbol.localeCompare(b.symbol);
-    const c = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
-    return c * sign || a.symbol.localeCompare(b.symbol);
-  });
-}
-
-/** Melhor estratégia do instrumento nos últimos 2 anos; a ligação abre o gráfico com ela aplicada. */
 function BestStrategyCell({ item, best }) {
   if (best.isPending) return <span className="muted" aria-label="A calcular">…</span>;
   const b = best.data?.get(item.id);
@@ -157,7 +137,7 @@ function InstrumentTable({ items, action, sort: requested, onSort, clientKeys = 
   const summary = useOrderbookSummary(items, showBook);
   const best = useBestStrategies();
   const sort = !showBook && requested.key === 'imbalance' ? { key: 'symbol', dir: 'asc' } : requested;
-  const rows = clientKeys.includes(sort.key) ? sortItems(items, sort, summary) : items;
+  const rows = clientKeys.includes(sort.key) ? sortInstruments(items, sort, { best: best.data, book: summary.byId }) : items;
   const header = (label, key, extra) => <SortHeader label={label} sortKey={key} sort={sort} onSort={(k) => onSort(nextSort(sort, k, SORT_DEFAULT_DIR))} {...extra} />;
   return (
     <>
@@ -172,7 +152,7 @@ function InstrumentTable({ items, action, sort: requested, onSort, clientKeys = 
             {header('Volume', 'volume', { align: 'r' })}
             {header('VT', 'turnover', { align: 'r', title: 'Valor transaccionado na última sessão: último fecho × volume' })}
             {header('Variação', 'change', { align: 'r' })}
-            <th scope="col" title="Estratégia com melhor resultado neste instrumento nos últimos 2 anos (BackTest, 15 000 € por compra)">Melhor estratégia</th>
+            {header('Melhor estratégia', 'best', { title: 'Estratégia com melhor resultado neste instrumento nos últimos 2 anos (BackTest, 15 000 € por compra); ordena pelo resultado' })}
             {showBook && <th scope="col" className="r" title="Ponto médio entre a melhor compra e a melhor venda no livro Euronext (atraso 15 min)">Mid</th>}
             {showBook && header('Desequilíbrio', 'imbalance', { align: 'r', title: '(compras − vendas) / total das quantidades no livro: positivo = pressão compradora' })}
             <th scope="col">ISIN-MIC</th>
@@ -387,7 +367,7 @@ export default function WatchlistPage() {
                 {q ? 'Se o símbolo ainda não está no catálogo, pode adicioná-lo.' : 'Adicione os primeiros símbolos, à mão ou por Excel.'}
               </EmptyState>
             ) : (
-              <InstrumentTable items={search.data.items} action={catalogAction} sort={catalogSort} onSort={setCatalogSort} clientKeys={['imbalance']} showBook={showBook}
+              <InstrumentTable items={search.data.items} action={catalogAction} sort={catalogSort} onSort={setCatalogSort} clientKeys={['best', 'imbalance']} showBook={showBook}
                 note={search.data.total > search.data.items.length
                   ? `Mostrados ${search.data.items.length} de ${search.data.total} instrumentos. Pesquise para restringir a lista.`
                   : null} />
