@@ -120,6 +120,17 @@ describe.skipIf(!hasTestDb)('catálogo, histórico e watchlist', () => {
     expect((await ana.get('/instruments?sort=nome')).statusCode).toBe(400);
   });
 
+  it('ordena por VT (último fecho × volume), que pode diferir da ordem do volume', async () => {
+    const cara = await makeInstrument(ctx.pool, 'VTCARA.LS', { closes: ['100.00', '100.00'] }); // 1000 × 100 € = 100 000 €
+    const barata = await makeInstrument(ctx.pool, 'VTBARATA.LS', { closes: ['1.00', '1.00'] }); // 50 000 × 1 € = 50 000 €
+    await makeInstrument(ctx.pool, 'VTNADA.LS', { closes: [] });
+    await ctx.pool.query('UPDATE daily_quotes SET volume = CASE instrument_id WHEN ? THEN 1000 ELSE 50000 END WHERE instrument_id IN (?, ?)', [cara, cara, barata]);
+    const order = async (qs) => (await ana.get(`/instruments?q=VT&${qs}`)).json().items.map((i) => i.symbol);
+    expect(await order('sort=volume')).toEqual(['VTBARATA.LS', 'VTCARA.LS', 'VTNADA.LS']);
+    expect(await order('sort=turnover')).toEqual(['VTCARA.LS', 'VTBARATA.LS', 'VTNADA.LS']);
+    expect(await order('sort=turnover&dir=asc')).toEqual(['VTBARATA.LS', 'VTCARA.LS', 'VTNADA.LS']);
+  });
+
   it('só administradores apagam do catálogo, com cotações, listas e alertas; recusa com operações', async () => {
     await enableMfa(ctx.pool, await createUser(ctx.pool, { email: 'admin@exemplo.pt', name: 'Admin', password: PASSWORD, isAdmin: true }, FAST_HASH));
     const admin = api(ctx.app, await login(ctx.app, 'admin@exemplo.pt'));

@@ -86,11 +86,15 @@ export const useCatalog = (enabled = true) => useQuery({
   queryKey: ['instruments', 'all'], queryFn: () => api.get('/instruments?limit=500&sort=symbol'), enabled, staleTime: 5 * 60_000,
 });
 
-/** Catálogo (50 primeiros). sort 'symbol', 'volume' ou 'change' ordena o catálogo inteiro no servidor. */
+/**
+ * Catálogo partilhado (Acompanhar): até CATALOG_LIMIT instrumentos, ou seja, o catálogo inteiro (eram só os 50 primeiros, sem forma
+ * de ver os restantes). sort 'symbol', 'volume' ou 'change' ordena o catálogo inteiro no servidor.
+ */
+export const CATALOG_LIMIT = 500; // o máximo que GET /instruments aceita
 export function useInstrumentSearch(q, { sort = 'symbol', dir = 'asc' } = {}, enabled = true) {
   return useQuery({
     queryKey: keys.search(q, sort, dir),
-    queryFn: () => api.get(`/instruments?limit=50&sort=${sort}&dir=${dir}${q ? `&q=${encodeURIComponent(q)}` : ''}`),
+    queryFn: () => api.get(`/instruments?limit=${CATALOG_LIMIT}&sort=${sort}&dir=${dir}${q ? `&q=${encodeURIComponent(q)}` : ''}`),
     enabled,
     placeholderData: (prev) => prev,
     refetchInterval: (q) => (hasPending(q) ? POLL_PENDING_MS : false),

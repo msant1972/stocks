@@ -891,12 +891,13 @@ paths:
             enum:
               - symbol
               - volume
+              - turnover
               - change
           in: query
           name: sort
           required: false
-          description: symbol, volume ou change (variação da última sessão); sem valor
-            ficam no fim
+          description: "symbol, volume, turnover (VT: último fecho × volume) ou change
+            (variação da última sessão); sem valor ficam no fim"
         - schema:
             type: string
             enum:

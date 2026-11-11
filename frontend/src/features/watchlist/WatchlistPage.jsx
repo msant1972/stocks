@@ -110,14 +110,15 @@ const LIST_SORT_KEY = 'stocks.ordemLista';
 const readStored = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
 const store = (key, value) => { try { localStorage.setItem(key, value); } catch { /* sem armazenamento: só nesta sessão */ } };
 
-const SORT_DEFAULT_DIR = { symbol: 'asc', volume: 'desc', change: 'desc', imbalance: 'desc' };
-const SERVER_SORTS = ['symbol', 'volume', 'change'];
+const SORT_DEFAULT_DIR = { symbol: 'asc', volume: 'desc', turnover: 'desc', change: 'desc', imbalance: 'desc' };
+const SERVER_SORTS = ['symbol', 'volume', 'turnover', 'change'];
 
 /** Ordena localmente; os instrumentos sem valor ficam sempre no fim. */
 function sortItems(items, { key, dir }, summary) {
   const value = {
     symbol: (i) => i.symbol,
     volume: (i) => i.latest?.volume ?? null,
+    turnover: (i) => f.lastTurnover(i.latest),
     change: (i) => (i.latest?.changePct == null ? null : Number(i.latest.changePct)),
     imbalance: (i) => summary.byId.get(i.id)?.imbalance ?? null,
   }[key];
@@ -160,7 +161,7 @@ function InstrumentTable({ items, action, sort: requested, onSort, clientKeys = 
   const header = (label, key, extra) => <SortHeader label={label} sortKey={key} sort={sort} onSort={(k) => onSort(nextSort(sort, k, SORT_DEFAULT_DIR))} {...extra} />;
   return (
     <>
-    {note && sort.key === 'imbalance' && <p className="small muted" style={{ marginBottom: '0.5rem' }}>{note}</p>}
+    {note && <p className="small muted" style={{ marginBottom: '0.5rem' }}>{note}</p>}
     <div className="table-wrap" tabIndex={0} aria-label="Tabela de instrumentos">
       <table className="data">
         <thead>
@@ -169,6 +170,7 @@ function InstrumentTable({ items, action, sort: requested, onSort, clientKeys = 
             <th scope="col">Estado</th>
             <th scope="col" className="r">Último fecho</th>
             {header('Volume', 'volume', { align: 'r' })}
+            {header('VT', 'turnover', { align: 'r', title: 'Valor transaccionado na última sessão: último fecho × volume' })}
             {header('Variação', 'change', { align: 'r' })}
             <th scope="col" title="Estratégia com melhor resultado neste instrumento nos últimos 2 anos (BackTest, 15 000 € por compra)">Melhor estratégia</th>
             {showBook && <th scope="col" className="r" title="Ponto médio entre a melhor compra e a melhor venda no livro Euronext (atraso 15 min)">Mid</th>}
@@ -190,6 +192,7 @@ function InstrumentTable({ items, action, sort: requested, onSort, clientKeys = 
                 {i.latest && <div className="small muted" style={{ whiteSpace: 'nowrap' }}>{f.date(i.latest.date)}</div>}
               </td>
               <td className="r">{f.quantity(i.latest?.volume)}</td>
+              <td className="r num" title={f.lastTurnover(i.latest) == null ? undefined : f.money(f.lastTurnover(i.latest), i.currency)}>{f.compactMoney(f.lastTurnover(i.latest))}</td>
               <td className="r">{i.latest ? <PriceChange value={i.latest.changePct} showLabel={false} /> : '—'}</td>
               <td><BestStrategyCell item={i} best={best} /></td>
               {showBook && <BookCells item={i} summary={summary} />}
@@ -386,7 +389,7 @@ export default function WatchlistPage() {
             ) : (
               <InstrumentTable items={search.data.items} action={catalogAction} sort={catalogSort} onSort={setCatalogSort} clientKeys={['imbalance']} showBook={showBook}
                 note={search.data.total > search.data.items.length
-                  ? `Ordenados por desequilíbrio os ${search.data.items.length} instrumentos mostrados (o livro é pedido à Euronext só para estes). Pesquise para restringir a lista.`
+                  ? `Mostrados ${search.data.items.length} de ${search.data.total} instrumentos. Pesquise para restringir a lista.`
                   : null} />
             )}
         </section>}

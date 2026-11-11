@@ -123,3 +123,22 @@ export function describeRule(kind, threshold, symbol, currency = 'EUR', strategy
     default: return null;
   }
 }
+
+/** Valor em euros compacto para tabelas: «850 k€», «12,3 M€», «1,2 mM€» (mil milhões). */
+export function compactMoney(value) {
+  if (value == null || !Number.isFinite(Number(value))) return '—';
+  const v = Number(value);
+  const a = Math.abs(v);
+  const n = (x, d) => x.toLocaleString('pt-PT', { minimumFractionDigits: d, maximumFractionDigits: d });
+  if (a >= 1e9) return `${n(v / 1e9, 1)} mM€`;
+  if (a >= 1e6) return `${n(v / 1e6, 1)} M€`;
+  if (a >= 1e3) return `${n(v / 1e3, 0)} k€`;
+  return `${n(v, 0)} €`;
+}
+
+/** VT (valor transaccionado) da última sessão: último fecho × volume dessa sessão; null sem um dos dois. */
+export function lastTurnover(latest) {
+  if (!latest || latest.volume == null || latest.close == null) return null;
+  const v = Number(latest.close) * Number(latest.volume);
+  return Number.isFinite(v) ? v : null;
+}

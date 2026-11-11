@@ -72,3 +72,15 @@ test('laboratório: contagem, filtros e corpo do pedido', () => {
   assert.deepEqual(experimentPayload({ title: ' T ', status: 'idea', hypothesis: ' ', metric: 'm', result: '', startedOn: '', decidedOn: '2026-11-08' }),
     { title: 'T', status: 'idea', hypothesis: null, metric: 'm', result: null, startedOn: null, decidedOn: '2026-11-08' });
 });
+
+test('VT: último fecho × volume, e valor compacto para a tabela', async () => {
+  const { compactMoney, lastTurnover } = await import('../src/lib/format.js');
+  assert.equal(lastTurnover({ close: '19.45', volume: 1000 }), 19450);
+  assert.equal(lastTurnover({ close: '19.45', volume: null }), null);
+  assert.equal(lastTurnover(null), null);
+  assert.equal(compactMoney(19450).replace(/\s/g, ' '), '19 k€');
+  assert.equal(compactMoney(12_345_678).replace(/\s/g, ' '), '12,3 M€');
+  assert.equal(compactMoney(1_250_000_000).replace(/\s/g, ' '), '1,3 mM€');
+  assert.equal(compactMoney(850), '850 €');
+  assert.equal(compactMoney(null), '—');
+});
