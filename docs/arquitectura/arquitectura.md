@@ -328,6 +328,7 @@ Biblioteca em `api/src/orderbook/` que implementa a [especificação](orderbook-
 O BackTest, o Comparar, o WinnersLoosers, as Promessas, os Sinais, a melhor estratégia e os sinais da Visão geral dependem de cálculos sobre todo o catálogo (cerca de 3 s). Para abrirem de imediato:
 - **No arranque da API** e **sempre que uma recolha (diária ou horária) termina** (verificação a cada 2 minutos), as caches são recalculadas em segundo plano (`services/warmup.js`), uma de cada vez: estratégias (em worker threads), Promessas e sinais de cada estratégia.
 - **Stale-while-revalidate:** com resultado em cache, mesmo com mais de 10 minutos, o pedido responde logo e o recálculo corre em segundo plano; só o primeiro pedido, se o cálculo antecipado ainda não terminou, espera.
+- **Resultados gravados em disco** (desde 12 nov. 2026): a cada recálculo, os resultados das estratégias são gravados em `STOCKS_STRATEGY_CACHE_FILE` (`/var/lib/stocks/cache/strategy-results.json`, escrita atómica). Quando a API reinicia (deploy), começa com eles marcados como antigos: os pedidos respondem logo (antes esperavam 3 a 5 s pelo primeiro cálculo, ex.: `/strategies/best` no Charts) e o cálculo antecipado actualiza-os em segundo plano. Ficheiros estragados, de outra versão ou com mais de 7 dias são ignorados.
 
 ### 5.2. Actualizações e alertas
 

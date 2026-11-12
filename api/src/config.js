@@ -41,6 +41,9 @@ export function loadConfig(env = process.env) {
       dir: env.STOCKS_BACKUP_DIR || '/var/backups/stocks',
       script: env.STOCKS_BACKUP_SCRIPT || '/opt/stocks/deploy/bin/backup.sh',
     },
+    // Resultados das estratégias gravados em disco, para a API reiniciada (deploy) responder logo com os da execução
+    // anterior enquanto recalcula em segundo plano. Sem ficheiro, só em memória.
+    strategyCacheFile: env.STOCKS_STRATEGY_CACHE_FILE || null,
     // Python do motor de alertas, usado para enviar o email de teste com o mesmo código dos alertas.
     alertsPython: env.STOCKS_ALERTS_PYTHON || null,
     // Ligação à SAXO Bank. Só a conta de simulação (SIM); a conta real fica recusada até STOCKS_SAXO_ALLOW_LIVE=true.

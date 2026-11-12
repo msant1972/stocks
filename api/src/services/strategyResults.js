@@ -1,4 +1,41 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { computeStrategiesParallel } from './strategyRuns.js';
+
+const SNAPSHOT_VERSION = 1;
+const SNAPSHOT_MAX_AGE_MS = 7 * 86_400_000;
+
+/**
+ * Lê os resultados gravados pela execução anterior. Entram como antigos (at = 0): servem de imediato e o primeiro pedido
+ * (ou o cálculo antecipado) recalcula-os, para não ficarem resultados de uma versão anterior das estratégias.
+ */
+export function loadSnapshot(file, log) {
+  const cache = new Map();
+  if (!file) return cache;
+  try {
+    const snap = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (snap?.version !== SNAPSHOT_VERSION || !(Date.now() - snap.savedAt < SNAPSHOT_MAX_AGE_MS)) return cache;
+    for (const [k, items] of Object.entries(snap.entries ?? {})) if (Array.isArray(items)) cache.set(k, { at: 0, items });
+  } catch (err) {
+    if (err.code !== 'ENOENT') log?.warn?.({ err }, 'estratégias: resultados gravados ilegíveis');
+  }
+  return cache;
+}
+
+/** Grava os resultados (ficheiro temporário e rename, para nunca ficar meio escrito). */
+export async function saveSnapshot(file, cache, log) {
+  if (!file) return;
+  const entries = Object.fromEntries([...cache].map(([k, e]) => [k, e.items]));
+  const tmp = `${file}.${process.pid}.tmp`;
+  try {
+    await fs.promises.mkdir(path.dirname(file), { recursive: true });
+    await fs.promises.writeFile(tmp, JSON.stringify({ version: SNAPSHOT_VERSION, savedAt: Date.now(), entries }));
+    await fs.promises.rename(tmp, file);
+  } catch (err) {
+    log?.warn?.({ err }, 'estratégias: não foi possível gravar os resultados');
+    await fs.promises.rm(tmp, { force: true }).catch(() => {});
+  }
+}
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
 const VERIFICATION_CACHE_MS = 6 * 3600_000; // período de verificação: dados antigos, só a data de fim avança
@@ -15,7 +52,8 @@ export function strategyResults(pool, cfg, log = null) {
   const cacheable = pool != null && typeof pool === 'object'; // (testes que montam a API sem base de dados: sem armazém partilhado)
   let store = cacheable ? stores.get(pool) : null;
   if (store) return store;
-  const cache = new Map(); // por estratégia e período
+  // Por estratégia e período; começa com os resultados gravados pela execução anterior (se houver).
+  const cache = loadSnapshot(cfg?.strategyCacheFile, log);
   let running = Promise.resolve();
   const key = (st, period) => (period === 'recent' ? st.id : `${period}:${st.id}`);
   const fresh = (st, period = 'recent') => {
@@ -30,6 +68,7 @@ export function strategyResults(pool, cfg, log = null) {
         const at = Date.now();
         const computed = await computeStrategiesParallel(pool, cfg.db, missing, log, period);
         for (const st of missing) cache.set(key(st, period), { at, items: computed.get(st.id) });
+        await saveSnapshot(cfg?.strategyCacheFile, cache, log);
       }
       return strategies.map((st) => cache.get(key(st, period)));
     });
