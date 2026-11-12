@@ -10186,5 +10186,224 @@ paths:
                 required:
                   - error
                 additionalProperties: false
+  /api/v1/admin/backups:
+    get:
+      summary: Cópias de segurança da base de dados (da mais recente para a mais antiga)
+      tags:
+        - Administração
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        size:
+                          type: number
+                          description: Bytes
+                        createdAt:
+                          type: string
+                          description: Data da cópia (UTC), do nome do ficheiro
+                      required:
+                        - name
+                        - size
+                        - createdAt
+                      additionalProperties: false
+                  retentionDays:
+                    type: number
+                  creating:
+                    type: boolean
+                  databaseBytes:
+                    nullable: true
+                    description: Tamanho da base de dados (dados e índices), em bytes
+                    type: number
+                required:
+                  - items
+                  - retentionDays
+                  - creating
+                  - databaseBytes
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    post:
+      summary: Criar uma cópia de segurança agora
+      tags:
+        - Administração
+      description: "Corre o mesmo script do timer diário (mariadb-dump comprimido para
+        a pasta das cópias). Uma de cada vez: 409 se já está a decorrer."
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+                  size:
+                    type: number
+                    description: Bytes
+                  createdAt:
+                    type: string
+                    description: Data da cópia (UTC), do nome do ficheiro
+                required:
+                  - name
+                  - size
+                  - createdAt
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "500":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/admin/backups/{name}:
+    get:
+      summary: Descarregar uma cópia de segurança (.sql.gz)
+      tags:
+        - Administração
+      description: "Contém toda a base de dados, incluindo hashes de palavras-passe e
+        segredos cifrados: guarde-a em local seguro. Auditado."
+      parameters:
+        - schema:
+            type: string
+            pattern: ^stocks-(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z\.sql\.gz$
+          in: path
+          name: name
+          required: true
+      responses:
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
 security:
   - session: []

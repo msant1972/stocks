@@ -18,7 +18,6 @@ const SaxoOrdersPage = lazy(() => import('../features/saxo/SaxoOrdersPage.jsx'))
 const SaxoPortfolioPage = lazy(() => import('../features/saxo/SaxoPortfolioPage.jsx'));
 const SaxoAlertsPage = lazy(() => import('../features/saxo/SaxoAlertsPage.jsx'));
 const SaxoAutomationPage = lazy(() => import('../features/saxo/SaxoAutomationPage.jsx'));
-const SaxoMatchPage = lazy(() => import('../features/saxo/SaxoMatchPage.jsx'));
 const AlertsPage = lazy(() => import('../features/alerts/AlertsPage.jsx'));
 const SignalsPage = lazy(() => import('../features/signals/SignalsPage.jsx'));
 const ComparePage = lazy(() => import('../features/compare/ComparePage.jsx'));
@@ -62,7 +61,7 @@ export default function App() {
           <Route path="saxo/ordens" element={<SaxoOrdersPage />} />
           <Route path="saxo/alertas" element={<SaxoAlertsPage />} />
           <Route path="saxo/automacao" element={<SaxoAutomationPage />} />
-          <Route path="saxo/correspondencia" element={<SaxoMatchPage />} />
+          <Route path="saxo/correspondencia" element={<Navigate to="/definicoes#correspondencia-saxo" replace />} />
           <Route path="sinais" element={<SignalsPage />} />
           <Route path="backtest" element={<BacktestPage />} />
           <Route path="comparar" element={<ComparePage />} />

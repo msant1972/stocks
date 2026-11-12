@@ -21,7 +21,8 @@ NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
-ReadWritePaths=/var/lib/stocks
+# /var/backups/stocks: «Criar cópia agora» em Definições corre o backup.sh a partir da API.
+ReadWritePaths=/var/lib/stocks /var/backups/stocks
 PrivateDevices=true
 ProtectKernelTunables=true
 ProtectKernelModules=true

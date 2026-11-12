@@ -101,3 +101,16 @@ test('Acompanhar: ordenar pela melhor estratégia (resultado), sem cálculo no f
   assert.deepEqual(order('turnover'), ['BBB', 'AAA', 'DDD', 'CCC']); // 5000 €, 1000 €, 50 €
   assert.deepEqual(sortInstruments(items, { key: 'best', dir: 'desc' }).map((i) => i.symbol), ['AAA', 'BBB', 'CCC', 'DDD']); // ainda sem dados: por símbolo
 });
+
+test('cópias de segurança: tamanhos e aviso de cópia desactualizada', async () => {
+  const { formatBytes, staleBackupWarning } = await import('../src/lib/backups.js');
+  assert.equal(formatBytes(512), '512 B');
+  assert.equal(formatBytes(2048), '2 KB');
+  assert.equal(formatBytes(9_721_082).replace(/\s/g, ' '), '9,3 MB');
+  assert.equal(formatBytes(1.5 * 1024 ** 3).replace(/\s/g, ' '), '1,5 GB');
+  assert.equal(formatBytes(null), '—');
+  const now = Date.parse('2026-11-12T12:00:00Z');
+  assert.match(staleBackupWarning([], now), /Ainda não há/);
+  assert.equal(staleBackupWarning([{ createdAt: '2026-11-12T03:30:00.000Z' }], now), null);
+  assert.match(staleBackupWarning([{ createdAt: '2026-11-10T03:30:00.000Z' }], now), /56 horas/);
+});

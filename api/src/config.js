@@ -35,6 +35,12 @@ export function loadConfig(env = process.env) {
     fetchTriggerFile: env.STOCKS_FETCH_TRIGGER_FILE || null,
     // Chave para cifrar segredos na BD (palavra-passe SMTP); em produção vem de /etc/stocks/secret.key.
     secretKey: loadSecretKey({ STOCKS_SECRET_KEY_FILE: '/etc/stocks/secret.key', ...env }),
+    // Cópias de segurança da base de dados (Definições → Cópias de segurança): pasta onde o deploy/bin/backup.sh as guarda
+    // e o script que as cria. backupScript: só os testes o mudam.
+    backup: {
+      dir: env.STOCKS_BACKUP_DIR || '/var/backups/stocks',
+      script: env.STOCKS_BACKUP_SCRIPT || '/opt/stocks/deploy/bin/backup.sh',
+    },
     // Python do motor de alertas, usado para enviar o email de teste com o mesmo código dos alertas.
     alertsPython: env.STOCKS_ALERTS_PYTHON || null,
     // Ligação à SAXO Bank. Só a conta de simulação (SIM); a conta real fica recusada até STOCKS_SAXO_ALLOW_LIVE=true.

@@ -26,6 +26,7 @@ import marketRoutes from './routes/market.js';
 import signalRoutes from './routes/signals.js';
 import backtestRoutes from './routes/backtest.js';
 import experimentRoutes from './routes/experiments.js';
+import backupRoutes from './routes/backups.js';
 import { scheduleWarmups } from './services/warmup.js';
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -162,6 +163,7 @@ export async function buildApp({ pool, cfg, logger = true, warm = false }) {
     await api.register(signalRoutes, opts);
     await api.register(backtestRoutes, opts);
     await api.register(experimentRoutes, opts);
+    await api.register(backupRoutes, opts);
     if (warm) scheduleWarmups(app, pool, warmups);
   }, { prefix: '/api/v1' });
 

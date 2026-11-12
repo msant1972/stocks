@@ -129,6 +129,8 @@ O SMTP configura-se em **Definições → Envio de email (SMTP)** (administrador
 
 ## Cópias de segurança e recuperação
 
+Em **Definições → Cópias de segurança** (administradores) vê-se o tamanho da base de dados e as cópias do servidor, cria-se uma cópia agora (corre o mesmo `deploy/bin/backup.sh`; o serviço da API tem escrita em `/var/backups/stocks`, `ReadWritePaths` em `stocks-api.service`; pasta e script configuráveis com `STOCKS_BACKUP_DIR` e `STOCKS_BACKUP_SCRIPT`) e descarrega-se cada cópia (auditado). **Não há botão de restauro**: substitui a base toda e faz-se à mão, abaixo.
+
 Cópias:
 
 1. **Dumps diários** (`stocks-backup.timer`, 03:30 UTC) em `/var/backups/stocks`, guardados 30 dias (cerca de 10 MB cada). São consistentes, porque são feitos com `mariadb-dump --single-transaction`.

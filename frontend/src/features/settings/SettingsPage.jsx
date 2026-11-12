@@ -9,6 +9,8 @@ import { Button, Field, Notice, Segmented, Switch } from '../../components/ui/co
 import SmtpCard from './SmtpCard.jsx';
 import MfaCard from './MfaCard.jsx';
 import SaxoCard from './SaxoCard.jsx';
+import SaxoMatchCard from './SaxoMatchCard.jsx';
+import BackupCard from './BackupCard.jsx';
 
 function PasswordForm() {
   const qc = useQueryClient();
@@ -141,6 +143,10 @@ export default function SettingsPage() {
         <MfaCard />
 
         <SaxoCard />
+
+        {me?.user.isAdmin && <BackupCard />}
+
+        {me?.user.isAdmin && <SaxoMatchCard />}
 
         <LogoutCard />
       </div>

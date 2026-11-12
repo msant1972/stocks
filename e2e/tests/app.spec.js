@@ -220,7 +220,7 @@ test('todas as páginas abrem sem erros', async () => {
     ['/', 'Visão geral'], ['/acompanhar', null], ['/charts', null], ['/orderbook', null], ['/heatmap', null], ['/timelapse', 'Timelapse'], ['/alertas', 'Alertas'],
     ['/saxo/carteira', 'Carteira SAXO'], ['/saxo/ordens', 'Ordens SAXO'], ['/saxo/alertas', null], ['/saxo/automacao', 'Automação'],
     ['/sinais', null], ['/backtest', null], ['/comparar', null], ['/winners-loosers', null], ['/promessas', null], ['/pechinchas', 'Pechinchas'],
-    ['/calor', 'Calor'], ['/utilizadores', null], ['/saxo/correspondencia', 'Correspondência SAXO'], ['/definicoes', 'Definições'],
+    ['/calor', 'Calor'], ['/utilizadores', null], ['/definicoes', 'Definições'],
   ];
   for (const [url, title] of pages) {
     await page.goto(url);
@@ -265,4 +265,15 @@ test('WinnersLoosers: cartão dos resultados mistos e remoção em bloco da minh
   await expect(mixed.getByRole('button', { name: /Remover da lista \(0\)/ })).toBeDisabled();
   const list = await (await page.request.get('/api/v1/watchlist')).json();
   expect(list.items).toHaveLength(0);
+});
+
+test('Definições: Correspondência SAXO e Cópias de segurança são cartões; a página e o menu antigos desapareceram', async () => {
+  await expect(page.getByRole('navigation', { name: 'Principal' }).getByRole('link', { name: 'Correspondência SAXO' })).toHaveCount(0);
+  await page.goto('/saxo/correspondencia');
+  await expect(page).toHaveURL(/\/definicoes#correspondencia-saxo$/);
+  await expect(page.getByRole('heading', { level: 1, name: 'Definições' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Correspondência SAXO', level: 2 })).toBeVisible();
+  const backup = page.locator('section', { has: page.getByRole('heading', { name: 'Cópias de segurança' }) });
+  await expect(backup).toContainText('Base de dados');
+  await expect(backup).toContainText('Restaurar: não há botão');
 });

@@ -437,6 +437,9 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 /* Cartões independentes (Definições) em colunas que se enchem por ordem; uma só coluna em ecrãs estreitos. */
 .card-columns { columns: 2 36rem; column-gap: 1rem; }
 .card-columns > * { break-inside: avoid; margin-bottom: 1rem; }
+/* Cartões largos das Definições (tabelas): ocupam as duas colunas. */
+.card-columns > .card-wide { column-span: all; }
+.settings-heading { font-size: 1.125rem; font-weight: 600; }
 /* Indicadores numa linha (conta SAXO): rótulo por cima e valor, lado a lado em ecrãs largos. */
 .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(12rem, 42%), 1fr)); gap: 0.75rem 1.5rem; margin: 0; }
 .kpis dt { font-size: 0.875rem; color: var(--text-secondary); }

@@ -124,7 +124,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Indicadores soltos numa linha (`.kpis`: rótulo por cima e valor), em vez de uma caixa de resumo num cartão próprio (conta SAXO na Carteira e nas Ordens).
 - Gráficos com altura proporcional à janela (`.chart-box`: 38 % da altura, entre 320 e 520 px; HeatMap: a altura que resta; Timelapse: barras de 20 a 32 px para o top caber na janela).
 - Listas e campos dentro de barras de ferramentas usam a variante compacta (`.select-sm`, `.input-sm`, 40 px).
-- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap, Timelapse, Alertas); **SAXO** (Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação); **Estratégias** (Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Pechinchas, Calor); **Administração** (Utilizadores e Correspondência SAXO, só administradores, e Definições). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
+- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap, Timelapse, Alertas); **SAXO** (Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação); **Estratégias** (Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Pechinchas, Calor); **Administração** (Utilizadores, só administradores, e Definições, que inclui os cartões «Cópias de segurança» e «Correspondência SAXO», só para administradores; cartões largos com tabelas ocupam as duas colunas, `.card-wide`). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
 
 ### Tablet — de 768 a 1199 px
 

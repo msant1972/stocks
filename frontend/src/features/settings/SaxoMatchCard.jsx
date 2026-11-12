@@ -29,10 +29,10 @@ function Chooser({ item, onChoose, busy }) {
 }
 
 /**
- * Correspondência SAXO (administradores): estado de cada instrumento do catálogo face à SAXO Bank, ligação do catálogo
- * inteiro em segundo plano e resolução manual do que ficou ambíguo, só noutra bolsa ou por encontrar.
+ * Correspondência SAXO (administradores), cartões das Definições: estado de cada instrumento do catálogo face à SAXO Bank,
+ * ligação do catálogo inteiro em segundo plano e resolução manual do que ficou ambíguo, só noutra bolsa ou por encontrar.
  */
-export default function SaxoMatchPage() {
+export default function SaxoMatchCard() {
   const qc = useQueryClient();
   const [view, setView] = useState('todo');
   const [q, setQ] = useState('');
@@ -51,17 +51,13 @@ export default function SaxoMatchPage() {
   const total = data.data?.items.length ?? 0;
 
   return (
-    <>
-      <div className="page-head">
-        <div>
-          <h1 className="page-title">Correspondência SAXO</h1>
-          <p className="page-sub">
-            Que instrumento da SAXO Bank corresponde a cada instrumento do catálogo (símbolos do Yahoo). A ligação procura pelo
-            ISIN, pela raiz do símbolo e pelo nome da empresa, sempre na bolsa certa, e só aceita sozinha quando o nome coincide;
-            o resto fica aqui para escolher. Revalidação automática uma vez por semana.
-          </p>
-        </div>
-      </div>
+    <div className="card-wide stack" id="correspondencia-saxo">
+      <h2 className="settings-heading">Correspondência SAXO</h2>
+      <p className="small muted" style={{ margin: 0 }}>
+        Que instrumento da SAXO Bank corresponde a cada instrumento do catálogo (símbolos do Yahoo). A ligação procura pelo
+        ISIN, pela raiz do símbolo e pelo nome da empresa, sempre na bolsa certa, e só aceita sozinha quando o nome coincide;
+        o resto fica aqui para escolher. Revalidação automática uma vez por semana.
+      </p>
 
       <section className="card" aria-labelledby="saxo-match-summary">
         <div className="card-head">
@@ -155,6 +151,6 @@ export default function SaxoMatchPage() {
           </div>
         )}
       </section>
-    </>
+    </div>
   );
 }

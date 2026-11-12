@@ -3,6 +3,8 @@
  * apagada e recriada aqui), e a SAXO falsa. Nunca toca na base de produção nem na SAXO.
  *   node e2e/server.mjs   (porta STOCKS_E2E_PORT, por omissão 3999)
  */
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from '../api/src/app.js';
@@ -21,6 +23,10 @@ const cfg = testConfig({ frontendDist: path.join(root, 'frontend', 'dist'), test
 cfg.saxo.streaming = false;
 cfg.saxo.watchSeconds = 0;
 cfg.saxo.orderSpacingMs = 0;
+// Cópias de segurança: pasta temporária com uma cópia de exemplo (nunca a pasta de produção).
+const backupDir = fs.mkdtempSync(path.join(os.tmpdir(), 'stocks-e2e-backups-'));
+fs.writeFileSync(path.join(backupDir, 'stocks-20261101T033000Z.sql.gz'), 'cópia de exemplo');
+cfg.backup = { dir: backupDir, script: '/bin/true' };
 const pool = createPool(cfg.db);
 await resetDb(pool);
 

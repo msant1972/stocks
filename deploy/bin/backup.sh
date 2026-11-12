@@ -3,7 +3,7 @@
 # Os dados que importam são utilizadores, ordens, regras e o histórico da conta SAXO; as cotações são reconstruíveis.
 set -eu
 umask 077  # a cópia contém hashes de palavras-passe e dados dos utilizadores
-DIR=/var/backups/stocks
+DIR="${STOCKS_BACKUP_DIR:-/var/backups/stocks}"
 FILE="$DIR/stocks-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
 MYSQL_PWD="$STOCKS_DB_PASSWORD" mariadb-dump --single-transaction --quick --routines \
   -h "$STOCKS_DB_HOST" -P "$STOCKS_DB_PORT" -u "$STOCKS_DB_USER" "$STOCKS_DB_NAME" | gzip > "$FILE.part"
