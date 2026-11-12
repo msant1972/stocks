@@ -22,12 +22,15 @@ export function mapInstrument(r, quotes) {
     isinMic: r.isin && r.mic ? `${r.isin}-${r.mic}` : null,
     suggestedMic: suggestMic(r.exchange),
     latest: quotes.get(id) ?? null,
+    // Na lista, para o logotipo aparecer logo (sem esperar pelo detalhe do instrumento).
+    logoVersion: r.logo_at ? new Date(r.logo_at).getTime() : null,
   };
 }
 
 export const INSTRUMENT_SELECT = `
   SELECT i.id, i.symbol, i.name, i.exchange, i.currency, i.status, i.status_reason, i.first_session, i.last_session, i.isin, i.mic,
-         EXISTS (SELECT 1 FROM watchlist_items w WHERE w.instrument_id = i.id AND w.user_id = ?) AS in_watchlist
+         EXISTS (SELECT 1 FROM watchlist_items w WHERE w.instrument_id = i.id AND w.user_id = ?) AS in_watchlist,
+         (SELECT lg.updated_at FROM instrument_logos lg WHERE lg.instrument_id = i.id AND lg.status = 'ok') AS logo_at
     FROM instruments i`;
 
 
@@ -313,7 +316,6 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       response: {
         200: InstrumentSummary.extend({
           website: z.string().nullable().describe('Site da empresa (Yahoo)'),
-          logoVersion: z.number().nullable().describe('Versão do logotipo interno (GET /instruments/{id}/logo?v=); null sem logotipo'),
           sessions: z.number(),
           fetch: z.object({
             status: z.enum(['queued', 'running', 'done', 'failed']), kind: z.enum(['initial', 'incremental']),
@@ -333,11 +335,9 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     );
     const quotes = await latestQuotes(pool, [r.id]);
     const [[prof]] = await pool.query('SELECT website FROM company_profiles WHERE instrument_id = ?', [r.id]);
-    const [[logo]] = await pool.query("SELECT updated_at FROM instrument_logos WHERE instrument_id = ? AND status = 'ok'", [r.id]);
     return {
       ...mapInstrument(r, quotes),
       website: prof?.website && /^https?:\/\//.test(prof.website) ? prof.website : null,
-      logoVersion: logo ? new Date(logo.updated_at).getTime() : null,
       sessions: Number(sessions),
       fetch: job ? { status: job.status, kind: job.kind, lastError: job.last_error, finishedAt: job.finished_at?.toISOString() ?? null } : null,
     };

@@ -43,6 +43,7 @@ export const InstrumentSummary = z.object({
   isinMic: z.string().nullable().describe('ISIN-MIC Euronext, ex.: PTFCP0AM0008-XLIS (livro de ofertas)'),
   suggestedMic: z.string().nullable().describe('MIC Euronext deduzido da bolsa, se aplicável'),
   latest: LatestQuote.nullable(),
+  logoVersion: z.number().nullable().describe('Versão do logotipo interno (GET /instruments/{id}/logo?v=); null sem logotipo'),
 });
 
 export const Pagination = z.object({

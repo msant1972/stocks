@@ -1018,6 +1018,11 @@ paths:
                             - previousClose
                             - changePct
                           additionalProperties: false
+                        logoVersion:
+                          nullable: true
+                          description: Versão do logotipo interno (GET /instruments/{id}/logo?v=); null
+                            sem logotipo
+                          type: number
                       required:
                         - id
                         - symbol
@@ -1032,6 +1037,7 @@ paths:
                         - isinMic
                         - suggestedMic
                         - latest
+                        - logoVersion
                       additionalProperties: false
                   total:
                     type: number
@@ -2101,15 +2107,15 @@ paths:
                       - previousClose
                       - changePct
                     additionalProperties: false
-                  website:
-                    nullable: true
-                    description: Site da empresa (Yahoo)
-                    type: string
                   logoVersion:
                     nullable: true
                     description: Versão do logotipo interno (GET /instruments/{id}/logo?v=); null
                       sem logotipo
                     type: number
+                  website:
+                    nullable: true
+                    description: Site da empresa (Yahoo)
+                    type: string
                   sessions:
                     type: number
                   fetch:
@@ -2154,8 +2160,8 @@ paths:
                   - isinMic
                   - suggestedMic
                   - latest
-                  - website
                   - logoVersion
+                  - website
                   - sessions
                   - fetch
                 additionalProperties: false
@@ -2955,6 +2961,11 @@ paths:
                             - previousClose
                             - changePct
                           additionalProperties: false
+                        logoVersion:
+                          nullable: true
+                          description: Versão do logotipo interno (GET /instruments/{id}/logo?v=); null
+                            sem logotipo
+                          type: number
                       required:
                         - id
                         - symbol
@@ -2969,6 +2980,7 @@ paths:
                         - isinMic
                         - suggestedMic
                         - latest
+                        - logoVersion
                       additionalProperties: false
                 required:
                   - items
