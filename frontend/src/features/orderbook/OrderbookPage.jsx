@@ -1,4 +1,5 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
+import InstrumentLogo from '../../components/ui/InstrumentLogo.jsx';
 import { Link, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
@@ -142,7 +143,8 @@ export default function OrderbookPage() {
               <section className="card" aria-labelledby="ob-title">
                 <div className="card-head">
                   <div>
-                    <h2 id="ob-title" className="card-title">
+                    <h2 id="ob-title" className="card-title ob-title">
+                      <InstrumentLogo instrumentId={data.instrument.id} logoVersion={options.find((i) => i.id === data.instrument.id)?.logoVersion} size={28} />
                       <Link to={`/instrumentos/${data.instrument.id}`} className="row-link">{data.instrument.symbol}</Link>
                       <span className="muted" style={{ fontWeight: 400 }}> · {data.instrument.isinMic}</span>
                     </h2>

@@ -214,7 +214,8 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 
 ### 5.3a. Charts
 
-- Cabeçalho do gráfico: logotipo interno de 32 px à esquerda do símbolo.
+- Cabeçalho do gráfico: logotipo interno de 32 px à esquerda do símbolo. Sem logotipo guardado, o logotipo por omissão: quadrado cinzento claro com «Logo» (`DefaultLogo`), também no cartão «Empresa», no HeatMap e no Orderbook.
+- Orderbook: logotipo de 28 px à esquerda do símbolo, no título do cartão. Carteira SAXO, «Posições abertas»: logotipo de 28 px à esquerda do símbolo e do nome (`.logo-cell`).
 - Cartão «Empresa»: logotipo interno de 48 px ( cantos de 8 px, fundo branco e contorno) à esquerda do nome, do sector, do local e do site; sem logotipo, só o texto.
 - Três cartões: o do gráfico e, por baixo, «Estratégia» e «Empresa», estes a pedido: dois interruptores no topo («Mostrar: Estratégia / Empresa»), desligados por omissão e guardados no browser, para a página abrir leve (a informação da empresa só se pede quando o cartão está ligado). Painéis do gráfico: preço, volume, **RSI14** (linhas tracejadas em 30 e 70) e momento, com o eixo dos valores à direita, cursor em cruz e medida ao arrastar; o botão «Posições» põe um X verde (com contorno claro para se ver sobre o gráfico) nas compras das posições abertas na conta SAXO.
 - Ocupa a largura toda do ecrã (sem a coluna central limitada das outras páginas) e a altura da janela: os painéis do gráfico (preço, volume e momento) dividem a altura que resta por baixo da barra de ferramentas, calculada no browser e recalculada ao redimensionar a janela ou quando os avisos acima mudam de altura (mínimo de 400 px; em ecrãs baixos a página faz scroll). O eixo das datas aparece só no painel de baixo. A lista à direita tem a altura da janela, com scroll próprio. O texto de resumo, a estratégia e os dados em tabela ficam por baixo dos painéis.

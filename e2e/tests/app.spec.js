@@ -498,6 +498,10 @@ test('Definições → Logotipos: Client ID da Brandfetch (CDN simulado)', async
   await expect(logo).toHaveAttribute('src', /^\/api\/v1\/instruments\/\d+\/logo\?v=\d+$/);
   await expect(logo).toHaveJSProperty('complete', true);
   expect(referers.length).toBe(before);
+  // Sem logotipo guardado (BCP.LS não tem site): o logotipo por omissão «Logo».
+  const bcp = (await (await page.request.get('/api/v1/instruments?q=BCP')).json()).items.find((i) => i.symbol === 'BCP.LS');
+  await page.goto(`/charts?instrumento=${bcp.id}`);
+  await expect(page.locator('.charts-logo.logo-default')).toHaveText('Logo');
   await page.goto('/definicoes');
   await card.getByRole('button', { name: 'Apagar' }).click();
   await expect(card.getByText('Sem Client ID: não se podem descarregar logotipos')).toBeVisible();

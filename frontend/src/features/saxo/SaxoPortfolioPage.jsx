@@ -7,6 +7,8 @@ import { EmptyState, ErrorState, Loading } from '../../components/feedback/state
 import { PnL } from '../../components/finance/finance.jsx';
 import { Button, Notice } from '../../components/ui/controls.jsx';
 import SaxoSellAllDialog from './SaxoSellAllDialog.jsx';
+import InstrumentLogo from '../../components/ui/InstrumentLogo.jsx';
+import { useCatalog } from '../../lib/queries.js';
 import SaxoOrderDialog, { SIM_BANNER, useSaxoStatus } from './SaxoOrderDialog.jsx';
 
 const AccountHistoryChart = lazy(() => import('../../components/finance/AccountHistoryChart.jsx'));
@@ -20,6 +22,9 @@ export default function SaxoPortfolioPage() {
   const history = useQuery({ queryKey: ['saxo-portfolio', 'history'], queryFn: () => api.get('/saxo/portfolio/history'), staleTime: 5 * 60_000 });
   const [selling, setSelling] = useState(null); // { instrument, quantity }
   const [sellingAll, setSellingAll] = useState(false);
+  // Versão do logotipo de cada instrumento (o catálogo já costuma estar em cache, do Charts).
+  const catalog = useCatalog(ready);
+  const logoVersions = new Map((catalog.data?.items ?? []).map((i) => [i.id, i.logoVersion]));
   const d = q.data;
 
   return (
@@ -89,8 +94,15 @@ export default function SaxoPortfolioPage() {
                   <tbody>
                     {d.positions.map((p) => (
                       <tr key={p.positionId}>
-                        <td>{p.instrumentId ? <Link to={`/instrumentos/${p.instrumentId}`} className="row-link">{p.symbol}</Link> : p.symbol}
-                          {p.name && <div className="small muted">{p.name}</div>}</td>
+                        <td>
+                          <div className="logo-cell">
+                            {p.instrumentId && <InstrumentLogo instrumentId={p.instrumentId} logoVersion={logoVersions.get(p.instrumentId)} size={28} />}
+                            <div>
+                              {p.instrumentId ? <Link to={`/instrumentos/${p.instrumentId}`} className="row-link">{p.symbol}</Link> : p.symbol}
+                              {p.name && <div className="small muted">{p.name}</div>}
+                            </div>
+                          </div>
+                        </td>
                         <td className="r">{f.quantity(p.quantity)}</td>
                         <td className="r">{f.price(p.openPrice, p.currency)}</td>
                         <td className="r">{p.price == null ? muted : f.price(p.price, p.currency)}</td>

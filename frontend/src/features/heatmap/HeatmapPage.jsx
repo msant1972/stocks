@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, Loading } from '../../components/feedback/state
 import { Button, Field, Segmented } from '../../components/ui/controls.jsx';
 import { changeTone, toneLegend } from '../../lib/timelapse.js';
 import { internalLogoUrl, logosEnabled } from '../../lib/logo.js';
+import { DefaultLogo } from '../../components/ui/InstrumentLogo.jsx';
 import { useLogoConfig } from '../../lib/queries.js';
 
 // Só os instrumentos com maior valor negociado (preço × volume) no período.
@@ -38,10 +39,11 @@ const shortSymbol = (s) => s.replace(/\.[A-Z]{1,3}$/, '');
 /** Logotipo interno dentro do quadrado. */
 function TileLogo({ x, y, size, url }) {
   const [failed, setFailed] = useState(false);
-  if (failed) return null;
   return (
     <foreignObject x={x} y={y} width={size} height={size} style={{ pointerEvents: 'none' }}>
-      <img className="instrument-logo heatmap-logo" src={url} alt="" width={size} height={size} decoding="async" onError={() => setFailed(true)} />
+      {url && !failed
+        ? <img className="instrument-logo heatmap-logo" src={url} alt="" width={size} height={size} decoding="async" onError={() => setFailed(true)} />
+        : <DefaultLogo size={size} className="heatmap-logo" />}
     </foreignObject>
   );
 }
@@ -56,14 +58,15 @@ function Tile(props) {
   const textH = showPct ? size * 2.15 : size;
   // Logotipo por cima do símbolo, só quando cabe sem apertar o texto.
   const logo = Math.round(Math.min(width * 0.4, (height - textH) * 0.6, 56));
-  const url = showLogos && showText && logo >= 20 ? internalLogoUrl(instrumentId, logoVersion) : null;
-  const block = textH + (url ? logo + size * 0.4 : 0);
+  const withLogo = showLogos && showText && logo >= 20; // sem logotipo guardado, o logotipo por omissão
+  const url = withLogo ? internalLogoUrl(instrumentId, logoVersion) : null;
+  const block = textH + (withLogo ? logo + size * 0.4 : 0);
   const top = y + (height - block) / 2;
-  const textTop = top + (url ? logo + size * 0.4 : 0);
+  const textTop = top + (withLogo ? logo + size * 0.4 : 0);
   return (
     <g style={{ cursor: 'pointer' }}>
       <rect x={x} y={y} width={width} height={height} fill={`var(--div-${tone})`} stroke="var(--surface)" strokeWidth={2} />
-      {url && <TileLogo key={url} x={x + (width - logo) / 2} y={top} size={logo} url={url} />}
+      {withLogo && <TileLogo key={url ?? `d${instrumentId}`} x={x + (width - logo) / 2} y={top} size={logo} url={url} />}
       {showText && (
         <text x={x + width / 2} y={textTop} textAnchor="middle" fill={inkOf(tone)} style={{ fontVariantNumeric: 'tabular-nums' }}>
           <tspan x={x + width / 2} dy={size * 0.85} fontSize={size} fontWeight={600}>{shortSymbol(symbol)}</tspan>
