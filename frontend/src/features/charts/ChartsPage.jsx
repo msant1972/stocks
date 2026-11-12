@@ -198,8 +198,6 @@ export default function ChartsPage() {
   }
   if (!current) return detail.error ? <ErrorState error={detail.error} onRetry={detail.refetch} /> : <Loading rows={8} />;
 
-  const best = bestMap.data?.get(current.id);
-  const bestStrategy = best && getStrategy(best.strategyId);
   const showing = quotes.data?.instrumentId === current.id;
   const tradable = current.status === 'active' && current.currency === 'EUR' && current.latest;
   // A carga inicial começa três anos antes do dia da recolha: tolera-se uma semana de diferença.
@@ -324,13 +322,6 @@ export default function ChartsPage() {
           ))}
         </ul>
         {source === 'saxo' && items.length === 0 && !needle && <p className="small muted" style={{ margin: '0.5rem 0' }}>{saxoEmpty}.</p>}
-        <dl className="summary-box charts-detail">
-          <dt>Instrumento</dt><dd>{current.name ?? current.symbol}</dd>
-          {detail.data?.sessions != null && <><dt>Sessões</dt><dd>{detail.data.sessions}</dd></>}
-          {current.firstSession && <><dt>Dados</dt><dd>{f.date(current.firstSession)} a {f.date(current.lastSession)}</dd></>}
-          <dt>Melhor estratégia</dt>
-          <dd>{bestMap.isPending ? '…' : bestStrategy && best.total > 0 ? <>{bestStrategy.name} <span className="positive">{f.signedMoney(best.total)}</span></> : 'Nenhuma ganha'}</dd>
-        </dl>
       </aside>
 
       <SaxoOrderDialog open={saxoOrder} onClose={() => setSaxoOrder(false)} instrument={current} />

@@ -226,7 +226,7 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 - Lista compacta: símbolo, último preço e variação; o instrumento mostrado fica destacado (fundo e barra de acento, `aria-current`). Clique, setas ↑/↓ na lista ou botões anterior/seguinte (com «n / total») mudam o instrumento sem sair da página.
 - Cabeçalho do gráfico: símbolo, último preço, variação, nome, bolsa e data da cotação; menu «Estratégia» (por omissão a melhor de cada instrumento, «(melhor)» no menu; uma escolha explícita mantém-se ao mudar de instrumento) e «Abrir instrumento».
 - Enquanto chegam as cotações do novo instrumento, o gráfico anterior fica esbatido (`aria-busy`); os vizinhos na lista são pré-carregados.
-- Por baixo da lista, o nome, a melhor estratégia com o resultado e a ligação para o livro de ofertas.
+- Por baixo da lista não há quadro de resumo (retirado a 12 nov. 2026: o nome está no cabeçalho, a melhor estratégia no menu «Estratégia» e o livro de ofertas nos botões).
 - Lista sem instrumentos activos: estado vazio com ligação para Acompanhar. Em telemóvel, o acesso é pelo botão «Charts» em Acompanhar.
 
 ### 5.3b. Timelapse

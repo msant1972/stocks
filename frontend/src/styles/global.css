@@ -377,7 +377,6 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .charts-item:hover { background: var(--surface-muted); }
 .charts-item[aria-current="true"] { background: color-mix(in srgb, var(--accent) 12%, transparent); box-shadow: inset 3px 0 0 var(--accent); }
 .charts-sym { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.charts-detail { margin-top: 0.5rem; font-size: 0.875rem; }
 @media (max-width: 1199px) {
   .charts-page { grid-template-columns: minmax(0, 1fr); }
   .charts-side { position: static; height: auto; max-height: 28rem; }
