@@ -41,6 +41,8 @@ const bcp = await makeInstrument(pool, 'BCP.LS', { closes: series(0.8, 0.05), se
 await pool.query("UPDATE instruments SET name = 'Galp Energia', exchange = 'Lisbon' WHERE id = ?", [galp]);
 await pool.query("UPDATE instruments SET name = 'Banco Comercial Português', exchange = 'Lisbon' WHERE id = ?", [bcp]);
 await pool.query('INSERT INTO watchlist_items (user_id, instrument_id) VALUES (?, ?), (?, ?)', [userId, galp, userId, bcp]);
+// Site da Galp (para o módulo Logotipos); perfil ainda por recolher, o cartão «Empresa» continua sem dados.
+await pool.query("INSERT INTO company_profiles (instrument_id, status, website) VALUES (?, 'missing', 'https://www.galp.com')", [galp]);
 await pool.query(
   `INSERT INTO user_integration_tokens (user_id, provider, token_enc, environment, auth_kind, refresh_token_enc, expires_at, refresh_expires_at)
    VALUES (?, 'saxo', ?, 'sim', 'oauth', ?, NOW(3) + INTERVAL 1 DAY, NOW(3) + INTERVAL 2 DAY)`,

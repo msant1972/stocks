@@ -1,7 +1,8 @@
 /**
- * Logotipos dos instrumentos (Brandfetch Logo API). As imagens vêm directamente do CDN da Brandfetch, como as regras dela
- * exigem (sem cópias nem pedidos programáticos); o pedido tem de levar a origem (Referer), por isso a imagem usa
- * referrerPolicy «strict-origin-when-cross-origin» (a página usa «same-origin», que a omitiria).
+ * Logotipos dos instrumentos. As páginas mostram os logotipos internos (base de dados, GET /instruments/{id}/logo). O módulo
+ * Administração → Logotipos descarrega no browser, da Brandfetch Logo API, os que faltam e envia-os para o servidor; o pedido
+ * à Brandfetch tem de levar a origem (Referer), por isso usa referrerPolicy «strict-origin-when-cross-origin» (a página usa
+ * «same-origin», que a omitiria).
  */
 export const LOGO_CDN = 'https://cdn.brandfetch.io';
 
@@ -21,5 +22,19 @@ export function logoUrl(domain, clientId, size = 64) {
   return `${LOGO_CDN}/domain/${encodeURIComponent(domain)}/w/${px}/h/${px}/fallback/404/type/icon?c=${encodeURIComponent(clientId)}`;
 }
 
-/** Client ID a usar: null quando os logotipos estão desligados (interruptor global) ou sem configuração. */
-export const activeClientId = (cfg) => (cfg?.enabled === false ? null : cfg?.clientId ?? null);
+/** Interruptor global (Definições → Logotipos): ligado por omissão. */
+export const logosEnabled = (cfg) => cfg?.enabled !== false;
+
+/** Endereço do logotipo interno; null sem logotipo. */
+export const internalLogoUrl = (instrumentId, logoVersion) => (instrumentId && logoVersion ? `/api/v1/instruments/${instrumentId}/logo?v=${logoVersion}` : null);
+
+/** Lado da imagem guardada (px). */
+export const LOGO_STORE_SIZE = 128;
+
+/** Encaixa uma imagem w×h num quadrado de side px, sem deformar e centrada: { dx, dy, dw, dh }. */
+export function fitSquare(w, h, side = LOGO_STORE_SIZE) {
+  const k = side / Math.max(w, h);
+  const dw = Math.round(w * k);
+  const dh = Math.round(h * k);
+  return { dx: Math.round((side - dw) / 2), dy: Math.round((side - dh) / 2), dw, dh };
+}

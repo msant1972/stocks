@@ -2103,8 +2103,13 @@ paths:
                     additionalProperties: false
                   website:
                     nullable: true
-                    description: Site da empresa (Yahoo), para o logotipo
+                    description: Site da empresa (Yahoo)
                     type: string
+                  logoVersion:
+                    nullable: true
+                    description: Versão do logotipo interno (GET /instruments/{id}/logo?v=); null
+                      sem logotipo
+                    type: number
                   sessions:
                     type: number
                   fetch:
@@ -2150,6 +2155,7 @@ paths:
                   - suggestedMic
                   - latest
                   - website
+                  - logoVersion
                   - sessions
                   - fetch
                 additionalProperties: false
@@ -7287,10 +7293,11 @@ paths:
                         exchange:
                           nullable: true
                           type: string
-                        website:
+                        logoVersion:
                           nullable: true
-                          description: Site da empresa (Yahoo), para o logotipo
-                          type: string
+                          description: Versão do logotipo interno (GET /instruments/{id}/logo?v=); null
+                            sem logotipo
+                          type: number
                         fromDate:
                           type: string
                           pattern: ^\d{4}-\d{2}-\d{2}$
@@ -7310,7 +7317,7 @@ paths:
                         - symbol
                         - name
                         - exchange
-                        - website
+                        - logoVersion
                         - fromDate
                         - toDate
                         - close
@@ -8603,6 +8610,406 @@ paths:
                   - updatedBy
                 additionalProperties: false
         "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/instruments/{id}/logo:
+    get:
+      summary: Logotipo do instrumento (imagem)
+      tags:
+        - Logotipos
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/admin/logos/summary:
+    get:
+      summary: Estado dos logotipos dos instrumentos activos
+      tags:
+        - Administração
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active:
+                    type: number
+                  withLogo:
+                    type: number
+                  missing:
+                    type: number
+                    description: Por descarregar (com site)
+                  notFound:
+                    type: number
+                    description: A Brandfetch não tinha
+                  noWebsite:
+                    type: number
+                    description: "Sem site: não se pode procurar"
+                  batch:
+                    type: number
+                  recent:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        status:
+                          type: string
+                          enum:
+                            - ok
+                            - missing
+                        logoVersion:
+                          nullable: true
+                          type: number
+                        updatedAt:
+                          type: string
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - status
+                        - logoVersion
+                        - updatedAt
+                      additionalProperties: false
+                required:
+                  - active
+                  - withLogo
+                  - missing
+                  - notFound
+                  - noWebsite
+                  - batch
+                  - recent
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/admin/logos/missing:
+    get:
+      summary: Próximos instrumentos activos sem logotipo (com site), no máximo 10
+      tags:
+        - Administração
+      parameters:
+        - schema:
+            default: false
+            type: boolean
+          in: query
+          name: retry
+          required: false
+          description: Incluir os que a Brandfetch não tinha
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        domain:
+                          type: string
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - domain
+                      additionalProperties: false
+                required:
+                  - items
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/admin/instruments/{id}/logo:
+    put:
+      summary: Guardar o logotipo de um instrumento (multipart, campo "file"; PNG,
+        JPEG ou WebP)
+      tags:
+        - Administração
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logoVersion:
+                    type: number
+                required:
+                  - logoVersion
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    delete:
+      summary: Apagar o logotipo de um instrumento (volta a ficar em falta)
+      tags:
+        - Administração
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/admin/instruments/{id}/logo/not-found:
+    post:
+      summary: Marcar que a Brandfetch não tem logotipo deste instrumento (não se
+        volta a pedir)
+      tags:
+        - Administração
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
           description: Default Response
           content:
             application/json:

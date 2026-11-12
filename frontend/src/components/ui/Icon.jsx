@@ -34,6 +34,7 @@ const PATHS = {
   link: 'M10 14a4.5 4.5 0 0 0 6.4 0l3-3a4.5 4.5 0 0 0-6.4-6.4l-1 1M14 10a4.5 4.5 0 0 0-6.4 0l-3 3a4.5 4.5 0 0 0 6.4 6.4l1-1',
   automation: 'M13 3 5 14h6l-1 7 8-11h-6l1-7Z',
   timelapse: 'M4 6h12M4 12h8M4 18h15M19 3v6m3-3h-6',
+  logos: 'M4 5h16v14H4V5Zm0 11 5-5 4 4 3-3 4 4M15 9h.01',
   heatmap: 'M3 4h10v9H3V4Zm12 0h6v5h-6V4Zm0 7h6v9h-6v-9ZM3 15h10v5H3v-5Z',
 };
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { activeClientId, domainOf, logoUrl } from '../src/lib/logo.js';
+import { domainOf, fitSquare, internalLogoUrl, logosEnabled, logoUrl } from '../src/lib/logo.js';
 
 test('domínio a partir do site', () => {
   assert.equal(domainOf('https://www.asml.com'), 'asml.com');
@@ -22,9 +22,19 @@ test('endereço do ícone: domínio, tamanho duplo e 404 sem logotipo', () => {
   assert.match(logoUrl('a.com', 'k', 4), /\/w\/16\/h\/16\//);
 });
 
-test('interruptor global: desligado não há Client ID', () => {
-  assert.equal(activeClientId({ clientId: 'k1', enabled: true }), 'k1');
-  assert.equal(activeClientId({ clientId: 'k1', enabled: false }), null);
-  assert.equal(activeClientId({ clientId: null, enabled: true }), null);
-  assert.equal(activeClientId(undefined), null);
+test('interruptor global ligado por omissão', () => {
+  assert.equal(logosEnabled({ enabled: true }), true);
+  assert.equal(logosEnabled({ enabled: false }), false);
+  assert.equal(logosEnabled(undefined), true);
+});
+
+test('endereço do logotipo interno só com versão', () => {
+  assert.equal(internalLogoUrl(7, 123), '/api/v1/instruments/7/logo?v=123');
+  assert.equal(internalLogoUrl(7, null), null);
+});
+
+test('encaixar no quadrado de 128 px sem deformar', () => {
+  assert.deepEqual(fitSquare(256, 128), { dx: 0, dy: 32, dw: 128, dh: 64 });
+  assert.deepEqual(fitSquare(50, 100), { dx: 32, dy: 0, dw: 64, dh: 128 });
+  assert.deepEqual(fitSquare(400, 400), { dx: 0, dy: 0, dw: 128, dh: 128 });
 });

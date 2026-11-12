@@ -49,6 +49,7 @@ const NAV_GROUPS = [
     title: 'Administração',
     items: [
       { to: '/utilizadores', label: 'Utilizadores', icon: 'users', admin: true },
+      { to: '/logotipos', label: 'Logotipos', icon: 'logos', admin: true },
       { to: '/definicoes', label: 'Definições', icon: 'settings' },
     ],
   },

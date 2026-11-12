@@ -1,19 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useLogoConfig } from '../../lib/queries.js';
-import { activeClientId, domainOf, logoUrl } from '../../lib/logo.js';
+import { internalLogoUrl, logosEnabled } from '../../lib/logo.js';
 
 /**
- * Logotipo do instrumento (Brandfetch), a partir do site da empresa. Sem chave configurada, sem site ou sem logotipo na
- * Brandfetch, não mostra nada (o nome e o símbolo continuam ao lado).
+ * Logotipo do instrumento, guardado na aplicação (Administração → Logotipos). Sem logotipo, ou com os logotipos desligados
+ * nas Definições, não mostra nada (o nome e o símbolo continuam ao lado).
  */
-export default function InstrumentLogo({ website, size = 40, className = '' }) {
+export default function InstrumentLogo({ instrumentId, logoVersion, size = 40, className = '' }) {
   const { data } = useLogoConfig();
-  const url = logoUrl(domainOf(website), activeClientId(data), size);
+  const url = logosEnabled(data) ? internalLogoUrl(instrumentId, logoVersion) : null;
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [url]);
   if (!url || failed) return null;
-  return (
-    <img className={`instrument-logo ${className}`} src={url} alt="" width={size} height={size} loading="lazy" decoding="async"
-      referrerPolicy="strict-origin-when-cross-origin" onError={() => setFailed(true)} />
-  );
+  return <img className={`instrument-logo ${className}`} src={url} alt="" width={size} height={size} decoding="async" onError={() => setFailed(true)} />;
 }

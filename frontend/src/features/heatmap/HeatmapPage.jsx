@@ -7,7 +7,7 @@ import * as f from '../../lib/format.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Field, Segmented } from '../../components/ui/controls.jsx';
 import { changeTone, toneLegend } from '../../lib/timelapse.js';
-import { activeClientId, domainOf, logoUrl } from '../../lib/logo.js';
+import { internalLogoUrl, logosEnabled } from '../../lib/logo.js';
 import { useLogoConfig } from '../../lib/queries.js';
 
 // Só os instrumentos com maior valor negociado (preço × volume) no período.
@@ -35,20 +35,19 @@ function tradedEur(value) {
 }
 const shortSymbol = (s) => s.replace(/\.[A-Z]{1,3}$/, '');
 
-/** Logotipo dentro do quadrado (HTML num foreignObject, para a imagem levar a origem que a Brandfetch exige). */
+/** Logotipo interno dentro do quadrado. */
 function TileLogo({ x, y, size, url }) {
   const [failed, setFailed] = useState(false);
   if (failed) return null;
   return (
     <foreignObject x={x} y={y} width={size} height={size} style={{ pointerEvents: 'none' }}>
-      <img className="instrument-logo heatmap-logo" src={url} alt="" width={size} height={size} loading="lazy" decoding="async"
-        referrerPolicy="strict-origin-when-cross-origin" onError={() => setFailed(true)} />
+      <img className="instrument-logo heatmap-logo" src={url} alt="" width={size} height={size} decoding="async" onError={() => setFailed(true)} />
     </foreignObject>
   );
 }
 
 function Tile(props) {
-  const { depth, x, y, width, height, symbol, changePct, window, website, clientId } = props;
+  const { depth, x, y, width, height, symbol, changePct, window, instrumentId, logoVersion, showLogos } = props;
   if (depth !== 1 || width <= 0 || height <= 0) return null;
   const tone = toneOf(changePct, window);
   const size = Math.max(9, Math.min(width / 5.5, height / 3.2, 26));
@@ -57,7 +56,7 @@ function Tile(props) {
   const textH = showPct ? size * 2.15 : size;
   // Logotipo por cima do símbolo, só quando cabe sem apertar o texto.
   const logo = Math.round(Math.min(width * 0.4, (height - textH) * 0.6, 56));
-  const url = showText && logo >= 20 ? logoUrl(domainOf(website), clientId, logo) : null;
+  const url = showLogos && showText && logo >= 20 ? internalLogoUrl(instrumentId, logoVersion) : null;
   const block = textH + (url ? logo + size * 0.4 : 0);
   const top = y + (height - block) / 2;
   const textTop = top + (url ? logo + size * 0.4 : 0);
@@ -169,7 +168,7 @@ export default function HeatmapPage() {
             style={{ opacity: q.isFetching ? 0.6 : 1 }}>
             <ResponsiveContainer width="100%" height="100%">
               <Treemap data={data} dataKey="size" nameKey="symbol" aspectRatio={4 / 3} isAnimationActive={false}
-                content={<Tile window={n} clientId={activeClientId(logos.data)} />} onClick={(node) => node?.instrumentId && navigate(`/instrumentos/${node.instrumentId}`)}>
+                content={<Tile window={n} showLogos={logosEnabled(logos.data)} />} onClick={(node) => node?.instrumentId && navigate(`/instrumentos/${node.instrumentId}`)}>
                 <Tooltip content={<TileTooltip period={n} />} />
               </Treemap>
             </ResponsiveContainer>

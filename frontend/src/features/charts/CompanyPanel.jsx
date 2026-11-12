@@ -13,7 +13,7 @@ const FinancialsChart = lazy(() => import('../../components/finance/FinancialsCh
  * Painel «Empresa» do Charts: actividade, sector, indicadores e contas anuais (fonte: Yahoo Finance, recolhido uma vez por
  * semana). A descrição vem em inglês, tal como o Yahoo a dá.
  */
-export default function CompanyPanel({ instrumentId, lastPrice }) {
+export default function CompanyPanel({ instrumentId, logoVersion, lastPrice }) {
   const q = useQuery({
     queryKey: ['company-profile', instrumentId], queryFn: () => api.get(`/instruments/${instrumentId}/profile`),
     staleTime: 60 * 60_000, enabled: Boolean(instrumentId),
@@ -59,7 +59,7 @@ export default function CompanyPanel({ instrumentId, lastPrice }) {
         <span className="small muted">Fonte: Yahoo Finance{q.data.fetchedAt ? ` · ${f.date(q.data.fetchedAt.slice(0, 10))}` : ''}</span>
       </div>
       <div className="company-head">
-        <InstrumentLogo website={p.website} size={48} />
+        <InstrumentLogo instrumentId={instrumentId} logoVersion={logoVersion} size={48} />
         <div>
           <p>
             <strong>{p.longName}</strong>

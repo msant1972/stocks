@@ -22,7 +22,7 @@ async function computeHeatmap(pool, period) {
         WHERE i.status = 'active'
           AND q.session_date >= COALESCE(i.last_session, CURRENT_DATE) - INTERVAL ? DAY
      )
-     SELECT r.instrument_id, i.symbol, i.name, i.exchange, p.website,
+     SELECT r.instrument_id, i.symbol, i.name, i.exchange,
             MAX(CASE WHEN r.rn = 1 THEN r.session_date END) AS to_date,
             MAX(CASE WHEN r.rn = ? + 1 THEN r.session_date END) AS from_date,
             MAX(CASE WHEN r.rn = 1 THEN r.close END) AS close,
@@ -30,9 +30,8 @@ async function computeHeatmap(pool, period) {
             MAX(CASE WHEN r.rn = ? + 1 THEN r.adj END) AS adj_first,
             SUM(CASE WHEN r.rn <= ? THEN r.close * r.volume ELSE 0 END) AS traded
        FROM ranked r JOIN instruments i ON i.id = r.instrument_id
-       LEFT JOIN company_profiles p ON p.instrument_id = r.instrument_id
       WHERE r.rn <= ? + 1
-      GROUP BY r.instrument_id, i.symbol, i.name, i.exchange, p.website
+      GROUP BY r.instrument_id, i.symbol, i.name, i.exchange
      HAVING adj_first IS NOT NULL AND adj_first > 0 AND traded > 0
       ORDER BY traded DESC`,
     // Janela em dias de calendário com folga para fins-de-semana e feriados (20 sessões → 42 dias).
@@ -40,7 +39,6 @@ async function computeHeatmap(pool, period) {
   );
   return rows.map((r) => ({
     instrumentId: Number(r.instrument_id), symbol: r.symbol, name: r.name, exchange: r.exchange,
-    website: r.website && /^https?:\/\//.test(r.website) ? r.website : null,
     fromDate: r.from_date, toDate: r.to_date, close: r.close,
     changePct: ((Number(r.adj_last) / Number(r.adj_first) - 1) * 100).toFixed(2),
     tradedValue: Number(r.traded).toFixed(0),
@@ -64,7 +62,7 @@ export default async function heatmapRoutes(app, { pool }) {
           latestSession: IsoDate.nullable(),
           items: z.array(z.object({
             instrumentId: z.number(), symbol: z.string(), name: z.string().nullable(), exchange: z.string().nullable(),
-            website: z.string().nullable().describe('Site da empresa (Yahoo), para o logotipo'),
+            logoVersion: z.number().nullable().describe('Versão do logotipo interno (GET /instruments/{id}/logo?v=); null sem logotipo'),
             fromDate: IsoDate, toDate: IsoDate, close: z.string(), changePct: z.string(), tradedValue: z.string(),
           })),
         }),
@@ -85,6 +83,13 @@ export default async function heatmapRoutes(app, { pool }) {
     }
     const total = items.length;
     items = items.slice(0, limit); // já ordenados por valor negociado, do maior para o menor
+    // Logotipos fora da cache: um logotipo acabado de carregar aparece logo.
+    const versions = new Map();
+    if (items.length) {
+      const [lg] = await pool.query("SELECT instrument_id, updated_at FROM instrument_logos WHERE status = 'ok' AND instrument_id IN (?)", [items.map((i) => i.instrumentId)]);
+      for (const r of lg) versions.set(Number(r.instrument_id), new Date(r.updated_at).getTime());
+    }
+    items = items.map((i) => ({ ...i, logoVersion: versions.get(i.instrumentId) ?? null }));
     return { period, total, latestSession: items.reduce((m, i) => (i.toDate > (m ?? '') ? i.toDate : m), null), items };
   });
 }

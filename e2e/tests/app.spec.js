@@ -462,11 +462,11 @@ test('Definições → Logotipos: Client ID da Brandfetch (CDN simulado)', async
   const referers = [];
   await page.route('https://cdn.brandfetch.io/**', (route) => {
     referers.push(route.request().headers().referer ?? '');
-    return route.fulfill({ status: 200, contentType: 'image/png', body: png });
+    return route.fulfill({ status: 200, contentType: 'image/png', body: png, headers: { 'access-control-allow-origin': '*' } });
   });
   await page.goto('/definicoes');
   const card = page.getByRole('region', { name: 'Logotipos' });
-  await expect(card.getByText('Sem Client ID: sem logotipos')).toBeVisible();
+  await expect(card.getByText('Sem Client ID: não se podem descarregar logotipos')).toBeVisible();
   await card.getByLabel('Client ID').fill('x'.repeat(80));
   await expect(card.getByText(/parece a API key secreta/)).toBeVisible();
   await expect(card.getByRole('button', { name: 'Guardar' })).toBeDisabled();
@@ -484,7 +484,22 @@ test('Definições → Logotipos: Client ID da Brandfetch (CDN simulado)', async
   await expect(card.getByText('Desligados')).toBeVisible();
   await sw.evaluate((el) => el.click());
   await expect(page.getByText('Logotipos ligados')).toBeVisible();
+  // Módulo Logotipos: descarrega no browser os que faltam (só a GALP tem site) e guarda-os no servidor.
+  await nav('Logotipos').click();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Logotipos');
+  await page.getByRole('button', { name: /Descarregar os próximos/ }).click();
+  await expect(page.getByText('1 de 1 logotipos guardados')).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Este lote' }).getByText('Guardado')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Descarregar os próximos/ })).toBeDisabled(); // nada mais em falta
+  // O Charts mostra o logotipo interno (já não pede à Brandfetch).
+  const before = referers.length;
+  await page.getByRole('region', { name: 'Últimos registos' }).getByRole('link', { name: 'GALP.LS' }).click();
+  const logo = page.locator('.charts-logo');
+  await expect(logo).toHaveAttribute('src', /^\/api\/v1\/instruments\/\d+\/logo\?v=\d+$/);
+  await expect(logo).toHaveJSProperty('complete', true);
+  expect(referers.length).toBe(before);
+  await page.goto('/definicoes');
   await card.getByRole('button', { name: 'Apagar' }).click();
-  await expect(card.getByText('Sem Client ID: sem logotipos')).toBeVisible();
+  await expect(card.getByText('Sem Client ID: não se podem descarregar logotipos')).toBeVisible();
   await page.unroute('https://cdn.brandfetch.io/**');
 });

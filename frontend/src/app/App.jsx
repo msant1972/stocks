@@ -29,6 +29,7 @@ const CalorPage = lazy(() => import('../features/calor/CalorPage.jsx'));
 const LabPage = lazy(() => import('../features/lab/LabPage.jsx'));
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage.jsx'));
 const UsersPage = lazy(() => import('../features/users/UsersPage.jsx'));
+const LogosPage = lazy(() => import('../features/logos/LogosPage.jsx'));
 
 function RequireSession({ children }) {
   const me = useMe();
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="laboratorio" element={<LabPage />} />
           <Route path="alertas" element={<AlertsPage />} />
           <Route path="utilizadores" element={<UsersPage />} />
+          <Route path="logotipos" element={<LogosPage />} />
           <Route path="definicoes" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

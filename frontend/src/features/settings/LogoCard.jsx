@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
@@ -12,8 +13,8 @@ const SAMPLE = 'asml.com';
 const looksLikeSecret = (v) => v.length > 64;
 
 /**
- * Logotipos (administradores): Client ID da Brandfetch Logo API. Os logotipos aparecem no cartão «Empresa» do Charts e no
- * HeatMap; o browser pede-os directamente ao CDN da Brandfetch (as imagens não são guardadas, como a Brandfetch exige).
+ * Logotipos (administradores): interruptor global e Client ID da Brandfetch Logo API, usado pelo módulo Administração →
+ * Logotipos para descarregar os que faltam. As páginas mostram os logotipos guardados na aplicação.
  */
 export default function LogoCard() {
   const qc = useQueryClient();
@@ -39,9 +40,9 @@ export default function LogoCard() {
     <section className="card" aria-labelledby="logos-title">
       <h2 id="logos-title" className="card-title" style={{ marginBottom: '0.5rem' }}>Logotipos</h2>
       <p className="small muted" style={{ marginTop: 0 }}>
-        Logotipos das empresas da <a href="https://brandfetch.com/developers" target="_blank" rel="noopener noreferrer">Brandfetch Logo API</a>, no
-        cartão «Empresa» do Charts e no HeatMap, a partir do site de cada empresa. O browser pede cada imagem ao CDN da Brandfetch
-        (cdn.brandfetch.io), com o domínio da empresa; as imagens não são guardadas na aplicação, como a Brandfetch exige.
+        Logotipos das empresas no Charts (cabeçalho e cartão «Empresa») e no HeatMap, guardados na aplicação. Os que faltam
+        descarregam-se no módulo <Link to="/logotipos">Logotipos</Link> a partir da{' '}
+        <a href="https://brandfetch.com/developers" target="_blank" rel="noopener noreferrer">Brandfetch Logo API</a>, com o Client ID abaixo.
       </p>
       {cfg.data && (
         <div className="row" style={{ gap: '0.5rem', marginBottom: '0.5rem' }}>
@@ -60,7 +61,7 @@ export default function LogoCard() {
                 {previewFailed && <span className="badge badge-warning" title="Confirme o Client ID e o domínio autorizado no portal da Brandfetch">Exemplo não carregou</span>}
                 <span className="muted">{cfg.data.updatedBy ? `${cfg.data.updatedBy}, ` : ''}{cfg.data.updatedAt ? f.dateTime(cfg.data.updatedAt) : ''}</span>
               </>
-            : <span className="badge">Sem Client ID: sem logotipos</span>}
+            : <span className="badge">Sem Client ID: não se podem descarregar logotipos</span>}
         </p>
       )}
       <form className="stack" style={{ gap: '0.75rem', maxWidth: '30rem' }} noValidate

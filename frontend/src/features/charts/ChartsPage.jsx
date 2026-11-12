@@ -226,7 +226,7 @@ export default function ChartsPage() {
         <div className="spread charts-head">
           <div style={{ minWidth: 0 }}>
             <div className="row" style={{ gap: '0.75rem', alignItems: 'baseline' }}>
-              <InstrumentLogo website={current.website} size={32} className="charts-logo" />
+              <InstrumentLogo instrumentId={current.id} logoVersion={current.logoVersion} size={32} className="charts-logo" />
               <h1 id="chart-symbol" className="card-title" style={{ fontSize: '1.5rem' }}>{current.symbol}</h1>
               {current.latest && <span className="financial-value" style={{ fontSize: '1.25rem', fontWeight: 600 }}>{f.price(current.latest.close, current.currency)}</span>}
               {current.latest && <PriceChange value={current.latest.changePct} />}
@@ -299,7 +299,7 @@ export default function ChartsPage() {
 
       {showCompany && current.status === 'active' && (
         <section className="card charts-company" aria-label="Empresa">
-          <CompanyPanel instrumentId={current.id} lastPrice={current.latest?.close} />
+          <CompanyPanel instrumentId={current.id} logoVersion={current.logoVersion} lastPrice={current.latest?.close} />
         </section>
       )}
       </div>

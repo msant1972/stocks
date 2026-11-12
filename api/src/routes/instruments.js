@@ -312,7 +312,8 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       params: z.object({ id: Id }),
       response: {
         200: InstrumentSummary.extend({
-          website: z.string().nullable().describe('Site da empresa (Yahoo), para o logotipo'),
+          website: z.string().nullable().describe('Site da empresa (Yahoo)'),
+          logoVersion: z.number().nullable().describe('Versão do logotipo interno (GET /instruments/{id}/logo?v=); null sem logotipo'),
           sessions: z.number(),
           fetch: z.object({
             status: z.enum(['queued', 'running', 'done', 'failed']), kind: z.enum(['initial', 'incremental']),
@@ -332,9 +333,11 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
     );
     const quotes = await latestQuotes(pool, [r.id]);
     const [[prof]] = await pool.query('SELECT website FROM company_profiles WHERE instrument_id = ?', [r.id]);
+    const [[logo]] = await pool.query("SELECT updated_at FROM instrument_logos WHERE instrument_id = ? AND status = 'ok'", [r.id]);
     return {
       ...mapInstrument(r, quotes),
       website: prof?.website && /^https?:\/\//.test(prof.website) ? prof.website : null,
+      logoVersion: logo ? new Date(logo.updated_at).getTime() : null,
       sessions: Number(sessions),
       fetch: job ? { status: job.status, kind: job.kind, lastError: job.last_error, finishedAt: job.finished_at?.toISOString() ?? null } : null,
     };
