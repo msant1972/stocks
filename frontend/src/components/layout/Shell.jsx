@@ -70,28 +70,11 @@ function DataStatus() {
   const live = intraday?.finishedAt && (!daily || intraday.startedAt > daily.startedAt) && age === 0;
   const time = live ? new Date(intraday.finishedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : null;
   return (
-    <span className={`badge ${stale ? 'badge-warning' : ''}`}
+    <span className={`badge data-status ${stale ? 'badge-warning' : ''}`}
       title={live ? 'Sessão em curso: valores provisórios, com 15 minutos de atraso; o fecho definitivo é gravado às 19h01' : 'Data da última sessão recolhida'}>
       {stale && <Icon name="warning" size={14} />}
       Dados de {f.date(data.latestSession)}{live && ` · sessão em curso, ${time}`}
     </span>
-  );
-}
-
-function TopSearch() {
-  const navigate = useNavigate();
-  const [q, setQ] = useState('');
-  return (
-    <form
-      className="topbar-search" role="search"
-      onSubmit={(e) => { e.preventDefault(); navigate(`/acompanhar?q=${encodeURIComponent(q.trim())}`); }}
-    >
-      <label htmlFor="top-search" className="visually-hidden">Pesquisar instrumentos</label>
-      <input
-        id="top-search" className="input" type="search" placeholder="Pesquisar (ex.: GALP)"
-        value={q} onChange={(e) => setQ(e.target.value)} style={{ minHeight: '2.5rem' }}
-      />
-    </form>
   );
 }
 
@@ -138,6 +121,7 @@ export default function Shell() {
           <button type="button" className="button button-ghost button-small" onClick={logout} style={{ marginTop: 8, paddingLeft: 0 }}>
             <Icon name="logout" size={18} />Terminar sessão
           </button>
+          <p style={{ marginTop: 8 }}><DataStatus /></p>
         </div>
       </nav>
       <div className="scrim" onClick={() => setNavOpen(false)} aria-hidden="true" />
@@ -150,9 +134,7 @@ export default function Shell() {
           >
             <Icon name="menu" />
           </button>
-          <TopSearch />
           <div className="topbar-right">
-            <DataStatus />
             <Link to="/definicoes" className="button button-ghost icon-button mobile-only" aria-label="Definições e conta">
               <Icon name="settings" />
             </Link>
@@ -191,6 +173,7 @@ export default function Shell() {
           <button type="button" className="button button-ghost" onClick={logout} style={{ justifySelf: 'start', paddingLeft: 0 }}>
             <Icon name="logout" size={18} />Terminar sessão
           </button>
+          <DataStatus />
         </div>
       </Dialog>
     </div>
