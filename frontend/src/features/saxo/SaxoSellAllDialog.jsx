@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage, newIdempotencyKey } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { openBuyOrders, sellAllPlan } from '../../lib/saxo.js';
+import { isRateLimited, openBuyOrders, sellAllPlan, SELL_ALL_RATE_RETRIES, SELL_ALL_RATE_WAIT_MS, SELL_ALL_SPACING_MS, sellAllSeconds } from '../../lib/saxo.js';
 import { Button, Dialog, Notice } from '../../components/ui/controls.jsx';
 import { SIM_BANNER } from './SaxoOrderDialog.jsx';
 
-const STATE = { idle: 'Por enviar', sending: 'A enviar…', sent: 'Enviada', failed: 'Não enviada' };
+const STATE = { idle: 'Por enviar', sending: 'A enviar…', waiting: 'À espera', sent: 'Enviada', failed: 'Não enviada' };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const fmtSeconds = (s) => (s >= 60 ? `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s` : `${s} s`);
 const TONE = { sent: 'badge-positive', failed: 'badge-negative' };
 
 /**
@@ -25,6 +27,7 @@ export default function SaxoSellAllDialog({ open, onClose, positions }) {
   const [rows, setRows] = useState(null); // estado de cada venda depois de começar
   const [log, setLog] = useState([]);
   const [running, setRunning] = useState(false);
+  const [countdown, setCountdown] = useState(null); // segundos até à próxima ordem
   const started = rows != null;
   const shown = rows ?? plan.orders.map((o) => ({ ...o, state: 'idle', message: null }));
 
@@ -45,13 +48,30 @@ export default function SaxoSellAllDialog({ open, onClose, positions }) {
       }
       say(`${done} de ${buys.length} compras abertas canceladas.`);
     }
+    // Uma ordem a cada 6 s (10 por minuto): a SAXO recusa pedidos a mais seguidos («demasiados pedidos»).
+    const wait = async (ms) => {
+      for (let left = Math.ceil(ms / 1000); left > 0; left -= 1) { setCountdown(left); await sleep(1000); }
+      setCountdown(null);
+    };
     for (const [i, r] of list.entries()) {
-      patch(i, { state: 'sending' });
-      try {
-        const res = await api.post('/saxo/orders', { instrumentId: r.instrumentId, side: 'sell', quantity: r.quantity, orderType: 'market', idempotencyKey: r.key });
-        patch(i, { state: 'sent', message: res.order.saxoOrderId ? `SAXO ${res.order.saxoOrderId}` : null });
-      } catch (err) {
-        patch(i, { state: 'failed', message: errorMessage(err) });
+      if (i > 0) await wait(SELL_ALL_SPACING_MS);
+      let key = r.key;
+      for (let attempt = 0; attempt <= SELL_ALL_RATE_RETRIES; attempt++) {
+        patch(i, { state: 'sending', message: attempt ? `nova tentativa ${attempt} de ${SELL_ALL_RATE_RETRIES}` : null });
+        try {
+          const res = await api.post('/saxo/orders', { instrumentId: r.instrumentId, side: 'sell', quantity: r.quantity, orderType: 'market', idempotencyKey: key });
+          patch(i, { state: 'sent', message: res.order.saxoOrderId ? `SAXO ${res.order.saxoOrderId}` : null });
+          break;
+        } catch (err) {
+          if (isRateLimited(err) && attempt < SELL_ALL_RATE_RETRIES) {
+            patch(i, { state: 'waiting', message: 'a SAXO pediu para esperar; repete daqui a 20 s' });
+            await wait(SELL_ALL_RATE_WAIT_MS);
+            key = newIdempotencyKey(); // a recusada fica registada: a repetição é uma ordem nova
+            continue;
+          }
+          patch(i, { state: 'failed', message: errorMessage(err) });
+          break;
+        }
       }
     }
     qc.invalidateQueries({ queryKey: ['saxo-orders'] });
@@ -68,7 +88,9 @@ export default function SaxoSellAllDialog({ open, onClose, positions }) {
     <Dialog open={open} onClose={running ? () => {} : onClose} title="Vender tudo na SAXO">
       <Notice tone="warning">{SIM_BANNER}</Notice>
       <Notice tone="error">
-        Emergência: vende a mercado todas as posições da conta, ao preço que o mercado der. Não se pode desfazer.
+        Emergência: vende a mercado todas as posições da conta, ao preço que o mercado der. Não se pode desfazer. As ordens seguem
+        uma a cada 6 segundos (a SAXO recusa pedidos a mais seguidos){plan.orders.length > 1 ? `: ${plan.orders.length} instrumentos demoram cerca de ${fmtSeconds(sellAllSeconds(plan.orders.length))}` : ''}.
+        Não feche esta janela enquanto decorre.
       </Notice>
       {plan.orders.length === 0 ? <p className="small muted">A conta não tem posições para vender.</p> : (
         <>
@@ -107,6 +129,7 @@ export default function SaxoSellAllDialog({ open, onClose, positions }) {
           {plan.skipped.length > 0 && (
             <Notice tone="warning">Sem correspondência na aplicação (venda na plataforma da SAXO): {plan.skipped.join(', ')}.</Notice>
           )}
+          {running && countdown != null && <p className="small" role="status" aria-live="polite" style={{ margin: 0 }}>Próxima ordem daqui a <strong className="num">{countdown} s</strong>.</p>}
           {log.length > 0 && <ul className="small" style={{ margin: 0, paddingLeft: '1.25rem' }}>{log.map((l, i) => <li key={i} className={l.tone ? 'negative' : undefined}>{l.text}</li>)}</ul>}
           {finished && (
             <Notice tone={failed ? 'warning' : 'info'}>

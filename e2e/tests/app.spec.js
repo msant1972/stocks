@@ -178,6 +178,7 @@ test('Carteira SAXO: «Vender Tudo» abre o diálogo de emergência com as posi�
   await sellAll.click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('Emergência');
+  await expect(dialog).toContainText('uma a cada 6 segundos');
   await expect(dialog.getByRole('table', { name: 'Vendas a enviar' }).or(dialog.getByLabel('Vendas a enviar'))).toContainText('GALP.LS');
   await expect(dialog.getByLabel(/Desligar também a Automação/)).toBeChecked();
   await expect(dialog.getByRole('button', { name: /Vender tudo \(1 instrumento\)/ })).toBeVisible();

@@ -185,3 +185,16 @@ test('posições no gráfico: um marcador por posição aberta, na sessão da co
   const wk = [{ date: '2026-11-06', value: 5, close: 5 }, { date: '2026-11-09', value: 6, close: 6 }];
   assert.equal(positionMarkers(wk, [{ openedAt: '2026-11-07T10:00:00Z', openPrice: 5.5 }])[0].date, '2026-11-09');
 });
+
+test('Vender Tudo: uma ordem a cada 6 segundos, estimativa de tempo e deteção do limite de pedidos da SAXO', async () => {
+  const { isRateLimited, sellAllSeconds, SELL_ALL_SPACING_MS, SELL_ALL_RATE_RETRIES } = await import('../src/lib/saxo.js');
+  assert.equal(SELL_ALL_SPACING_MS, 6000); // 10 ordens por minuto
+  assert.equal(SELL_ALL_RATE_RETRIES, 3);
+  assert.equal(sellAllSeconds(1), 0);
+  assert.equal(sellAllSeconds(11), 60); // 10 intervalos de 6 s
+  assert.equal(sellAllSeconds(0), 0);
+  assert.equal(isRateLimited({ code: 'SAXO_RATE_LIMITED', status: 429 }), true);
+  assert.equal(isRateLimited({ status: 429 }), true);
+  assert.equal(isRateLimited({ code: 'SAXO_REJECTED', status: 422 }), false);
+  assert.equal(isRateLimited(null), false);
+});

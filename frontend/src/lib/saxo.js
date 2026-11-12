@@ -177,5 +177,17 @@ export function sellAllPlan(positions = []) {
   return { orders: [...byId.values()].sort((a, b) => b.marketValue - a.marketValue || a.symbol.localeCompare(b.symbol)), skipped };
 }
 
+/** «Vender Tudo»: uma ordem a cada 6 segundos (10 por minuto), para a SAXO não recusar por excesso de pedidos. */
+export const SELL_ALL_SPACING_MS = 6000;
+/** Se a SAXO ainda responder «demasiados pedidos», espera mais e repete (no máximo RATE_RETRIES vezes por ordem). */
+export const SELL_ALL_RATE_WAIT_MS = 20_000;
+export const SELL_ALL_RATE_RETRIES = 3;
+
+/** O erro da API é o limite de pedidos da SAXO (429 SAXO_RATE_LIMITED)? */
+export const isRateLimited = (err) => err?.code === 'SAXO_RATE_LIMITED' || err?.status === 429;
+
+/** Tempo estimado do «Vender Tudo» para n ordens, em segundos (a primeira sai logo). */
+export const sellAllSeconds = (n, spacingMs = SELL_ALL_SPACING_MS) => Math.max(0, n - 1) * Math.round(spacingMs / 1000);
+
 /** Ordens de compra ainda abertas (a cancelar antes de vender tudo, para não voltarem a comprar). */
 export const openBuyOrders = (orders = []) => orders.filter((o) => o.side === 'buy' && o.status === 'working');
