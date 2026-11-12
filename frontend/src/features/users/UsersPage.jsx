@@ -8,6 +8,8 @@ import { ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Dialog, Field, Notice } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
+import Avatar from '../../components/ui/Avatar.jsx';
+import { resizePhoto } from '../../lib/photo.js';
 
 const MIN_PASSWORD = 8; // igual a MIN_PASSWORD_LENGTH na API
 
@@ -210,6 +212,44 @@ function ResetMfaDialog({ user, onClose, onDone }) {
   );
 }
 
+/** Fotografia de um utilizador com «Alterar» (escolhe e reduz a imagem) e «Remover». */
+function PhotoCell({ user, self, onDone }) {
+  const qc = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const base = self ? '/me/photo' : `/admin/users/${user.id}/photo`;
+  async function after(msg) {
+    await qc.invalidateQueries({ queryKey: ['admin-users'] });
+    if (self) await qc.invalidateQueries({ queryKey: ['me'] });
+    onDone(msg);
+  }
+  async function pick(e) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setBusy(true);
+    try {
+      const form = new FormData();
+      form.append('file', await resizePhoto(file), 'foto.jpg');
+      await api.put(base, form);
+      await after(`Fotografia de ${user.email} actualizada`);
+    } catch (err) { onDone(errorMessage(err)); } finally { setBusy(false); }
+  }
+  async function remove() {
+    setBusy(true);
+    try { await api.del(base); await after(`Fotografia de ${user.email} removida`); } catch (err) { onDone(errorMessage(err)); } finally { setBusy(false); }
+  }
+  return (
+    <div className="row" style={{ gap: 8, flexWrap: 'nowrap' }}>
+      <Avatar user={user} size={40} />
+      <label className={`button button-ghost button-small${busy ? ' is-busy' : ''}`} style={{ cursor: 'pointer' }}>
+        {user.photoVersion ? 'Alterar' : 'Carregar'}<span className="visually-hidden"> fotografia de {user.email}</span>
+        <input type="file" accept="image/*" className="visually-hidden" disabled={busy} onChange={pick} />
+      </label>
+      {user.photoVersion && <Button size="small" variant="ghost" disabled={busy} onClick={remove}>Remover<span className="visually-hidden"> fotografia de {user.email}</span></Button>}
+    </div>
+  );
+}
+
 export default function UsersPage() {
   const { data: me } = useMe();
   const toast = useToast();
@@ -242,6 +282,7 @@ export default function UsersPage() {
               <thead>
                 <tr>
                   <th scope="col">Utilizador</th>
+                  <th scope="col">Fotografia</th>
                   <th scope="col">Perfil</th>
                   <th scope="col">2 passos</th>
                   <th scope="col">Criado em</th>
@@ -258,6 +299,7 @@ export default function UsersPage() {
                         <strong>{u.name}</strong>{self && <span className="muted"> (você)</span>}
                         <div className="small muted">{u.email}</div>
                       </td>
+                      <td><PhotoCell user={u} self={self} onDone={toast} /></td>
                       <td>
                         <div className="row" style={{ gap: 6 }}>
                           <span className={`badge ${u.isAdmin ? 'badge-accent' : ''}`}>{u.isAdmin ? 'Administrador' : 'Utilizador'}</span>

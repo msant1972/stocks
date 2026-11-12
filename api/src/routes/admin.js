@@ -12,7 +12,7 @@ const run = promisify(execFile);
 
 const AdminUser = z.object({
   id: z.number(), email: z.string(), name: z.string(), isAdmin: z.boolean(), disabled: z.boolean(),
-  createdAt: z.string(), lastSeenAt: z.string().nullable(), mfaEnabled: z.boolean(),
+  createdAt: z.string(), lastSeenAt: z.string().nullable(), mfaEnabled: z.boolean(), photoVersion: z.number().nullable(),
 });
 
 const Password = z.string().min(1).max(200);
@@ -30,7 +30,7 @@ export default async function adminRoutes(app, { pool, cfg }) {
     },
   }, async () => {
     const [rows] = await pool.query(
-      `SELECT u.id, u.email, u.name, u.is_admin, u.disabled_at, u.created_at, u.totp_enabled_at,
+      `SELECT u.id, u.email, u.name, u.is_admin, u.disabled_at, u.created_at, u.totp_enabled_at, u.photo_updated_at,
               (SELECT MAX(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id) AS last_seen_at
          FROM users u ORDER BY u.id`,
     );
@@ -38,7 +38,7 @@ export default async function adminRoutes(app, { pool, cfg }) {
       items: rows.map((u) => ({
         id: Number(u.id), email: u.email, name: u.name, isAdmin: Boolean(u.is_admin), disabled: u.disabled_at != null,
         createdAt: u.created_at.toISOString(), lastSeenAt: u.last_seen_at?.toISOString() ?? null,
-        mfaEnabled: u.totp_enabled_at != null,
+        mfaEnabled: u.totp_enabled_at != null, photoVersion: u.photo_updated_at ? new Date(u.photo_updated_at).getTime() : null,
       })),
     };
   });

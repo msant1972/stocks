@@ -34,7 +34,7 @@ export async function resolveSession(pool, token, days) {
   if (!token) return null;
   const hash = hashToken(token);
   const [rows] = await pool.query(
-    `SELECT u.id, u.email, u.name, u.is_admin, u.totp_enabled_at, s.stage,
+    `SELECT u.id, u.email, u.name, u.is_admin, u.totp_enabled_at, u.photo_updated_at, s.stage,
             s.stage = 'full' AND s.expires_at < NOW(3) + INTERVAL ? HOUR AS needs_renewal
        FROM sessions s JOIN users u ON u.id = s.user_id
       WHERE s.token_hash = ? AND s.expires_at > NOW(3) AND u.disabled_at IS NULL`,
@@ -50,6 +50,7 @@ export async function resolveSession(pool, token, days) {
   }
   return {
     id: Number(row.id), email: row.email, name: row.name, isAdmin: Boolean(row.is_admin),
+    photoVersion: row.photo_updated_at ? new Date(row.photo_updated_at).getTime() : null,
     mfaEnabled: row.totp_enabled_at != null, stage: row.stage, renewed: Boolean(row.needs_renewal),
   };
 }

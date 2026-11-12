@@ -437,3 +437,21 @@ test('Definições → Estratégias: desligar uma estratégia tira-a de todos os
   await expect(strategySwitch('B-Opus')).toBeChecked();
   expect(await options('/backtest')).toEqual(['A-Momentum', 'B-Opus', 'C-AI', 'D-Reversão', 'E-Ondas']);
 });
+
+test('Utilizadores: fotografia na barra lateral e «Terminar sessão» com o botão direito', async () => {
+  await page.goto('/utilizadores');
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGNQaDiAFTEMLQkAOsZYAYJCUNYAAAAASUVORK5CYII=', 'base64');
+  await page.locator('input[type=file]').first().setInputFiles({ name: 'eu.png', mimeType: 'image/png', buffer: png });
+  await expect(page.getByText(/Fotografia de .* actualizada/)).toBeVisible();
+  const side = page.getByRole('navigation', { name: 'Principal' }).first();
+  await expect(side.locator('.avatar img')).toBeVisible();
+  await expect(side.locator('.avatar img')).toHaveJSProperty('complete', true);
+  // O menu abre com o botão direito e fecha com Esc, sem terminar a sessão.
+  await side.locator('.avatar-button').click({ button: 'right' });
+  await expect(page.getByRole('menuitem', { name: 'Terminar sessão' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menuitem', { name: 'Terminar sessão' })).toHaveCount(0);
+  await page.getByRole('button', { name: /Remover fotografia/ }).click();
+  await expect(page.getByText(/Fotografia de .* removida/)).toBeVisible();
+  await expect(side.locator('.avatar img')).toHaveCount(0);
+});

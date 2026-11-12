@@ -5,6 +5,7 @@ import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { useMe, useStatus } from '../../lib/queries.js';
 import Icon from '../ui/Icon.jsx';
+import Avatar from '../ui/Avatar.jsx';
 import { Loading } from '../feedback/states.jsx';
 import { Dialog } from '../ui/controls.jsx';
 
@@ -81,6 +82,45 @@ function DataStatus() {
   );
 }
 
+/** Fotografia e nome do utilizador; o botão direito (ou um clique, ou a tecla de menu) abre «Terminar sessão». */
+function UserBadge({ user, onLogout }) {
+  const [pos, setPos] = useState(null);
+  useEffect(() => {
+    if (!pos) return undefined;
+    const close = () => setPos(null);
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    window.addEventListener('click', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', close); window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close); window.removeEventListener('keydown', onKey);
+    };
+  }, [pos]);
+  function open(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const r = e.currentTarget.getBoundingClientRect();
+    const fromKeyboard = e.clientX === 0 && e.clientY === 0;
+    setPos({ x: fromKeyboard ? r.left : e.clientX, y: fromKeyboard ? r.bottom : e.clientY });
+  }
+  return (
+    <div className="user-badge">
+      <button type="button" className="avatar-button" onClick={open} onContextMenu={open} aria-haspopup="menu" aria-expanded={pos != null}
+        title="Botão direito: terminar sessão" aria-label={`${user?.name ?? 'Utilizador'}: abrir menu`}>
+        <Avatar user={user} size={36} />
+      </button>
+      <p className="user-name">{user?.name}</p>
+      {pos && (
+        <div className="context-menu" role="menu" style={{ left: Math.min(pos.x, window.innerWidth - 190), top: Math.min(pos.y, window.innerHeight - 56) }}>
+          <button type="button" role="menuitem" autoFocus onClick={onLogout}><Icon name="logout" size={18} />Terminar sessão</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Shell() {
   const { data } = useMe();
   const [navOpen, setNavOpen] = useState(false);
@@ -119,7 +159,7 @@ export default function Shell() {
           </div>
         ))}
         <div className="sidebar-foot small muted">
-          <p style={{ fontWeight: 500, color: 'var(--text)' }}>{data?.user.name}</p>
+          <UserBadge user={data?.user} onLogout={logout} />
           <p>Simulação · sem dinheiro real</p>
           <button type="button" className="button button-ghost button-small" onClick={logout} style={{ marginTop: 8, paddingLeft: 0 }}>
             <Icon name="logout" size={18} />Terminar sessão

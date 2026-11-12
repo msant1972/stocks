@@ -16,7 +16,7 @@ export const ErrorBody = z.object({
   error: z.object({ code: z.string(), message: z.string(), details: z.any().optional() }),
 });
 
-export const User = z.object({ id: z.number(), email: z.string(), name: z.string(), isAdmin: z.boolean() });
+export const User = z.object({ id: z.number(), email: z.string(), name: z.string(), isAdmin: z.boolean(), photoVersion: z.number().nullable().optional().describe('Versão da fotografia (ms); null sem fotografia') });
 
 export const InstrumentStatus = z.enum(['pending', 'active', 'invalid']);
 

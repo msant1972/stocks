@@ -58,6 +58,10 @@ paths:
                         type: string
                       isAdmin:
                         type: boolean
+                      photoVersion:
+                        description: Versão da fotografia (ms); null sem fotografia
+                        nullable: true
+                        type: number
                     required:
                       - id
                       - email
@@ -164,6 +168,10 @@ paths:
                         type: string
                       isAdmin:
                         type: boolean
+                      photoVersion:
+                        description: Versão da fotografia (ms); null sem fotografia
+                        nullable: true
+                        type: number
                     required:
                       - id
                       - email
@@ -366,6 +374,10 @@ paths:
                         type: string
                       isAdmin:
                         type: boolean
+                      photoVersion:
+                        description: Versão da fotografia (ms); null sem fotografia
+                        nullable: true
+                        type: number
                     required:
                       - id
                       - email
@@ -523,6 +535,10 @@ paths:
                         type: string
                       isAdmin:
                         type: boolean
+                      photoVersion:
+                        description: Versão da fotografia (ms); null sem fotografia
+                        nullable: true
+                        type: number
                     required:
                       - id
                       - email
@@ -694,6 +710,10 @@ paths:
                         type: string
                       isAdmin:
                         type: boolean
+                      photoVersion:
+                        description: Versão da fotografia (ms); null sem fotografia
+                        nullable: true
+                        type: number
                     required:
                       - id
                       - email
@@ -4494,12 +4514,15 @@ paths:
       summary: Estado da automação (interruptor geral, estratégias e última execução)
       tags:
         - SAXO
-      description: A automação corre de hora a hora nos dias úteis, 10 minutos depois
-        de cada recolha horária, só com as bolsas abertas (08:33 a 15:33 de
-        Lisboa; fecham às 16:30), com os sinais da sessão em curso e da última
-        sessão, e só na conta de simulação. Compras limitadas ao último preço +
-        1 %, vendas a mercado do que a automação comprou para essa estratégia;
-        ordens do dia. Desligada por omissão.
+      description: A automação corre de hora a hora nos dias úteis, 3 minutos depois
+        do início de cada recolha horária (recolhas das 08:20 às 16:20,
+        execuções das 08:23 às 16:23 de Lisboa; as bolsas fecham às 16:30 e
+        aceitam-se ordens até às 16:35), só nos instrumentos da lista do
+        utilizador e cada um pela sua melhor estratégia (as vendas valem
+        sempre), com os sinais da sessão em curso e da última sessão, e só na
+        conta de simulação. Compras limitadas ao último preço + 1 %, vendas a
+        mercado do que a automação comprou para essa estratégia; ordens do dia.
+        Desligada por omissão.
       responses:
         "200":
           description: Default Response
@@ -7138,7 +7161,7 @@ paths:
                     additionalProperties: false
                   lastIntradayRun:
                     nullable: true
-                    description: Última actualização durante a sessão (dias úteis, 08:23–17:23 de
+                    description: Última actualização durante a sessão (dias úteis, 08:20–16:20 de
                       Lisboa)
                     type: object
                     properties:
@@ -7325,6 +7348,9 @@ paths:
                           type: string
                         mfaEnabled:
                           type: boolean
+                        photoVersion:
+                          nullable: true
+                          type: number
                       required:
                         - id
                         - email
@@ -7334,6 +7360,7 @@ paths:
                         - createdAt
                         - lastSeenAt
                         - mfaEnabled
+                        - photoVersion
                       additionalProperties: false
                 required:
                   - items
@@ -8043,6 +8070,267 @@ paths:
                   - error
                 additionalProperties: false
         "501":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/users/{id}/photo:
+    get:
+      summary: Fotografia de um utilizador (imagem)
+      tags:
+        - Utilizadores
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/me/photo:
+    put:
+      summary: Mudar a minha fotografia (multipart, campo "file")
+      tags:
+        - Utilizadores
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  photoVersion:
+                    nullable: true
+                    type: number
+                required:
+                  - photoVersion
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    delete:
+      summary: Remover a minha fotografia
+      tags:
+        - Utilizadores
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  photoVersion:
+                    nullable: true
+                    type: number
+                required:
+                  - photoVersion
+                additionalProperties: false
+  /api/v1/admin/users/{id}/photo:
+    put:
+      summary: Mudar a fotografia de um utilizador (multipart, campo "file")
+      tags:
+        - Administração
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  photoVersion:
+                    nullable: true
+                    type: number
+                required:
+                  - photoVersion
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    delete:
+      summary: Remover a fotografia de um utilizador
+      tags:
+        - Administração
+      parameters:
+        - schema:
+            type: integer
+            minimum: 0
+            exclusiveMinimum: true
+            maximum: 9007199254740991
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  photoVersion:
+                    nullable: true
+                    type: number
+                required:
+                  - photoVersion
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "404":
           description: Default Response
           content:
             application/json:

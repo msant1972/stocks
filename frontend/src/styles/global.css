@@ -62,6 +62,15 @@ img, svg { display: block; }
 .nav-link[aria-current="page"] { background: var(--surface-muted); color: var(--accent); }
 .nav-link svg { flex: none; }
 .sidebar-foot { margin-top: auto; padding: 0.75rem 0.75rem 0; }
+.avatar { display: inline-flex; flex: none; align-items: center; justify-content: center; overflow: hidden; border-radius: 50%; background: var(--surface-muted); color: var(--text-secondary); font-weight: 600; line-height: 1; }
+.avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.user-badge { display: flex; align-items: center; gap: 0.625rem; }
+.user-name { font-weight: 500; color: var(--text); min-width: 0; overflow-wrap: anywhere; }
+.avatar-button { display: inline-flex; flex: none; padding: 0; border: 0; border-radius: 50%; background: none; cursor: pointer; }
+.avatar-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.context-menu { position: fixed; z-index: 60; min-width: 11rem; padding: 0.25rem; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-control); box-shadow: var(--shadow-overlay); }
+.context-menu button { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.5rem 0.75rem; border: 0; border-radius: var(--radius-control); background: none; color: var(--text); font: inherit; cursor: pointer; text-align: left; }
+.context-menu button:hover, .context-menu button:focus-visible { background: var(--surface-muted); outline: none; }
 
 .main-area { margin-left: var(--sidebar-width); min-width: 0; }
 
