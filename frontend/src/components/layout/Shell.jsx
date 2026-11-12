@@ -62,6 +62,8 @@ const MOBILE_NAV = NAV_GROUPS.flatMap((g) => g.items).filter((n) => MOBILE_SHORT
 
 function DataStatus() {
   const { data } = useStatus();
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const t = setInterval(() => setNow(new Date()), 60_000); return () => clearInterval(t); }, []);
   if (!data?.latestSession) return null;
   const age = f.daysSince(data.latestSession);
   const stale = age > 4;
@@ -69,14 +71,16 @@ function DataStatus() {
   const intraday = data.lastIntradayRun;
   const daily = data.lastFetchRun;
   const live = intraday?.finishedAt && (!daily || intraday.startedAt > daily.startedAt) && age === 0;
+  const ended = live && f.sessionEnded(now); // depois das 16h30 já não está em curso; o fecho definitivo chega às 19h01
   const time = live ? new Date(intraday.finishedAt).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }) : null;
   return (
     <span className={`badge data-status ${stale ? 'badge-warning' : ''}`}
-      title={live ? 'Sessão em curso: valores provisórios, com 15 minutos de atraso; o fecho definitivo é gravado às 19h01' : 'Data da última sessão recolhida'}>
+      title={ended ? 'Sessão terminada: os valores são os da última recolha (provisórios); o fecho definitivo é gravado às 19h01'
+        : live ? 'Sessão em curso: valores provisórios, com 15 minutos de atraso; o fecho definitivo é gravado às 19h01' : 'Data da última sessão recolhida'}>
       {stale && <Icon name="warning" size={14} />}
       <span>
         Dados de {f.date(data.latestSession)}
-        {live && <><br />sessão em curso, {time}</>}
+        {live && <><br />{ended ? 'sessão terminada · fecho às 19h01' : `sessão em curso, ${time}`}</>}
       </span>
     </span>
   );

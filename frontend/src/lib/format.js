@@ -142,3 +142,14 @@ export function lastTurnover(latest) {
   const v = Number(latest.close) * Number(latest.volume);
   return Number.isFinite(v) ? v : null;
 }
+
+/** Hora de Lisboa (minutos desde a meia-noite) de um instante. */
+export function lisbonMinutes(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Lisbon', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now);
+  const get = (t) => Number(parts.find((p) => p.type === t).value);
+  return get('hour') * 60 + get('minute');
+}
+
+/** As bolsas europeias fecham às 16h30 de Lisboa (17h30 CET); depois disso a sessão já não está em curso. */
+export const MARKET_CLOSE_MINUTES = 16 * 60 + 30;
+export const sessionEnded = (now = new Date()) => lisbonMinutes(now) >= MARKET_CLOSE_MINUTES;
