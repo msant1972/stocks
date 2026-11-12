@@ -1,3 +1,4 @@
+import { DEFAULT_STRATEGY_ID, getStrategy } from './strategy.js';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { api } from './api.js';
 
@@ -24,6 +25,18 @@ export const useStatus = () => useQuery({
   // Com instrumentos por validar, a cada 5 s; senão, a cada 15 min (recolhas horárias durante a sessão).
   refetchInterval: (q) => (q.state.data?.instruments.pending > 0 ? POLL_PENDING_MS : 15 * 60_000),
 });
+/**
+ * Estratégias ligadas (Definições → Estratégias). Enquanto não chega a resposta, vale o registo todo (sem piscar).
+ * ids: Set das ligadas ou null (todas); isEnabled(id); defaultId: a A-Momentum ou a primeira ligada.
+ */
+export function useStrategies() {
+  const q = useQuery({ queryKey: ['strategies', 'registry'], queryFn: () => api.get('/strategies'), staleTime: 5 * 60_000 });
+  const ids = q.data ? new Set(q.data.items.filter((s) => s.enabled).map((s) => s.id)) : null;
+  return {
+    ids, isPending: q.isPending, defaultId: q.data?.defaultId ?? DEFAULT_STRATEGY_ID,
+    isEnabled: (id) => Boolean(getStrategy(id)?.available) && (!ids || ids.has(id)),
+  };
+}
 export const useWatchlist = () => useQuery({
   queryKey: keys.watchlist, queryFn: () => api.get('/watchlist'),
   refetchInterval: (q) => (hasPending(q) ? POLL_PENDING_MS : false),

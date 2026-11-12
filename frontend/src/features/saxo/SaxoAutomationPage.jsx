@@ -144,10 +144,10 @@ export default function SaxoAutomationPage() {
               {s.strategies.map((x) => (
                 <li key={x.id} className="spread">
                   <div>
-                    <strong>{x.name}</strong>{x.budget != null && <span className="small muted"> · {f.money(x.budget, 'EUR', 0)} por compra</span>}
+                    <strong>{x.name}</strong>{x.disabledInSettings && <span className="badge badge-warning" style={{ marginLeft: 8 }}>desligada nas Definições</span>}{x.budget != null && <span className="small muted"> · {f.money(x.budget, 'EUR', 0)} por compra</span>}
                     {x.summary && <div className="small muted">{x.summary}</div>}
                   </div>
-                  <Switch label={`Automação da estratégia ${x.name}`} checked={x.enabled} disabled={toggleOne.isPending} onChange={(enabled) => toggleOne.mutate({ id: x.id, enabled })} />
+                  <Switch label={`Automação da estratégia ${x.name}`} checked={x.enabled} disabled={toggleOne.isPending || x.disabledInSettings} onChange={(enabled) => toggleOne.mutate({ id: x.id, enabled })} />
                 </li>
               ))}
             </ul>

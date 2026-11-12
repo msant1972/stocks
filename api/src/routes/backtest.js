@@ -1,7 +1,9 @@
 import { z } from 'zod';
-import { AVAILABLE_STRATEGIES, DEFAULT_STRATEGY_ID, getStrategy, STRATEGIES } from '../../../shared/strategies/index.js';
-import { IsoDate } from '../schemas.js';
+import { AVAILABLE_STRATEGIES, getStrategy, STRATEGIES } from '../../../shared/strategies/index.js';
+import { ErrorBody, IsoDate } from '../schemas.js';
 import { computeStrategiesParallel } from '../services/strategyRuns.js';
+import { assertEnabled, defaultStrategyId, enabledStrategies, setStrategyEnabled } from '../services/strategySettings.js';
+import { AppError } from '../errors.js';
 import * as promessas from '../../../shared/promessas.js';
 import { DEFAULT_COSTS, describeCosts } from '../../../shared/costs.js';
 
@@ -55,7 +57,7 @@ const Row = z.object({
 export default async function backtestRoutes(app, { pool, cfg, warmup = () => {} }) {
   const cache = new Map(); // por estratégia
 
-  const StrategyInfo = z.object({ id: z.string(), name: z.string(), available: z.boolean(), summary: z.string(), rules: z.string() });
+  const StrategyInfo = z.object({ id: z.string(), name: z.string(), available: z.boolean(), summary: z.string(), rules: z.string(), enabled: z.boolean().optional() });
   const info = ({ id, name, available, summary, rules }) => ({ id, name, available, summary, rules });
 
   app.get('/strategies', {
@@ -63,7 +65,25 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       tags: ['Estratégia'], summary: 'Estratégias registadas (as não disponíveis estão em preparação)',
       response: { 200: z.object({ defaultId: z.string(), items: z.array(StrategyInfo) }) },
     },
-  }, async () => ({ defaultId: DEFAULT_STRATEGY_ID, items: STRATEGIES.map(info) }));
+  }, async () => {
+    const on = await enabledStrategies(pool);
+    return { defaultId: defaultStrategyId(on), items: STRATEGIES.map((s) => ({ ...info(s), enabled: s.available && on.some((x) => x.id === s.id) })) };
+  });
+
+  app.put('/strategies/:id/enabled', {
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['Estratégia'], summary: 'Ligar ou desligar uma estratégia (administradores; vale para todos os módulos)',
+      description: 'As estratégias desligadas saem dos resultados de Acompanhar, Sinais, BackTest, Comparar, WinnersLoosers e Charts, e a Automação não as executa. Tem de ficar pelo menos uma ligada (409).',
+      params: z.object({ id: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)) }), body: z.object({ enabled: z.boolean() }),
+      response: { 200: z.object({ items: z.array(z.object({ id: z.string(), enabled: z.boolean() })) }), 403: ErrorBody, 409: ErrorBody },
+    },
+  }, async (req) => {
+    if (!req.user.isAdmin) throw new AppError(403, 'FORBIDDEN', 'reservado a administradores');
+    await setStrategyEnabled(pool, req.user.id, req.params.id, req.body.enabled);
+    const on = await enabledStrategies(pool);
+    return { items: AVAILABLE_STRATEGIES.map((s) => ({ id: s.id, enabled: on.some((x) => x.id === s.id) })) };
+  });
 
   app.get('/backtest', {
     schema: {
@@ -72,7 +92,7 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
         + ' Posições abertas avaliadas ao último fecho. Simulação no histórico; não altera a carteira nem é recomendação.',
       querystring: z.object({
         scope: z.enum(['all', 'watchlist']).default('all'),
-        strategy: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)).default(DEFAULT_STRATEGY_ID),
+        strategy: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)).optional().describe('Por omissão, a A-Momentum ou a primeira ligada'),
         period: Period, costs: Costs,
       }),
       response: {
@@ -83,7 +103,9 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       },
     },
   }, async (req) => {
-    const strategy = getStrategy(req.query.strategy);
+    const on = await enabledStrategies(pool);
+    const strategy = getStrategy(req.query.strategy ?? defaultStrategyId(on));
+    await assertEnabled(pool, strategy.id);
     const { period } = req.query;
     const withCosts = req.query.costs === 'true';
     const entry = (await ensure([strategy], period))[0];
@@ -129,9 +151,10 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       },
     },
   }, async (req) => {
+    const STS = await enabledStrategies(pool);
     const { period } = req.query;
     const withCosts = req.query.costs === 'true';
-    const computed = await ensure(AVAILABLE_STRATEGIES, period);
+    const computed = await ensure(STS, period);
     const ids = req.query.scope === 'watchlist' ? await watchlistIds(req.user.id) : null;
     const rowsOf = (k) => computed[k].items.filter((it) => !ids || ids.has(it.instrumentId)).map((it) => (withCosts ? netOfCosts(it) : it));
     const sum = (a) => Math.round(a.reduce((x, v) => x + v, 0) * 100) / 100;
@@ -145,10 +168,10 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       };
     };
     const best = new Map();
-    AVAILABLE_STRATEGIES.forEach((st, k) => {
+    STS.forEach((st, k) => {
       for (const it of rowsOf(k)) if (!best.has(it.instrumentId) || it.total > best.get(it.instrumentId).total) best.set(it.instrumentId, { id: st.id, total: it.total });
     });
-    const items = AVAILABLE_STRATEGIES.map((st, k) => {
+    const items = STS.map((st, k) => {
       const rows = rowsOf(k);
       const closed = sum(rows.map((r) => r.closed));
       const sessions = sum(rows.map((r) => r.sessions));
@@ -164,7 +187,7 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       });
     });
     // Comprar e manter: a referência calculada pela C-AI (ou pela primeira estratégia), que começa no início da janela.
-    const refIdx = Math.max(0, AVAILABLE_STRATEGIES.findIndex((s) => s.id === 'c-ai'));
+    const refIdx = Math.max(0, STS.findIndex((s) => s.id === 'c-ai'));
     const ref = rowsOf(refIdx).filter((r) => r.buyHoldPnl != null);
     const buyHold = stats('buy-hold', 'Comprar e manter', ref, (r) => r.buyHoldPnl, {
       peak: (r) => (r.buyHoldPct ? r.buyHoldPnl / (r.buyHoldPct / 100) : 0),
@@ -178,7 +201,7 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
     const maxSessions = Math.max(0, ...refRows.map((r) => r.sessions));
     const fullHistory = refRows.filter((r) => maxSessions > 0 && r.sessions >= 0.95 * maxSessions).length;
     return {
-      computedAt: new Date(oldest).toISOString(), years: AVAILABLE_STRATEGIES[0].windowYears, budget: AVAILABLE_STRATEGIES[0].budget,
+      computedAt: new Date(oldest).toISOString(), years: STS[0].windowYears, budget: STS[0].budget,
       instruments: new Set(computed.flatMap((e) => e.items.map((i) => i.instrumentId)).filter((id) => !ids || ids.has(id))).size,
       items, buyHold, period, costs: withCosts, costModel: costModel(), fromDate, toDate: mode(refRows.map((r) => r.toDate)), fullHistory,
       persistence: period === 'recent'
@@ -203,9 +226,10 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       },
     },
   }, async () => {
-    const computed = await ensure(AVAILABLE_STRATEGIES);
+    const STS = await enabledStrategies(pool);
+    const computed = await ensure(STS);
     const best = new Map();
-    AVAILABLE_STRATEGIES.forEach((st, k) => {
+    STS.forEach((st, k) => {
       for (const it of computed[k].items) {
         const cur = best.get(it.instrumentId);
         if (!cur || it.total > cur.total) best.set(it.instrumentId, { instrumentId: it.instrumentId, strategyId: st.id, total: it.total, totalPct: it.totalPct });
@@ -239,8 +263,9 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       },
     },
   }, async (req) => {
-    const computed = await ensure(AVAILABLE_STRATEGIES);
-    const entries = AVAILABLE_STRATEGIES.map((st, k) => [st, computed[k]]);
+    const STS = await enabledStrategies(pool);
+    const computed = await ensure(STS);
+    const entries = STS.map((st, k) => [st, computed[k]]);
     const byId = new Map();
     for (const [st, entry] of entries) {
       for (const it of entry.items) {
@@ -250,8 +275,8 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
         byId.get(it.instrumentId).results[st.id] = it.total;
       }
     }
-    let items = [...byId.values()].filter((r) => AVAILABLE_STRATEGIES.every((st) => r.results[st.id] != null)).map((r) => {
-      const values = AVAILABLE_STRATEGIES.map((st) => r.results[st.id]);
+    let items = [...byId.values()].filter((r) => STS.every((st) => r.results[st.id] != null)).map((r) => {
+      const values = STS.map((st) => r.results[st.id]);
       const group = values.every((v) => v > 0) ? 'gain' : values.every((v) => v < 0) ? 'loss' : 'mixed';
       return { ...r, total: Math.round(values.reduce((a, b) => a + b, 0) * 100) / 100, group };
     });
@@ -262,8 +287,8 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
     const count = (g) => items.filter((i) => i.group === g).length;
     const oldest = Math.min(...entries.map(([, e]) => e.at));
     return {
-      strategies: AVAILABLE_STRATEGIES.map(({ id, name }) => ({ id, name })),
-      years: AVAILABLE_STRATEGIES[0].windowYears, budget: AVAILABLE_STRATEGIES[0].budget, computedAt: new Date(oldest).toISOString(),
+      strategies: STS.map(({ id, name }) => ({ id, name })),
+      years: STS[0].windowYears, budget: STS[0].budget, computedAt: new Date(oldest).toISOString(),
       counts: { gain: count('gain'), loss: count('loss'), mixed: count('mixed'), total: items.length },
       items,
     };

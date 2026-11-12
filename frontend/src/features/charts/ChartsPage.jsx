@@ -3,14 +3,14 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useBestStrategies, useCatalog, useInstrument, useQuotes, useWatchlist } from '../../lib/queries.js';
+import { keys, useBestStrategies, useCatalog, useInstrument, useQuotes, useStrategies, useWatchlist } from '../../lib/queries.js';
 import { InstrumentStatus, PriceChange, QuoteDate } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Notice, Segmented } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
-import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
+import { getStrategy } from '../../lib/strategy.js';
 import CompanyPanel from './CompanyPanel.jsx';
 import SaxoOrderDialog, { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
 import AlertDialog from '../alerts/AlertDialog.jsx';
@@ -75,13 +75,14 @@ export default function ChartsPage() {
   const detail = useInstrument(currentId);
   const current = detail.data ?? items[index];
 
+  const strategies = useStrategies();
   const bestFor = (i) => {
     const b = i && bestMap.data?.get(i.id);
-    return b && b.total > 0 && getStrategy(b.strategyId) ? b.strategyId : null;
+    return b && b.total > 0 && strategies.isEnabled(b.strategyId) ? b.strategyId : null;
   };
   // Escolha explícita no menu (incluindo «nenhuma») mantém-se ao mudar de instrumento; sem ela, a melhor de cada um.
   const raw = params.get('estrategia');
-  const strategyFor = (i) => (raw == null ? bestFor(i) : raw === '1' ? DEFAULT_STRATEGY_ID : getStrategy(raw) ? raw : null);
+  const strategyFor = (i) => (raw == null ? bestFor(i) : raw === '1' ? strategies.defaultId : strategies.isEnabled(raw) ? raw : null);
   const strategy = strategyFor(current);
   const bestId = bestFor(current);
 

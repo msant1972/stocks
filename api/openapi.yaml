@@ -4527,12 +4527,15 @@ paths:
                           type: number
                         enabled:
                           type: boolean
+                        disabledInSettings:
+                          type: boolean
                       required:
                         - id
                         - name
                         - summary
                         - budget
                         - enabled
+                        - disabledInSettings
                       additionalProperties: false
                   lastRun:
                     nullable: true
@@ -4613,12 +4616,15 @@ paths:
                           type: number
                         enabled:
                           type: boolean
+                        disabledInSettings:
+                          type: boolean
                       required:
                         - id
                         - name
                         - summary
                         - budget
                         - enabled
+                        - disabledInSettings
                       additionalProperties: false
                   lastRun:
                     nullable: true
@@ -4733,12 +4739,15 @@ paths:
                           type: number
                         enabled:
                           type: boolean
+                        disabledInSettings:
+                          type: boolean
                       required:
                         - id
                         - name
                         - summary
                         - budget
                         - enabled
+                        - disabledInSettings
                       additionalProperties: false
                   lastRun:
                     nullable: true
@@ -4778,6 +4787,28 @@ paths:
                   - lastRun
                 additionalProperties: false
         "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
           description: Default Response
           content:
             application/json:
@@ -8615,7 +8646,6 @@ paths:
           name: sessions
           required: false
         - schema:
-            default: a-momentum
             type: string
             enum:
               - a-momentum
@@ -8625,6 +8655,7 @@ paths:
           in: query
           name: strategy
           required: false
+          description: Por omissão, a A-Momentum ou a primeira ligada
         - schema:
             default: all
             type: string
@@ -8861,6 +8892,8 @@ paths:
                           type: string
                         rules:
                           type: string
+                        enabled:
+                          type: boolean
                       required:
                         - id
                         - name
@@ -8871,6 +8904,105 @@ paths:
                 required:
                   - defaultId
                   - items
+                additionalProperties: false
+  /api/v1/strategies/{id}/enabled:
+    put:
+      summary: Ligar ou desligar uma estratégia (administradores; vale para todos os
+        módulos)
+      tags:
+        - Estratégia
+      description: As estratégias desligadas saem dos resultados de Acompanhar,
+        Sinais, BackTest, Comparar, WinnersLoosers e Charts, e a Automação não
+        as executa. Tem de ficar pelo menos uma ligada (409).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled:
+                  type: boolean
+              required:
+                - enabled
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - a-momentum
+              - b-opus
+              - c-ai
+              - d-reversao
+          in: path
+          name: id
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        enabled:
+                          type: boolean
+                      required:
+                        - id
+                        - enabled
+                      additionalProperties: false
+                required:
+                  - items
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "409":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
                 additionalProperties: false
   /api/v1/backtest:
     get:
@@ -8926,7 +9058,6 @@ paths:
           name: scope
           required: false
         - schema:
-            default: a-momentum
             type: string
             enum:
               - a-momentum
@@ -8936,6 +9067,7 @@ paths:
           in: query
           name: strategy
           required: false
+          description: Por omissão, a A-Momentum ou a primeira ligada
         - schema:
             default: recent
             type: string
@@ -8979,6 +9111,8 @@ paths:
                         type: string
                       rules:
                         type: string
+                      enabled:
+                        type: boolean
                     required:
                       - id
                       - name

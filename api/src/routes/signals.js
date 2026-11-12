@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { AVAILABLE_STRATEGIES, DEFAULT_STRATEGY_ID, getStrategy } from '../../../shared/strategies/index.js';
+import { AVAILABLE_STRATEGIES, getStrategy } from '../../../shared/strategies/index.js';
+import { assertEnabled, defaultStrategyId, enabledStrategies } from '../services/strategySettings.js';
 import { IsoDate } from '../schemas.js';
 import { buildItems, computeAll, MAX_SESSIONS } from '../services/signals.js';
 
@@ -59,7 +60,7 @@ export default async function signalRoutes(app, { pool, warmup = () => {} }) {
         + ' Simulação; não são recomendações.',
       querystring: z.object({
         sessions: sessionsQuery,
-        strategy: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)).default(DEFAULT_STRATEGY_ID),
+        strategy: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)).optional().describe('Por omissão, a A-Momentum ou a primeira ligada'),
         scope: z.enum(['all', 'watchlist']).default('all').describe('watchlist: só os instrumentos da minha lista (página Sinais)'),
       }),
       response: {
@@ -71,7 +72,9 @@ export default async function signalRoutes(app, { pool, warmup = () => {} }) {
       },
     },
   }, async (req) => {
-    const strategy = getStrategy(req.query.strategy);
+    const on = await enabledStrategies(pool);
+    const strategy = getStrategy(req.query.strategy ?? defaultStrategyId(on));
+    await assertEnabled(pool, strategy.id);
     const mine = req.query.scope === 'watchlist' ? await watchlistIds(req.user.id) : null;
     const { items, latestSession } = buildItems(await entryFor(strategy), req.query.sessions, strategy.id, mine);
     return { strategy: strategy.id, sessions: req.query.sessions, scope: req.query.scope, instruments: mine ? mine.size : null, latestSession, items };
@@ -89,7 +92,7 @@ export default async function signalRoutes(app, { pool, warmup = () => {} }) {
     const mine = await watchlistIds(req.user.id);
     const items = [];
     let latestSession = null;
-    for (const st of AVAILABLE_STRATEGIES) {
+    for (const st of await enabledStrategies(pool)) {
       const r = buildItems(await entryFor(st), req.query.sessions, st.id, mine);
       items.push(...r.items);
       if (r.latestSession && (!latestSession || r.latestSession > latestSession)) latestSession = r.latestSession;

@@ -5,6 +5,7 @@ import { catalogStatus, startCatalogSync } from '../saxo/catalog-runner.js';
 import { accountHistory } from '../saxo/history.js';
 import { AppError } from '../errors.js';
 import { AVAILABLE_STRATEGIES } from '../../../shared/strategies/index.js';
+import { assertEnabled } from '../services/strategySettings.js';
 import { automationComparison, automationOrders, automationStatus, setAutomationEnabled, setAutomationStrategy } from '../saxo/automation.js';
 import { sendPendingEmails } from '../saxo/watcher.js';
 import { ErrorBody, Id, IsoDate } from '../schemas.js';
@@ -86,7 +87,7 @@ export default async function saxoRoutes(app, { pool, cfg }) {
 
   const AutomationStatus = z.object({
     enabled: z.boolean(),
-    strategies: z.array(z.object({ id: z.string(), name: z.string(), summary: z.string().nullable(), budget: z.number().nullable(), enabled: z.boolean() })),
+    strategies: z.array(z.object({ id: z.string(), name: z.string(), summary: z.string().nullable(), budget: z.number().nullable(), enabled: z.boolean(), disabledInSettings: z.boolean() })),
     lastRun: z.object({
       date: z.string(), status: z.enum(['running', 'done', 'failed']), counts: z.record(z.string(), z.number()), detail: z.string().nullable(), startedAt: z.string(), finishedAt: z.string().nullable(),
     }).nullable(),
@@ -117,9 +118,10 @@ export default async function saxoRoutes(app, { pool, cfg }) {
     schema: {
       tags: ['SAXO'], summary: 'Ligar ou desligar a automação de uma estratégia',
       params: z.object({ strategyId: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)) }),
-      body: z.object({ enabled: z.boolean() }), response: { 200: AutomationStatus, 400: ErrorBody },
+      body: z.object({ enabled: z.boolean() }), response: { 200: AutomationStatus, 400: ErrorBody, 409: ErrorBody },
     },
   }, async (req) => {
+    if (req.body.enabled) await assertEnabled(pool, req.params.strategyId); // desligada nas Definições: não se liga aqui
     await setAutomationStrategy(pool, req.user.id, req.params.strategyId, req.body.enabled);
     return automationStatus(pool, req.user.id);
   });

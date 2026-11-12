@@ -3,9 +3,9 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useAlerts } from '../../lib/queries.js';
+import { keys, useAlerts, useStrategies } from '../../lib/queries.js';
 import { heldBySaxo } from '../../lib/saxo.js';
-import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
+import { getStrategy } from '../../lib/strategy.js';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { PriceChange } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
@@ -24,7 +24,8 @@ const PERIODS = ['1', '3', '5', '10'];
 /** Sinais de uma estratégia do registo aplicada virtualmente a todos os instrumentos. */
 export default function SignalsPage() {
   const [params, setParams] = useSearchParams();
-  const strategyId = getStrategy(params.get('estrategia')) ? params.get('estrategia') : DEFAULT_STRATEGY_ID;
+  const strategies = useStrategies();
+  const strategyId = strategies.isEnabled(params.get('estrategia')) ? params.get('estrategia') : strategies.defaultId;
   const strategy = getStrategy(strategyId);
   const budget = strategy.budget;
   const side = ['buy', 'add', 'sell'].includes(params.get('tipo')) ? params.get('tipo') : 'all';
@@ -83,7 +84,7 @@ export default function SignalsPage() {
         </div>
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <Link className="button mobile-only-inline" to="/backtest">BackTest</Link>
-          <StrategySelect value={strategyId} onChange={(id) => setParam('estrategia', id, DEFAULT_STRATEGY_ID)} />
+          <StrategySelect value={strategyId} onChange={(id) => setParam('estrategia', id, strategies.defaultId)} />
           <Segmented label="Tipo de sinal" value={side} onChange={(v) => setParam('tipo', v, 'all')}
             options={[
               { value: 'all', label: `Todos${q.data ? ` (${all.length})` : ''}` },

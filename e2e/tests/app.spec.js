@@ -277,3 +277,38 @@ test('Definições: Correspondência SAXO e Cópias de segurança são cartões;
   await expect(backup).toContainText('Base de dados');
   await expect(backup).toContainText('Restaurar: não há botão');
 });
+
+test('Definições → Estratégias: desligar uma estratégia tira-a de todos os módulos, e ligar volta a pô-la', async () => {
+  const strategySwitch = (name) => page.getByLabel(`Estratégia ${name}`);
+  await page.goto('/definicoes');
+  const card = page.locator('section', { has: page.getByRole('heading', { name: 'Estratégias', exact: true }) });
+  await expect(card).toBeVisible();
+  await strategySwitch('B-Opus').evaluate((el) => el.click());
+  await expect(page.getByText('B-Opus desligada')).toBeVisible();
+  const options = async (url) => {
+    await page.goto(url);
+    const menu = page.getByRole('combobox', { name: 'Estratégia' });
+    await menu.waitFor();
+    return menu.locator('option').allInnerTexts();
+  };
+  expect(await options('/backtest')).toEqual(['A-Momentum', 'C-AI', 'D-Reversão']);
+  expect(await options('/sinais')).toEqual(['A-Momentum', 'C-AI', 'D-Reversão']);
+  await page.goto('/comparar');
+  await expect(page.getByRole('link', { name: 'C-AI' }).first()).toBeVisible();
+  await expect(page.getByRole('link', { name: 'B-Opus' })).toHaveCount(0);
+  await page.goto('/winners-loosers');
+  await expect(page.getByRole('columnheader', { name: /C-AI/ }).first()).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: /B-Opus/ })).toHaveCount(0);
+  // Automação: a estratégia desligada nas Definições aparece marcada e não se liga.
+  await page.goto('/saxo/automacao');
+  await expect(page.getByText('desligada nas Definições')).toBeVisible();
+  await expect(page.getByLabel('Automação da estratégia B-Opus')).toBeDisabled();
+  // Tem de ficar pelo menos uma: com só a D-Reversão ligada, o interruptor dela fica bloqueado.
+  await page.goto('/definicoes');
+  for (const name of ['A-Momentum', 'C-AI']) await strategySwitch(name).evaluate((el) => el.click());
+  await expect(page.getByText('C-AI desligada')).toBeVisible();
+  await expect(strategySwitch('D-Reversão')).toBeDisabled();
+  for (const name of ['A-Momentum', 'B-Opus', 'C-AI']) await strategySwitch(name).evaluate((el) => el.click());
+  await expect(strategySwitch('B-Opus')).toBeChecked();
+  expect(await options('/backtest')).toEqual(['A-Momentum', 'B-Opus', 'C-AI', 'D-Reversão']);
+});

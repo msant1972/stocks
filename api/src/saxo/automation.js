@@ -3,6 +3,7 @@ import { audit } from '../db.js';
 import { buildItems, computeAll } from '../services/signals.js';
 import { storedResolution } from './catalog.js';
 import { createThrottle } from './client.js';
+import { enabledStrategies } from '../services/strategySettings.js';
 import { getPortfolio, listOrders, openSession, parseScheme, pickAccount, placeOrder } from './service.js';
 import { nearestTick } from './ticks.js';
 
@@ -179,9 +180,10 @@ export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSign
   };
   const takeHeld = (instrumentId, quantity) => held?.set(instrumentId, (held.get(instrumentId) ?? 0) - quantity);
   const counts = {};
+  const on = new Set((await enabledStrategies(pool)).map((s) => s.id)); // desligadas nas Definições: não se executam
   for (const { strategy_id: id } of rows) {
     const strategy = getStrategy(id);
-    if (!strategy?.available) continue;
+    if (!strategy?.available || !on.has(id)) continue;
     const items = selectSignals(await loadSignals(strategy), { lastFinal, today: clock.date });
     for (const s of items) {
       const outcome = await handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld, wait });
@@ -252,15 +254,17 @@ export async function runDueAutomation(pool, cfg, { now = new Date(), loadSignal
 
 /** Estado da automação de um utilizador: interruptor geral, um por estratégia e a última execução. */
 export async function automationStatus(pool, userId) {
+  const globalOn = new Set((await enabledStrategies(pool)).map((s) => s.id));
   const [[s]] = await pool.query('SELECT enabled FROM saxo_automation_settings WHERE user_id = ?', [userId]);
   const [rows] = await pool.query('SELECT strategy_id, enabled FROM saxo_automation_strategies WHERE user_id = ?', [userId]);
   const on = new Set(rows.filter((r) => r.enabled).map((r) => r.strategy_id));
+  const off = new Set(AVAILABLE_STRATEGIES.filter((x) => !globalOn.has(x.id)).map((x) => x.id));
   const [[run]] = await pool.query('SELECT run_date, status, counts, detail, started_at, finished_at FROM saxo_automation_runs WHERE user_id = ? ORDER BY run_date DESC, run_hour DESC LIMIT 1', [userId]);
   let counts = {};
   try { counts = run?.counts ? JSON.parse(run.counts) : {}; } catch { counts = {}; }
   return {
     enabled: Boolean(s?.enabled),
-    strategies: AVAILABLE_STRATEGIES.map((x) => ({ id: x.id, name: x.name, summary: x.summary, budget: x.budget, enabled: on.has(x.id) })),
+    strategies: AVAILABLE_STRATEGIES.map((x) => ({ id: x.id, name: x.name, summary: x.summary, budget: x.budget, enabled: on.has(x.id) && !off.has(x.id), disabledInSettings: off.has(x.id) })),
     lastRun: run ? { date: run.run_date, status: run.status, counts, detail: run.detail, startedAt: run.started_at.toISOString(), finishedAt: run.finished_at?.toISOString() ?? null } : null,
   };
 }

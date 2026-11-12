@@ -10,7 +10,7 @@ import { conditionParams, conditionQuery, describeConditions, readConditions, wi
 import { ConditionControls, ConditionsNote } from './Conditions.jsx';
 import SortHeader, { nextSort } from '../../components/ui/SortHeader.jsx';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
-import { DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
+import { useStrategies } from '../../lib/queries.js';
 
 const SORT_DEFAULT_DIR = { symbol: 'asc', total: 'desc', totalPct: 'desc', closed: 'desc', winRate: 'desc', buyHoldPnl: 'desc', edge: 'desc' };
 
@@ -56,7 +56,8 @@ function Stat({ label, value, hint, tone }) {
 export default function BacktestPage() {
   const [params, setParams] = useSearchParams();
   const scope = params.get('lista') === '1' ? 'watchlist' : 'all';
-  const strategyId = getStrategy(params.get('estrategia')) ? params.get('estrategia') : DEFAULT_STRATEGY_ID;
+  const strategies = useStrategies();
+  const strategyId = strategies.isEnabled(params.get('estrategia')) ? params.get('estrategia') : strategies.defaultId;
   const [q, setQ] = useState('');
   const sort = { key: SORT_DEFAULT_DIR[params.get('ordem')] ? params.get('ordem') : 'total', dir: params.get('sentido') === 'asc' ? 'asc' : params.get('sentido') === 'desc' ? 'desc' : null };
   if (!sort.dir) sort.dir = SORT_DEFAULT_DIR[sort.key];
@@ -110,7 +111,7 @@ export default function BacktestPage() {
         <div className="row" style={{ alignItems: 'center' }}>
           <Link className="button mobile-only-inline" to="/winners-loosers">WinnersLoosers</Link>
           <Link className="button" to="/comparar">Comparar estratégias</Link>
-          <StrategySelect value={strategyId} onChange={(id) => setParam({ estrategia: id === DEFAULT_STRATEGY_ID ? null : id })} />
+          <StrategySelect value={strategyId} onChange={(id) => setParam({ estrategia: id === strategies.defaultId ? null : id })} />
           <Segmented label="Instrumentos" value={scope} onChange={(v) => setParam({ lista: v === 'watchlist' ? '1' : null })}
             options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />
           <ConditionControls conditions={conditions} onChange={(c) => setParam(conditionParams(c))} />

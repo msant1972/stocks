@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildApp } from '../src/app.js';
@@ -31,6 +32,9 @@ export function testConfig(overrides = {}) {
       STOCKS_DB_NAME: process.env.STOCKS_TEST_DB_NAME ?? 'stocks_test',
       STOCKS_PUBLIC_ORIGIN: '',
       STOCKS_LOGIN_MAX_ATTEMPTS: '1000',
+      // Nunca a pasta das cópias de produção (nem o script real): pasta temporária própria dos testes.
+      STOCKS_BACKUP_DIR: path.join(os.tmpdir(), 'stocks-test-backups'),
+      STOCKS_BACKUP_SCRIPT: '/bin/true',
     }),
     secretKey: TEST_SECRET_KEY,
     ...overrides,

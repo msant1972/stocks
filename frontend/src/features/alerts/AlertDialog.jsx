@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useWatchlist } from '../../lib/queries.js';
+import { keys, useStrategies, useWatchlist } from '../../lib/queries.js';
 import { Button, Dialog, Field, Notice } from '../../components/ui/controls.jsx';
-import { AVAILABLE_STRATEGIES, DEFAULT_STRATEGY_ID, getStrategy } from '../../lib/strategy.js';
+import { AVAILABLE_STRATEGIES, getStrategy } from '../../lib/strategy.js';
 
 const KINDS = [
   { value: 'close_above', label: 'Fecho acima de um valor', unit: '€' },
@@ -21,7 +21,8 @@ export default function AlertDialog({ open, onClose, instrument, rule, onDone })
   const [instrumentId, setInstrumentId] = useState('');
   const [kind, setKind] = useState('close_above');
   const [threshold, setThreshold] = useState('');
-  const [strategy, setStrategy] = useState(DEFAULT_STRATEGY_ID);
+  const strategies = useStrategies();
+  const [strategy, setStrategy] = useState(strategies.defaultId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
@@ -30,10 +31,10 @@ export default function AlertDialog({ open, onClose, instrument, rule, onDone })
     setInstrumentId(String(rule?.instrumentId ?? instrument?.id ?? ''));
     setKind(rule?.kind ?? 'close_above');
     setThreshold(rule?.threshold ? rule.threshold.replace('.', ',') : '');
-    setStrategy(rule?.strategy ?? DEFAULT_STRATEGY_ID);
+    setStrategy(rule?.strategy ?? strategies.defaultId);
     setError(null);
     setBusy(false);
-  }, [open, rule, instrument]);
+  }, [open, rule, instrument]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const options = wl.data?.items.filter((i) => i.status !== 'invalid') ?? [];
   const selected = instrument ?? options.find((i) => String(i.id) === instrumentId) ?? (rule && { symbol: rule.symbol, currency: rule.currency });
@@ -86,7 +87,9 @@ export default function AlertDialog({ open, onClose, instrument, rule, onDone })
           <Field label="Estratégia" help="As mesmas regras da página do instrumento, do BackTest e dos Sinais.">
             {(p) => (
               <select {...p} className="select" value={strategy} onChange={(e) => setStrategy(e.target.value)}>
-                {AVAILABLE_STRATEGIES.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {AVAILABLE_STRATEGIES.filter((s) => strategies.isEnabled(s.id) || s.id === rule?.strategy).map((s) => (
+                  <option key={s.id} value={s.id}>{strategies.isEnabled(s.id) ? s.name : `${s.name} (desligada)`}</option>
+                ))}
               </select>
             )}
           </Field>

@@ -144,6 +144,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US49 | Estratégias → Calor: valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
 | US50 | Calor: histograma «Valor mensal negociado» com os meses mais quentes a cores | — | Feito |
 | US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
+| US69 | Definições → Estratégias: ligar e desligar estratégias, com efeito em Acompanhar, Sinais, BackTest, Comparar, WinnersLoosers, Charts, Visão geral e Automação | — | Feito |
 | US68 | Definições: cartão «Cópias de segurança» (listar, criar e descarregar; restauro manual) e Correspondência SAXO passa de módulo a cartão (menu Administração só com Utilizadores e Definições) | — | Feito |
 | US67 | Pechinchas: botão por linha para adicionar ou remover o instrumento da minha lista | — | Feito |
 | US66 | WinnersLoosers: cartão «Resultados mistos» e remoção em bloco da minha lista nos perdedores e nos mistos; Sinais só nos instrumentos da minha lista | — | Feito |
