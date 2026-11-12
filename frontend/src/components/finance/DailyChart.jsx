@@ -4,9 +4,10 @@ import * as f from '../../lib/format.js';
 import { adjustedOhlc } from '../../lib/candles.js';
 import { chartShortcut } from '../../lib/chartKeys.js';
 import { measureRange, measureText } from '../../lib/chartMeasure.js';
+import { positionMarkers } from '../../lib/chartPositions.js';
 import { momentum, niceTicks } from '../../lib/momentum.js';
+import { rsiSeries, rsiZone } from '../../lib/rsi.js';
 import { getStrategy } from '../../lib/strategy.js';
-import StrategyPanel from './StrategyPanel.jsx';
 import { Button, Segmented } from '../ui/controls.jsx';
 
 const RANGES = [
@@ -31,6 +32,7 @@ const MOMENTUM_KEY = 'stocks.momentum';
 const RANGE_KEY = 'stocks.periodo';
 const TYPE_KEY = 'stocks.tipoGrafico';
 const VOLUME_KEY = 'stocks.volume';
+const RSI_KEY = 'stocks.rsi';
 const TYPES = [{ value: 'linha', label: 'Linha' }, { value: 'velas', label: 'Velas' }];
 
 /** Último período escolhido no gráfico (guardado no browser); 1A por omissão. */
@@ -49,10 +51,16 @@ function readVolume() {
   try { return localStorage.getItem(VOLUME_KEY) !== 'off'; } catch { return true; }
 }
 
+function readRsi() {
+  try { return localStorage.getItem(RSI_KEY) !== 'off'; } catch { return true; }
+}
+
 function readMomentum() {
   try { return localStorage.getItem(MOMENTUM_KEY) !== 'off'; } catch { return true; }
 }
 
+/** RSI com uma casa decimal: «62,3». */
+const rsiLabel = (v) => (v == null ? '—' : v.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 }));
 const pctLabel = (v) => (v == null ? '—' : f.pct(v.toFixed(2)));
 const trendLabel = (rising) => (rising ? 'a subir' : 'a descer');
 
@@ -102,7 +110,7 @@ function useStageHeight(minHeight = 400, bottom = 20) {
  * máximo, mínimo e fecho ajustados, variação face à sessão anterior, volume, médias visíveis e momento. Regista em
  * hoverRef a função que muda a sessão, para o cursor dos gráficos o actualizar sem os redesenhar.
  */
-function Readout({ data, currency, visible, showMomentum, hoverRef }) {
+function Readout({ data, currency, visible, showMomentum, showRsi, hoverRef }) {
   const [date, setDate] = useState(null);
   useEffect(() => {
     hoverRef.current = setDate;
@@ -126,6 +134,7 @@ function Readout({ data, currency, visible, showMomentum, hoverRef }) {
           <span className="swatch" style={{ background: i.color }} />{i.label} <strong className="num">{d[i.key] == null ? '—' : f.price(d[i.key], currency)}</strong>
         </span>
       ))}
+      {showRsi && d.rsi != null && <span>RSI14 <strong className="num">{rsiLabel(d.rsi)}</strong></span>}
       {showMomentum && d.wave != null && <span>Momento <strong className="num">{pctLabel(d.wave)}</strong> <span className="muted">({trendLabel(d.rising)})</span></span>}
     </div>
   );
@@ -159,6 +168,19 @@ function MeasureLabel({ viewBox, text, color }) {
     <g pointerEvents="none">
       <rect x={cx - w / 2} y={viewBox.y + 6} width={w} height={24} rx={6} fill="var(--surface)" stroke={color} />
       <text x={cx} y={viewBox.y + 22} textAnchor="middle" fontSize={12} fontWeight={600} fill="var(--text)">{text}</text>
+    </g>
+  );
+}
+
+/** X verde numa posição aberta da conta SAXO (no dia e ao preço da compra). */
+function PositionMarker({ cx, cy, m, currency }) {
+  if (cx == null || cy == null) return null;
+  const d = 6;
+  return (
+    <g>
+      <title>{`Posição na SAXO: ${f.quantity(m.quantity)} unidades a ${f.price(m.openPrice, currency)} (compra em ${f.date(m.boughtOn)})`}</title>
+      <circle cx={cx} cy={cy} r={d + 3} fill="var(--surface)" fillOpacity={0.7} />
+      <path d={`M${cx - d} ${cy - d}L${cx + d} ${cy + d}M${cx + d} ${cy - d}L${cx - d} ${cy + d}`} stroke="var(--positive)" strokeWidth={3} strokeLinecap="round" />
     </g>
   );
 }
@@ -209,7 +231,7 @@ function SignalMarker({ cx, cy, side }) {
  * alternativa em tabela.
  */
 /** strategy: id de uma estratégia do registo (shared/strategies/) ou null. */
-export default function DailyChart({ quotes, currency, symbol, strategy = null }) {
+export default function DailyChart({ quotes, currency, symbol, strategy = null, onStrategyResult = null, positions = null, showPositions = false, onShowPositions = null }) {
   const [range, setRangeState] = useState(readRange);
   const setRange = (value) => {
     setRangeState(value);
@@ -220,6 +242,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
   const [showMomentum, setShowMomentum] = useState(readMomentum);
   const [type, setTypeState] = useState(readType);
   const [showVolume, setShowVolume] = useState(readVolume);
+  const [showRsi, setShowRsi] = useState(readRsi);
   const tableId = useId();
   const [stageRef, stageHeight] = useStageHeight();
   const candles = type === 'velas';
@@ -242,6 +265,13 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
     });
   };
 
+  const toggleRsi = () => {
+    setShowRsi((v) => {
+      try { localStorage.setItem(RSI_KEY, v ? 'off' : 'on'); } catch { /* só nesta sessão */ }
+      return !v;
+    });
+  };
+
   const toggleMomentum = () => {
     setShowMomentum((v) => {
       try { localStorage.setItem(MOMENTUM_KEY, v ? 'off' : 'on'); } catch { /* só nesta sessão */ }
@@ -251,12 +281,18 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
 
   // O momento é calculado sobre todo o histórico carregado e só depois recortado ao período.
   const mom = useMemo(() => momentum(quotes), [quotes]);
+  const rsi = useMemo(() => rsiSeries(quotes), [quotes]); // RSI14, também sobre todo o histórico
   const strat = getStrategy(strategy);
   // A estratégia actua nos últimos windowYears anos; o histórico anterior (se houver) serve de aquecimento.
   const strategyResult = useMemo(
     () => (strat && quotes.length ? strat.run(quotes, { mom, from: f.yearsBefore(quotes.at(-1).date, strat.windowYears) }) : null),
     [strat, quotes, mom],
   );
+  // O resultado da simulação mostra-se no cartão «Estratégia» da página (a pedido): o gráfico só o entrega e desenha os marcadores.
+  useEffect(() => {
+    onStrategyResult?.(strategyResult && strat ? { strat, result: strategyResult } : null);
+    return () => onStrategyResult?.(null);
+  }, [strategyResult, strat, onStrategyResult]);
   // Stop da posição aberta (preço real) convertido para a escala do gráfico (fecho ajustado).
   const lastQuote = quotes.at(-1);
   const stopLevel = strategyResult?.open?.stop != null && lastQuote
@@ -271,9 +307,10 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
         ...(({ o, c, h, l }) => ({ o, c, h, l, range: [l, h] }))(adjustedOhlc(q)),
         ...Object.fromEntries(INDICATORS.map((i) => [i.key, num(q[i.key])])),
         ...mom[idx],
+        rsi: rsi[idx],
       }))
       .filter((d) => d.date >= from);
-  }, [quotes, range, mom]);
+  }, [quotes, range, mom, rsi]);
 
   // Cursor dos gráficos → leitura de valores (ver Readout); sem estado aqui, para o cursor não redesenhar os gráficos.
   const hoverRef = useRef(null);
@@ -315,6 +352,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
       else if (action.type === 'average') toggle(INDICATORS[action.index].key);
       else if (action.type === 'candles') setTypeState((cur) => { const next = cur === 'velas' ? 'linha' : 'velas'; try { localStorage.setItem(TYPE_KEY, next); } catch { /* só nesta sessão */ } return next; });
       else if (action.type === 'volume') toggleVolume();
+      else if (action.type === 'rsi') toggleRsi();
       else toggleMomentum();
     };
     window.addEventListener('keydown', onKey);
@@ -324,7 +362,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
   if (!data.length) return null;
   const visible = INDICATORS.filter((i) => selected.includes(i.key));
   // O eixo das datas só aparece no painel de baixo.
-  const lastPane = showMomentum ? 'momentum' : showVolume ? 'volume' : 'price';
+  const lastPane = showMomentum ? 'momentum' : showRsi ? 'rsi' : showVolume ? 'volume' : 'price';
   const first = data[0];
   const last = data.at(-1);
   const change = first.value ? ((last.value - first.value) / first.value) * 100 : null;
@@ -365,13 +403,23 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
         <button type="button" className="legend-chip" aria-pressed={showVolume} onClick={toggleVolume} title="Volume negociado por sessão, por baixo do preço">
           <span className="swatch" style={{ background: 'var(--control-border)', height: 8 }} />Volume
         </button>
+        <button type="button" className="legend-chip" aria-pressed={showRsi} onClick={toggleRsi} aria-keyshortcuts="R"
+          title="RSI de 14 sessões (Wilder) por baixo do volume: acima de 70 sobrecomprado, abaixo de 30 sobrevendido">
+          <span className="swatch" style={{ background: 'var(--series-price)', height: 8 }} />RSI14
+        </button>
+        {positions && onShowPositions && (
+          <button type="button" className="legend-chip" aria-pressed={showPositions} onClick={() => onShowPositions(!showPositions)}
+            title="Posições abertas na conta SAXO: um X verde na sessão em que foram compradas (desaparece quando se vendem)">
+            <span className="swatch" style={{ background: 'var(--positive)', height: 8 }} />Posições
+          </button>
+        )}
         <button type="button" className="legend-chip" aria-pressed={showMomentum} onClick={toggleMomentum}
           title="Gráfico de momento por baixo do histórico: SMA10/SMA200 e SMA8/SMA125">
           <span className="swatch" style={{ background: 'var(--positive)', height: 8 }} />Momento
         </button>
       </div>
 
-      <Readout data={data} currency={currency} visible={visible} showMomentum={showMomentum} hoverRef={hoverRef} />
+      <Readout data={data} currency={currency} visible={visible} showMomentum={showMomentum} showRsi={showRsi} hoverRef={hoverRef} />
 
       {/* Painéis (preço, volume e momento) a ocupar a altura da janela; o texto, a estratégia e os dados ficam por baixo. */}
       <div className="chart-stage" ref={stageRef} style={stageHeight ? { height: stageHeight } : undefined}>
@@ -410,6 +458,9 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
                 <ReferenceArea x1={measure.from} x2={measure.to} ifOverflow="visible" isFront fill={measureColor} fillOpacity={0.14} stroke={measureColor} strokeOpacity={0.7}
                   label={<MeasureLabel text={measureText(measure)} color={measureColor} />} />
               )}
+              {showPositions && positionMarkers(data, positions ?? []).map((m) => (
+                <ReferenceDot key={`pos-${m.key}`} x={m.date} y={m.y} r={0} ifOverflow="visible" shape={(props) => <PositionMarker {...props} m={m} currency={currency || 'EUR'} />} />
+              ))}
               {strategyResult?.signals.filter((s) => s.date >= first.date).map((s) => {
                 const point = data.find((d) => d.date === s.date);
                 return point && (
@@ -434,6 +485,27 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
                 <Bar dataKey="volume" isAnimationActive={false}>
                   {data.map((d) => <Cell key={d.date} fill={d.c >= d.o ? 'var(--heat-up)' : 'var(--heat-down)'} fillOpacity={0.45} />)}
                 </Bar>
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
+        {showRsi && (
+          <div className="chart-pane chart-pane-rsi" role="img"
+            aria-label={`RSI14 de ${symbol}: ${last.rsi == null ? 'sem dados' : `${rsiLabel(last.rsi)}${rsiZone(last.rsi) ? `, ${rsiZone(last.rsi)}` : ''}`}.`}>
+            <CrossHair />
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={data} syncId="historico" margin={{ top: 4, right: 0, bottom: 0, left: 8 }} {...hoverProps}>
+                <CartesianGrid stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false} hide={lastPane !== 'rsi'}
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <YAxis orientation="right" width={64} tickLine={false} axisLine={false} domain={[0, 100]} ticks={[30, 70]} interval={0}
+                  tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <Tooltip content={() => null} cursor={CURSOR} />
+                <ReferenceLine y={70} stroke="var(--negative)" strokeDasharray="4 4" strokeOpacity={0.6} />
+                <ReferenceLine y={30} stroke="var(--positive)" strokeDasharray="4 4" strokeOpacity={0.6} />
+                <Line type="linear" dataKey="rsi" stroke="var(--series-price)" strokeWidth={1.75} dot={false}
+                  activeDot={{ r: 4, stroke: 'var(--surface)', strokeWidth: 2 }} connectNulls={false} isAnimationActive={false} />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -489,10 +561,8 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
         {showMomentum && <> Momento: área SMA10/SMA200 − 1, verde quando sobe face às duas sessões anteriores e vermelha caso contrário; linha SMA8/SMA125 − 1; em percentagem, sobre o fecho ajustado.</>}
       </p>
 
-      {strategyResult && <StrategyPanel strategy={strat} result={strategyResult} currency={currency || 'EUR'} symbol={symbol} />}
-
       <p className="small muted">
-        Atalhos de teclado: 1–5 período · 6–0 médias (EMA9, SMA10, SMA50, SMA125, SMA200) · T velas ou linha · V volume · M momento · ↑ ↓ muda de instrumento.{' '}
+        Atalhos de teclado: 1–5 período · 6–0 médias (EMA9, SMA10, SMA50, SMA125, SMA200) · T velas ou linha · V volume · R RSI14 · M momento · ↑ ↓ muda de instrumento.{' '}
         Eixo vertical em {currency || 'EUR'} ({candles ? 'preços ajustados; vela vazia a verde = fechou acima da abertura, cheia a vermelho = abaixo' : 'fecho ajustado'}); a escala não começa em zero. As médias são calculadas sobre o fecho ajustado.
         {partial.map((i) => (
           <span key={i.key}> {i.label} {i.firstDate ? `disponível a partir de ${f.date(i.firstDate)}` : 'sem sessões suficientes neste período'}.</span>
@@ -514,6 +584,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
                   <th scope="col" className="r">Fecho ajustado</th>
                   <th scope="col" className="r">Volume</th>
                   {visible.map((i) => <th key={i.key} scope="col" className="r">{i.label}</th>)}
+                  {showRsi && <th scope="col" className="r">RSI14</th>}
                   {showMomentum && <><th scope="col" className="r">SMA10/SMA200</th><th scope="col" className="r">SMA8/SMA125</th></>}
                 </tr>
               </thead>
@@ -525,6 +596,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
                     <td className="r">{f.price(d.value, currency)}</td>
                     <td className="r">{d.volume == null ? '—' : f.quantity(d.volume)}</td>
                     {visible.map((i) => <td key={i.key} className="r">{d[i.key] == null ? '—' : f.price(d[i.key], currency)}</td>)}
+                    {showRsi && <td className="r">{d.rsi == null ? '—' : rsiLabel(d.rsi)}</td>}
                     {showMomentum && (
                       <>
                         <td className="r">{pctLabel(d.wave)}{d.wave != null && <span className="small muted"> {trendLabel(d.rising)}</span>}</td>

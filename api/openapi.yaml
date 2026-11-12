@@ -4709,6 +4709,7 @@ paths:
               - b-opus
               - c-ai
               - d-reversao
+              - e-ondas
           in: path
           name: strategyId
           required: true
@@ -6138,6 +6139,10 @@ paths:
                           type: number
                         openPrice:
                           type: number
+                        openedAt:
+                          nullable: true
+                          description: Data e hora da compra (ExecutionTimeOpen da SAXO)
+                          type: string
                         price:
                           nullable: true
                           type: number
@@ -6155,6 +6160,7 @@ paths:
                         - currency
                         - quantity
                         - openPrice
+                        - openedAt
                         - price
                         - marketValue
                         - pnl
@@ -8635,7 +8641,17 @@ paths:
         na abertura seguinte quando o RSI de 2 sessões passa 70 (ressalto) ou ao
         fim de 10 sessões. Sem stop nem reforços; uma posição de cada vez, sem
         comissões; indicadores sobre preços ajustados, execução a preços reais.)
-        Simulação; não são recomendações."
+        e-ondas (E-Ondas: Em tendência de subida (SMA200 acima da de há 20
+        sessões), acompanha o fecho mais baixo desde a última venda e compra
+        15 000 € ao fecho quando o fecho sobe 5% acima dele, se esse mínimo foi
+        uma correcção (pelo menos 3% abaixo do máximo de 20 sessões) que chegou
+        perto da SMA200 (no máximo 3% acima dela); se o fundo não cumpre,
+        esquece-o e recomeça. Com posição, acompanha o fecho mais alto desde a
+        compra e vende tudo ao fecho quando o fecho cai 4% abaixo dele, depois
+        de o máximo ter chegado a 4% sobre a compra. Sem stop nem reforços; uma
+        posição de cada vez, sem comissões; indicadores sobre preços ajustados,
+        execução ao fecho real da sessão do sinal.) Simulação; não são
+        recomendações."
       parameters:
         - schema:
             default: 5
@@ -8652,6 +8668,7 @@ paths:
               - b-opus
               - c-ai
               - d-reversao
+              - e-ondas
           in: query
           name: strategy
           required: false
@@ -8933,6 +8950,7 @@ paths:
               - b-opus
               - c-ai
               - d-reversao
+              - e-ondas
           in: path
           name: id
           required: true
@@ -9045,8 +9063,18 @@ paths:
         sessões. Vende tudo na abertura seguinte quando o RSI de 2 sessões passa
         70 (ressalto) ou ao fim de 10 sessões. Sem stop nem reforços; uma
         posição de cada vez, sem comissões; indicadores sobre preços ajustados,
-        execução a preços reais.) Posições abertas avaliadas ao último fecho.
-        Simulação no histórico; não altera a carteira nem é recomendação."
+        execução a preços reais.) e-ondas (E-Ondas: Em tendência de subida
+        (SMA200 acima da de há 20 sessões), acompanha o fecho mais baixo desde a
+        última venda e compra 15 000 € ao fecho quando o fecho sobe 5% acima
+        dele, se esse mínimo foi uma correcção (pelo menos 3% abaixo do máximo
+        de 20 sessões) que chegou perto da SMA200 (no máximo 3% acima dela); se
+        o fundo não cumpre, esquece-o e recomeça. Com posição, acompanha o fecho
+        mais alto desde a compra e vende tudo ao fecho quando o fecho cai 4%
+        abaixo dele, depois de o máximo ter chegado a 4% sobre a compra. Sem
+        stop nem reforços; uma posição de cada vez, sem comissões; indicadores
+        sobre preços ajustados, execução ao fecho real da sessão do sinal.)
+        Posições abertas avaliadas ao último fecho. Simulação no histórico; não
+        altera a carteira nem é recomendação."
       parameters:
         - schema:
             default: all
@@ -9064,6 +9092,7 @@ paths:
               - b-opus
               - c-ai
               - d-reversao
+              - e-ondas
           in: query
           name: strategy
           required: false

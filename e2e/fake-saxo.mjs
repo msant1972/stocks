@@ -20,7 +20,7 @@ export function createFakeSaxo({ cash = 300000, positions = [], prices = {} } = 
     }
     if (p === '/port/v1/positions/me') {
       return json({ Data: state.positions.filter((x) => x.amount > 0).map((x, i) => ({
-        PositionId: String(1000 + i), PositionBase: { Uic: x.uic, Amount: x.amount, AssetType: 'Stock', OpenPrice: x.openPrice, Status: 'Open' },
+        PositionId: String(1000 + i), PositionBase: { Uic: x.uic, Amount: x.amount, AssetType: 'Stock', OpenPrice: x.openPrice, Status: 'Open', ExecutionTimeOpen: x.openedAt },
         PositionView: { CurrentPrice: state.prices[x.uic] ?? x.openPrice }, DisplayAndFormat: { Currency: 'EUR', Symbol: x.symbol, Description: x.symbol },
       })) });
     }

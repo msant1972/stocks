@@ -1,7 +1,7 @@
 # Testes no navegador (Playwright)
 
 Percorrem a aplicação inteira num Chromium sem interface: entrada com o 2.º factor, Visão geral, menu, Carteira SAXO,
-ordens a partir dos Charts e dos Sinais, Timelapse, todas as páginas sem erros de JavaScript e a barra inferior em telemóvel.
+ordens a partir dos Charts e dos Sinais, Timelapse, Laboratório, Comparar, Estratégias ligadas e desligadas, Charts (eixo à direita, cruz, medida, RSI14, Posições e cartões a pedido), «Vender Tudo», Definições, todas as páginas sem erros de JavaScript e a barra inferior em telemóvel (19 testes).
 
 - `server.mjs` arranca a API real com o frontend compilado (`frontend/dist`) sobre a **base de dados de testes**
   (`STOCKS_TEST_DB_*` do `.env` na raiz; é apagada e recriada), com dados de exemplo e uma **SAXO falsa**

@@ -23,7 +23,7 @@ A API serve `dist/` quando `STOCKS_FRONTEND_DIST` aponta para essa pasta, na mes
 ## Testes
 
 ```bash
-npm test           # node --test: funções puras (momento, estratégias, SAXO, perfil da empresa, Timelapse…), 77 testes
+npm test           # node --test: funções puras (momento, estratégias incluindo a E-Ondas, SAXO, perfil da empresa, custos, Laboratório, Timelapse, gráfico…), 96 testes
 ```
 
 Testes no navegador e capturas de ecrã de todas as páginas: ver [e2e/README.md](../e2e/README.md).
@@ -35,7 +35,8 @@ src/
   app/          rotas e protecção da sessão
   components/   ui (botões, campos, modal), layout, finance (valores, gráfico), feedback (estados, avisos)
   features/     uma pasta por ecrã: auth, overview, watchlist, charts, orderbook, heatmap, timelapse, alerts, saxo, signals,
-                backtest, compare, winners, promessas, pechinchas, calor, users, settings
+                backtest, compare, winners, promessas, pechinchas, calor, lab, users, settings (com os cartões Estratégias, Cópias
+                de segurança e Correspondência SAXO)
   lib/          cliente da API, consultas, formatação pt-PT e tema; momentum.js e strategy.js reexportam ../shared (partilhado com a API)
   styles/       tokens.css (cores e medidas do guia) e global.css
 ```

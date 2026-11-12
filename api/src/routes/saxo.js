@@ -296,7 +296,7 @@ export default async function saxoRoutes(app, { pool, cfg }) {
           invested: z.number().describe('Custo das posições abertas (quantidade × preço de abertura)'),
           positions: z.array(z.object({
             positionId: z.string(), instrumentId: z.number().nullable(), symbol: z.string(), name: z.string().nullable(), currency: z.string(),
-            quantity: z.number(), openPrice: z.number(), price: z.number().nullable(), marketValue: z.number().nullable(), pnl: z.number().nullable(),
+            quantity: z.number(), openPrice: z.number(), openedAt: z.string().nullable().describe('Data e hora da compra (ExecutionTimeOpen da SAXO)'), price: z.number().nullable(), marketValue: z.number().nullable(), pnl: z.number().nullable(),
           })),
           closed: z.array(z.object({
             closedPositionId: z.string(), instrumentId: z.number().nullable(), symbol: z.string(), name: z.string().nullable(), currency: z.string(),

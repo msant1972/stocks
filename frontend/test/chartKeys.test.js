@@ -14,6 +14,7 @@ test('6–0 alternam as médias, pela ordem dos indicadores', () => {
 test('T, V e M (com maiúsculas ou minúsculas) alternam velas, volume e momento', () => {
   assert.deepEqual(['t', 'T'].map(chartShortcut), [{ type: 'candles' }, { type: 'candles' }]);
   assert.deepEqual(['v', 'V'].map(chartShortcut), [{ type: 'volume' }, { type: 'volume' }]);
+  assert.deepEqual(['r', 'R'].map(chartShortcut), [{ type: 'rsi' }, { type: 'rsi' }]);
   assert.deepEqual(['m', 'M'].map(chartShortcut), [{ type: 'momentum' }, { type: 'momentum' }]);
 });
 

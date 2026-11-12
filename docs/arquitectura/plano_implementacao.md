@@ -141,9 +141,10 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US46 | Charts: painel «Empresa» com actividade, indicadores e contas anuais (Yahoo, recolha semanal) | — | Feito |
 | US47 | Charts: secção «Valorização» (sector, P/E histórico, analistas, Graham, DCF invertido) com veredicto indicativo | — | Feito |
 | US48 | Estratégias → Pechinchas: lista dos instrumentos classificados como barato | — | Feito |
-| US49 | Estratégias → Calor: valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
+| US49 | Estratégias → Calor (desde 12 nov. 2026 no grupo Mercado, por baixo do HeatMap): valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
 | US50 | Calor: histograma «Valor mensal negociado» com os meses mais quentes a cores | — | Feito |
 | US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
+| US73 | Charts: painel RSI14, botão «Posições» (X verde na compra das posições da conta SAXO) e três cartões (gráfico, Estratégia e Empresa, os dois últimos a pedido e com o estado guardado) | — | Feito |
 | US72 | Charts: eixo dos valores à direita, cursor em cruz e medida (sessões, dias e %) ao arrastar; Calor passa para o grupo Mercado, por baixo do HeatMap | — | Feito |
 | US71 | Carteira SAXO: botão «Vender Tudo» (emergência: vende a mercado todas as posições; desliga a Automação e cancela as compras abertas) | — | Feito |
 | US69 | Definições → Estratégias: ligar e desligar estratégias, com efeito em Acompanhar, Sinais, BackTest, Comparar, WinnersLoosers, Charts, Visão geral e Automação | — | Feito |

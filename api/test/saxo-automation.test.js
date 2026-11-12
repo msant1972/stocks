@@ -58,7 +58,7 @@ function fakeSaxo({ fail = null, positions = [] } = {}) {
     if (p === '/port/v1/accounts/me') return json({ Data: [{ AccountKey: 'acc', AccountId: '1', Currency: 'EUR', Active: true, IsTrialAccount: true }] });
     if (p === '/port/v1/orders/me') return json({ Data: orders.map((o) => ({ OrderId: o.id })) });
     if (p === '/port/v1/balances/me') return json({ CashBalance: 1000000, TotalValue: 1000000 });
-    if (p === '/port/v1/positions/me') return json({ Data: positions.map(([uic, amount]) => ({ PositionId: `P${uic}`, PositionBase: { Uic: uic, Amount: amount, AssetType: 'Stock', OpenPrice: 10, Status: 'Open' }, DisplayAndFormat: { Currency: 'EUR' } })) });
+    if (p === '/port/v1/positions/me') return json({ Data: positions.map(([uic, amount]) => ({ PositionId: `P${uic}`, PositionBase: { Uic: uic, Amount: amount, AssetType: 'Stock', OpenPrice: 10, Status: 'Open', ExecutionTimeOpen: '2026-11-04T09:30:00Z' }, DisplayAndFormat: { Currency: 'EUR' } })) });
     if (p === '/port/v1/closedpositions/me') return json({ Data: [] });
     if (p === '/ref/v1/exchanges') return json({ Data: [] });
     if (p === '/trade/v2/orders' && init.method === 'POST') {

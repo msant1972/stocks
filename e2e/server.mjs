@@ -59,7 +59,7 @@ for (const [i, total] of [[3, 1000000], [2, 1004000], [1, 998500]]) {
 }
 
 const lastGalp = Number(series(15, 1.5).at(-1));
-const saxo = createFakeSaxo({ cash: 298500, positions: [{ uic: 23737, amount: 100, openPrice: 14, symbol: 'GALP:xlis' }], prices: { 23737: lastGalp, 24000: 0.8 } });
+const saxo = createFakeSaxo({ cash: 298500, positions: [{ uic: 23737, amount: 100, openPrice: 14, symbol: 'GALP:xlis', openedAt: `${sessions.at(-20)}T09:30:00Z` }], prices: { 23737: lastGalp, 24000: 0.8 } });
 cfg.saxo.fetchImpl = saxo.fetchImpl;
 
 const app = await buildApp({ pool, cfg, logger: false });

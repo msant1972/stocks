@@ -411,7 +411,7 @@ describe.skipIf(!hasTestDb)('ordens para a SAXO (SIM)', () => {
     // Sem correspondência guardada: usa o símbolo da SAXO e não inventa valor.
     expect(res.json().positions).toEqual([{
       positionId: '1000001', instrumentId: null, symbol: 'GALP:xlis', name: 'Galp Energia SGPS SA', currency: 'EUR',
-      quantity: 100, openPrice: 30, price: null, marketValue: null, pnl: null,
+      quantity: 100, openPrice: 30, openedAt: null, price: null, marketValue: null, pnl: null,
     }]);
     await preview(); // guarda a correspondência (Uic 23737 → GALP.LS, último preço 10)
     useSaxo({ 'GET /port/v1/positions/me': fx('positions-synthetic') });

@@ -147,3 +147,41 @@ test('medir no gráfico: sessões, dias de calendário e variação %, nos dois 
   assert.equal(measureRange(data, '2026-11-02', 'x'), null);
   assert.equal(measureRange(data, null, '2026-11-02'), null);
 });
+
+test('RSI14 do gráfico: o mesmo RSI de Wilder da D-Reversão, sobre o fecho ajustado, e as zonas', async () => {
+  const { rsiSeries, rsiZone, RSI_PERIOD } = await import('../src/lib/rsi.js');
+  const { rsiWilder } = await import('../../shared/strategies/d-reversao.js');
+  assert.equal(RSI_PERIOD, 14);
+  const quotes = Array.from({ length: 40 }, (_, i) => ({ close: 50 + i * 3, adjClose: 10 + Math.sin(i / 3) * 4 + i * 0.2 }));
+  const rsi = rsiSeries(quotes);
+  assert.equal(rsi.length, 40);
+  assert.ok(rsi.slice(0, 14).every((v) => v == null) && rsi[14] != null);
+  assert.deepEqual(rsi, rsiWilder(quotes.map((q) => q.adjClose), 14)); // usa o fecho ajustado, não o fecho
+  const up = rsiSeries(Array.from({ length: 30 }, (_, i) => ({ close: 10 + i })));
+  assert.equal(up.at(-1), 100); // só subidas
+  assert.equal(rsiZone(71), 'sobrecomprado');
+  assert.equal(rsiZone(30), 'sobrevendido');
+  assert.equal(rsiZone(50), null);
+  assert.equal(rsiZone(null), null);
+});
+
+test('posições no gráfico: um marcador por posição aberta, na sessão da compra, na escala do fecho ajustado', async () => {
+  const { openDate, positionMarkers } = await import('../src/lib/chartPositions.js');
+  const data = [
+    { date: '2026-11-02', value: 9, close: 10 }, { date: '2026-11-03', value: 9.9, close: 11 }, { date: '2026-11-04', value: 10.8, close: 12 },
+  ];
+  assert.equal(openDate('2026-11-03T09:30:00Z'), '2026-11-03');
+  assert.equal(openDate(null), null);
+  const m = positionMarkers(data, [
+    { positionId: 'a', openedAt: '2026-11-03T09:30:00Z', openPrice: 11, quantity: 100 },
+    { positionId: 'b', openedAt: '2026-11-01T09:30:00Z', openPrice: 10, quantity: 5 },   // antes do período: sem marcador
+    { positionId: 'c', openedAt: null, openPrice: 10, quantity: 1 },                       // sem data: sem marcador
+    { positionId: 'd', openedAt: '2026-11-04T08:00:00Z', openPrice: 12, quantity: 7 },
+  ]);
+  assert.deepEqual(m.map((x) => [x.date, Math.round(x.y * 100) / 100, x.quantity]), [['2026-11-03', 9.9, 100], ['2026-11-04', 10.8, 7]]);
+  assert.deepEqual(positionMarkers([], [{ openedAt: '2026-11-03T00:00:00Z', openPrice: 1 }]), []);
+  assert.equal(positionMarkers(data, undefined).length, 0);
+  // Fim de semana: fica na sessão seguinte.
+  const wk = [{ date: '2026-11-06', value: 5, close: 5 }, { date: '2026-11-09', value: 6, close: 6 }];
+  assert.equal(positionMarkers(wk, [{ openedAt: '2026-11-07T10:00:00Z', openPrice: 5.5 }])[0].date, '2026-11-09');
+});

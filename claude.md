@@ -10,7 +10,7 @@ A carteira é a **conta de simulação (SIM) da SAXO Bank**: as ordens vão para
 |---|---|---|
 | `frontend/` | Interface | React |
 | `api/` | Middleware / API | Node.js |
-| `shared/` | Cálculos partilhados pela interface e pela API: momento, estratégias (A-Momentum, B-Opus, C-AI, D-Reversão) e Promessas | JavaScript |
+| `shared/` | Cálculos partilhados pela interface e pela API: momento, estratégias (A-Momentum, B-Opus, C-AI, D-Reversão, E-Ondas), custos de negociação estimados e Promessas | JavaScript |
 | `db/` | Esquema e migrações | MariaDB |
 | `engines/fetcher/` | Motor de recolha de cotações | Python (yfinance) |
 | `engines/alerts/` | Motor de alertas por email | Python |

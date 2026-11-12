@@ -333,6 +333,12 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 /* Charts: gráfico à esquerda e a lista de acompanhamento à direita (abaixo do gráfico em ecrãs estreitos). */
 .charts-page { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: 1rem; align-items: start; }
 .charts-main { padding: 1rem 1.25rem; }
+/* Charts: três cartões em coluna (gráfico, Estratégia e Empresa, os dois últimos a pedido), com os interruptores no topo. */
+.charts-stack { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.charts-toggles { gap: 1.25rem; align-items: center; }
+.charts-toggle { gap: 0.5rem; align-items: center; cursor: pointer; font-weight: 500; }
+.charts-strategy, .charts-company { padding: 1rem 1.25rem; }
+.charts-company .company-panel { margin-top: 0; padding-top: 0; border-top: 0; }
 /* Charts: ocupa a largura toda do ecrã, sem a coluna central limitada das outras páginas. */
 .content.content-wide { padding: 1rem 1.25rem 1.25rem; }
 /* Painéis do gráfico (preço, volume, momento): ocupam a altura que o JavaScript calcula (useStageHeight). */
@@ -343,6 +349,7 @@ dialog.modal[open] { animation: modal-in var(--duration-normal) var(--ease-out);
 .chart-hline { position: absolute; left: 0; right: 0; height: 0; border-top: 1px dashed var(--text-secondary); pointer-events: none; display: none; z-index: 1; }
 .chart-pane-price { flex: 1 1 0; min-height: 140px; }
 .chart-pane-volume { flex: 0 0 clamp(64px, 12%, 130px); }
+.chart-pane-rsi { flex: 0 0 clamp(80px, 14%, 150px); }
 .chart-pane-momentum { flex: 0 0 clamp(110px, 24%, 240px); display: flex; flex-direction: column; gap: 2px; }
 .chart-pane-fill { flex: 1 1 0; min-height: 0; }
 .charts-head { margin-bottom: 0.75rem; align-items: flex-start; }

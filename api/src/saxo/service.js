@@ -543,7 +543,7 @@ export async function getPortfolio(pool, session) {
     return {
       positionId: String(p.PositionId), instrumentId: k ? Number(k.id) : null, symbol: k?.symbol ?? p.DisplayAndFormat?.Symbol ?? String(b.Uic),
       name: k?.name ?? p.DisplayAndFormat?.Description ?? null, currency: p.DisplayAndFormat?.Currency ?? account.currency,
-      quantity: qty, openPrice: open, price,
+      quantity: qty, openPrice: open, openedAt: b.ExecutionTimeOpen ?? null, price,
       marketValue: price == null ? null : Number((qty * price).toFixed(2)),
       pnl: price == null ? null : Number((qty * (price - open)).toFixed(2)),
     };

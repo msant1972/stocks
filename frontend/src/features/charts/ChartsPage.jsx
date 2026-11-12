@@ -7,11 +7,12 @@ import { keys, useBestStrategies, useCatalog, useInstrument, useQuotes, useStrat
 import { InstrumentStatus, PriceChange, QuoteDate } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
-import { Button, Notice, Segmented } from '../../components/ui/controls.jsx';
+import { Button, Notice, Segmented, Switch } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { getStrategy } from '../../lib/strategy.js';
 import CompanyPanel from './CompanyPanel.jsx';
+import StrategyPanel from '../../components/finance/StrategyPanel.jsx';
 import SaxoOrderDialog, { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
 import AlertDialog from '../alerts/AlertDialog.jsx';
 
@@ -32,6 +33,19 @@ const quotesFromFor = (strategyId, lastSession) => {
  * pedido que não está na lista (ex.: ligação do BackTest) também é mostrado. Sem estratégia escolhida, aplica-se a
  * melhor de cada instrumento. A antiga página do instrumento (/instrumentos/:id) redirecciona para aqui.
  */
+/** Interruptor guardado no browser (desligado por omissão: a informação extra só se pede quando se quer). */
+function usePersistedFlag(key) {
+  const [on, setOn] = useState(() => { try { return localStorage.getItem(key) === 'on'; } catch { return false; } });
+  const set = (value) => {
+    setOn(value);
+    try { localStorage.setItem(key, value ? 'on' : 'off'); } catch { /* só nesta sessão */ }
+  };
+  return [on, set];
+}
+const STRATEGY_FLAG = 'stocks.chartsEstrategia';
+const COMPANY_FLAG = 'stocks.chartsEmpresa';
+const POSITIONS_FLAG = 'stocks.posicoes';
+
 const SOURCES = [{ value: 'lista', label: 'Lista' }, { value: 'saxo', label: 'Saxo' }, { value: 'catalogo', label: 'Catálogo' }];
 const SORTS = {
   simbolo: { label: 'Símbolo', cmp: (a, b) => a.symbol.localeCompare(b.symbol) },
@@ -44,6 +58,10 @@ export default function ChartsPage() {
   const sortKey = SORTS[params.get('ordem')] ? params.get('ordem') : 'simbolo';
   const [search, setSearch] = useState('');
   const [saxoOrder, setSaxoOrder] = useState(false);
+  const [showStrategy, setShowStrategy] = usePersistedFlag(STRATEGY_FLAG);
+  const [showCompany, setShowCompany] = usePersistedFlag(COMPANY_FLAG);
+  const [showPositions, setShowPositions] = usePersistedFlag(POSITIONS_FLAG);
+  const [stratInfo, setStratInfo] = useState(null); // { strat, result } da simulação desenhada no gráfico
   const saxo = useSaxoStatus();
   const [alerting, setAlerting] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -54,7 +72,8 @@ export default function ChartsPage() {
   const saxoLinked = Boolean(saxo.data?.configured && !saxo.data?.expired);
   const saxoPortfolio = useQuery({
     queryKey: ['saxo-portfolio'], queryFn: () => api.get('/saxo/portfolio'),
-    enabled: source === 'saxo' && saxoLinked, retry: false, refetchOnWindowFocus: false,
+    // A carteira só se pede quando é precisa: a lista «Saxo» ou o botão «Posições» do gráfico.
+    enabled: (source === 'saxo' || showPositions) && saxoLinked, retry: false, refetchOnWindowFocus: false,
   });
   const bestMap = useBestStrategies();
   const qc = useQueryClient();
@@ -190,6 +209,18 @@ export default function ChartsPage() {
 
   return (
     <div className="charts-page">
+      <div className="charts-stack">
+      <div className="row charts-toggles" role="group" aria-label="Informação adicional">
+        <span className="small muted">Mostrar:</span>
+        <label className="row charts-toggle">
+          <Switch label="Mostrar a informação da estratégia" checked={showStrategy} onChange={setShowStrategy} />
+          <span>Estratégia</span>
+        </label>
+        <label className="row charts-toggle">
+          <Switch label="Mostrar a informação da empresa" checked={showCompany} onChange={setShowCompany} />
+          <span>Empresa</span>
+        </label>
+      </div>
       <section className="card charts-main" aria-labelledby="chart-symbol">
         <div className="spread charts-head">
           <div style={{ minWidth: 0 }}>
@@ -243,12 +274,33 @@ export default function ChartsPage() {
           quotes.data.quotes.length === 0 ? <EmptyState title="Sem cotações disponíveis">O fornecedor não devolveu sessões para este instrumento.</EmptyState> : (
             <div aria-busy={!showing} style={{ opacity: showing ? 1 : 0.5, transition: 'opacity var(--duration-fast)' }}>
               <Suspense fallback={<Loading rows={8} label="A carregar o gráfico…" />}>
-                <DailyChart quotes={quotes.data.quotes} currency={current.currency} symbol={quotes.data.symbol} strategy={showing ? strategy : null} />
+                <DailyChart quotes={quotes.data.quotes} currency={current.currency} symbol={quotes.data.symbol} strategy={showing ? strategy : null} onStrategyResult={setStratInfo}
+                  positions={saxoLinked ? (saxoPortfolio.data?.positions ?? []).filter((p) => p.instrumentId === current.id) : null}
+                  showPositions={showPositions} onShowPositions={setShowPositions} />
               </Suspense>
             </div>
           )}
-        {current.status === 'active' && <CompanyPanel instrumentId={current.id} lastPrice={current.latest?.close} />}
       </section>
+
+      {showStrategy && (
+        <section className="card charts-strategy" aria-labelledby="charts-strategy-title">
+          <h2 id="charts-strategy-title" className="card-title">Estratégia</h2>
+          {stratInfo && showing ? (
+            <StrategyPanel strategy={stratInfo.strat} result={stratInfo.result} currency={current.currency || 'EUR'} symbol={current.symbol} />
+          ) : (
+            <p className="small muted" style={{ marginBottom: 0 }}>
+              {current.status !== 'active' ? 'Sem cotações para simular.' : strategy ? 'A simular…' : 'Escolha uma estratégia no menu «Estratégia», por cima do gráfico, para ver a simulação no histórico.'}
+            </p>
+          )}
+        </section>
+      )}
+
+      {showCompany && current.status === 'active' && (
+        <section className="card charts-company" aria-label="Empresa">
+          <CompanyPanel instrumentId={current.id} lastPrice={current.latest?.close} />
+        </section>
+      )}
+      </div>
 
       <aside className="card charts-side" aria-labelledby="charts-list-title">
         <div className="card-head">
