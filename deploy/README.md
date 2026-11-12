@@ -68,7 +68,7 @@ O script faz o seguinte, e pode ser repetido em cada publicação:
 4. instala a API e compila o frontend;
 5. aplica as migrações;
 6. instala e reinicia os serviços;
-7. configura o Caddy, com a CSP a permitir só o script de tema do `index.html`;
+7. configura o Caddy, com a CSP a permitir só o script de tema do `index.html`; a CSP permite também as imagens do CDN da Brandfetch (`img-src ... https://cdn.brandfetch.io`, logotipos). Com `--no-proxy` o Caddyfile não é actualizado: copiar a linha da CSP de `deploy/Caddyfile` para `/etc/caddy/Caddyfile` (mantendo o hash do script) e `sudo systemctl reload caddy`.
 8. verifica `/health/ready`.
 
 Criar a primeira conta:

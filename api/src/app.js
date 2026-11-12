@@ -23,6 +23,7 @@ import statusRoutes from './routes/status.js';
 import heatmapRoutes from './routes/heatmap.js';
 import adminRoutes from './routes/admin.js';
 import photoRoutes from './routes/photos.js';
+import logoRoutes from './routes/logos.js';
 import marketRoutes from './routes/market.js';
 import signalRoutes from './routes/signals.js';
 import backtestRoutes from './routes/backtest.js';
@@ -161,6 +162,7 @@ export async function buildApp({ pool, cfg, logger = true, warm = false }) {
     await api.register(heatmapRoutes, opts);
     await api.register(adminRoutes, opts);
     await api.register(photoRoutes, opts);
+    await api.register(logoRoutes, opts);
     await api.register(marketRoutes, opts);
     await api.register(signalRoutes, opts);
     await api.register(backtestRoutes, opts);

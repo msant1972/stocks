@@ -5,6 +5,7 @@ import * as f from '../../lib/format.js';
 import { bigMoney, forwardPeLabel, pctOf, rangePosition, ratio, shortSummary } from '../../lib/company.js';
 import { Loading } from '../../components/feedback/states.jsx';
 import ValuationSection from './ValuationSection.jsx';
+import InstrumentLogo from '../../components/ui/InstrumentLogo.jsx';
 
 const FinancialsChart = lazy(() => import('../../components/finance/FinancialsChart.jsx'));
 
@@ -57,14 +58,19 @@ export default function CompanyPanel({ instrumentId, lastPrice }) {
         <h2 id="company-title" className="card-title">Empresa</h2>
         <span className="small muted">Fonte: Yahoo Finance{q.data.fetchedAt ? ` · ${f.date(q.data.fetchedAt.slice(0, 10))}` : ''}</span>
       </div>
-      <p style={{ margin: '0.25rem 0' }}>
-        <strong>{p.longName}</strong>
-        {(p.sector || p.industry) && <span className="muted"> · {[p.sector, p.industry].filter(Boolean).join(' — ')}</span>}
-      </p>
-      <p className="small muted" style={{ margin: 0 }}>
-        {[where, p.employees ? `${f.number(p.employees)} trabalhadores` : null].filter(Boolean).join(' · ')}
-        {p.website && <>{where || p.employees ? ' · ' : ''}<a href={p.website} target="_blank" rel="noopener noreferrer">{p.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</a></>}
-      </p>
+      <div className="company-head">
+        <InstrumentLogo website={p.website} size={48} />
+        <div>
+          <p>
+            <strong>{p.longName}</strong>
+            {(p.sector || p.industry) && <span className="muted"> · {[p.sector, p.industry].filter(Boolean).join(' — ')}</span>}
+          </p>
+          <p className="small muted">
+            {[where, p.employees ? `${f.number(p.employees)} trabalhadores` : null].filter(Boolean).join(' · ')}
+            {p.website && <>{where || p.employees ? ' · ' : ''}<a href={p.website} target="_blank" rel="noopener noreferrer">{p.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</a></>}
+          </p>
+        </div>
+      </div>
 
       {p.summary && (
         <div className="company-summary">

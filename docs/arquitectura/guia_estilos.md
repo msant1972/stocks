@@ -214,6 +214,7 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 
 ### 5.3a. Charts
 
+- Cartão «Empresa»: logotipo de 48 px (Brandfetch, cantos de 8 px, fundo branco e contorno) à esquerda do nome, do sector, do local e do site; sem logotipo, só o texto.
 - Três cartões: o do gráfico e, por baixo, «Estratégia» e «Empresa», estes a pedido: dois interruptores no topo («Mostrar: Estratégia / Empresa»), desligados por omissão e guardados no browser, para a página abrir leve (a informação da empresa só se pede quando o cartão está ligado). Painéis do gráfico: preço, volume, **RSI14** (linhas tracejadas em 30 e 70) e momento, com o eixo dos valores à direita, cursor em cruz e medida ao arrastar; o botão «Posições» põe um X verde (com contorno claro para se ver sobre o gráfico) nas compras das posições abertas na conta SAXO.
 - Ocupa a largura toda do ecrã (sem a coluna central limitada das outras páginas) e a altura da janela: os painéis do gráfico (preço, volume e momento) dividem a altura que resta por baixo da barra de ferramentas, calculada no browser e recalculada ao redimensionar a janela ou quando os avisos acima mudam de altura (mínimo de 400 px; em ecrãs baixos a página faz scroll). O eixo das datas aparece só no painel de baixo. A lista à direita tem a altura da janela, com scroll próprio. O texto de resumo, a estratégia e os dados em tabela ficam por baixo dos painéis.
 - Linha de mira: o cursor desenha uma linha vertical sincronizada nos três painéis e a leitura por cima deles mostra os valores dessa sessão (abertura, máximo, mínimo e fecho ajustados, variação face à sessão anterior, volume, médias visíveis e momento); sem cursor, mostra a última sessão. Substitui as caixas flutuantes (também em toque); o resumo textual e a tabela de dados continuam a ser a alternativa acessível.
@@ -281,6 +282,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Tamanho de cada quadrado: valor negociado (preço × volume); cor pela variação, como no Timelapse (desde 12 nov. 2026): 3 intensidades de verde e de vermelho (`--div-up-1…3`, `--div-down-1…3`) e cinzento `--div-flat` para «quase não mexeu»; a faixa cinzenta depende do período (±1 % em 1 sessão, ±2 % em 5, ±3 % em 10, ±4 % em 20; `FLAT_BAND` em `lib/timelapse.js`) e as intensidades vão até 2×, até 4× e acima dela. O texto do quadrado usa `--div-ink-1…3/flat` (escuro nos tons claros, branco nos escuros, nos dois temas).
 - Cada quadrado mostra o símbolo e a variação; o texto encolhe ou desaparece nos quadrados pequenos. Tooltip com nome, variação, valor negociado, último fecho e datas; clique abre o instrumento.
 - Período em menu (1 dia, 5 dias por omissão, 10 dias, 20 dias) e filtro «Todos / A minha lista», guardados no URL.
+- Logotipo da empresa (Brandfetch, ícone quadrado com cantos de 6 px e fundo branco) centrado por cima do símbolo, quando o quadrado tem espaço (pelo menos 20 px sem apertar o texto, até 56 px); sem Client ID, sem site ou sem logotipo na Brandfetch, só o texto.
 - Legenda dos 7 tons com limites em % e contagens, texto «Top 20 de N instrumentos» e vista em tabela.
 
 ### 5.10. Orderbook

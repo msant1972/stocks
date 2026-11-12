@@ -12,6 +12,7 @@ import SaxoCard from './SaxoCard.jsx';
 import SaxoMatchCard from './SaxoMatchCard.jsx';
 import BackupCard from './BackupCard.jsx';
 import StrategiesCard from './StrategiesCard.jsx';
+import LogoCard from './LogoCard.jsx';
 
 function PasswordForm() {
   const qc = useQueryClient();
@@ -146,6 +147,8 @@ export default function SettingsPage() {
         <SaxoCard />
 
         {me?.user.isAdmin && <StrategiesCard />}
+
+        {me?.user.isAdmin && <LogoCard />}
 
         {me?.user.isAdmin && <BackupCard />}
 

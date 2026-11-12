@@ -7282,6 +7282,10 @@ paths:
                         exchange:
                           nullable: true
                           type: string
+                        website:
+                          nullable: true
+                          description: Site da empresa (Yahoo), para o logotipo
+                          type: string
                         fromDate:
                           type: string
                           pattern: ^\d{4}-\d{2}-\d{2}$
@@ -7301,6 +7305,7 @@ paths:
                         - symbol
                         - name
                         - exchange
+                        - website
                         - fromDate
                         - toDate
                         - close
@@ -8331,6 +8336,185 @@ paths:
                   - error
                 additionalProperties: false
         "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/logos/config:
+    get:
+      summary: Configuração dos logotipos (Brandfetch)
+      tags:
+        - Logotipos
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider:
+                    type: string
+                    enum:
+                      - brandfetch
+                  clientId:
+                    nullable: true
+                    description: Chave de cliente da Brandfetch; null sem configuração (sem
+                      logotipos)
+                    type: string
+                  updatedAt:
+                    nullable: true
+                    type: string
+                  updatedBy:
+                    nullable: true
+                    type: string
+                required:
+                  - provider
+                  - clientId
+                  - updatedAt
+                  - updatedBy
+                additionalProperties: false
+  /api/v1/admin/logos:
+    put:
+      summary: Guardar a chave de cliente da Brandfetch
+      tags:
+        - Administração
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                clientId:
+                  type: string
+                  pattern: ^[A-Za-z0-9_-]{8,64}$
+              required:
+                - clientId
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider:
+                    type: string
+                    enum:
+                      - brandfetch
+                  clientId:
+                    nullable: true
+                    description: Chave de cliente da Brandfetch; null sem configuração (sem
+                      logotipos)
+                    type: string
+                  updatedAt:
+                    nullable: true
+                    type: string
+                  updatedBy:
+                    nullable: true
+                    type: string
+                required:
+                  - provider
+                  - clientId
+                  - updatedAt
+                  - updatedBy
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+    delete:
+      summary: Apagar a chave da Brandfetch (deixa de haver logotipos)
+      tags:
+        - Administração
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider:
+                    type: string
+                    enum:
+                      - brandfetch
+                  clientId:
+                    nullable: true
+                    description: Chave de cliente da Brandfetch; null sem configuração (sem
+                      logotipos)
+                    type: string
+                  updatedAt:
+                    nullable: true
+                    type: string
+                  updatedBy:
+                    nullable: true
+                    type: string
+                required:
+                  - provider
+                  - clientId
+                  - updatedAt
+                  - updatedBy
+                additionalProperties: false
+        "403":
           description: Default Response
           content:
             application/json:

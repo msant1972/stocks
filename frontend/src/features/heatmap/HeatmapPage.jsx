@@ -7,6 +7,8 @@ import * as f from '../../lib/format.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Field, Segmented } from '../../components/ui/controls.jsx';
 import { changeTone, toneLegend } from '../../lib/timelapse.js';
+import { domainOf, logoUrl } from '../../lib/logo.js';
+import { useLogoConfig } from '../../lib/queries.js';
 
 // Só os instrumentos com maior valor negociado (preço × volume) no período.
 const TOP = 20;
@@ -33,19 +35,39 @@ function tradedEur(value) {
 }
 const shortSymbol = (s) => s.replace(/\.[A-Z]{1,3}$/, '');
 
+/** Logotipo dentro do quadrado (HTML num foreignObject, para a imagem levar a origem que a Brandfetch exige). */
+function TileLogo({ x, y, size, url }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <foreignObject x={x} y={y} width={size} height={size} style={{ pointerEvents: 'none' }}>
+      <img className="instrument-logo heatmap-logo" src={url} alt="" width={size} height={size} loading="lazy" decoding="async"
+        referrerPolicy="strict-origin-when-cross-origin" onError={() => setFailed(true)} />
+    </foreignObject>
+  );
+}
+
 function Tile(props) {
-  const { depth, x, y, width, height, symbol, changePct, window } = props;
+  const { depth, x, y, width, height, symbol, changePct, window, website, clientId } = props;
   if (depth !== 1 || width <= 0 || height <= 0) return null;
   const tone = toneOf(changePct, window);
   const size = Math.max(9, Math.min(width / 5.5, height / 3.2, 26));
   const showText = width >= 34 && height >= 22;
   const showPct = height >= size * 2.4;
+  const textH = showPct ? size * 2.15 : size;
+  // Logotipo por cima do símbolo, só quando cabe sem apertar o texto.
+  const logo = Math.round(Math.min(width * 0.4, (height - textH) * 0.6, 56));
+  const url = showText && logo >= 20 ? logoUrl(domainOf(website), clientId, logo) : null;
+  const block = textH + (url ? logo + size * 0.4 : 0);
+  const top = y + (height - block) / 2;
+  const textTop = top + (url ? logo + size * 0.4 : 0);
   return (
     <g style={{ cursor: 'pointer' }}>
       <rect x={x} y={y} width={width} height={height} fill={`var(--div-${tone})`} stroke="var(--surface)" strokeWidth={2} />
+      {url && <TileLogo key={url} x={x + (width - logo) / 2} y={top} size={logo} url={url} />}
       {showText && (
-        <text x={x + width / 2} y={y + height / 2} textAnchor="middle" fill={inkOf(tone)} style={{ fontVariantNumeric: 'tabular-nums' }}>
-          <tspan x={x + width / 2} dy={showPct ? -size * 0.2 : size * 0.35} fontSize={size} fontWeight={600}>{shortSymbol(symbol)}</tspan>
+        <text x={x + width / 2} y={textTop} textAnchor="middle" fill={inkOf(tone)} style={{ fontVariantNumeric: 'tabular-nums' }}>
+          <tspan x={x + width / 2} dy={size * 0.85} fontSize={size} fontWeight={600}>{shortSymbol(symbol)}</tspan>
           {showPct && <tspan x={x + width / 2} dy={size * 1.15} fontSize={size * 0.8}>{f.pct(changePct)}</tspan>}
         </text>
       )}
@@ -77,6 +99,7 @@ export default function HeatmapPage() {
   const period = PERIODS.some((p) => p.value === params.get('periodo')) ? params.get('periodo') : '5';
   const scope = params.get('lista') === '1' ? 'watchlist' : 'all';
   const [showTable, setShowTable] = useState(false);
+  const logos = useLogoConfig();
 
   const setParam = (key, value, fallback) => {
     const next = new URLSearchParams(params);
@@ -146,7 +169,7 @@ export default function HeatmapPage() {
             style={{ opacity: q.isFetching ? 0.6 : 1 }}>
             <ResponsiveContainer width="100%" height="100%">
               <Treemap data={data} dataKey="size" nameKey="symbol" aspectRatio={4 / 3} isAnimationActive={false}
-                content={<Tile window={n} />} onClick={(node) => node?.instrumentId && navigate(`/instrumentos/${node.instrumentId}`)}>
+                content={<Tile window={n} clientId={logos.data?.clientId} />} onClick={(node) => node?.instrumentId && navigate(`/instrumentos/${node.instrumentId}`)}>
                 <Tooltip content={<TileTooltip period={n} />} />
               </Treemap>
             </ResponsiveContainer>

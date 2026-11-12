@@ -146,6 +146,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
 | US75 | «Vender Tudo»: uma ordem a cada 6 segundos (a SAXO recusou pedidos seguidos), com contagem decrescente e repetição se responder «demasiados pedidos» | — | Feito |
 | US76 | Barra lateral sem cabeçalho em ecrã largo (sem pesquisa; estado dos dados em duas linhas por baixo do nome); fotografia do utilizador (Utilizadores) mostrada à esquerda do nome, com «Terminar sessão» no botão direito sobre ela | — | Feito |
+| US77 | Logotipos das empresas (Brandfetch Logo API): cartão «Logotipos» nas Definições com o Client ID; logotipo no cartão «Empresa» do Charts e no HeatMap; cores do HeatMap como no Timelapse | — | Feito |
 | US74 | Horários: recolha ao minuto 20 (08:20 a 16:20), Automação ao minuto 23 (08:23 a 16:23, ordens até às 16:35), temporizador de 5 min sem coincidir; Automação só na lista, pela melhor estratégia | — | Feito |
 | US73 | Charts: painel RSI14, botão «Posições» (X verde na compra das posições da conta SAXO) e três cartões (gráfico, Estratégia e Empresa, os dois últimos a pedido e com o estado guardado) | — | Feito |
 | US72 | Charts: eixo dos valores à direita, cursor em cruz e medida (sessões, dias e %) ao arrastar; Calor passa para o grupo Mercado, por baixo do HeatMap | — | Feito |

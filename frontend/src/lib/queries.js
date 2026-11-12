@@ -15,6 +15,8 @@ export const keys = {
   bestStrategies: ['strategies', 'best'],
 };
 
+/** Chave da Brandfetch para os logotipos (null sem configuração). */
+export const useLogoConfig = () => useQuery({ queryKey: ['logos-config'], queryFn: () => api.get('/logos/config'), staleTime: 60 * 60_000 });
 export const useMe = () => useQuery({ queryKey: keys.me, queryFn: () => api.get('/me'), retry: false, staleTime: Infinity });
 // Enquanto houver instrumentos «A validar», as listas voltam a ser consultadas a cada 5 s.
 const POLL_PENDING_MS = 5_000;

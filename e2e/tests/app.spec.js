@@ -455,3 +455,28 @@ test('Utilizadores: fotografia na barra lateral e «Terminar sessão» com o bot
   await expect(page.getByText(/Fotografia de .* removida/)).toBeVisible();
   await expect(side.locator('.avatar img')).toHaveCount(0);
 });
+
+test('Definições → Logotipos: Client ID da Brandfetch (CDN simulado)', async () => {
+  // O CDN da Brandfetch é simulado: os testes não saem para a Internet. O pedido tem de levar a origem (Referer).
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAEUlEQVR4nGNQaDiAFTEMLQkAOsZYAYJCUNYAAAAASUVORK5CYII=', 'base64');
+  const referers = [];
+  await page.route('https://cdn.brandfetch.io/**', (route) => {
+    referers.push(route.request().headers().referer ?? '');
+    return route.fulfill({ status: 200, contentType: 'image/png', body: png });
+  });
+  await page.goto('/definicoes');
+  const card = page.getByRole('region', { name: 'Logotipos' });
+  await expect(card.getByText('Sem Client ID: sem logotipos')).toBeVisible();
+  await card.getByLabel('Client ID').fill('x'.repeat(80));
+  await expect(card.getByText(/parece a API key secreta/)).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Guardar' })).toBeDisabled();
+  await card.getByLabel('Client ID').fill('idTeste_123');
+  await card.getByRole('button', { name: 'Guardar' }).click();
+  await expect(page.getByText('Client ID da Brandfetch guardado')).toBeVisible();
+  await expect(card.getByText('Configurado')).toBeVisible();
+  await expect(card.getByRole('img', { name: /Logotipo de exemplo/ })).toHaveJSProperty('complete', true);
+  expect(referers.at(-1)).toMatch(/^http:\/\/[^/]+\/$/); // só a origem
+  await card.getByRole('button', { name: 'Apagar' }).click();
+  await expect(card.getByText('Sem Client ID: sem logotipos')).toBeVisible();
+  await page.unroute('https://cdn.brandfetch.io/**');
+});
