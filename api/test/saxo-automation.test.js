@@ -1,24 +1,32 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { buyLimit, buyQuantity, LAST_HOUR, lisbonClock, runDueAutomation, runSlot, selectSignals, signalKey } from '../src/saxo/automation.js';
+import { buildEligibility, buyLimit, buyQuantity, LAST_HOUR, lisbonClock, orderBudgetMs, ORDER_CUTOFF, runDueAutomation, runSlot, selectSignals, signalKey } from '../src/saxo/automation.js';
 import { encryptSecret } from '../src/secrets.js';
 import { api, hasTestDb, login, makeInstrument, makeUser, setup, TEST_SECRET_KEY } from './helpers.js';
 
 describe('automação: regras', () => {
-  it('de hora a hora nos dias úteis, 10 minutos depois de cada recolha, só com as bolsas abertas (08:33 a 15:33), com a hora de Verão', () => {
-    expect(lisbonClock(new Date('2026-11-06T08:33:00Z'))).toEqual({ date: '2026-11-06', time: '08:33', weekday: 'Fri' });
-    expect(lisbonClock(new Date('2026-07-06T07:33:00Z')).time).toBe('08:33'); // UTC+1
-    expect(runSlot({ time: '08:32', weekday: 'Fri' })).toBeNull();
-    expect(runSlot({ time: '08:33', weekday: 'Fri' })).toBe(8);
-    expect(runSlot({ time: '08:52', weekday: 'Fri' })).toBe(8);
-    expect(runSlot({ time: '08:53', weekday: 'Fri' })).toBeNull();
-    expect(runSlot({ time: '15:33', weekday: 'Fri' })).toBe(15);
-    expect(runSlot({ time: '15:52', weekday: 'Fri' })).toBe(15); // acaba antes das 16:15 (fecho às 16:30)
-    expect(runSlot({ time: '16:33', weekday: 'Fri' })).toBeNull(); // bolsas fechadas: as ordens do dia expirariam
-    expect(runSlot({ time: '17:33', weekday: 'Fri' })).toBeNull();
-    expect(LAST_HOUR).toBe(15);
+  it('recolha ao minuto 20 (08:20 a 16:20); Automação ao minuto 23 (08:23 a 16:23), até às 16:35 nas ordens, com a hora de Verão', () => {
+    expect(lisbonClock(new Date('2026-11-06T08:23:00Z'))).toEqual({ date: '2026-11-06', time: '08:23', weekday: 'Fri' });
+    expect(lisbonClock(new Date('2026-07-06T07:23:00Z')).time).toBe('08:23'); // UTC+1
+    expect(runSlot({ time: '08:22', weekday: 'Fri' })).toBeNull();
+    expect(runSlot({ time: '08:23', weekday: 'Fri' })).toBe(8);
+    expect(runSlot({ time: '08:39', weekday: 'Fri' })).toBe(8);
+    expect(runSlot({ time: '08:40', weekday: 'Fri' })).toBeNull();
+    expect(runSlot({ time: '15:23', weekday: 'Fri' })).toBe(15);
+    expect(runSlot({ time: '16:23', weekday: 'Fri' })).toBe(16); // a última: com a recolha das 16:20
+    expect(runSlot({ time: '16:31', weekday: 'Fri' })).toBe(16);
+    expect(runSlot({ time: '16:32', weekday: 'Fri' })).toBeNull(); // perto do limite das ordens (16:35)
+    expect(runSlot({ time: '17:23', weekday: 'Fri' })).toBeNull();
     expect(runSlot({ time: '07:40', weekday: 'Fri' })).toBeNull();
-    expect(runSlot({ time: '18:33', weekday: 'Fri' })).toBeNull();
-    expect(runSlot({ time: '08:33', weekday: 'Sat' })).toBeNull();
+    expect(runSlot({ time: '08:23', weekday: 'Sat' })).toBeNull();
+    expect(LAST_HOUR).toBe(16);
+    expect(ORDER_CUTOFF).toBe('16:35');
+  });
+
+  it('orçamento de tempo até ao limite das ordens (16:35)', () => {
+    expect(orderBudgetMs('16:23')).toBe(12 * 60_000);
+    expect(orderBudgetMs('16:35')).toBe(0);
+    expect(orderBudgetMs('16:50')).toBe(0);
+    expect(orderBudgetMs('08:23')).toBe((16 * 60 + 35 - (8 * 60 + 23)) * 60_000);
   });
 
   it('compra: limite = último preço + 1 % no passo de preço; quantidade pelo orçamento', () => {
@@ -81,7 +89,8 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
   const NOW = new Date('2026-11-06T08:35:00Z'); // sexta-feira, na execução das 08:33
   const FINAL = '2026-11-05';
   const signal = (over = {}) => ({ instrumentId: galp, symbol: 'GALP.LS', side: 'buy', reason: null, date: FINAL, lastClose: '10', ...over });
-  const run = (signals, opts = {}) => runDueAutomation(ctx.pool, ctx.cfg, { now: NOW, loadSignals: async (st) => signals[st.id] ?? [], ...opts });
+  // Por omissão todos os instrumentos são elegíveis (a regra da lista e da melhor estratégia testa-se à parte).
+  const run = (signals, opts = {}) => runDueAutomation(ctx.pool, ctx.cfg, { now: NOW, loadSignals: async (st) => signals[st.id] ?? [], eligibility: async () => () => true, ...opts });
   const use = (over) => { const f = fakeSaxo(over); ctx.cfg.saxo.fetchImpl = f.fetchImpl; return f; };
   const turnOn = async (strategy = 'a-momentum') => {
     await ana.put('/saxo/automation', { enabled: true });
@@ -157,7 +166,7 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     const f = use();
     await turnOn();
     const signals = { 'a-momentum': [signal()], 'c-ai': [signal({ side: 'add' })] };
-    expect(await run(signals, { now: new Date('2026-11-06T08:29:00Z') })).toBe(0);
+    expect(await run(signals, { now: new Date('2026-11-06T08:22:00Z') })).toBe(0); // antes das 08:23
     expect(await run(signals, { now: new Date('2026-11-07T08:35:00Z') })).toBe(0); // sábado
     expect(f.orders).toHaveLength(0);
     expect(await run(signals)).toBe(1);
@@ -296,6 +305,43 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     expect(f.orders[0].body).toMatchObject({ BuySell: 'Buy', OrderType: 'Limit', OrderDuration: { DurationType: 'DayOrder' } });
   });
 
+  it('compras só na lista e na melhor estratégia de cada instrumento; as vendas valem sempre', async () => {
+    const f = use({ positions: [[23737, 800]] });
+    await turnOn('c-ai');
+    // C-AI não é a melhor estratégia da GALP (é a B-Opus): a compra fica de fora, sem ordem nem registo de falha.
+    const notBest = buildEligibility({ mine: new Set([galp]), best: new Map([[galp, { strategyId: 'b-opus', total: 500 }]]) });
+    await run({ 'c-ai': [signal()] }, { eligibility: async () => notBest });
+    expect(f.orders).toHaveLength(0);
+    expect(await list()).toHaveLength(0);
+    // Fora da lista: também não.
+    const notMine = buildEligibility({ mine: new Set(), best: new Map([[galp, { strategyId: 'c-ai', total: 500 }]]) });
+    await ctx.pool.query('DELETE FROM saxo_automation_runs');
+    await run({ 'c-ai': [signal()] }, { eligibility: async () => notMine });
+    expect(f.orders).toHaveLength(0);
+    // Na lista e com a C-AI como melhor: compra.
+    const ok = buildEligibility({ mine: new Set([galp]), best: new Map([[galp, { strategyId: 'c-ai', total: 500 }]]) });
+    await ctx.pool.query('DELETE FROM saxo_automation_runs');
+    await run({ 'c-ai': [signal()] }, { eligibility: async () => ok });
+    expect(f.orders).toHaveLength(1);
+    // Depois de a GALP sair da lista, a venda da posição da automação continua a sair.
+    await ctx.pool.query("UPDATE saxo_orders SET status = 'filled', filled_quantity = quantity, fill_price = 10");
+    await ctx.pool.query('DELETE FROM saxo_automation_runs');
+    await run({ 'c-ai': [signal({ side: 'sell', reason: 'stop', date: '2026-11-06' })] }, { eligibility: async () => notMine });
+    expect(f.orders.filter((o) => o.body.BuySell === 'Sell')).toHaveLength(1);
+  });
+
+  it('elegibilidade: na lista, melhor estratégia do instrumento e resultado positivo', () => {
+    const el = buildEligibility({
+      mine: new Set([1, 2, 3]),
+      best: new Map([[1, { strategyId: 'c-ai', total: 100 }], [2, { strategyId: 'c-ai', total: -50 }], [4, { strategyId: 'c-ai', total: 900 }]]),
+    });
+    expect(el('c-ai', 1)).toBe(true);
+    expect(el('a-momentum', 1)).toBe(false); // outra estratégia
+    expect(el('c-ai', 2)).toBe(false);       // «Nenhuma ganha»
+    expect(el('c-ai', 3)).toBe(false);       // sem resultado
+    expect(el('c-ai', 4)).toBe(false);       // fora da lista
+  });
+
   it('recusa da SAXO fica registada com a ordem e não se repete', async () => {
     const f = use({ fail: () => json({ ErrorInfo: { Message: 'Saldo insuficiente' } }, 400) });
     await turnOn();
@@ -326,9 +372,9 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     await turnOn();
     const signals = { 'a-momentum': [signal()] };
     const at = (m) => new Date(`2026-11-06T09:${m}:00Z`);
-    expect(await run(signals, { now: at(34) })).toBe(0); // só há a recolha das 08:23
+    expect(await run(signals, { now: at(30) })).toBe(0); // só há a recolha das 08:20 (a das 09:20 ainda não chegou)
     expect((await ana.get('/saxo/automation')).json().lastRun).toBeNull();
-    expect(await run(signals, { now: at(50) })).toBe(0);
+    expect(await run(signals, { now: at(37) })).toBe(0); // passou o minuto 35: a falta da recolha fica registada
     expect(f.orders).toHaveLength(0);
     const { lastRun } = (await ana.get('/saxo/automation')).json();
     expect(lastRun).toMatchObject({ status: 'failed' });

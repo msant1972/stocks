@@ -1,14 +1,13 @@
 import { z } from 'zod';
 import { ANALYSIS_STRATEGIES, AVAILABLE_STRATEGIES, getStrategy, STRATEGIES } from '../../../shared/strategies/index.js';
 import { ErrorBody, IsoDate } from '../schemas.js';
-import { computeStrategiesParallel } from '../services/strategyRuns.js';
+import { bestByInstrument, strategyResults } from '../services/strategyResults.js';
 import { assertEnabled, defaultStrategyId, enabledStrategies, setStrategyEnabled } from '../services/strategySettings.js';
 import { AppError } from '../errors.js';
 import * as promessas from '../../../shared/promessas.js';
 import { DEFAULT_COSTS, describeCosts } from '../../../shared/costs.js';
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
-const VERIFICATION_CACHE_MS = 6 * 3600_000; // período de verificação: dados antigos, só a data de fim avança
 
 const Period = z.enum(['recent', 'verification']).default('recent')
   .describe('recent: os últimos 2 anos; verification: os 2 anos antes deles (dados que não serviram para afinar as estratégias)');
@@ -55,7 +54,6 @@ const Row = z.object({
 });
 
 export default async function backtestRoutes(app, { pool, cfg, warmup = () => {} }) {
-  const cache = new Map(); // por estratégia
 
   const StrategyInfo = z.object({ id: z.string(), name: z.string(), available: z.boolean(), summary: z.string(), rules: z.string(), enabled: z.boolean().optional() });
   const info = ({ id, name, available, summary, rules }) => ({ id, name, available, summary, rules });
@@ -228,13 +226,7 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
   }, async () => {
     const STS = await enabledStrategies(pool);
     const computed = await ensure(STS);
-    const best = new Map();
-    STS.forEach((st, k) => {
-      for (const it of computed[k].items) {
-        const cur = best.get(it.instrumentId);
-        if (!cur || it.total > cur.total) best.set(it.instrumentId, { instrumentId: it.instrumentId, strategyId: st.id, total: it.total, totalPct: it.totalPct });
-      }
-    });
+    const best = bestByInstrument(STS, computed);
     return { computedAt: new Date(Math.min(...computed.map((e) => e.at))).toISOString(), items: [...best.values()] };
   });
 
@@ -380,43 +372,8 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
     };
   });
 
-  /**
-   * Resultados das estratégias em todos os instrumentos. As desactualizadas (mais de 10 minutos) ou em falta são
-   * calculadas numa só passagem pelo catálogo, em worker threads; os cálculos são serializados (sem cálculos em
-   * paralelo, por causa da memória). force recalcula mesmo as recentes.
-   */
-  let running = Promise.resolve();
-  const key = (st, period) => (period === 'recent' ? st.id : `${period}:${st.id}`);
-  const fresh = (st, period = 'recent') => {
-    const e = cache.get(key(st, period));
-    return e && Date.now() - e.at <= (period === 'recent' ? CACHE_MS : VERIFICATION_CACHE_MS);
-  };
-  function recompute(strategies, force = false, period = 'recent') {
-    const job = running.then(async () => {
-      const missing = force ? strategies : strategies.filter((st) => !fresh(st, period));
-      if (missing.length) {
-        const at = Date.now();
-        const computed = await computeStrategiesParallel(pool, cfg.db, missing, app.log, period);
-        for (const st of missing) cache.set(key(st, period), { at, items: computed.get(st.id) });
-      }
-      return strategies.map((st) => cache.get(key(st, period)));
-    });
-    running = job.catch(() => {});
-    return job;
-  }
-  /**
-   * Stale-while-revalidate: com resultados em cache (mesmo antigos) responde de imediato e recalcula em segundo
-   * plano; só espera quando ainda não há nenhum (primeiro pedido, se o cálculo antecipado não terminou).
-   */
-  function ensure(strategies, period = 'recent') {
-    if (strategies.every((st) => cache.has(key(st, period)))) {
-      if (!strategies.every((st) => fresh(st, period))) {
-        recompute(strategies, false, period).catch((err) => app.log.warn({ err }, 'estratégias: recálculo falhou'));
-      }
-      return Promise.resolve(strategies.map((st) => cache.get(key(st, period))));
-    }
-    return recompute(strategies, false, period);
-  }
+  // Resultados em cache, partilhados com a Automação (services/strategyResults.js).
+  const { ensure, recompute } = strategyResults(pool, cfg, app.log);
 
   // Cálculo antecipado: arranque e cada recolha concluída (services/warmup.js). Estratégias primeiro (as Promessas usam-nas).
   warmup(() => recompute(AVAILABLE_STRATEGIES, true));

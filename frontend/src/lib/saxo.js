@@ -147,6 +147,7 @@ export function automationRunText(run) {
   if (c.sent) parts.push(plural(c.sent, 'ordem enviada', 'ordens enviadas'));
   if (c.skipped) parts.push(plural(c.skipped, 'sinal ignorado', 'sinais ignorados'));
   if (c.failed) parts.push(plural(c.failed, 'sinal falhado', 'sinais falhados'));
+  if (c.late) parts.push(plural(c.late, 'sinal ficou para a abertura seguinte (depois das 16:35)', 'sinais ficaram para a abertura seguinte (depois das 16:35)'));
   return parts.length ? `${parts.join(', ')}.` : 'sem sinais novos.';
 }
 

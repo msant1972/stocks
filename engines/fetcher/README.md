@@ -50,7 +50,7 @@ python -m fetcher profiles [--all] [--limit N]                # perfis das empre
 ## Agendamento proposto (systemd)
 
 - `stocks-fetcher-run.timer`: corre `python -m fetcher run` a cada 5 minutos, para processar as cargas iniciais pedidas pela aplicação.
-- `stocks-intraday.timer`: corre `python -m fetcher update --intraday` de segunda a sexta, de hora a hora das 08:23 às 17:23 de Lisboa (o Yahoo tem cerca de 20 minutos de atraso), durante as sessões; a vela do próprio dia é provisória.
+- `stocks-intraday.timer`: corre `python -m fetcher update --intraday` de segunda a sexta, de hora a hora das 08:20 às 16:20 de Lisboa (ao minuto 20; o Yahoo tem 15 minutos de atraso nestas bolsas), durante as sessões; a vela do próprio dia é provisória.
 - `stocks-daily.timer`: corre `python -m fetcher update` (e depois os alertas) de segunda a sexta às 19:01 de Lisboa, depois do fecho das bolsas europeias (17:30 CET), gravando os fechos definitivos.
 - `stocks-profiles.timer`: corre `python -m fetcher profiles` ao domingo às 08:00 de Lisboa (perfis das empresas para o Charts).
 

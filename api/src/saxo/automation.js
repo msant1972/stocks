@@ -4,14 +4,15 @@ import { buildItems, computeAll } from '../services/signals.js';
 import { storedResolution } from './catalog.js';
 import { createThrottle } from './client.js';
 import { enabledStrategies } from '../services/strategySettings.js';
+import { bestByInstrument, strategyResults } from '../services/strategyResults.js';
 import { getPortfolio, listOrders, openSession, parseScheme, pickAccount, placeOrder } from './service.js';
 import { nearestTick } from './ticks.js';
 
 /**
  * Automação: lê os sinais das estratégias ligadas e envia as ordens à conta de SIMULAÇÃO da SAXO, sem intervenção.
  *
- * Quando: de hora a hora nos dias úteis, 10 minutos depois de cada recolha horária do Yahoo, com as bolsas abertas (recolhas das
- * 08:23 às 15:23 → execuções das 08:33 às 15:33 de Lisboa; as bolsas fecham às 16:30). Que sinais: os da sessão em curso, calculados com os últimos dados, e os da última sessão. Um sinal da sessão em
+ * Quando: de hora a hora nos dias úteis, 3 minutos depois do início de cada recolha horária do Yahoo (recolhas das 08:20 às 16:20,
+ * execuções das 08:23 às 16:23 de Lisboa; as bolsas fecham às 16:30 e aceitam-se ordens até às 16:35). Que sinais: os da sessão em curso, calculados com os últimos dados, e os da última sessão. Um sinal da sessão em
  * curso pode depender de um fecho que ainda vai mudar: uma vez enviado, a ordem fica, mesmo que o sinal desapareça depois.
  * Ordens, ambas do dia: compra limitada a último preço + 1 %, com o orçamento da estratégia; venda a mercado do que a
  * automação comprou para essa estratégia (no máximo o que a conta tem), nunca de posições manuais ou de outra estratégia.
@@ -20,20 +21,27 @@ import { nearestTick } from './ticks.js';
  */
 
 export const BUY_LIMIT_MARKUP = 0.01;
-const FIRST_HOUR = 8;   // recolhas horárias: 08:23 a 17:23 (deploy/systemd/stocks-intraday.timer)
-const SLOT_FROM = 33;   // 10 minutos depois da recolha
-const SLOT_TO = 53;     // sem recolha até aqui, esta hora fica sem execução
 /**
- * Bolsas do catálogo (Euronext, Xetra, Milão, Madrid, Viena, Helsínquia, Dublin): 08:00 às 16:30 de Lisboa todo o ano (mudam de
- * hora em simultâneo). Uma ordem do dia enviada depois do fecho expira sem ser executada (6 nov. 2026: 17 de 18 enviadas às
- * 16:33). A execução de cada hora tem de acabar CLOSE_MARGIN_MIN antes do fecho: a última é a das 15:33. Os sinais vistos
- * depois disso entram na execução das 08:33 da sessão seguinte, como sinais da última sessão (já com o fecho definitivo).
+ * Horários (Lisboa, dias úteis; o Yahoo tem 15 minutos de atraso nestas bolsas): a recolha horária corre ao minuto 20, de 08:20
+ * a 16:20 (deploy/systemd/stocks-intraday.timer; demora em média 78 s, no máximo 129 s); a Automação começa ao minuto 23, com
+ * os dados já recolhidos (calcular os sinais de uma estratégia demora 6 a 16 s e cada ordem cerca de 1 s), e tenta até ao
+ * minuto 40. As bolsas do catálogo (Euronext, Xetra, Milão, Madrid, Viena, Helsínquia, Dublin) fecham às 16:30 e aceitam-se
+ * ordens até às 16:35 (leilão de fecho): a última execução é a das 16:23, que tenta até às 16:32 e nunca envia depois das 16:35
+ * (o que não couber fica para a abertura seguinte, como sinais da última sessão, já com o fecho definitivo).
  */
+const FIRST_HOUR = 8;
+export const LAST_HOUR = 16;
+const SLOT_FROM = 23;   // 3 minutos depois do início da recolha (minuto 20)
+const SLOT_TO = 40;     // sem recolha até aqui, esta hora fica sem execução
 export const MARKET_CLOSE = '16:30';
-const CLOSE_MARGIN_MIN = 15;
+export const ORDER_CUTOFF = '16:35'; // última hora a que se enviam ordens
+const LAST_SLOT_TO = 32;  // na última hora, só se começa até 3 minutos antes do limite das ordens
+const LATE_MINUTE = 35;   // a partir daqui, a falta da recolha da hora fica registada como falha (na última hora, 30)
 const toMin = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
-export const LAST_HOUR = Math.floor((toMin(MARKET_CLOSE) - CLOSE_MARGIN_MIN - SLOT_TO) / 60); // 15
-const LATE_MINUTE = 50; // a partir daqui, a falta da recolha da hora fica registada como falha
+const slotEnd = (hour) => (hour === LAST_HOUR ? LAST_SLOT_TO : SLOT_TO);
+const lateMinute = (hour) => (hour === LAST_HOUR ? LAST_SLOT_TO - 2 : LATE_MINUTE);
+/** Milissegundos que faltam, a partir da hora de Lisboa `time` (HH:MM), para o limite das ordens (nunca negativo). */
+export const orderBudgetMs = (time) => Math.max(0, (toMin(ORDER_CUTOFF) - toMin(time)) * 60_000);
 const RETRY_MS = 5 * 60_000;  // depois de uma falha (ex.: ligação expirada), volta a tentar dentro da janela
 const STUCK_MS = 15 * 60_000; // «a correr» há mais do que isto: a API reiniciou a meio
 
@@ -45,11 +53,11 @@ export function lisbonClock(now = new Date()) {
   return { date: `${parts.year}-${parts.month}-${parts.day}`, time: `${parts.hour}:${parts.minute}`, weekday: parts.weekday };
 }
 
-/** Hora da execução em curso (8 a LAST_HOUR, com as bolsas abertas), ou null fora dos 20 minutos a seguir aos 10 minutos depois de cada recolha. */
+/** Hora da execução em curso (08:23 a 16:23 e a janela de cada uma: até ao minuto 40, e até ao 32 na última hora), ou null. */
 export function runSlot({ time, weekday }) {
   if (['Sat', 'Sun'].includes(weekday)) return null;
   const [hour, minute] = time.split(':').map(Number);
-  return hour >= FIRST_HOUR && hour <= LAST_HOUR && minute >= SLOT_FROM && minute < SLOT_TO ? hour : null;
+  return hour >= FIRST_HOUR && hour <= LAST_HOUR && minute >= SLOT_FROM && minute < slotEnd(hour) ? hour : null;
 }
 
 /** Preço limite de uma compra: último preço + 1 %, no passo de preço do instrumento (sem esquema conhecido, 4 casas). */
@@ -160,8 +168,29 @@ async function handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld
   }
 }
 
+/**
+ * Quem pode comprar: só os instrumentos da lista do utilizador, cada um pela sua melhor estratégia (a de maior resultado no
+ * BackTest entre as ligadas, desde que ganhe: «Nenhuma ganha» não compra). Função pura sobre `mine` (Set de ids da lista) e
+ * `best` (Map id → { strategyId, total }). As vendas não passam por aqui: uma posição que a automação tem vende-se sempre.
+ */
+export function buildEligibility({ mine, best }) {
+  return (strategyId, instrumentId) => {
+    const b = best.get(instrumentId);
+    return mine.has(instrumentId) && b?.strategyId === strategyId && b.total > 0;
+  };
+}
+
+/** Elegibilidade de compra de um utilizador, com os resultados do BackTest em cache (partilhados com as rotas). */
+export async function loadEligibility(pool, cfg, userId, log = null) {
+  const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [userId]);
+  const mine = new Set(w.map((r) => Number(r.instrument_id)));
+  const on = await enabledStrategies(pool);
+  const best = mine.size ? bestByInstrument(on, await strategyResults(pool, cfg, log).ensure(on)) : new Map();
+  return buildEligibility({ mine, best });
+}
+
 /** Execução de um utilizador: refresca as ordens, lê os sinais das estratégias ligadas e envia. */
-export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSignals, log = null }) {
+export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSignals, eligibility = loadEligibility, log = null }) {
   const session = await openSession(pool, cfg, userId);
   if (session.environment !== 'sim') throw Object.assign(new Error('a automação só funciona na conta de simulação da SAXO Bank'), { code: 'SAXO_LIVE_BLOCKED' });
   await pickAccount(session.client);
@@ -180,12 +209,18 @@ export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSign
   };
   const takeHeld = (instrumentId, quantity) => held?.set(instrumentId, (held.get(instrumentId) ?? 0) - quantity);
   const counts = {};
+  const eligible = await eligibility(pool, cfg, userId, log);
+  const startedAt = Date.now();
+  const budgetMs = orderBudgetMs(clock.time); // até às 16:35 (limite das ordens)
   const on = new Set((await enabledStrategies(pool)).map((s) => s.id)); // desligadas nas Definições: não se executam
   for (const { strategy_id: id } of rows) {
     const strategy = getStrategy(id);
     if (!strategy?.available || !on.has(id)) continue;
-    const items = selectSignals(await loadSignals(strategy), { lastFinal, today: clock.date });
+    // Compras e reforços só nos instrumentos da lista cuja melhor estratégia é esta; as vendas valem sempre (strategyHolding).
+    const items = selectSignals(await loadSignals(strategy), { lastFinal, today: clock.date })
+      .filter((s) => s.side === 'sell' || eligible(strategy.id, s.instrumentId));
     for (const s of items) {
+      if (Date.now() - startedAt > budgetMs) { counts.late = (counts.late ?? 0) + 1; continue; } // passou o limite: fica para a abertura seguinte
       const outcome = await handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld, wait });
       counts[outcome] = (counts[outcome] ?? 0) + 1;
     }
@@ -201,7 +236,7 @@ let running = false;
  * ligada que ainda não correram nessa hora. Precisa da recolha dessa hora (senão os sinais não são os últimos) e da recolha
  * diária da última sessão.
  */
-export async function runDueAutomation(pool, cfg, { now = new Date(), loadSignals = null, log = null } = {}) {
+export async function runDueAutomation(pool, cfg, { now = new Date(), loadSignals = null, eligibility = loadEligibility, log = null } = {}) {
   const clock = lisbonClock(now);
   const hour = runSlot(clock);
   if (hour == null || running) return 0;
@@ -221,7 +256,7 @@ export async function runDueAutomation(pool, cfg, { now = new Date(), loadSignal
     const [[intraday]] = await pool.query("SELECT MAX(started_at) AS at FROM job_runs WHERE kind = 'fetch_intraday' AND status = 'done'");
     const last = intraday?.at ? lisbonClock(new Date(intraday.at)) : null;
     const fresh = last?.date === clock.date && Number(last.time.slice(0, 2)) === hour;
-    if (!fresh && Number(clock.time.slice(3)) < LATE_MINUTE) return 0; // a recolha pode ainda estar a acabar
+    if (!fresh && Number(clock.time.slice(3)) < lateMinute(hour)) return 0; // a recolha pode ainda estar a acabar
     const { lastFinal, confirmed } = await lastFinalSession(pool, clock.date);
     const cache = new Map();
     const signals = loadSignals ?? (async (strategy) => {
@@ -238,7 +273,7 @@ export async function runDueAutomation(pool, cfg, { now = new Date(), loadSignal
       try {
         if (!fresh) throw new Error('a recolha horária do Yahoo não terminou: esta hora fica sem execução');
         if (!confirmed) throw new Error('a recolha diária da última sessão não terminou: os sinais ainda não são firmes');
-        const counts = await runForUser(pool, cfg, userId, clock, { lastFinal, loadSignals: signals, log });
+        const counts = await runForUser(pool, cfg, userId, clock, { lastFinal, loadSignals: signals, eligibility, log });
         await pool.query("UPDATE saxo_automation_runs SET status = 'done', counts = ?, finished_at = NOW(3) WHERE user_id = ? AND run_date = ? AND run_hour = ?", [JSON.stringify(counts), ...key]);
         done += 1;
       } catch (err) {

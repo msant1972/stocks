@@ -13,7 +13,7 @@ export default async function statusRoutes(app, { pool }) {
           instruments: z.object({ pending: z.number(), active: z.number(), invalid: z.number() }),
           failedJobs: z.number(),
           lastFetchRun: Run,
-          lastIntradayRun: Run.describe('Última actualização durante a sessão (dias úteis, 08:23–17:23 de Lisboa)'),
+          lastIntradayRun: Run.describe('Última actualização durante a sessão (dias úteis, 08:20–16:20 de Lisboa)'),
           lastAlertsRun: Run,
         }),
       },

@@ -76,7 +76,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | Configuração SMTP | Em Definições, com palavra-passe cifrada na BD e email de teste pelo motor de alertas |
 | Capital de 1 M€ | Valor por omissão das contas novas |
 | A-Momentum: filtro e protecção | Só compra com o preço acima da SMA200; com reforços, vende se o fecho cair mais de 15% abaixo do último reforço. Perdas dos 10 piores de −172 k€ para −48 k€; soma dos resultados de +4,8 M€ para +2,1 M€ |
-| Actualização horária | Recolha de hora a hora entre as 08h00 e as 17h00 de Lisboa nos dias úteis (sessão em curso, provisória), mantendo a recolha das 19h00 com os fechos definitivos e os alertas; indicação «sessão em curso» na interface |
+| Actualização horária | Recolha de hora a hora entre as 08h20 e as 16h20 de Lisboa nos dias úteis (ao minuto 20, desde 12 nov. 2026) (sessão em curso, provisória), mantendo a recolha das 19h00 com os fechos definitivos e os alertas; indicação «sessão em curso» na interface |
 | Promessas | Lista dos instrumentos com sinais de continuarem ou passarem a ganhadores nos 12 meses seguintes, com a regra validada em 5 janelas do passado ([promessas.md](promessas.md)) |
 | WinnersLoosers | Página com os instrumentos em que as três estratégias ganham e em que as três perdem (24 out. 2026: 102 e 80), a partir dos resultados do BackTest |
 | Estratégia D-Reversão | Reversão à média definida a partir da análise dos perdedores do WinnersLoosers ([D-Reversao.md](D-Reversao.md)): compra com z < −2,5 face à média de 20 sessões, vende com RSI2 > 70 ou ao fim de 10 sessões; +250 k€ no catálogo, +42 k€ nos perdedores das outras três |
@@ -144,6 +144,7 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US49 | Estratégias → Calor (desde 12 nov. 2026 no grupo Mercado, por baixo do HeatMap): valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
 | US50 | Calor: histograma «Valor mensal negociado» com os meses mais quentes a cores | — | Feito |
 | US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
+| US74 | Horários: recolha ao minuto 20 (08:20 a 16:20), Automação ao minuto 23 (08:23 a 16:23, ordens até às 16:35), temporizador de 5 min sem coincidir; Automação só na lista, pela melhor estratégia | — | Feito |
 | US73 | Charts: painel RSI14, botão «Posições» (X verde na compra das posições da conta SAXO) e três cartões (gráfico, Estratégia e Empresa, os dois últimos a pedido e com o estado guardado) | — | Feito |
 | US72 | Charts: eixo dos valores à direita, cursor em cruz e medida (sessões, dias e %) ao arrastar; Calor passa para o grupo Mercado, por baixo do HeatMap | — | Feito |
 | US71 | Carteira SAXO: botão «Vender Tudo» (emergência: vende a mercado todas as posições; desliga a Automação e cancela as compras abertas) | — | Feito |

@@ -154,6 +154,7 @@ export default function CalorPage() {
       </div>
 
       <div className="stack">
+      <MarketCapSection />
       <section className="card" aria-labelledby="calor-title">
         <div className="card-head">
           <h2 id="calor-title" className="card-title">Valor negociado diário (2 anos)</h2>
@@ -194,7 +195,6 @@ export default function CalorPage() {
 
       {months.length > 0 && <MonthlySection months={months} />}
 
-      <MarketCapSection />
       </div>
     </>
   );

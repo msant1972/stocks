@@ -1,10 +1,11 @@
 [Unit]
-Description=Stocks — de hora a hora entre as 08:23 e as 17:23 de Lisboa, nos dias úteis (sessões em curso)
+Description=Stocks — de hora a hora entre as 08:20 e as 16:20 de Lisboa, nos dias úteis (sessões em curso)
 
 [Timer]
-# Ao minuto 23: o Yahoo tem cerca de 20 minutos de atraso, e assim também não coincide com o
-# stocks-fetcher-run.timer (a cada 5 min), que apanharia os pedidos desta execução.
-OnCalendar=Mon..Fri 08..17:23 Europe/Lisbon
+# Ao minuto 20 (a primeira às 08:20, a última às 16:20): o Yahoo tem 15 minutos de atraso para estas bolsas; a recolha demora
+# em média 78 s (máximo 129 s) e a Automação começa ao minuto 23, já com os dados. O stocks-fetcher-run.timer (cargas
+# iniciais) não bate entre o minuto 19 e o 29, por isso nunca coincide com a recolha nem com a Automação.
+OnCalendar=Mon..Fri 08..16:20 Europe/Lisbon
 # Sem Persistent: uma recolha perdida durante a sessão não deve correr fora de horas.
 
 [Install]

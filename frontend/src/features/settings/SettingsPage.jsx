@@ -132,7 +132,7 @@ export default function SettingsPage() {
             </dl>
           ) : <p className="small muted">A carregar…</p>}
           <p className="small muted" style={{ marginTop: '0.75rem' }}>
-            Fonte: Yahoo Finance. Nos dias úteis, actualizado de hora a hora entre as 08h00 e as 17h00 (Lisboa), com a sessão em curso provisória e cerca de 15 minutos de atraso, e às 19h00 com os fechos definitivos, seguidos dos alertas. Os dados podem ter atrasos ou falhas do fornecedor.
+            Fonte: Yahoo Finance. Nos dias úteis, actualizado de hora a hora entre as 08h20 e as 16h20 (Lisboa), com a sessão em curso provisória e 15 minutos de atraso, e às 19h01 com os fechos definitivos, seguidos dos alertas. Os dados podem ter atrasos ou falhas do fornecedor.
           </p>
         </section>
 

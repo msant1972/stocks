@@ -16,7 +16,7 @@ systemd timers ─▶ motor de recolha (cargas iniciais a cada 5 min; actualiza�
 | `stocks-api.service` | sempre | API e frontend |
 | `stocks-fetcher-run.path` | quando a aplicação pede | Arranca o motor de imediato ao adicionar símbolos ou em «Validar agora» (a API escreve em `/var/lib/stocks/fetch-request`) |
 | `stocks-fetcher-run.timer` | a cada 5 min | Rede de segurança: processa os pedidos que ficarem na fila |
-| `stocks-intraday.timer` | dias úteis, de hora a hora das 08:23 às 17:23 de Lisboa | Actualização das cotações durante a sessão, sem alertas (`fetcher update --intraday`) |
+| `stocks-intraday.timer` | dias úteis, de hora a hora das 08:20 às 16:20 de Lisboa (minuto 20) | Actualização das cotações durante a sessão, sem alertas (`fetcher update --intraday`) |
 | `stocks-daily.timer` | dias úteis, 19:01 de Lisboa | Actualização com os fechos definitivos e, a seguir, alertas ([bin/daily.sh](bin/daily.sh)) |
 | `stocks-backup.timer` | diariamente, 03:30 UTC | `mariadb-dump` para `/var/backups/stocks`, guardado durante 30 dias |
 | `stocks-ops.timer` | dias úteis, 21:00 de Lisboa | Aviso operacional por email aos administradores (`alerts ops`): execuções falhadas ou presas, recolha diária em falta, instrumentos com recolha falhada, dados parados; no máximo um email por dia |

@@ -96,7 +96,7 @@ export default async function saxoRoutes(app, { pool, cfg }) {
   app.get('/saxo/automation', {
     schema: {
       tags: ['SAXO'], summary: 'Estado da automação (interruptor geral, estratégias e última execução)',
-      description: 'A automação corre de hora a hora nos dias úteis, 10 minutos depois de cada recolha horária, só com as bolsas abertas (08:33 a 15:33 de Lisboa; fecham às 16:30), com os sinais da sessão em curso e da última sessão, e só na conta de simulação. Compras limitadas ao último '
+      description: 'A automação corre de hora a hora nos dias úteis, 3 minutos depois do início de cada recolha horária (recolhas das 08:20 às 16:20, execuções das 08:23 às 16:23 de Lisboa; as bolsas fecham às 16:30 e aceitam-se ordens até às 16:35), só nos instrumentos da lista do utilizador e cada um pela sua melhor estratégia (as vendas valem sempre), com os sinais da sessão em curso e da última sessão, e só na conta de simulação. Compras limitadas ao último '
         + 'preço + 1 %, vendas a mercado do que a automação comprou para essa estratégia; ordens do dia. Desligada por omissão.',
       response: { 200: AutomationStatus },
     },

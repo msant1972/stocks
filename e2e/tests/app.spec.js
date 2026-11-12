@@ -155,6 +155,19 @@ test('Charts: cartões «Estratégia» e «Empresa» a pedido, com os interrupto
   await expect(companyCard()).toHaveCount(0);
 });
 
+test('Calor: os cartões por esta ordem, Capitalização Mercado, Valor negociado diário e Valor mensal negociado', async () => {
+  await page.goto('/calor');
+  await expect(page.getByRole('heading', { level: 1, name: 'Calor' })).toBeVisible();
+  const titles = page.locator('main section.card h2.card-title');
+  await expect(titles.first()).toBeVisible();
+  const all = await titles.allInnerTexts();
+  const pos = (re) => all.findIndex((t) => re.test(t));
+  expect(pos(/Capitalização Mercado/)).toBe(0);
+  expect(pos(/Valor negociado diário/)).toBeGreaterThan(pos(/Capitalização Mercado/));
+  const monthly = pos(/Valor mensal negociado/);
+  if (monthly >= 0) expect(monthly).toBeGreaterThan(pos(/Valor negociado diário/)); // só aparece com meses completos
+});
+
 test('Carteira SAXO: «Vender Tudo» abre o diálogo de emergência com as posições, antes de vender (aqui só se cancela)', async () => {
   await page.goto('/saxo/carteira');
   const sellAll = page.getByRole('button', { name: 'Vender Tudo' });
