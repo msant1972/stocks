@@ -17,7 +17,7 @@ import { createPool, withTransaction } from '../api/src/db.js';
 import { loadConfig } from '../api/src/config.js';
 import { yearsBefore } from '../api/src/routes/instruments.js';
 import * as promessas from '../shared/promessas.js';
-import { AVAILABLE_STRATEGIES } from '../shared/strategies/index.js';
+import { ANALYSIS_STRATEGIES as AVAILABLE_STRATEGIES } from '../shared/strategies/index.js';
 
 /** 'AAAA-MM-DD' recuado n meses (dia ajustado ao fim do mês). */
 function monthsBefore(date, n) {

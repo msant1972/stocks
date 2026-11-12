@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceArea, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as f from '../../lib/format.js';
 import { adjustedOhlc } from '../../lib/candles.js';
 import { chartShortcut } from '../../lib/chartKeys.js';
+import { measureRange, measureText } from '../../lib/chartMeasure.js';
 import { momentum, niceTicks } from '../../lib/momentum.js';
 import { getStrategy } from '../../lib/strategy.js';
 import StrategyPanel from './StrategyPanel.jsx';
@@ -130,6 +131,38 @@ function Readout({ data, currency, visible, showMomentum, hoverRef }) {
   );
 }
 
+/** Cursor vertical dos gráficos sincronizados (a linha horizontal é a CrossHair). */
+const CURSOR = { stroke: 'var(--text-secondary)', strokeWidth: 1, strokeDasharray: '4 3' };
+
+/** Linha horizontal que acompanha o rato no painel onde está (com a linha vertical do cursor do gráfico, forma uma cruz). */
+function CrossHair() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const line = ref.current;
+    const host = line?.parentElement;
+    if (!host) return undefined;
+    const move = (e) => { line.style.display = 'block'; line.style.top = `${e.clientY - host.getBoundingClientRect().top}px`; };
+    const leave = () => { line.style.display = 'none'; };
+    host.addEventListener('mousemove', move);
+    host.addEventListener('mouseleave', leave);
+    return () => { host.removeEventListener('mousemove', move); host.removeEventListener('mouseleave', leave); };
+  }, []);
+  return <div ref={ref} className="chart-hline" aria-hidden="true" />;
+}
+
+/** Caixa com a medida (sessões, dias e %) no topo da área marcada ao arrastar. */
+function MeasureLabel({ viewBox, text, color }) {
+  if (!viewBox) return null;
+  const w = text.length * 7 + 18;
+  const cx = viewBox.x + viewBox.width / 2;
+  return (
+    <g pointerEvents="none">
+      <rect x={cx - w / 2} y={viewBox.y + 6} width={w} height={24} rx={6} fill="var(--surface)" stroke={color} />
+      <text x={cx} y={viewBox.y + 22} textAnchor="middle" fontSize={12} fontWeight={600} fill="var(--text)">{text}</text>
+    </g>
+  );
+}
+
 /** Vela: pavio do mínimo ao máximo e corpo da abertura ao fecho; sobe = corpo vazio (verde), desce = corpo cheio (vermelho). */
 function Candle({ x, y, width, height, payload }) {
   if (x == null || y == null || !width || !payload) return null;
@@ -248,6 +281,28 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
   const onLeave = useCallback(() => hoverRef.current?.(null), []);
   const hoverProps = { onMouseMove: onHover, onTouchMove: onHover, onMouseLeave: onLeave };
 
+  // Medir: carregar no painel do preço e arrastar marca uma área e mede sessões, dias e variação; ao largar, desaparece.
+  const [drag, setDrag] = useState(null); // { from, to } (datas das sessões)
+  const dragging = useRef(false);
+  const onPriceDown = useCallback((st, ev) => {
+    if (st?.activeLabel == null || (ev?.button != null && ev.button !== 0)) return;
+    dragging.current = true;
+    setDrag({ from: st.activeLabel, to: st.activeLabel });
+  }, []);
+  const onPriceMove = useCallback((st) => {
+    onHover(st);
+    if (dragging.current && st?.activeLabel != null) setDrag((d) => (d && d.to !== st.activeLabel ? { ...d, to: st.activeLabel } : d));
+  }, [onHover]);
+  useEffect(() => {
+    const end = () => { if (dragging.current) { dragging.current = false; setDrag(null); } };
+    window.addEventListener('mouseup', end);
+    window.addEventListener('blur', end);
+    return () => { window.removeEventListener('mouseup', end); window.removeEventListener('blur', end); };
+  }, []);
+
+  const measure = drag ? measureRange(data, drag.from, drag.to) : null;
+  const measureColor = measure && measure.change < 0 ? 'var(--negative)' : 'var(--positive)';
+
   // Atalhos: 1–5 período, 6–0 médias, T velas/linha, V volume, M momento (fora dos campos de texto e sem modificadores).
   useEffect(() => {
     const onKey = (e) => {
@@ -321,8 +376,9 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
       {/* Painéis (preço, volume e momento) a ocupar a altura da janela; o texto, a estratégia e os dados ficam por baixo. */}
       <div className="chart-stage" ref={stageRef} style={stageHeight ? { height: stageHeight } : undefined}>
         <div className="chart-pane chart-pane-price" role="img" aria-labelledby={`${tableId}-summary`}>
+          <CrossHair />
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} syncId="historico" margin={{ top: 8, right: 8, bottom: 0, left: 0 }} {...hoverProps}>
+            <ComposedChart data={data} syncId="historico" margin={{ top: 8, right: 0, bottom: 0, left: 8 }} {...hoverProps} onMouseMove={onPriceMove} onMouseDown={onPriceDown}>
               <defs>
                 <linearGradient id="chartFill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="var(--series-price)" stopOpacity={0.16} />
@@ -334,11 +390,11 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
                 dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false} hide={lastPane !== 'price'}
                 tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
               />
-              <YAxis
+              <YAxis orientation="right"
                 domain={[lo - pad, hi + pad]} width={64} tickLine={false} axisLine={false}
                 tickFormatter={(v) => f.number(v)} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
               />
-              <Tooltip content={() => null} cursor={{ stroke: 'var(--control-border)' }} />
+              <Tooltip content={() => null} cursor={CURSOR} />
               {candles
                 ? <Bar dataKey="range" shape={<Candle />} maxBarSize={14} isAnimationActive={false} />
                 : <Area type="linear" dataKey="value" stroke="var(--series-price)" strokeWidth={2} fill="url(#chartFill)" isAnimationActive={false} />}
@@ -349,6 +405,10 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
               {stopLevel != null && (
                 <ReferenceLine y={stopLevel} stroke="var(--negative)" strokeDasharray="5 4" ifOverflow="extendDomain"
                   label={{ value: 'Stop', position: 'insideBottomRight', fill: 'var(--negative)', fontSize: 12 }} />
+              )}
+              {measure && (
+                <ReferenceArea x1={measure.from} x2={measure.to} ifOverflow="visible" isFront fill={measureColor} fillOpacity={0.14} stroke={measureColor} strokeOpacity={0.7}
+                  label={<MeasureLabel text={measureText(measure)} color={measureColor} />} />
               )}
               {strategyResult?.signals.filter((s) => s.date >= first.date).map((s) => {
                 const point = data.find((d) => d.date === s.date);
@@ -364,12 +424,13 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
         {showVolume && (
           <div className="chart-pane chart-pane-volume" role="img"
             aria-label={`Volume de ${symbol}: ${last.volume == null ? 'sem dados' : `${f.quantity(last.volume)} acções na última sessão`}.`}>
+            <CrossHair />
             <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }} {...hoverProps}>
+              <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 0, bottom: 0, left: 8 }} {...hoverProps}>
                 <XAxis dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false} hide={lastPane !== 'volume'}
                   tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                <YAxis width={64} tickLine={false} axisLine={false} tickCount={3} tickFormatter={f.compact} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                <Tooltip content={() => null} cursor={{ stroke: 'var(--control-border)' }} />
+                <YAxis orientation="right" width={64} tickLine={false} axisLine={false} tickCount={3} tickFormatter={f.compact} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                <Tooltip content={() => null} cursor={CURSOR} />
                 <Bar dataKey="volume" isAnimationActive={false}>
                   {data.map((d) => <Cell key={d.date} fill={d.c >= d.o ? 'var(--heat-up)' : 'var(--heat-down)'} fillOpacity={0.45} />)}
                 </Bar>
@@ -394,15 +455,16 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null }
             </div>
             <div className="chart-pane-fill" role="img"
               aria-label={`Momento de ${symbol}: SMA10/SMA200 em ${pctLabel(last.wave)}, ${trendLabel(last.rising)}; SMA8/SMA125 em ${pctLabel(last.wave125)}.`}>
+              <CrossHair />
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 8, bottom: 0, left: 0 }} {...hoverProps}>
+                <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 0, bottom: 0, left: 8 }} {...hoverProps}>
                   <CartesianGrid stroke="var(--border)" vertical={false} />
                   <XAxis dataKey="date" tickFormatter={f.shortDate} minTickGap={48} tickLine={false} axisLine={false}
                     tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                  <YAxis width={64} tickLine={false} axisLine={false} ticks={momentumTicks}
+                  <YAxis orientation="right" width={64} tickLine={false} axisLine={false} ticks={momentumTicks}
                     domain={[momentumTicks[0], momentumTicks.at(-1)]} interval={0}
                     tickFormatter={(v) => `${f.number(v).replace(/,00$/, '')}%`} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
-                  <Tooltip content={() => null} cursor={{ stroke: 'var(--control-border)' }} />
+                  <Tooltip content={() => null} cursor={CURSOR} />
                   <Bar dataKey="wave" isAnimationActive={false}>
                     {data.map((d) => (
                       <Cell key={d.date} fill={d.rising ? 'var(--positive)' : 'var(--negative)'} fillOpacity={0.3} />

@@ -87,6 +87,47 @@ test('Carteira SAXO: valor, custo, gráfico da evolução e posições, sem a co
   await expect(page.getByText(/carteira virtual/i)).toHaveCount(0);
 });
 
+test('Charts: eixo dos valores à direita, cruz no cursor e medida ao arrastar (desaparece ao largar)', async () => {
+  await page.goto('/charts');
+  const price = page.locator('.chart-pane-price');
+  await expect(price).toBeVisible();
+  // Eixo à direita: os valores ficam na metade direita do painel.
+  const axis = price.locator('svg text').filter({ hasText: /^\d+,\d\d$/ }).first(); // um valor do eixo (ex.: «3,32»)
+  await expect(axis).toBeVisible();
+  const [t, box] = await Promise.all([axis.boundingBox(), price.boundingBox()]);
+  expect(t.x).toBeGreaterThan(box.x + box.width * 0.8);
+  // Cruz: cursor em cruz e linha horizontal que acompanha o rato.
+  expect(await price.evaluate((el) => getComputedStyle(el).cursor)).toBe('crosshair');
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width * 0.4, y);
+  const hline = price.locator('.chart-hline');
+  await expect(hline).toBeVisible();
+  // Medir: carregar, arrastar e largar.
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.6, y, { steps: 8 });
+  await expect(price.getByText(/\d+ sessões · \d+ dias · [+−]\d+,\d\d %/)).toBeVisible();
+  await page.screenshot({ path: process.env.E2E_SHOT_MEASURE || '/tmp/e2e-medida.png' });
+  await page.mouse.up();
+  await expect(price.getByText(/sessões · .* dias/)).toHaveCount(0);
+});
+
+test('Carteira SAXO: «Vender Tudo» abre o diálogo de emergência com as posições, antes de vender (aqui só se cancela)', async () => {
+  await page.goto('/saxo/carteira');
+  const sellAll = page.getByRole('button', { name: 'Vender Tudo' });
+  await expect(sellAll).toBeEnabled();
+  // Ao lado esquerdo de «Actualizar», no canto superior direito.
+  const [a, b] = await Promise.all([sellAll.boundingBox(), page.getByRole('button', { name: 'Actualizar' }).boundingBox()]);
+  expect(a.x + a.width).toBeLessThanOrEqual(b.x);
+  await sellAll.click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('Emergência');
+  await expect(dialog.getByRole('table', { name: 'Vendas a enviar' }).or(dialog.getByLabel('Vendas a enviar'))).toContainText('GALP.LS');
+  await expect(dialog.getByLabel(/Desligar também a Automação/)).toBeChecked();
+  await expect(dialog.getByRole('button', { name: /Vender tudo \(1 instrumento\)/ })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cancelar' }).click();
+  expect((await saxo()).positions.find((p) => p.uic === 23737).amount).toBeGreaterThan(0); // nada foi vendido
+});
+
 test('Charts: lista «Saxo» só com as posições; a ordem à SAXO é a acção principal e actualiza a carteira', async () => {
   await page.goto('/charts?fonte=saxo');
   const list = page.getByRole('list', { name: /Instrumentos \(Saxo/ });
@@ -291,8 +332,8 @@ test('Definições → Estratégias: desligar uma estratégia tira-a de todos os
     await menu.waitFor();
     return menu.locator('option').allInnerTexts();
   };
-  expect(await options('/backtest')).toEqual(['A-Momentum', 'C-AI', 'D-Reversão']);
-  expect(await options('/sinais')).toEqual(['A-Momentum', 'C-AI', 'D-Reversão']);
+  expect(await options('/backtest')).toEqual(['A-Momentum', 'C-AI', 'D-Reversão', 'E-Ondas']);
+  expect(await options('/sinais')).toEqual(['A-Momentum', 'C-AI', 'D-Reversão', 'E-Ondas']);
   await page.goto('/comparar');
   await expect(page.getByRole('link', { name: 'C-AI' }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'B-Opus' })).toHaveCount(0);
@@ -303,12 +344,12 @@ test('Definições → Estratégias: desligar uma estratégia tira-a de todos os
   await page.goto('/saxo/automacao');
   await expect(page.getByText('desligada nas Definições')).toBeVisible();
   await expect(page.getByLabel('Automação da estratégia B-Opus')).toBeDisabled();
-  // Tem de ficar pelo menos uma: com só a D-Reversão ligada, o interruptor dela fica bloqueado.
+  // Tem de ficar pelo menos uma: com só a E-Ondas ligada, o interruptor dela fica bloqueado.
   await page.goto('/definicoes');
-  for (const name of ['A-Momentum', 'C-AI']) await strategySwitch(name).evaluate((el) => el.click());
-  await expect(page.getByText('C-AI desligada')).toBeVisible();
-  await expect(strategySwitch('D-Reversão')).toBeDisabled();
-  for (const name of ['A-Momentum', 'B-Opus', 'C-AI']) await strategySwitch(name).evaluate((el) => el.click());
+  for (const name of ['A-Momentum', 'C-AI', 'D-Reversão']) await strategySwitch(name).evaluate((el) => el.click());
+  await expect(page.getByText('D-Reversão desligada')).toBeVisible();
+  await expect(strategySwitch('E-Ondas')).toBeDisabled();
+  for (const name of ['A-Momentum', 'B-Opus', 'C-AI', 'D-Reversão']) await strategySwitch(name).evaluate((el) => el.click());
   await expect(strategySwitch('B-Opus')).toBeChecked();
-  expect(await options('/backtest')).toEqual(['A-Momentum', 'B-Opus', 'C-AI', 'D-Reversão']);
+  expect(await options('/backtest')).toEqual(['A-Momentum', 'B-Opus', 'C-AI', 'D-Reversão', 'E-Ondas']);
 });

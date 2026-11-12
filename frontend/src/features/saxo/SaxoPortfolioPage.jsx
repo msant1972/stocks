@@ -6,6 +6,7 @@ import * as f from '../../lib/format.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { PnL } from '../../components/finance/finance.jsx';
 import { Button, Notice } from '../../components/ui/controls.jsx';
+import SaxoSellAllDialog from './SaxoSellAllDialog.jsx';
 import SaxoOrderDialog, { SIM_BANNER, useSaxoStatus } from './SaxoOrderDialog.jsx';
 
 const AccountHistoryChart = lazy(() => import('../../components/finance/AccountHistoryChart.jsx'));
@@ -18,6 +19,7 @@ export default function SaxoPortfolioPage() {
   const q = useQuery({ queryKey: ['saxo-portfolio'], queryFn: () => api.get('/saxo/portfolio'), enabled: ready, retry: false, refetchOnWindowFocus: false });
   const history = useQuery({ queryKey: ['saxo-portfolio', 'history'], queryFn: () => api.get('/saxo/portfolio/history'), staleTime: 5 * 60_000 });
   const [selling, setSelling] = useState(null); // { instrument, quantity }
+  const [sellingAll, setSellingAll] = useState(false);
   const d = q.data;
 
   return (
@@ -27,7 +29,15 @@ export default function SaxoPortfolioPage() {
           <h1 className="page-title">Carteira SAXO</h1>
           <p className="page-sub">A carteira da aplicação: saldo, evolução do valor e posições da conta de simulação da SAXO Bank.</p>
         </div>
-        {ready && <Button onClick={() => q.refetch()} busy={q.isFetching}>Actualizar</Button>}
+        {ready && (
+          <div className="row">
+            <Button variant="danger" className="button-danger-solid" onClick={() => setSellingAll(true)} disabled={!d?.positions?.length}
+              title={d?.positions?.length ? 'Emergência: vender a mercado todas as posições da conta SAXO' : 'A conta não tem posições'}>
+              Vender Tudo
+            </Button>
+            <Button onClick={() => q.refetch()} busy={q.isFetching}>Actualizar</Button>
+          </div>
+        )}
       </div>
       <div className="stack">
       <Notice tone="warning">{SIM_BANNER}</Notice>
@@ -136,6 +146,7 @@ export default function SaxoPortfolioPage() {
         </>
       ))}
       </div>
+      <SaxoSellAllDialog open={sellingAll} onClose={() => { setSellingAll(false); q.refetch(); }} positions={d?.positions} />
       <SaxoOrderDialog open={Boolean(selling)} onClose={() => { setSelling(null); q.refetch(); }} instrument={selling?.instrument} initialSide="sell" initialQuantity={selling?.quantity} />
     </>
   );

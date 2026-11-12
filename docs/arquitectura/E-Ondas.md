@@ -1,6 +1,6 @@
 # Estratégia E-Ondas
 
-> Especificação da estratégia E-Ondas para a aplicação Stocks (11 nov. 2026), **por implementar**. Nasceu de um desenho do
+> Especificação da estratégia E-Ondas para a aplicação Stocks (11 nov. 2026), **implementada a 12 nov. 2026** em `shared/strategies/e-ondas.js` (testes em `frontend/test/e-ondas.test.js`, com as cotações da A2A.MI em `frontend/test/fixtures/a2a-mi.json`: as mesmas 6 compras, 5 vendas e +3 212 € do protótipo). Nasceu de um desenho do
 > utilizador sobre o gráfico de 2 anos da A2A.MI (compras C nos fundos das correcções e vendas V nos topos): as regras
 > abaixo são a melhor aproximação, sem ver o futuro, a esses pontos. É uma estratégia **por instrumento**, como as
 > outras: cada instrumento é simulado isoladamente, com o mesmo orçamento por compra. Descrição metodológica para estudo
@@ -147,7 +147,7 @@ períodos) e a melhor no período de verificação, que não serviu para afinar 
 - Catálogo de hoje: as empresas que saíram da bolsa não entram nos testes.
 - Na Automação, como na A-Momentum, um sinal da sessão em curso usa o fecho provisório e pode desaparecer até ao fecho.
 
-## 9. Plano de implementação (próxima sessão)
+## 9. Plano de implementação (feito a 12 nov. 2026)
 
 1. `shared/strategies/e-ondas.js`: `DEFAULT_OPTIONS`, `resolveOptions`, `backtest(quotes, { from, ...options })` no formato
    comum (com `lots`, `proceeds`, `pnl`, `buyHold`, `firstDate`, `signals`), usando `prepare` de `b-opus.js` para a série

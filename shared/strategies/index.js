@@ -28,6 +28,7 @@ import * as aMomentum from './a-momentum.js';
 import * as bOpus from './b-opus.js';
 import * as cAi from './c-ai.js';
 import * as dReversao from './d-reversao.js';
+import * as eOndas from './e-ondas.js';
 
 /**
  * Anos de histórico com que os Sinais (e as regras de alerta de sinal) correm as estratégias. A A-Momentum reconstrói a
@@ -124,9 +125,33 @@ export const STRATEGIES = [
     reasonLabels: { rebound: 'ressalto', time: 'tempo' },
     run: (quotes, { from } = {}) => dReversao.backtest(quotes, { from }),
   },
+  {
+    id: 'e-ondas',
+    name: 'E-Ondas',
+    available: true,
+    budget: eOndas.DEFAULT_OPTIONS.budget,
+    execution: 'close',
+    summary: 'Compra o fim das correcções perto da SMA200 (+5 % sobre o fundo) e vende o fim das subidas (−4 % sobre o topo)',
+    rules: 'Em tendência de subida (SMA200 acima da de há 20 sessões), acompanha o fecho mais baixo desde a última venda e compra '
+      + `${eur(eOndas.DEFAULT_OPTIONS.budget)} ao fecho quando o fecho sobe ${eOndas.DEFAULT_OPTIONS.up * 100}% acima dele, se esse mínimo foi uma correcção `
+      + `(pelo menos ${eOndas.DEFAULT_OPTIONS.minDip * 100}% abaixo do máximo de ${eOndas.DEFAULT_OPTIONS.dipN} sessões) que chegou perto da SMA200 (no máximo `
+      + `${eOndas.DEFAULT_OPTIONS.near200 * 100}% acima dela); se o fundo não cumpre, esquece-o e recomeça. Com posição, acompanha o fecho mais alto desde a compra e vende tudo ao fecho quando o fecho cai `
+      + `${eOndas.DEFAULT_OPTIONS.down * 100}% abaixo dele, depois de o máximo ter chegado a ${eOndas.DEFAULT_OPTIONS.minGain * 100}% sobre a compra. Sem stop nem reforços; uma posição de cada vez, `
+      + 'sem comissões; indicadores sobre preços ajustados, execução ao fecho real da sessão do sinal.',
+    windowYears: 2,
+    warmupYears: 1,
+    reasonLabels: { reversal: 'inversão' },
+    run: (quotes, { from } = {}) => eOndas.backtest(quotes, { from }),
+  },
 ];
 
 export const DEFAULT_STRATEGY_ID = 'a-momentum';
+
+/**
+ * As estratégias de sempre das análises que dependem de um conjunto fixo (validação das Promessas, «ganhador nas estratégias»,
+ * persistência dos ganhadores): uma estratégia nova não passa a contar nelas sem se refazerem essas análises.
+ */
+export const ANALYSIS_STRATEGIES = ['a-momentum', 'b-opus', 'c-ai', 'd-reversao'].map((id) => STRATEGIES.find((s) => s.id === id));
 export const AVAILABLE_STRATEGIES = STRATEGIES.filter((s) => s.available);
 
 /** Estratégia disponível com este id, ou null (inexistente ou ainda em preparação). */

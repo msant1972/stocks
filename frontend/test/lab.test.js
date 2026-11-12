@@ -114,3 +114,36 @@ test('cópias de segurança: tamanhos e aviso de cópia desactualizada', async (
   assert.equal(staleBackupWarning([{ createdAt: '2026-11-12T03:30:00.000Z' }], now), null);
   assert.match(staleBackupWarning([{ createdAt: '2026-11-10T03:30:00.000Z' }], now), /56 horas/);
 });
+
+test('Vender Tudo: soma as posições do mesmo instrumento, ignora as sem correspondência, maiores primeiro; compras abertas a cancelar', async () => {
+  const { openBuyOrders, sellAllPlan } = await import('../src/lib/saxo.js');
+  const plan = sellAllPlan([
+    { positionId: 1, instrumentId: 10, symbol: 'GALP.LS', quantity: 100, marketValue: 1900, currency: 'EUR' },
+    { positionId: 2, instrumentId: 10, symbol: 'GALP.LS', quantity: 50, marketValue: 950, currency: 'EUR' },
+    { positionId: 3, instrumentId: 11, symbol: 'BCP.LS', quantity: 5000, marketValue: 4000, currency: 'EUR' },
+    { positionId: 4, instrumentId: null, symbol: 'XYZ:xnas', quantity: 3 },
+    { positionId: 5, instrumentId: 12, symbol: 'VAZIA.LS', quantity: 0 },
+  ]);
+  assert.deepEqual(plan.orders.map((o) => [o.symbol, o.quantity]), [['BCP.LS', 5000], ['GALP.LS', 150]]);
+  assert.deepEqual(plan.skipped, ['XYZ:xnas']);
+  assert.deepEqual(sellAllPlan(undefined), { orders: [], skipped: [] });
+  const open = openBuyOrders([{ id: 1, side: 'buy', status: 'working' }, { id: 2, side: 'sell', status: 'working' }, { id: 3, side: 'buy', status: 'filled' }]);
+  assert.deepEqual(open.map((o) => o.id), [1]);
+});
+
+test('medir no gráfico: sessões, dias de calendário e variação %, nos dois sentidos', async () => {
+  const { daysBetween, measureRange, measureText } = await import('../src/lib/chartMeasure.js');
+  const data = [
+    { date: '2026-10-30', value: 10 }, { date: '2026-11-02', value: 10.5 }, { date: '2026-11-03', value: 11 }, { date: '2026-11-04', value: 9 },
+  ];
+  assert.equal(daysBetween('2026-10-30', '2026-11-03'), 4);
+  const up = measureRange(data, '2026-10-30', '2026-11-03');
+  assert.deepEqual([up.sessions, up.days, up.pct, up.direction], [3, 4, 10, 'forward']);
+  assert.equal(measureText(up).replace(/\s/g, ' '), '3 sessões · 4 dias · +10,00 %');
+  const back = measureRange(data, '2026-11-04', '2026-10-30'); // arrastar para a esquerda: do fim para o início
+  assert.deepEqual([back.sessions, back.days, Math.round(back.pct * 10) / 10, back.direction], [4, -5, 11.1, 'backward']);
+  assert.equal(measureText(measureRange(data, '2026-11-03', '2026-11-04')).replace(/\s/g, ' '), '2 sessões · 1 dia · −18,18 %');
+  assert.equal(measureText(measureRange(data, '2026-11-02', '2026-11-02')).replace(/\s/g, ' '), '1 sessão · 0 dias · +0,00 %');
+  assert.equal(measureRange(data, '2026-11-02', 'x'), null);
+  assert.equal(measureRange(data, null, '2026-11-02'), null);
+});

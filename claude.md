@@ -29,9 +29,9 @@ A carteira é a **conta de simulação (SIM) da SAXO Bank**: as ordens vão para
 Módulos da interface, por grupo do menu:
 
 - Visão geral
-- **Mercado:** Acompanhar, Charts, Orderbook, HeatMap, Timelapse, Alertas
+- **Mercado:** Acompanhar, Charts, Orderbook, HeatMap, Calor, Timelapse, Alertas
 - **SAXO:** Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação
-- **Estratégias:** Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Pechinchas, Calor, Laboratório (registo das experiências)
+- **Estratégias:** Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Pechinchas, Laboratório (registo das experiências)
 - **Administração:** Utilizadores (administradores), Definições (com os cartões Estratégias, Cópias de segurança e Correspondência SAXO, para administradores)
 
 Todas as páginas usam a largura toda do ecrã (ver o [guia de estilos](docs/arquitectura/guia_estilos.md), secção 4).

@@ -156,3 +156,25 @@ export function heldBySaxo(positions = []) {
   for (const p of positions) if (p.instrumentId != null) held.set(p.instrumentId, (held.get(p.instrumentId) ?? 0) + Number(p.quantity));
   return held;
 }
+
+/**
+ * «Vender Tudo» (emergência): uma ordem de venda a mercado por instrumento, com a soma das posições abertas desse instrumento
+ * (a SAXO pode ter várias posições do mesmo). As posições de instrumentos que a aplicação não conhece não se vendem aqui:
+ * aparecem em `skipped` (venda na plataforma da SAXO). Ordem por valor de mercado, as maiores primeiro.
+ */
+export function sellAllPlan(positions = []) {
+  const byId = new Map();
+  const skipped = [];
+  for (const p of positions) {
+    if (!(Number(p.quantity) > 0)) continue;
+    if (p.instrumentId == null) { skipped.push(p.symbol ?? '?'); continue; }
+    const cur = byId.get(p.instrumentId) ?? { instrumentId: p.instrumentId, symbol: p.symbol, name: p.name ?? null, currency: p.currency, quantity: 0, marketValue: 0 };
+    cur.quantity += Number(p.quantity);
+    cur.marketValue += Number(p.marketValue ?? 0);
+    byId.set(p.instrumentId, cur);
+  }
+  return { orders: [...byId.values()].sort((a, b) => b.marketValue - a.marketValue || a.symbol.localeCompare(b.symbol)), skipped };
+}
+
+/** Ordens de compra ainda abertas (a cancelar antes de vender tudo, para não voltarem a comprar). */
+export const openBuyOrders = (orders = []) => orders.filter((o) => o.side === 'buy' && o.status === 'working');

@@ -144,11 +144,13 @@ Prazo: o plano previa 10 a 12 semanas para uma equipa de 4 papéis. A execução
 | US49 | Estratégias → Calor: valor negociado diário do catálogo (2 anos) com SMA200 | — | Feito |
 | US50 | Calor: histograma «Valor mensal negociado» com os meses mais quentes a cores | — | Feito |
 | US51 | Calor: gráfico «Capitalização Mercado» (soma de fecho × número de acções) com SMA200 | — | Feito |
+| US72 | Charts: eixo dos valores à direita, cursor em cruz e medida (sessões, dias e %) ao arrastar; Calor passa para o grupo Mercado, por baixo do HeatMap | — | Feito |
+| US71 | Carteira SAXO: botão «Vender Tudo» (emergência: vende a mercado todas as posições; desliga a Automação e cancela as compras abertas) | — | Feito |
 | US69 | Definições → Estratégias: ligar e desligar estratégias, com efeito em Acompanhar, Sinais, BackTest, Comparar, WinnersLoosers, Charts, Visão geral e Automação | — | Feito |
 | US68 | Definições: cartão «Cópias de segurança» (listar, criar e descarregar; restauro manual) e Correspondência SAXO passa de módulo a cartão (menu Administração só com Utilizadores e Definições) | — | Feito |
 | US67 | Pechinchas: botão por linha para adicionar ou remover o instrumento da minha lista | — | Feito |
 | US66 | WinnersLoosers: cartão «Resultados mistos» e remoção em bloco da minha lista nos perdedores e nos mistos; Sinais só nos instrumentos da minha lista | — | Feito |
-| US65 | Estratégia E-Ondas (correcções numa tendência de subida, inversão confirmada), a partir do desenho do utilizador na A2A.MI; especificação em [E-Ondas.md](E-Ondas.md) | — | Por implementar |
+| US65 | Estratégia E-Ondas (correcções numa tendência de subida, inversão confirmada), a partir do desenho do utilizador na A2A.MI; especificação em [E-Ondas.md](E-Ondas.md) | — | Feito |
 | US64 | Laboratório (registo das experiências), Automação face ao BackTest e BackTest/Comparar com custos SAXO e período de verificação; histórico de 5 anos | — | Feito |
 | US63 | Revisão de segurança do backend (BD, motores e API): limites de tentativas por conta no login e no 2.º factor, correspondência SAXO protegida, Automação sem vender a mais, SMTP sem palavra-passe às claras, documentação da API só com sessão, limpeza de sessões e registos sem o código OAuth | — | Feito |
 | US62 | Interface revista: todas as páginas com a largura toda do ecrã (como o Charts), menu e cartões compactos, cartões lado a lado em ecrãs largos, gráficos à altura da janela; Timelapse: duplo clique abre o instrumento no Charts | — | Feito |

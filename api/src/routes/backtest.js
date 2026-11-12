@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { AVAILABLE_STRATEGIES, getStrategy, STRATEGIES } from '../../../shared/strategies/index.js';
+import { ANALYSIS_STRATEGIES, AVAILABLE_STRATEGIES, getStrategy, STRATEGIES } from '../../../shared/strategies/index.js';
 import { ErrorBody, IsoDate } from '../schemas.js';
 import { computeStrategiesParallel } from '../services/strategyRuns.js';
 import { assertEnabled, defaultStrategyId, enabledStrategies, setStrategyEnabled } from '../services/strategySettings.js';
@@ -333,7 +333,7 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       list.push({ instrumentId: Number(inst.id), symbol: inst.symbol, name: inst.name, exchange: inst.exchange, features: promessas.features(quotes.reverse()) });
     }
     const ranked = promessas.rank(list);
-    const [wlA, ...wlRest] = await ensure(AVAILABLE_STRATEGIES);
+    const [wlA, ...wlRest] = await ensure(ANALYSIS_STRATEGIES); // o conjunto fixo das Promessas (não as ligadas nas Definições)
     const winners = new Set(wlA.items.filter((it) => it.total > 0 && wlRest.every((e) => (e.items.find((x) => x.instrumentId === it.instrumentId)?.total ?? 0) > 0)).map((it) => it.instrumentId));
     const items = ranked.filter((r) => r.eligible).map((r) => ({
       instrumentId: r.instrumentId, symbol: r.symbol, name: r.name, exchange: r.exchange, rank: r.rank, score: r.score,
