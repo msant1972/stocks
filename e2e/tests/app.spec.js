@@ -476,6 +476,14 @@ test('Definições → Logotipos: Client ID da Brandfetch (CDN simulado)', async
   await expect(card.getByText('Configurado')).toBeVisible();
   await expect(card.getByRole('img', { name: /Logotipo de exemplo/ })).toHaveJSProperty('complete', true);
   expect(referers.at(-1)).toMatch(/^http:\/\/[^/]+\/$/); // só a origem
+  // Interruptor global: desligado, o Charts não mostra o logotipo; ligado, volta.
+  const sw = card.getByRole('switch', { name: 'Mostrar logotipos' });
+  await expect(sw).toBeChecked();
+  await sw.evaluate((el) => el.click());
+  await expect(page.getByText('Logotipos desligados')).toBeVisible();
+  await expect(card.getByText('Desligados')).toBeVisible();
+  await sw.evaluate((el) => el.click());
+  await expect(page.getByText('Logotipos ligados')).toBeVisible();
   await card.getByRole('button', { name: 'Apagar' }).click();
   await expect(card.getByText('Sem Client ID: sem logotipos')).toBeVisible();
   await page.unroute('https://cdn.brandfetch.io/**');

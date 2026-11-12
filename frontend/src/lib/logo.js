@@ -20,3 +20,6 @@ export function logoUrl(domain, clientId, size = 64) {
   const px = Math.min(2048, Math.max(16, Math.round(size * 2)));
   return `${LOGO_CDN}/domain/${encodeURIComponent(domain)}/w/${px}/h/${px}/fallback/404/type/icon?c=${encodeURIComponent(clientId)}`;
 }
+
+/** Client ID a usar: null quando os logotipos estão desligados (interruptor global) ou sem configuração. */
+export const activeClientId = (cfg) => (cfg?.enabled === false ? null : cfg?.clientId ?? null);

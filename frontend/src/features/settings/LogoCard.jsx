@@ -5,7 +5,7 @@ import * as f from '../../lib/format.js';
 import { useLogoConfig } from '../../lib/queries.js';
 import { logoUrl } from '../../lib/logo.js';
 import { useToast } from '../../components/feedback/Toast.jsx';
-import { Button, Field, Notice } from '../../components/ui/controls.jsx';
+import { Button, Field, Notice, Switch } from '../../components/ui/controls.jsx';
 
 const SAMPLE = 'asml.com';
 // As chaves da Brand API (secretas) são longas; o Client ID da Logo API é curto.
@@ -23,11 +23,16 @@ export default function LogoCard() {
   const [previewFailed, setPreviewFailed] = useState(false);
   const done = (msg) => (data) => { qc.setQueryData(['logos-config'], data); setValue(''); setPreviewFailed(false); toast(msg); };
   const save = useMutation({ mutationFn: (clientId) => api.put('/admin/logos', { clientId }), onSuccess: done('Client ID da Brandfetch guardado') });
+  const toggle = useMutation({
+    mutationFn: (enabled) => api.put('/admin/logos/enabled', { enabled }),
+    onSuccess: (data) => { qc.setQueryData(['logos-config'], data); toast(data.enabled ? 'Logotipos ligados' : 'Logotipos desligados'); },
+  });
   const remove = useMutation({ mutationFn: () => api.del('/admin/logos'), onSuccess: done('Client ID da Brandfetch apagado') });
   const current = cfg.data?.clientId;
   const v = value.trim();
   const secret = looksLikeSecret(v);
-  const error = save.error ?? remove.error;
+  const error = save.error ?? remove.error ?? toggle.error;
+  const enabled = cfg.data?.enabled !== false;
   const sample = logoUrl(SAMPLE, current, 32);
 
   return (
@@ -39,10 +44,17 @@ export default function LogoCard() {
         (cdn.brandfetch.io), com o domínio da empresa; as imagens não são guardadas na aplicação, como a Brandfetch exige.
       </p>
       {cfg.data && (
+        <div className="row" style={{ gap: '0.5rem', marginBottom: '0.5rem' }}>
+          <Switch label="Mostrar logotipos" checked={enabled} disabled={toggle.isPending} onChange={(v) => toggle.mutate(v)} />
+          <span aria-hidden="true">Mostrar logotipos em todas as páginas</span>
+        </div>
+      )}
+      {cfg.data && (
         <p className="row small" style={{ gap: 8 }}>
           {current
             ? <>
                 <span className="badge badge-positive">Configurado</span>
+                {!enabled && <span className="badge badge-warning">Desligados</span>}
                 {sample && !previewFailed && <img className="instrument-logo" src={sample} alt="Logotipo de exemplo (ASML)" width={32} height={32}
                   referrerPolicy="strict-origin-when-cross-origin" onError={() => setPreviewFailed(true)} />}
                 {previewFailed && <span className="badge badge-warning" title="Confirme o Client ID e o domínio autorizado no portal da Brandfetch">Exemplo não carregou</span>}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { domainOf, logoUrl } from '../src/lib/logo.js';
+import { activeClientId, domainOf, logoUrl } from '../src/lib/logo.js';
 
 test('domínio a partir do site', () => {
   assert.equal(domainOf('https://www.asml.com'), 'asml.com');
@@ -20,4 +20,11 @@ test('endereço do ícone: domínio, tamanho duplo e 404 sem logotipo', () => {
   assert.equal(logoUrl('asml.com', null), null);
   assert.equal(logoUrl(null, 'abc123XYZ'), null);
   assert.match(logoUrl('a.com', 'k', 4), /\/w\/16\/h\/16\//);
+});
+
+test('interruptor global: desligado não há Client ID', () => {
+  assert.equal(activeClientId({ clientId: 'k1', enabled: true }), 'k1');
+  assert.equal(activeClientId({ clientId: 'k1', enabled: false }), null);
+  assert.equal(activeClientId({ clientId: null, enabled: true }), null);
+  assert.equal(activeClientId(undefined), null);
 });

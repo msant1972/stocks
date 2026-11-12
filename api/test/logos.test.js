@@ -23,7 +23,17 @@ describe.skipIf(!hasTestDb)('logotipos (Brandfetch)', () => {
   afterAll(async () => { await ctx.app.close(); await ctx.pool.end(); });
 
   it('sem chave: clientId nulo', async () => {
-    expect((await ana.get('/logos/config')).json()).toMatchObject({ provider: 'brandfetch', clientId: null });
+    expect((await ana.get('/logos/config')).json()).toMatchObject({ provider: 'brandfetch', clientId: null, enabled: true });
+  });
+
+  it('interruptor global: só administradores; a chave mantém-se', async () => {
+    expect((await ana.put('/admin/logos/enabled', { enabled: false })).statusCode).toBe(403);
+    await admin.put('/admin/logos', { clientId: 'abcdefgh12' });
+    expect((await admin.put('/admin/logos/enabled', { enabled: false })).json()).toMatchObject({ enabled: false, clientId: 'abcdefgh12' });
+    expect((await ana.get('/logos/config')).json().enabled).toBe(false);
+    expect((await admin.put('/admin/logos/enabled', { enabled: true })).json().enabled).toBe(true);
+    await admin.del('/admin/logos');
+    await ctx.pool.query("DELETE FROM audit_log WHERE action LIKE 'admin.logos%'");
   });
 
   it('só administradores guardam e apagam; todos lêem', async () => {

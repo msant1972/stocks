@@ -312,6 +312,7 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       params: z.object({ id: Id }),
       response: {
         200: InstrumentSummary.extend({
+          website: z.string().nullable().describe('Site da empresa (Yahoo), para o logotipo'),
           sessions: z.number(),
           fetch: z.object({
             status: z.enum(['queued', 'running', 'done', 'failed']), kind: z.enum(['initial', 'incremental']),
@@ -330,8 +331,10 @@ export default async function instrumentRoutes(app, { pool, cfg }) {
       [r.id],
     );
     const quotes = await latestQuotes(pool, [r.id]);
+    const [[prof]] = await pool.query('SELECT website FROM company_profiles WHERE instrument_id = ?', [r.id]);
     return {
       ...mapInstrument(r, quotes),
+      website: prof?.website && /^https?:\/\//.test(prof.website) ? prof.website : null,
       sessions: Number(sessions),
       fetch: job ? { status: job.status, kind: job.kind, lastError: job.last_error, finishedAt: job.finished_at?.toISOString() ?? null } : null,
     };

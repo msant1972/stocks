@@ -7,7 +7,7 @@ import * as f from '../../lib/format.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Field, Segmented } from '../../components/ui/controls.jsx';
 import { changeTone, toneLegend } from '../../lib/timelapse.js';
-import { domainOf, logoUrl } from '../../lib/logo.js';
+import { activeClientId, domainOf, logoUrl } from '../../lib/logo.js';
 import { useLogoConfig } from '../../lib/queries.js';
 
 // Só os instrumentos com maior valor negociado (preço × volume) no período.
@@ -169,7 +169,7 @@ export default function HeatmapPage() {
             style={{ opacity: q.isFetching ? 0.6 : 1 }}>
             <ResponsiveContainer width="100%" height="100%">
               <Treemap data={data} dataKey="size" nameKey="symbol" aspectRatio={4 / 3} isAnimationActive={false}
-                content={<Tile window={n} clientId={logos.data?.clientId} />} onClick={(node) => node?.instrumentId && navigate(`/instrumentos/${node.instrumentId}`)}>
+                content={<Tile window={n} clientId={activeClientId(logos.data)} />} onClick={(node) => node?.instrumentId && navigate(`/instrumentos/${node.instrumentId}`)}>
                 <Tooltip content={<TileTooltip period={n} />} />
               </Treemap>
             </ResponsiveContainer>

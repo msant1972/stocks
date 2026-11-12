@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLogoConfig } from '../../lib/queries.js';
-import { domainOf, logoUrl } from '../../lib/logo.js';
+import { activeClientId, domainOf, logoUrl } from '../../lib/logo.js';
 
 /**
  * Logotipo do instrumento (Brandfetch), a partir do site da empresa. Sem chave configurada, sem site ou sem logotipo na
@@ -8,7 +8,7 @@ import { domainOf, logoUrl } from '../../lib/logo.js';
  */
 export default function InstrumentLogo({ website, size = 40, className = '' }) {
   const { data } = useLogoConfig();
-  const url = logoUrl(domainOf(website), data?.clientId, size);
+  const url = logoUrl(domainOf(website), activeClientId(data), size);
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [url]);
   if (!url || failed) return null;

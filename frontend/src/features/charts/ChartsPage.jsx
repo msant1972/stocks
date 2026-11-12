@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import InstrumentLogo from '../../components/ui/InstrumentLogo.jsx';
 import { Link, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
@@ -225,6 +226,7 @@ export default function ChartsPage() {
         <div className="spread charts-head">
           <div style={{ minWidth: 0 }}>
             <div className="row" style={{ gap: '0.75rem', alignItems: 'baseline' }}>
+              <InstrumentLogo website={current.website} size={32} className="charts-logo" />
               <h1 id="chart-symbol" className="card-title" style={{ fontSize: '1.5rem' }}>{current.symbol}</h1>
               {current.latest && <span className="financial-value" style={{ fontSize: '1.25rem', fontWeight: 600 }}>{f.price(current.latest.close, current.currency)}</span>}
               {current.latest && <PriceChange value={current.latest.changePct} />}
