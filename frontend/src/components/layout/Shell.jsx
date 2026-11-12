@@ -160,10 +160,6 @@ export default function Shell() {
         ))}
         <div className="sidebar-foot small muted">
           <UserBadge user={data?.user} onLogout={logout} />
-          <p>Simulação · sem dinheiro real</p>
-          <button type="button" className="button button-ghost button-small" onClick={logout} style={{ marginTop: 8, paddingLeft: 0 }}>
-            <Icon name="logout" size={18} />Terminar sessão
-          </button>
           <p style={{ marginTop: 8 }}><DataStatus /></p>
         </div>
       </nav>
