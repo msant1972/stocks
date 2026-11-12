@@ -278,10 +278,10 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 ### 5.9. HeatMap
 
 - Mapa de calor (treemap) dos 20 instrumentos com maior valor negociado no período, do catálogo ou da lista do utilizador.
-- Tamanho de cada quadrado: valor negociado (preço × volume); cor: verde acima de +1%, cinzento entre −1% e +1%, vermelho abaixo de −1%.
+- Tamanho de cada quadrado: valor negociado (preço × volume); cor pela variação, como no Timelapse (desde 12 nov. 2026): 3 intensidades de verde e de vermelho (`--div-up-1…3`, `--div-down-1…3`) e cinzento `--div-flat` para «quase não mexeu»; a faixa cinzenta depende do período (±1 % em 1 sessão, ±2 % em 5, ±3 % em 10, ±4 % em 20; `FLAT_BAND` em `lib/timelapse.js`) e as intensidades vão até 2×, até 4× e acima dela. O texto do quadrado usa `--div-ink-1…3/flat` (escuro nos tons claros, branco nos escuros, nos dois temas).
 - Cada quadrado mostra o símbolo e a variação; o texto encolhe ou desaparece nos quadrados pequenos. Tooltip com nome, variação, valor negociado, último fecho e datas; clique abre o instrumento.
 - Período em menu (1 dia, 5 dias por omissão, 10 dias, 20 dias) e filtro «Todos / A minha lista», guardados no URL.
-- Legenda com contagens por cor, texto «Top 20 de N instrumentos» e vista em tabela.
+- Legenda dos 7 tons com limites em % e contagens, texto «Top 20 de N instrumentos» e vista em tabela.
 
 ### 5.10. Orderbook
 

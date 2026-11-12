@@ -59,7 +59,7 @@ export function biggestMoves(frames = []) {
  * Faixa «quase não mexeu» da variação do preço, por número de sessões somadas: mexer 2 % numa sessão é muito, em 10 é
  * pouco. Fora dela, 3 intensidades: até 2×, até 4× e acima.
  */
-export const FLAT_BAND = { 1: 0.01, 5: 0.02, 10: 0.03 };
+export const FLAT_BAND = { 1: 0.01, 5: 0.02, 10: 0.03, 20: 0.04 };
 
 /** Tom da barra pela variação do preço: 'up-1..3', 'down-1..3', 'flat', ou null sem variação conhecida. */
 export function changeTone(change, window = 5) {

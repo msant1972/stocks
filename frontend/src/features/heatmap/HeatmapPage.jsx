@@ -6,6 +6,7 @@ import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { Button, Field, Segmented } from '../../components/ui/controls.jsx';
+import { changeTone, toneLegend } from '../../lib/timelapse.js';
 
 // Só os instrumentos com maior valor negociado (preço × volume) no período.
 const TOP = 20;
@@ -17,13 +18,10 @@ const PERIODS = [
   { value: '20', label: '20 dias' },
 ];
 
-// Classes de cor: subida > +1%, descida < −1%, neutro entre os dois.
-const CLASSES = {
-  up: { label: 'Subida superior a 1%', color: 'var(--heat-up)' },
-  flat: { label: 'Entre −1% e +1%', color: 'var(--heat-flat)' },
-  down: { label: 'Descida superior a 1%', color: 'var(--heat-down)' },
-};
-const classOf = (pct) => (pct > 1 ? 'up' : pct < -1 ? 'down' : 'flat');
+// Cores pela variação, como no Timelapse: faixa «quase não mexeu» que depende do período e 3 intensidades por lado.
+const toneOf = (pct, window) => changeTone(Number(pct) / 100, window) ?? 'flat';
+const inkOf = (tone) => `var(--div-ink-${tone === 'flat' ? 'flat' : tone.slice(-1)})`;
+const groupOf = (tone) => (tone.startsWith('up') ? 'up' : tone.startsWith('down') ? 'down' : 'flat');
 
 const one = new Intl.NumberFormat('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 /** Valor negociado abreviado: «5,0 mil M€», «850,3 M€», «12 345 €». */
@@ -36,17 +34,17 @@ function tradedEur(value) {
 const shortSymbol = (s) => s.replace(/\.[A-Z]{1,3}$/, '');
 
 function Tile(props) {
-  const { depth, x, y, width, height, symbol, changePct } = props;
+  const { depth, x, y, width, height, symbol, changePct, window } = props;
   if (depth !== 1 || width <= 0 || height <= 0) return null;
-  const pct = Number(changePct);
+  const tone = toneOf(changePct, window);
   const size = Math.max(9, Math.min(width / 5.5, height / 3.2, 26));
   const showText = width >= 34 && height >= 22;
   const showPct = height >= size * 2.4;
   return (
     <g style={{ cursor: 'pointer' }}>
-      <rect x={x} y={y} width={width} height={height} fill={CLASSES[classOf(pct)].color} stroke="var(--surface)" strokeWidth={2} />
+      <rect x={x} y={y} width={width} height={height} fill={`var(--div-${tone})`} stroke="var(--surface)" strokeWidth={2} />
       {showText && (
-        <text x={x + width / 2} y={y + height / 2} textAnchor="middle" fill="#fff" style={{ fontVariantNumeric: 'tabular-nums' }}>
+        <text x={x + width / 2} y={y + height / 2} textAnchor="middle" fill={inkOf(tone)} style={{ fontVariantNumeric: 'tabular-nums' }}>
           <tspan x={x + width / 2} dy={showPct ? -size * 0.2 : size * 0.35} fontSize={size} fontWeight={600}>{shortSymbol(symbol)}</tspan>
           {showPct && <tspan x={x + width / 2} dy={size * 1.15} fontSize={size * 0.8}>{f.pct(changePct)}</tspan>}
         </text>
@@ -95,8 +93,8 @@ export default function HeatmapPage() {
   // O Treemap reescreve «name» com o nameKey; o nome do instrumento segue noutro campo.
   const data = items.map((i) => ({ ...i, instrumentName: i.name, size: Number(i.tradedValue) }));
   const first = items.reduce((m, i) => (!m || i.fromDate < m ? i.fromDate : m), null);
-  const counts = items.reduce((c, i) => ({ ...c, [classOf(Number(i.changePct))]: (c[classOf(Number(i.changePct))] ?? 0) + 1 }), {});
   const n = Number(period);
+  const counts = items.reduce((c, i) => { const t = toneOf(i.changePct, n); return { ...c, [t]: (c[t] ?? 0) + 1, [groupOf(t)]: (c[groupOf(t)] ?? 0) + 1 }; }, {});
 
   return (
     <>
@@ -123,10 +121,10 @@ export default function HeatmapPage() {
       <section className="card" aria-labelledby="hm-title">
         <h2 id="hm-title" className="visually-hidden">Mapa de calor</h2>
         <div className="legend-chips" style={{ marginBottom: '0.75rem' }}>
-          {Object.entries(CLASSES).map(([k, c]) => (
-            <span key={k} className="legend-chip static">
-              <span className="swatch" style={{ background: c.color, width: 14, height: 14, borderRadius: 3 }} />
-              {c.label}{q.data && <span className="muted"> ({counts[k] ?? 0})</span>}
+          {toneLegend(n).map((x) => (
+            <span key={x.tone} className="legend-chip static">
+              <span className="swatch" style={{ background: `var(--div-${x.tone})`, width: 14, height: 14, borderRadius: 3 }} />
+              {x.label}{q.data && <span className="muted"> ({counts[x.tone] ?? 0})</span>}
             </span>
           ))}
         </div>
@@ -134,7 +132,7 @@ export default function HeatmapPage() {
           {q.data && <><strong style={{ color: 'var(--text)' }}>Top {items.length} de {q.data.total} instrumentos</strong> por valor negociado. </>}
           Tamanho de cada quadrado: valor negociado (preço × volume) nas últimas {n === 1 ? 'sessão' : `${n} sessões`}
           {first && q.data?.latestSession && <> ({f.date(first)} a {f.date(q.data.latestSession)})</>}.
-          A variação compara o último fecho ajustado com o de {n === 1 ? 'uma sessão' : `${n} sessões`} antes. Clique num quadrado para ver o instrumento.
+          A cor segue a variação (verdes sobem, vermelhos descem, cinzento quase não mexe; três intensidades por lado). A variação compara o último fecho ajustado com o de {n === 1 ? 'uma sessão' : `${n} sessões`} antes. Clique num quadrado para ver o instrumento.
         </p>
 
         {q.isPending ? <Loading rows={8} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : items.length === 0 ? (
@@ -144,11 +142,11 @@ export default function HeatmapPage() {
           </EmptyState>
         ) : (
           <div className="heatmap-box" role="img"
-            aria-label={`Mapa de calor dos ${items.length} instrumentos com maior valor negociado: ${counts.up ?? 0} a subir mais de 1%, ${counts.flat ?? 0} entre −1% e +1%, ${counts.down ?? 0} a descer mais de 1%. Ver tabela para os valores.`}
+            aria-label={`Mapa de calor dos ${items.length} instrumentos com maior valor negociado: ${counts.up ?? 0} a subir, ${counts.flat ?? 0} quase sem variação e ${counts.down ?? 0} a descer. Ver tabela para os valores.`}
             style={{ opacity: q.isFetching ? 0.6 : 1 }}>
             <ResponsiveContainer width="100%" height="100%">
               <Treemap data={data} dataKey="size" nameKey="symbol" aspectRatio={4 / 3} isAnimationActive={false}
-                content={<Tile />} onClick={(node) => node?.instrumentId && navigate(`/instrumentos/${node.instrumentId}`)}>
+                content={<Tile window={n} />} onClick={(node) => node?.instrumentId && navigate(`/instrumentos/${node.instrumentId}`)}>
                 <Tooltip content={<TileTooltip period={n} />} />
               </Treemap>
             </ResponsiveContainer>
