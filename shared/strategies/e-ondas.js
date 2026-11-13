@@ -2,24 +2,24 @@
  * E-Ondas — comprar o fim das correcções e vender o fim das subidas, por instrumento (docs/arquitectura/E-Ondas.md).
  *
  * Numa acção em tendência de subida (SMA200 a subir), acompanha o fecho mais baixo desde a última venda e compra quando o
- * fecho sobe UP (5 %) acima dele, se esse mínimo foi uma correcção (≥ MIN_DIP, 3 %, abaixo do máximo de 20 sessões) que
+ * fecho sobe UP (3 %) acima dele, se esse mínimo foi uma correcção (≥ MIN_DIP, 3 %, abaixo do máximo de 20 sessões) que
  * chegou perto da SMA200 (no máximo NEAR_200, 3 %, acima dela). Com posição, acompanha o fecho mais alto desde a compra e
- * vende tudo quando o fecho cai DOWN (4 %) abaixo dele, depois de o máximo ter chegado a MIN_GAIN (4 %) sobre a compra.
+ * vende tudo quando o fecho cai DOWN (6 %) abaixo dele, depois de o máximo ter chegado a MIN_GAIN (4 %) sobre a compra.
  * Limite de tempo (13 nov. 2026): se ao fim de MAX_HOLD (120) sessões o máximo ainda não chegou a MIN_GAIN, vende (a onda não
  * aconteceu), para as posições perdedoras não ficarem abertas sem prazo.
  * Sem reforços nem stop; 15 000 € por compra; sem comissões (os custos estimados são calculados à parte, shared/costs.js).
  *
  * Decide sobre o fecho ajustado (série de prepare, de b-opus.js) e executa ao fecho REAL da mesma sessão, como a A-Momentum.
  * Sem lookahead: a decisão no fecho de t usa só dados até t. Um fundo ou topo só se reconhece depois de o preço se afastar
- * dele: compra-se cerca de 5 % acima do fundo e vende-se cerca de 4 % abaixo do topo.
+ * dele: compra-se cerca de 3 % acima do fundo e vende-se cerca de 6 % abaixo do topo (eram 5 % e 4 % até 13 nov. 2026).
  */
 import { rollingMean } from '../momentum.js';
 import { prepare } from './b-opus.js';
 
 export const DEFAULT_OPTIONS = {
   budget: 15000,
-  up: 0.05,        // subida desde o mínimo que confirma o fundo
-  down: 0.04,      // queda desde o máximo que confirma o topo
+  up: 0.03,        // subida desde o mínimo que confirma o fundo (0,05 até 13 nov. 2026)
+  down: 0.06,      // queda desde o máximo que confirma o topo (0,04 até 13 nov. 2026)
   minGain: 0.04,   // ganho mínimo do máximo sobre a compra antes de poder vender
   minDip: 0.03,    // correcção mínima no dia do mínimo (face ao máximo de 20 sessões)
   near200: 0.03,   // distância máxima à SMA200 no dia do mínimo

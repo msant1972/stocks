@@ -200,7 +200,7 @@ Avaliada em cada dia de revisão t, só quando não há posição aberta nem com
 3. **tendência:** `C > SMA200` e `SMA50 > SMA200`;
 4. **momentum:** `M1 > 0` e `M2 > 0`;
 5. **força de tendência** (`trendStrength`, por omissão `'none'` → sem filtro): `'er'` → `ER60 ≥ erThreshold (0.25)`; `'adx'` → `ADX14 ≥ adxThreshold (20)`;
-6. **arrefecimento:** se a última posição saiu por stop na sessão e, só volta a ser elegível quando o número de sessões do instrumento depois de e até t, inclusive, for pelo menos `cooldownSessions = 10`;
+6. **arrefecimento:** se a última posição saiu por stop na sessão e, só volta a ser elegível quando o número de sessões do instrumento depois de e até t, inclusive, for pelo menos `cooldownSessions` (0 desde 13 nov. 2026, ou seja, sem pausa; eram 10);
 7. **variante** `volumeConfirmation: true`: `CMF20 > 0`;
 8. **variante** `overextensionBlock: true`: `M1 ≤ P90(M1)`.
 
@@ -417,7 +417,7 @@ export const DEFAULT_OPTIONS = {
 
   // elegibilidade
   minTradedValue: 5000000,
-  trendStrength: 'none', erThreshold: 0.25, adxThreshold: 20, cooldownSessions: 10,
+  trendStrength: 'none', erThreshold: 0.25, adxThreshold: 20, cooldownSessions: 0, // 10 até 13 nov. 2026
   volumeConfirmation: false, overextensionBlock: false,
 
   // entradas
@@ -457,7 +457,7 @@ Gamas para a análise de sensibilidade (secção 11.2):
 | `maxAdds` | 5 | 0, 2, 5 |
 | `erThreshold` | 0.25 | 0.20, 0.25, 0.30 |
 | `timeStopSessions` | 20 | 10, 20, 40 |
-| `cooldownSessions` | 10 | 5, 10, 20 |
+| `cooldownSessions` | 0 (10 até 13 nov. 2026) | 0, 3, 5, 10, 20 |
 | `gapProtectAtr` | 1.0 | 0.5, 1.0, 2.0 |
 | `review` | weekly | weekly, monthly |
 
@@ -496,3 +496,19 @@ Comparação (296 instrumentos, 2 anos; cada ano medido em separado, o segundo a
 
 A versão B foi escolhida pelo utilizador: o maior resultado e o melhor rendimento do capital, com a perda máxima por instrumento em 8 k€; em troca, há mais instrumentos com pequenas perdas. As regras originais continuam disponíveis em `ORIGINAL_OPTIONS`. A ablação e a sensibilidade da versão B estão em [b-opus-ablacao.md](b-opus-ablacao.md). Resultados de dois anos: a separação por ano ajuda, mas não substitui uma validação com mais dados.
 
+
+## Sem pausa depois do stop (13 nov. 2026)
+
+Análise das operações de 20 instrumentos muito negociados: depois de uma venda o preço continuava a subir (em média +9 % em 60 sessões,
+em 75 % dos casos), e a pausa de 10 sessões depois de um stop fazia perder o recomeço da tendência. Testes no catálogo, com custos,
+sobre o capital (últimos 2 anos / verificação):
+
+| Pausa depois do stop | Resultado | Instrumentos com ganho | 10 piores |
+|---|---|---|---|
+| 10 sessões (antes) | 7,2 % / −0,2 % | 139 / 90 | −63 k€ / −70 k€ |
+| 5 sessões | 7,2 % / 0,4 % | 136 / 93 | −82 k€ / −70 k€ |
+| 3 sessões | 7,8 % / 0,6 % | 140 / 93 | −86 k€ / −70 k€ |
+| **Sem pausa (adoptado)** | **11,1 % / 0,9 %** | **142 / 98** | **−80 k€ / −84 k€** |
+
+Adoptado `cooldownSessions: 0` (a opção mantém-se para comparação). Sem efeito ou piores, no mesmo teste: sem stop temporal, stop de
+5 e 6 × ATR, reforços sem limite, reforço a 7 %, sem saída por perda de momentum, entradas diárias.

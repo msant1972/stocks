@@ -104,7 +104,7 @@ test('stop intradiário, stop com gap na abertura e chandelier que nunca desce',
   for (let k = 1; k < stops.length; k++) assert.ok(stops[k] >= stops[k - 1] - 1e-9);
 });
 
-test('protecção contra gaps cancela a compra; arrefecimento de 10 sessões depois de um stop', () => {
+test('protecção contra gaps cancela a compra; pausa depois de um stop só como opção (por omissão reentra logo)', () => {
   const base = uptrend(360);
   const e = base.findIndex((x) => x.date === backtest(base).signals[0].date);
   const g = base.map((x) => ({ ...x }));
@@ -115,12 +115,15 @@ test('protecção contra gaps cancela a compra; arrefecimento de 10 sessões dep
 
   const s = base.map((x) => ({ ...x }));
   setBar(s, e + 1, { low: s[e + 1].close * 0.5 });
-  const rs = backtest(s);
+  const rs = backtest(s, { cooldownSessions: 10 });
   const stopIdx = s.findIndex((x) => x.date === rs.trades[0].sellDate);
   const next = rs.signals.find((x) => x.side === 'buy' && x.date > rs.trades[0].sellDate);
   assert.ok(next, 'volta a comprar depois do arrefecimento');
   assert.ok(s.findIndex((x) => x.date === next.date) - stopIdx > 10);
   assert.ok(rs.blocked.cooldown > 0);
+  // Regras em vigor (desde 13 nov. 2026): sem pausa, nenhuma compra fica bloqueada por um stop recente.
+  assert.equal(DEFAULT_OPTIONS.cooldownSessions, 0);
+  assert.equal(backtest(s).blocked.cooldown, 0);
 });
 
 test('saídas semanais: stop temporal e quebra de tendência, vendidas na abertura seguinte', () => {

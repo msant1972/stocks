@@ -3,7 +3,7 @@
  *
  * Em cada revisão semanal, sem posição, compra 15 000 € na abertura seguinte quando a acção está em tendência
  * de alta (fecho e SMA50 acima da SMA200), com momentum positivo (M1 = (SMA10 − SMA125) / ATR22 e
- * M2 = momentum 12-1 / volatilidade), liquidez mínima e sem arrefecimento após um stop. Reforça com mais
+ * M2 = momentum 12-1 / volatilidade), liquidez mínima (sem pausa depois de um stop desde 13 nov. 2026: a opção cooldownSessions fica a 0). Reforça com mais
  * 15 000 € na abertura seguinte sempre que o fecho sobe mais de 10% face ao último lote (até 5 reforços).
  * Sai por stop chandelier diário (máximo desde a entrada − 4 × ATR, só sobe) ou, na revisão semanal, por falta
  * de liquidez, quebra de tendência, perda de momentum ou stop temporal (venda na abertura seguinte).
@@ -23,7 +23,7 @@ export const DEFAULT_OPTIONS = {
   m2Lookback: 252, m2Skip: 21, erWindow: 60, adxN: 14, cmfN: 20,
   p90Window: 504, p90MinObs: 252, minHistory: 253,
   minTradedValue: 5000000,
-  trendStrength: 'none', erThreshold: 0.25, adxThreshold: 20, cooldownSessions: 10,
+  trendStrength: 'none', erThreshold: 0.25, adxThreshold: 20, cooldownSessions: 0, // sem pausa depois de um stop desde 13 nov. 2026 (eram 10 sessões)
   volumeConfirmation: false, overextensionBlock: false,
   gapProtectAtr: 1.0, pullbackEntry: false, pullbackAtr: 1.0, pullbackWindow: 5,
   stopMult: 4.0, useTimeStop: true, timeStopSessions: 20, timeStopAtr: 1.0, partialTakeProfit: false,

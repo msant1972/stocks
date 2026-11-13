@@ -20,8 +20,8 @@ const trend = (n, daily, from = 100) => Array.from({ length: n }, (_, i) => from
 const ramp = (from, to, n) => Array.from({ length: n }, (_, k) => from + ((to - from) * (k + 1)) / n);
 const sides = (r) => r.signals.map((s) => `${s.date} ${s.side}`);
 
-test('A2A.MI (os pontos do utilizador): as mesmas 6 compras e 5 vendas do protótipo, +3 212 €', () => {
-  const r = backtest(a2a, { from: '2024-11-11' });
+test('A2A.MI com os parâmetros do protótipo (+5 % / −4 %, sem limite de tempo): as mesmas 6 compras e 5 vendas, +3 212 €', () => {
+  const r = backtest(a2a, { from: '2024-11-11', up: 0.05, down: 0.04, maxHold: 0 });
   assert.deepEqual(sides(r), [
     '2025-04-14 buy', '2025-06-20 sell', '2025-09-30 buy', '2025-11-12 sell', '2026-01-07 buy',
     '2026-02-12 sell', '2026-03-16 buy', '2026-04-16 sell', '2026-05-21 buy', '2026-09-28 sell', '2026-10-13 buy',
@@ -32,6 +32,18 @@ test('A2A.MI (os pontos do utilizador): as mesmas 6 compras e 5 vendas do protó
   assert.deepEqual(r.trades.map((t) => Math.round(t.pnlPct * 10) / 10), [10.8, 10.4, 3.5, -0.2, -0.9]);
 });
 
+test('A2A.MI com as regras em vigor (+3 % / −6 %, limite de 120 sessões): 5 compras e 5 vendas, +3 273 €', () => {
+  const r = backtest(a2a, { from: '2024-11-11' });
+  assert.deepEqual(sides(r), [
+    '2025-04-10 buy', '2025-07-07 sell', '2025-08-20 buy', '2025-11-12 sell', '2026-01-07 buy',
+    '2026-02-16 sell', '2026-03-10 buy', '2026-04-29 sell', '2026-04-30 buy', '2026-10-16 sell',
+  ]);
+  assert.equal(r.trades.at(-1).reason, 'time'); // a última compra nunca chegou a +4 %: vendida pelo limite de tempo
+  assert.equal(Math.round(r.summary.total), 3273);
+  assert.equal(r.open, null);
+  assert.deepEqual(r.trades.map((t) => Math.round(t.pnlPct * 10) / 10), [12.4, 12.5, 0.5, -2.1, -1.6]);
+});
+
 test('formato comum do registo: lotes, 15 000 € ao fecho real, comprar e manter, sem reforços', () => {
   const r = backtest(a2a, { from: '2024-11-11' });
   const t = r.trades[0];
@@ -40,13 +52,13 @@ test('formato comum do registo: lotes, 15 000 € ao fecho real, comprar e mante
   assert.equal(t.quantity, Math.floor(15000 / t.lots[0].price));
   assert.equal(t.reason, 'reversal');
   assert.ok(r.summary.buyHold.cost > 14000 && r.summary.buyHold.cost <= 15000);
-  assert.equal(r.summary.peakCost, Math.max(...[...r.trades, r.open].map((x) => x.cost)));
+  assert.equal(r.summary.peakCost, Math.max(...[...r.trades, r.open].filter(Boolean).map((x) => x.cost)));
   const st = getStrategy('e-ondas');
   assert.equal(st.execution, 'close');
   assert.equal(st.warmupYears, 1);
   assert.deepEqual(st.reasonLabels, { reversal: 'inversão', time: 'limite de tempo' });
   assert.match(st.rules, /120 sessões/);
-  assert.match(st.rules, /5% acima dele/);
+  assert.match(st.rules, /3% acima dele/);
 });
 
 test('sem lookahead: cortar a série numa data dá os mesmos sinais até essa data', () => {
@@ -74,7 +86,7 @@ test('com a SMA200 a descer não compra', () => {
   assert.deepEqual(r.signals, []);
 });
 
-test('vende quando o fecho cai 4 % abaixo do máximo, mas só depois de o máximo ter chegado a +4 % sobre a compra', () => {
+test('vende quando o fecho cai 6 % abaixo do máximo, mas só depois de o máximo ter chegado a +4 % sobre a compra', () => {
   const up = trend(320, 0.0015);
   const peak = up.at(-1);
   const bottom = peak * 0.75;
@@ -84,8 +96,9 @@ test('vende quando o fecho cai 4 % abaixo do máximo, mas só depois de o máxim
   const noSell = backtest(series([...base, buyAt, buyAt * 0.95, buyAt * 0.94]));
   assert.deepEqual(sides(noSell).map((s) => s.slice(11)), ['buy']);
   assert.ok(noSell.open);
-  // Sobe mais 6 % depois da compra e cai 5 %: vende.
-  const sells = backtest(series([...base, buyAt, buyAt * 1.03, buyAt * 1.06, buyAt * 1.06 * 0.95]));
+  // Sobe mais 6 % depois da compra e cai 5 % (não chega: a venda pede 6 %); sobe 12 % e cai 7 %: vende.
+  assert.ok(backtest(series([...base, buyAt, buyAt * 1.03, buyAt * 1.06, buyAt * 1.06 * 0.95])).open);
+  const sells = backtest(series([...base, buyAt, buyAt * 1.06, buyAt * 1.12, buyAt * 1.12 * 0.93]));
   assert.deepEqual(sides(sells).map((s) => s.slice(11)), ['buy', 'sell']);
   assert.equal(sells.open, null);
   assert.ok(sells.trades[0].pnl > 0);
@@ -94,7 +107,7 @@ test('vende quando o fecho cai 4 % abaixo do máximo, mas só depois de o máxim
 test('opções: valida chaves e valores; os parâmetros por omissão são os da especificação', () => {
   assert.deepEqual(
     [DEFAULT_OPTIONS.budget, DEFAULT_OPTIONS.up, DEFAULT_OPTIONS.down, DEFAULT_OPTIONS.minGain, DEFAULT_OPTIONS.minDip, DEFAULT_OPTIONS.near200],
-    [15000, 0.05, 0.04, 0.04, 0.03, 0.03],
+    [15000, 0.03, 0.06, 0.04, 0.03, 0.03],
   );
   assert.throws(() => resolveOptions({ stop: 0.1 }), /desconhecida/);
   assert.throws(() => resolveOptions({ up: -1 }), /não negativo/);

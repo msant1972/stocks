@@ -72,7 +72,7 @@ export const STRATEGIES = [
     rules: `Na última sessão de cada semana, sem posição, compra ${eur(bOpus.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho `
       + 'e a SMA50 estão acima da SMA200, o M1 ((SMA10 − SMA125) / ATR22) e o M2 (momentum de 12 meses sem o último, '
       + `dividido pela volatilidade) são positivos, o valor negociado médio de 50 sessões é pelo menos `
-      + `${eur(bOpus.DEFAULT_OPTIONS.minTradedValue)} e não houve um stop nas últimas ${bOpus.DEFAULT_OPTIONS.cooldownSessions} sessões; `
+      + `${eur(bOpus.DEFAULT_OPTIONS.minTradedValue)}${bOpus.DEFAULT_OPTIONS.cooldownSessions > 0 ? ` e não houve um stop nas últimas ${bOpus.DEFAULT_OPTIONS.cooldownSessions} sessões` : ''}; `
       + 'não compra se a abertura subir mais de 1 ATR face ao fecho. '
       + `Reforça com mais ${eur(bOpus.DEFAULT_OPTIONS.budget)} na abertura seguinte sempre que o fecho sobe mais de `
       + `${bOpus.DEFAULT_OPTIONS.addOnGain * 100}% face ao último lote (até ${bOpus.DEFAULT_OPTIONS.maxAdds} reforços). `
@@ -131,7 +131,7 @@ export const STRATEGIES = [
     available: true,
     budget: eOndas.DEFAULT_OPTIONS.budget,
     execution: 'close',
-    summary: 'Compra o fim das correcções perto da SMA200 (+5 % sobre o fundo) e vende o fim das subidas (−4 % sobre o topo)',
+    summary: `Compra o fim das correcções perto da SMA200 (+${eOndas.DEFAULT_OPTIONS.up * 100} % sobre o fundo) e vende o fim das subidas (−${eOndas.DEFAULT_OPTIONS.down * 100} % sobre o topo)`,
     rules: 'Em tendência de subida (SMA200 acima da de há 20 sessões), acompanha o fecho mais baixo desde a última venda e compra '
       + `${eur(eOndas.DEFAULT_OPTIONS.budget)} ao fecho quando o fecho sobe ${eOndas.DEFAULT_OPTIONS.up * 100}% acima dele, se esse mínimo foi uma correcção `
       + `(pelo menos ${eOndas.DEFAULT_OPTIONS.minDip * 100}% abaixo do máximo de ${eOndas.DEFAULT_OPTIONS.dipN} sessões) que chegou perto da SMA200 (no máximo `

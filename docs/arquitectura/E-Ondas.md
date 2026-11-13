@@ -10,8 +10,8 @@
 
 Numa acção em tendência de subida, o preço avança em ondas, com correcções que muitas vezes vêm testar a zona da SMA200.
 A E-Ondas tenta apanhar cada onda: **compra quando uma correcção acaba, perto da SMA200, e vende quando a subida seguinte
-acaba**. Como não vê o futuro, só reconhece o fundo e o topo depois de o preço se afastar deles: compra cerca de 5 %
-acima do fundo e vende cerca de 4 % abaixo do topo.
+acaba**. Como não vê o futuro, só reconhece o fundo e o topo depois de o preço se afastar deles: compra cerca de 3 %
+acima do fundo e vende cerca de 6 % abaixo do topo (eram 5 % e 4 % no desenho original; ver «Parâmetros revistos», secção 7).
 
 ## 2. Princípios (como as outras estratégias)
 
@@ -65,8 +65,8 @@ fecho real; motivo da venda `reversal` («inversão») ou `time` («limite de te
 | Parâmetro | Valor | O que controla |
 |---|---|---|
 | `budget` | 15 000 € | orçamento por compra |
-| `up` (UP) | 0,05 | subida desde o mínimo que confirma o fundo |
-| `down` (DOWN) | 0,04 | queda desde o máximo que confirma o topo |
+| `up` (UP) | 0,03 (0,05 até 13 nov. 2026) | subida desde o mínimo que confirma o fundo |
+| `down` (DOWN) | 0,06 (0,04 até 13 nov. 2026) | queda desde o máximo que confirma o topo |
 | `minGain` (MIN_GAIN) | 0,04 | ganho mínimo do máximo sobre a compra antes de poder vender |
 | `minDip` (MIN_DIP) | 0,03 | correcção mínima no dia do mínimo (face ao máximo de 20 sessões) |
 | `near200` (NEAR_200) | 0,03 | distância máxima à SMA200 no dia do mínimo |
@@ -155,12 +155,31 @@ escondiam as perdedoras, que nunca fechavam por nunca chegarem a +4 %: 184 posi�
 O resultado fica igual e as perdas escondidas caem cerca de 75 %; o acerto das fechadas desce para 69 %, porque as perdedoras passam a
 fechar. Os números das secções anteriores (702 operações, 76 %) são os de antes do limite.
 
+**Parâmetros revistos (13 nov. 2026).** Análise das operações de 20 instrumentos muito negociados: as ganhadoras devolviam 5 pontos
+entre o máximo e a venda e o preço subia mais 6,8 % nas 60 sessões depois da venda. Testes no catálogo, com custos, sobre o capital
+(últimos 2 anos / verificação; antes 10,2 % / 4,9 %):
+
+| Variante | Resultado | 10 piores | Abertas abaixo de −10 % |
+|---|---|---|---|
+| Compra a +3,5 % | 10,5 % / 5,3 % | −47 k€ / −67 k€ | 19 / 23 |
+| Compra a +3 % | 11,2 % / 6,1 % | −47 k€ / −64 k€ | 17 / 24 |
+| Compra a +2 % | 11,2 % / 5,8 % | −56 k€ / −61 k€ | 19 / 33 |
+| Venda a −6 % | 11,0 % / 5,2 % | −49 k€ / −60 k€ | 19 / 23 |
+| Venda a −8 % | 11,2 % / 5,5 % | −49 k€ / −63 k€ | 19 / 22 |
+| **Compra a +3 % e venda a −6 % (adoptado)** | **12,5 % / 6,5 %** | **−47 k€ / −66 k€** | **16 / 22** |
+
+Limitar a correcção a 10, 12 ou 15 % piorava. O acerto das fechadas desce de 69 % para 60 % (a venda mais larga deixa cair mais antes
+de vender). Na A2A.MI, com as regras novas: 5 compras e 5 vendas, +3 273 € (antes +3 212 €), mas os sinais afastam-se mais das marcas
+originais do utilizador (compras de 10 abr. e 20 ago. 2025, 7 jan., 10 mar. e 30 abr. 2026; a última vendida pelo limite de tempo a
+16 out. 2026, pelo que a compra de outubro de 2026 deixa de existir). Reserva: os dois períodos de teste são de mercado em alta, e uma
+venda mais larga beneficia disso.
+
 ## 8. Limitações e riscos
 
 - **Sem stop de preço:** uma compra seguida de uma queda prolongada, sem recuperar 4 %, fica aberta até ao limite de 120 sessões (cerca de 6 meses) e a perda pode crescer até lá.
 - **Parâmetros de um só instrumento** (os pontos do utilizador na A2A.MI); a regularidade no catálogo e no período de
   verificação é bom sinal, não garantia.
-- **Atraso** de cerca de 5 % depois do fundo e 4 % depois do topo; ondas pequenas (menos de cerca de 10 %) dão pouco ou nada.
+- **Atraso** de cerca de 3 % depois do fundo e 6 % depois do topo; ondas pequenas (menos de cerca de 10 %) dão pouco ou nada.
 - Com a SMA200 a descer não compra (fora do mercado nas tendências de queda).
 - Catálogo de hoje: as empresas que saíram da bolsa não entram nos testes.
 - Na Automação, como na A-Momentum, um sinal da sessão em curso usa o fecho provisório e pode desaparecer até ao fecho.
