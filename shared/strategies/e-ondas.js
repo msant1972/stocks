@@ -5,6 +5,8 @@
  * fecho sobe UP (5 %) acima dele, se esse mínimo foi uma correcção (≥ MIN_DIP, 3 %, abaixo do máximo de 20 sessões) que
  * chegou perto da SMA200 (no máximo NEAR_200, 3 %, acima dela). Com posição, acompanha o fecho mais alto desde a compra e
  * vende tudo quando o fecho cai DOWN (4 %) abaixo dele, depois de o máximo ter chegado a MIN_GAIN (4 %) sobre a compra.
+ * Limite de tempo (13 nov. 2026): se ao fim de MAX_HOLD (120) sessões o máximo ainda não chegou a MIN_GAIN, vende (a onda não
+ * aconteceu), para as posições perdedoras não ficarem abertas sem prazo.
  * Sem reforços nem stop; 15 000 € por compra; sem comissões (os custos estimados são calculados à parte, shared/costs.js).
  *
  * Decide sobre o fecho ajustado (série de prepare, de b-opus.js) e executa ao fecho REAL da mesma sessão, como a A-Momentum.
@@ -24,6 +26,7 @@ export const DEFAULT_OPTIONS = {
   slopeN: 20,      // sessões da inclinação da SMA200
   smaTrend: 200,   // período da média de tendência
   dipN: 20,        // sessões do máximo da correcção
+  maxHold: 120,    // sessões máximas com a posição sem o máximo chegar a minGain (0 = sem limite)
 };
 
 /** Valida e completa as opções (chaves desconhecidas e valores inválidos → erro). */
@@ -81,7 +84,7 @@ export function backtest(quotes, options = {}) {
       const setup = slope(i) > 0 && dip(lowIdx) <= -o.minDip && dist200(lowIdx) <= o.near200;
       if (setup && quantity >= 1) {
         const lot = { date: b.date, price, quantity, cost: round2(quantity * price) };
-        pos = { buyDate: b.date, adj: c, quantity, cost: lot.cost, lots: [lot] };
+        pos = { buyDate: b.date, buyIdx: i, adj: c, quantity, cost: lot.cost, lots: [lot] };
         peakCost = Math.max(peakCost, lot.cost);
         high = c;
         signals.push({ date: b.date, side: 'buy', price });
@@ -92,15 +95,19 @@ export function backtest(quotes, options = {}) {
     }
 
     high = Math.max(high, c);
-    if (c <= high * (1 - o.down) && high >= pos.adj * (1 + o.minGain)) {
+    const reached = high >= pos.adj * (1 + o.minGain);
+    const reversal = reached && c <= high * (1 - o.down);
+    const expired = !reached && o.maxHold > 0 && i - pos.buyIdx >= o.maxHold; // a onda não aconteceu
+    if (reversal || expired) {
+      const reason = reversal ? 'reversal' : 'time';
       const proceeds = round2(pos.quantity * price);
       trades.push({
         buyDate: pos.buyDate, sellDate: b.date, quantity: pos.quantity, cost: pos.cost,
         avgPrice: pos.cost / pos.quantity, lots: pos.lots, reinforcements: 0,
-        sellPrice: price, proceeds, reason: 'reversal',
+        sellPrice: price, proceeds, reason,
         pnl: round2(proceeds - pos.cost), pnlPct: (proceeds / pos.cost - 1) * 100,
       });
-      signals.push({ date: b.date, side: 'sell', reason: 'reversal', price });
+      signals.push({ date: b.date, side: 'sell', reason, price });
       pos = null;
       low = c; lowIdx = i; // o fecho da venda é o ponto de partida da compra seguinte
     }

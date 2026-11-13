@@ -44,7 +44,8 @@ test('formato comum do registo: lotes, 15 000 € ao fecho real, comprar e mante
   const st = getStrategy('e-ondas');
   assert.equal(st.execution, 'close');
   assert.equal(st.warmupYears, 1);
-  assert.deepEqual(st.reasonLabels, { reversal: 'inversão' });
+  assert.deepEqual(st.reasonLabels, { reversal: 'inversão', time: 'limite de tempo' });
+  assert.match(st.rules, /120 sessões/);
   assert.match(st.rules, /5% acima dele/);
 });
 
@@ -99,4 +100,28 @@ test('opções: valida chaves e valores; os parâmetros por omissão são os da 
   assert.throws(() => resolveOptions({ up: -1 }), /não negativo/);
   assert.throws(() => resolveOptions({ from: '11-11-2024' }), /AAAA-MM-DD/);
   assert.deepEqual(backtest([], {}).trades, []);
+});
+
+test('limite de tempo: sem chegar a +4 % em 120 sessões, vende; depois de lá chegar, só a inversão vende', () => {
+  // Tendência de subida, correcção até à SMA200 e compra a +5 % do fundo; depois o preço fica parado (sem +4 %).
+  const up = trend(320, 0.0015);
+  const peak = up.at(-1);
+  const bottom = peak * 0.84;
+  const entry = [...up, ...ramp(peak, bottom, 12), ...ramp(bottom, bottom * 1.06, 6)];
+  const flat = Array.from({ length: 140 }, () => bottom * 1.06);
+  const r = backtest(series([...entry, ...flat]));
+  const buy = r.signals.find((s) => s.side === 'buy');
+  assert.ok(buy, 'compra depois da correcção');
+  assert.equal(r.trades.length, 1);
+  assert.equal(r.trades[0].reason, 'time');
+  const all = series([...entry, ...flat]);
+  const held = all.findIndex((q) => q.date === r.trades[0].sellDate) - all.findIndex((q) => q.date === buy.date);
+  assert.equal(held, DEFAULT_OPTIONS.maxHold);
+  // Sem limite (maxHold 0), a posição fica aberta.
+  assert.equal(backtest(series([...entry, ...flat]), { maxHold: 0 }).open?.buyDate, buy.date);
+  // Se o máximo chegou a +4 %, o limite não se aplica: a posição mantém-se enquanto não cair 4 % do máximo.
+  const high = bottom * 1.06 * 1.05;
+  const held2 = backtest(series([...entry, ...ramp(bottom * 1.06, high, 5), ...Array.from({ length: 140 }, () => high * 0.98)]));
+  assert.equal(held2.trades.length, 0);
+  assert.ok(held2.open);
 });

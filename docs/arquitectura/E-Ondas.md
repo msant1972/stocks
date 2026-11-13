@@ -21,7 +21,7 @@ acima do fundo e vende cerca de 4 % abaixo do topo.
 3. Resultados determinísticos.
 4. Decisões sobre o **fecho ajustado**; execução e resultados ao **fecho real** da sessão do sinal (como a A-Momentum:
    `execution: 'close'` no registo).
-5. 15 000 € por compra, quantidades inteiras, uma posição de cada vez, **sem reforços e sem stop**.
+5. 15 000 € por compra, quantidades inteiras, uma posição de cada vez, **sem reforços e sem stop** (só um limite de tempo, desde 13 nov. 2026).
 6. Janela: actua nos últimos 2 anos (`windowYears: 2`), com 1 ano de aquecimento (`warmupYears: 1`) para a SMA200 e a sua
    inclinação; o período de verificação do BackTest funciona como nas outras.
 
@@ -54,10 +54,11 @@ Sem SMA200 de há 20 sessões (início da série), a sessão não pode gerar com
 - `high` = fecho ajustado mais alto desde a compra (começa no fecho ajustado da compra).
 - **Vende tudo ao fecho de t** quando `C_t ≤ high × (1 − DOWN)` **e** `high ≥ compra × (1 + MIN_GAIN)` (até o máximo chegar
   a +4 % sobre o preço de compra, a posição aguenta as oscilações).
+- **Limite de tempo (desde 13 nov. 2026):** se, `MAX_HOLD` (120) sessões depois da compra, o máximo ainda não chegou a +4 % sobre o preço de compra, **vende tudo ao fecho** (a onda não aconteceu). Depois de o máximo lá chegar, o limite deixa de se aplicar e só a inversão vende.
 - Depois da venda: `low = C_t`, `lowDay = t`.
 
 **Sinais** (marcadores do gráfico, página Sinais, Automação): `buy` e `sell` na data da sessão da decisão, com o preço do
-fecho real; motivo da venda `reversal` («inversão»).
+fecho real; motivo da venda `reversal` («inversão») ou `time` («limite de tempo»).
 
 ## 5. Parâmetros (`DEFAULT_OPTIONS`)
 
@@ -69,6 +70,7 @@ fecho real; motivo da venda `reversal` («inversão»).
 | `minGain` (MIN_GAIN) | 0,04 | ganho mínimo do máximo sobre a compra antes de poder vender |
 | `minDip` (MIN_DIP) | 0,03 | correcção mínima no dia do mínimo (face ao máximo de 20 sessões) |
 | `near200` (NEAR_200) | 0,03 | distância máxima à SMA200 no dia do mínimo |
+| `maxHold` (MAX_HOLD) | 120 | sessões máximas com a posição sem o máximo chegar a `minGain` (0 = sem limite) |
 | `slopeN` | 20 | sessões da inclinação da SMA200 |
 | `smaTrend` | 200 | período da média de tendência |
 
@@ -137,9 +139,25 @@ períodos) e a melhor no período de verificação, que não serviu para afinar 
 **Stop de protecção testado e rejeitado** (com custos): 8 % → 7,7 % e 2,9 %; 10 % → 8,3 % e 2,8 %; 15 % → 8,8 % e 3,8 %
 (últimos 2 anos e verificação), contra 10,7 % e 6,0 % sem stop.
 
+**Limite de tempo (13 nov. 2026).** A análise das operações mostrou que os bons números das operações fechadas (acerto de 76 %)
+escondiam as perdedoras, que nunca fechavam por nunca chegarem a +4 %: 184 posições abertas com −162 k€, 56 delas abaixo de −10 %
+(−210 k€; na verificação 60 e −240 k€). Testes no catálogo, com custos, sobre o capital (últimos 2 anos / verificação):
+
+| Variante | Resultado | Abertas abaixo de −10 % | 10 piores |
+|---|---|---|---|
+| Sem limite (regras anteriores) | 10,4 % / 4,9 % | 56 (−210 k€) / 60 (−240 k€) | −60 k€ / −83 k€ |
+| Vender com a SMA200 a descer | 6,9 % / 1,5 % | 5 / 5 | −51 k€ / −59 k€ |
+| Vender 8 % abaixo da SMA200 | 6,1 % / 2,4 % | 1 / 3 | −51 k€ / −56 k€ |
+| Limite de 90 sessões | 9,9 % / 4,3 % | 16 / 16 | −50 k€ / −57 k€ |
+| **Limite de 120 sessões (adoptado)** | **10,2 % / 4,9 %** | **18 (−42 k€) / 24 (−67 k€)** | **−49 k€ / −61 k€** |
+| Limite de 180 sessões | 9,8 % / 5,4 % | 26 / 33 | −57 k€ / −61 k€ |
+
+O resultado fica igual e as perdas escondidas caem cerca de 75 %; o acerto das fechadas desce para 69 %, porque as perdedoras passam a
+fechar. Os números das secções anteriores (702 operações, 76 %) são os de antes do limite.
+
 ## 8. Limitações e riscos
 
-- **Sem stop:** uma compra seguida de uma queda prolongada, sem recuperar 4 %, fica aberta e a perda cresce.
+- **Sem stop de preço:** uma compra seguida de uma queda prolongada, sem recuperar 4 %, fica aberta até ao limite de 120 sessões (cerca de 6 meses) e a perda pode crescer até lá.
 - **Parâmetros de um só instrumento** (os pontos do utilizador na A2A.MI); a regularidade no catálogo e no período de
   verificação é bom sinal, não garantia.
 - **Atraso** de cerca de 5 % depois do fundo e 4 % depois do topo; ondas pequenas (menos de cerca de 10 %) dão pouco ou nada.

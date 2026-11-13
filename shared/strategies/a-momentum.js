@@ -4,10 +4,12 @@
  *   está acima da SMA200 (filtro de tendência: não compra acções em queda);
  *   vende tudo quando foram «a subir», «a descer», «a descer» e o SMA8/SMA125 está abaixo de 1%;
  *   reforça com mais 15 000 € sempre que o fecho ultrapassa em mais de 10% o preço da compra mais recente;
- *   com a posição reforçada, vende tudo se o fecho cair mais de 15% abaixo do preço do último reforço
+ *   com a posição reforçada, vende tudo se o fecho cair mais de 25% abaixo do preço do último reforço
  *   (protecção dos reforços: não devolver o ganho todo quando a acção sobe e depois cai).
  * Filtro e protecção acrescentados a 24 out. 2026 depois da análise do BackTest: perdas dos 10 piores de
  * −172 k€ para −48 k€, com menos lucro nas tendências fortes (ver docs/arquitectura/arquitectura.md §5.4).
+ * Protecção alargada de 15% para 25% a 13 nov. 2026: com custos, o resultado sobre o capital passou de 11,8% para 18,3%
+ * (últimos 2 anos) e de 4,8% para 6,6% (verificação), com os 10 piores de −116 k€ para −161 k€ e de −161 k€ para −177 k€.
  * Sem compras nem vendas quando, na sessão do sinal, o SMA10/SMA200 está entre −1% e +1% (inclusive).
  * Execução ao fecho real (não ajustado) da sessão em que o padrão se completa; uma posição de
  * cada vez; quantidades inteiras; sem comissões. Não altera a carteira virtual.
@@ -21,7 +23,7 @@ export const SELL_MAX_WAVE125 = 1;
 /** Compra de reforço (mais um orçamento) quando o fecho sobe mais do que isto desde a última compra, em %. */
 export const REINFORCE_GAIN = 10;
 /** Protecção dos reforços: queda máxima, em %, abaixo do preço do último reforço. */
-export const STOP_BELOW_LAST_ADD = 15;
+export const STOP_BELOW_LAST_ADD = 25;
 
 const BUY = [false, true, true];
 const SELL = [true, false, false];

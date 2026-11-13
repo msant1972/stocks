@@ -49,7 +49,7 @@ export const STRATEGIES = [
     available: true,
     budget: aMomentum.STRATEGY_BUDGET,
     execution: 'close',
-    summary: 'Momento do SMA10/SMA200 em tendência de subida, com reforços a cada +10% e protecção de 15%',
+    summary: `Momento do SMA10/SMA200 em tendência de subida, com reforços a cada +10% e protecção de ${aMomentum.STOP_BELOW_LAST_ADD}%`,
     rules: `Compra ${eur(aMomentum.STRATEGY_BUDGET)} quando o SMA10/SMA200 tem uma sessão «a descer» seguida de duas «a subir», `
       + 'só com o preço acima da sua média de 200 sessões (não compra acções em queda); '
       + `reforça com mais ${eur(aMomentum.STRATEGY_BUDGET)} sempre que o fecho sobe mais de ${aMomentum.REINFORCE_GAIN}% face à compra mais recente; `
@@ -136,11 +136,12 @@ export const STRATEGIES = [
       + `${eur(eOndas.DEFAULT_OPTIONS.budget)} ao fecho quando o fecho sobe ${eOndas.DEFAULT_OPTIONS.up * 100}% acima dele, se esse mínimo foi uma correcção `
       + `(pelo menos ${eOndas.DEFAULT_OPTIONS.minDip * 100}% abaixo do máximo de ${eOndas.DEFAULT_OPTIONS.dipN} sessões) que chegou perto da SMA200 (no máximo `
       + `${eOndas.DEFAULT_OPTIONS.near200 * 100}% acima dela); se o fundo não cumpre, esquece-o e recomeça. Com posição, acompanha o fecho mais alto desde a compra e vende tudo ao fecho quando o fecho cai `
-      + `${eOndas.DEFAULT_OPTIONS.down * 100}% abaixo dele, depois de o máximo ter chegado a ${eOndas.DEFAULT_OPTIONS.minGain * 100}% sobre a compra. Sem stop nem reforços; uma posição de cada vez, `
+      + `${eOndas.DEFAULT_OPTIONS.down * 100}% abaixo dele, depois de o máximo ter chegado a ${eOndas.DEFAULT_OPTIONS.minGain * 100}% sobre a compra; se ao fim de ${eOndas.DEFAULT_OPTIONS.maxHold} sessões o máximo ainda não chegou lá, `
+      + 'vende (limite de tempo: a onda não aconteceu). Sem stop nem reforços; uma posição de cada vez, '
       + 'sem comissões; indicadores sobre preços ajustados, execução ao fecho real da sessão do sinal.',
     windowYears: 2,
     warmupYears: 1,
-    reasonLabels: { reversal: 'inversão' },
+    reasonLabels: { reversal: 'inversão', time: 'limite de tempo' },
     run: (quotes, { from } = {}) => eOndas.backtest(quotes, { from }),
   },
 ];

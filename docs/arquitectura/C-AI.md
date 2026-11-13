@@ -299,3 +299,15 @@ Os melhores são acções com tendências longas e regulares (bancos e construto
 4. `GET /backtest?strategy=c-ai` coincide, por instrumento, com a página do instrumento (testado), e o resultado sobre os dados de produção está próximo da secção 1 (variações pequenas por cotações novas).
 5. Os Sinais mostram as compras, reforços e vendas recentes da C-AI.
 6. A documentação (arquitectura, guia de estilos, plano, OpenAPI) é actualizada e o código publicado em produção.
+
+## Testes de 13 nov. 2026 (rejeitados)
+
+Análise das operações: as que saem em 30 dias ou menos acertam 3 % e perdem −670 k€. Três ideias para as evitar, testadas no
+catálogo inteiro, com custos, sobre o capital (últimos 2 anos / verificação; regras actuais 14,9 % / 2,2 %):
+
+- pausa depois do stop: 5 sessões 12,6 % / 1,8 %; 10 sessões 11,7 % / 1,2 %; 20 sessões 9,1 % / 0,3 %;
+- M2 mínimo na entrada: 0,25 → 14,1 % / 1,7 %; 0,5 → 14,0 % / 1,0 %; 1 → 13,5 % / 0,7 %;
+- não entrar com o fecho mais de N × ATR acima da SMA50: N = 2 → 14,5 % / 2,5 %; N = 3 → 14,8 % / 2,3 % (neutro, dentro do ruído).
+
+Nada muda: a pausa e o momentum mínimo cortam as perdas rápidas mas tiram ainda mais ganho (muitas reentradas logo a seguir a um
+stop são o recomeço da tendência). As saídas rápidas com perda são o preço de estar dentro das tendências que pagam.

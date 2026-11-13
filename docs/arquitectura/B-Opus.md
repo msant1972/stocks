@@ -37,7 +37,7 @@ Diferenças em relação à A-Momentum:
 | Frequência | Diária | Semanal (entradas e saídas planeadas); stops diários |
 | Execução | Fecho da sessão do sinal | Abertura da sessão seguinte |
 | Posição | 15 000 € e reforços de 15 000 € a cada +10%, sem limite | 15 000 € e reforços de 15 000 € a cada +10%, até 5 |
-| Saída | Padrão subir-descer-descer com SMA8/SMA125 < 1%; protecção de 15% dos reforços | Stop chandelier (4 × ATR), quebra de tendência, perda de momentum, stop temporal |
+| Saída | Padrão subir-descer-descer com SMA8/SMA125 < 1%; protecção de 25% dos reforços (15% até 13 nov. 2026) | Stop chandelier (4 × ATR), quebra de tendência, perda de momentum, stop temporal |
 | Custos | Sem comissões | Sem comissões |
 
 ```mermaid

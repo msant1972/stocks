@@ -123,12 +123,12 @@ test('filtro de tendência: não compra com o preço abaixo da SMA200 (e compra 
   assert.equal(backtest(quotes, mom, 15000, ORIGINAL_OPTIONS).signals[0].date, '2026-01-05');
 });
 
-test('protecção dos reforços: vende tudo com o fecho mais de 15% abaixo do último reforço', async () => {
+test('protecção dos reforços: vende tudo com o fecho mais de 25% abaixo do último reforço', async () => {
   const { ORIGINAL_OPTIONS } = await import('../src/lib/strategy.js');
   //            0     1     2      3     4     5      6      7     8
   const s = [null, null, false, true, true, true, true, true, true];
-  // compra a 10 (4), reforça a 11,01 (5); 9,36 é exactamente −15% de 11,01 (não vende); 9,35 vende.
-  const p = [10, 10, 10, 10, 10, 11.01, 9.36, 9.35, 9.4];
+  // compra a 10 (4), reforça a 11,01 (5); −25% de 11,01 é 8,2575: 8,26 não vende; 8,25 vende.
+  const p = [10, 10, 10, 10, 10, 11.01, 8.26, 8.25, 8.4];
   const { quotes, mom } = fixture(s, p);
   const r = backtest(quotes, mom);
   assert.equal(r.trades.length, 1);

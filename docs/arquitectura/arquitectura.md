@@ -361,14 +361,14 @@ As estratégias estão num registo partilhado (`shared/strategies/index.js`): ca
 - estado de cada sessão = cor do momento (SMA10/SMA200 «a subir» ou «a descer»);
 - compra 15 000 € (quantidade inteira) quando as três últimas sessões foram descer, subir, subir **e o fecho ajustado está acima da SMA200** (filtro de tendência: não compra acções em queda);
 - vende tudo quando foram subir, descer, descer e o SMA8/SMA125 está abaixo de 1% nessa sessão (caso contrário mantém a posição);
-- **protecção dos reforços:** com a posição reforçada, vende tudo quando o fecho cai mais de 15% abaixo do preço do último reforço (sem esperar pelo padrão de venda);
+- **protecção dos reforços:** com a posição reforçada, vende tudo quando o fecho cai mais de 25% abaixo do preço do último reforço (sem esperar pelo padrão de venda) (25% desde 13 nov. 2026; era 15%: com custos, o resultado sobre o capital passou de 11,8% para 18,3% nos últimos 2 anos e de 4,8% para 6,6% na verificação, com os 10 piores instrumentos de −116 k€ para −161 k€ e de −161 k€ para −177 k€);
 - ignora os sinais quando, na sessão do sinal, o SMA10/SMA200 está entre −1% e +1% (inclusive);
 - reforça com mais 15 000 € sempre que o fecho sobe mais de 10% face ao preço da compra mais recente (o seguinte exige outros +10%); numa sessão com venda executada não há reforço;
 - executa ao fecho real do dia do sinal, uma posição de cada vez, sem comissões; uma posição aberta no fim é valorizada ao último fecho;
 - o resultado em % é calculado sobre o capital máximo investido em simultâneo;
 - compara com comprar e manter 15 000 € desde a primeira sessão com estado conhecido.
 
-O gráfico marca as compras (C), os reforços (R) e as vendas (V); um painel mostra o resultado, as operações (com «protecção» nas vendas pelo limite de 15%), os sinais ignorados, as compras bloqueadas pelo filtro e as vendas não executadas pela condição do SMA8/SMA125.
+O gráfico marca as compras (C), os reforços (R) e as vendas (V); um painel mostra o resultado, as operações (com «protecção» nas vendas pelo limite de 25%), os sinais ignorados, as compras bloqueadas pelo filtro e as vendas não executadas pela condição do SMA8/SMA125.
 
 **Filtro e protecção (24 out. 2026).** Acrescentados depois de a análise do BackTest mostrar que as maiores perdas vinham de acções em queda com sinais falsos repetidos e de posições muito reforçadas vendidas tarde. Comparação sobre os 296 instrumentos, últimos 2 anos:
 
