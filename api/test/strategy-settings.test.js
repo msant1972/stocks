@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createUser } from '../src/services/users.js';
 import { api, enableMfa, FAST_HASH, hasTestDb, login, makeUser, PASSWORD, setup } from './helpers.js';
 
-const ALL = ['a-momentum', 'b-opus', 'c-ai', 'd-reversao', 'e-ondas'];
+const ALL = ['a-momentum', 'b-opus', 'c-ai', 'd-reversao', 'e-ondas', 'f-mergulho'];
 
 describe.skipIf(!hasTestDb)('estratégias ligadas e desligadas (Definições)', () => {
   let ctx;
@@ -33,15 +33,15 @@ describe.skipIf(!hasTestDb)('estratégias ligadas e desligadas (Definições)', 
     const res = await admin.put('/strategies/b-opus/enabled', { enabled: false });
     expect(res.statusCode).toBe(200);
     expect(res.json().items.find((s) => s.id === 'b-opus').enabled).toBe(false);
-    expect(await enabledOf()).toEqual(['a-momentum', 'c-ai', 'd-reversao', 'e-ondas']);
+    expect(await enabledOf()).toEqual(['a-momentum', 'c-ai', 'd-reversao', 'e-ondas', 'f-mergulho']);
     // Sinais e BackTest recusam a desligada, e aceitam as outras.
     expect((await ana.get('/signals?strategy=b-opus')).json().error.code).toBe('STRATEGY_DISABLED');
     expect((await ana.get('/backtest?strategy=b-opus')).statusCode).toBe(409);
     expect((await ana.get('/signals?strategy=c-ai')).statusCode).toBe(200);
     // Comparar, WinnersLoosers e a melhor estratégia só têm as ligadas.
     const cmp = (await ana.get('/strategies/compare')).json();
-    expect(cmp.items.map((s) => s.id)).toEqual(['a-momentum', 'c-ai', 'd-reversao', 'e-ondas']);
-    expect((await ana.get('/winners-losers')).json().strategies.map((s) => s.id)).toEqual(['a-momentum', 'c-ai', 'd-reversao', 'e-ondas']);
+    expect(cmp.items.map((s) => s.id)).toEqual(['a-momentum', 'c-ai', 'd-reversao', 'e-ondas', 'f-mergulho']);
+    expect((await ana.get('/winners-losers')).json().strategies.map((s) => s.id)).toEqual(['a-momentum', 'c-ai', 'd-reversao', 'e-ondas', 'f-mergulho']);
     expect((await ana.get('/signals/watchlist')).json().items.every((i) => i.strategy !== 'b-opus')).toBe(true);
     // Automação: a desligada nas Definições não se liga e aparece marcada.
     expect((await ana.put('/saxo/automation/strategies/b-opus', { enabled: true })).statusCode).toBe(409);
@@ -60,11 +60,12 @@ describe.skipIf(!hasTestDb)('estratégias ligadas e desligadas (Definições)', 
   it('tem de ficar pelo menos uma ligada, e ligar volta a pô-la nos resultados', async () => {
     await admin.put('/strategies/c-ai/enabled', { enabled: false });
     await admin.put('/strategies/d-reversao/enabled', { enabled: false });
-    const last = await admin.put('/strategies/e-ondas/enabled', { enabled: false });
+    await admin.put('/strategies/e-ondas/enabled', { enabled: false });
+    const last = await admin.put('/strategies/f-mergulho/enabled', { enabled: false });
     expect(last.statusCode).toBe(409);
     expect(last.json().error.code).toBe('LAST_STRATEGY');
-    expect(await enabledOf()).toEqual(['e-ondas']);
-    for (const id of ['a-momentum', 'b-opus', 'c-ai', 'd-reversao']) await admin.put(`/strategies/${id}/enabled`, { enabled: true });
+    expect(await enabledOf()).toEqual(['f-mergulho']);
+    for (const id of ['a-momentum', 'b-opus', 'c-ai', 'd-reversao', 'e-ondas']) await admin.put(`/strategies/${id}/enabled`, { enabled: true });
     expect(await enabledOf()).toEqual(ALL);
     expect((await ana.get('/backtest?strategy=b-opus')).statusCode).toBe(200);
     const [rows] = await ctx.pool.query("SELECT COUNT(*) n FROM audit_log WHERE action = 'admin.strategy_toggle'");

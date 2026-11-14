@@ -65,7 +65,7 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
   it('lista as estratégias e recusa ids desconhecidos', async () => {
     const list = (await ana.get('/strategies')).json();
     expect(list.defaultId).toBe('a-momentum');
-    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', true], ['c-ai', 'C-AI', true], ['d-reversao', 'D-Reversão', true], ['e-ondas', 'E-Ondas', true]]);
+    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', true], ['c-ai', 'C-AI', true], ['d-reversao', 'D-Reversão', true], ['e-ondas', 'E-Ondas', true], ['f-mergulho', 'F-Mergulho', true]]);
     expect((await ana.get('/backtest?strategy=c-x')).statusCode).toBe(400);
     expect((await ana.get('/signals?strategy=c-x')).statusCode).toBe(400);
   });
@@ -110,7 +110,7 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
 
   it('WinnersLoosers: agrupa pelos resultados das estratégias ligadas, iguais aos do BackTest', async () => {
     const wl = (await ana.get('/winners-losers')).json();
-    expect(wl.strategies.map((x) => x.id)).toEqual(['a-momentum', 'b-opus', 'c-ai', 'd-reversao', 'e-ondas']);
+    expect(wl.strategies.map((x) => x.id)).toEqual(['a-momentum', 'b-opus', 'c-ai', 'd-reversao', 'e-ondas', 'f-mergulho']);
     const per = {};
     for (const st of wl.strategies) per[st.id] = (await ana.get(`/backtest?strategy=${st.id}`)).json().items;
     for (const it of wl.items) {
@@ -132,7 +132,7 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
 
   it('comparação: agrega os resultados do BackTest de cada estratégia', async () => {
     const cmp = (await ana.get('/strategies/compare')).json();
-    expect(cmp.items.map((x) => x.id)).toEqual(['a-momentum', 'b-opus', 'c-ai', 'd-reversao', 'e-ondas']);
+    expect(cmp.items.map((x) => x.id)).toEqual(['a-momentum', 'b-opus', 'c-ai', 'd-reversao', 'e-ondas', 'f-mergulho']);
     for (const st of cmp.items) {
       const rows = (await ana.get(`/backtest?strategy=${st.id}`)).json().items;
       expect(st.total).toBeCloseTo(rows.reduce((a, r) => a + r.total, 0), 2);

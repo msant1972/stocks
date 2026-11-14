@@ -411,8 +411,8 @@ test('Definições → Estratégias: desligar uma estratégia tira-a de todos os
     await menu.waitFor();
     return menu.locator('option').allInnerTexts();
   };
-  expect(await options('/backtest')).toEqual(['A-Momentum', 'C-AI', 'D-Reversão', 'E-Ondas']);
-  expect(await options('/sinais')).toEqual(['A-Momentum', 'C-AI', 'D-Reversão', 'E-Ondas']);
+  expect(await options('/backtest')).toEqual(['A-Momentum', 'C-AI', 'D-Reversão', 'E-Ondas', 'F-Mergulho']);
+  expect(await options('/sinais')).toEqual(['A-Momentum', 'C-AI', 'D-Reversão', 'E-Ondas', 'F-Mergulho']);
   await page.goto('/comparar');
   await expect(page.getByRole('link', { name: 'C-AI' }).first()).toBeVisible();
   await expect(page.getByRole('link', { name: 'B-Opus' })).toHaveCount(0);
@@ -423,19 +423,19 @@ test('Definições → Estratégias: desligar uma estratégia tira-a de todos os
   await page.goto('/saxo/automacao');
   await expect(page.getByText('desligada nas Definições')).toBeVisible();
   await expect(page.getByLabel('Automação da estratégia B-Opus')).toBeDisabled();
-  // Tem de ficar pelo menos uma: com só a E-Ondas ligada, o interruptor dela fica bloqueado.
+  // Tem de ficar pelo menos uma: com só a F-Mergulho ligada, o interruptor dela fica bloqueado.
   await page.goto('/definicoes');
-  for (const name of ['A-Momentum', 'C-AI', 'D-Reversão']) {
+  for (const name of ['A-Momentum', 'C-AI', 'D-Reversão', 'E-Ondas']) {
     await strategySwitch(name).evaluate((el) => el.click());
     await expect(page.getByText(`${name} desligada`)).toBeVisible(); // espera pelo fim de cada pedido
   }
-  await expect(strategySwitch('E-Ondas')).toBeDisabled();
-  for (const name of ['A-Momentum', 'B-Opus', 'C-AI', 'D-Reversão']) {
+  await expect(strategySwitch('F-Mergulho')).toBeDisabled();
+  for (const name of ['A-Momentum', 'B-Opus', 'C-AI', 'D-Reversão', 'E-Ondas']) {
     await strategySwitch(name).evaluate((el) => el.click());
     await expect(page.getByText(`${name} ligada`)).toBeVisible();
   }
   await expect(strategySwitch('B-Opus')).toBeChecked();
-  expect(await options('/backtest')).toEqual(['A-Momentum', 'B-Opus', 'C-AI', 'D-Reversão', 'E-Ondas']);
+  expect(await options('/backtest')).toEqual(['A-Momentum', 'B-Opus', 'C-AI', 'D-Reversão', 'E-Ondas', 'F-Mergulho']);
 });
 
 test('Utilizadores: fotografia na barra lateral e «Terminar sessão» com o botão direito', async () => {

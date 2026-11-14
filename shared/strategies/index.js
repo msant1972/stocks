@@ -29,6 +29,7 @@ import * as bOpus from './b-opus.js';
 import * as cAi from './c-ai.js';
 import * as dReversao from './d-reversao.js';
 import * as eOndas from './e-ondas.js';
+import * as fMergulho from './f-mergulho.js';
 
 /**
  * Anos de histórico com que os Sinais (e as regras de alerta de sinal) correm as estratégias. A A-Momentum reconstrói a
@@ -143,6 +144,25 @@ export const STRATEGIES = [
     warmupYears: 1,
     reasonLabels: { reversal: 'inversão', time: 'limite de tempo' },
     run: (quotes, { from } = {}) => eOndas.backtest(quotes, { from }),
+  },
+  {
+    id: 'f-mergulho',
+    name: 'F-Mergulho',
+    available: true,
+    budget: fMergulho.DEFAULT_OPTIONS.budget,
+    execution: 'open',
+    summary: 'Núcleo de tendência (SMA200) e até 3 lotes que compram quedas (RSI14 < 40) e vendem a recuperação (RSI14 > 70)',
+    rules: `Duas partes independentes, com lotes de ${eur(fMergulho.DEFAULT_OPTIONS.budget)}. NÚCLEO: compra na abertura seguinte quando o fecho `
+      + `está mais de ${fMergulho.DEFAULT_OPTIONS.coreBand * 100}% acima da SMA200 e vende quando fica mais de ${fMergulho.DEFAULT_OPTIONS.coreBand * 100}% abaixo. `
+      + `MERGULHOS (até ${fMergulho.DEFAULT_OPTIONS.maxLots} lotes): compra na abertura seguinte quando o RSI14 fecha abaixo de ${fMergulho.DEFAULT_OPTIONS.rsiIn}; `
+      + `cada lote seguinte só ${fMergulho.DEFAULT_OPTIONS.spacing} sessões depois da última compra e com o fecho pelo menos `
+      + `${fMergulho.DEFAULT_OPTIONS.step * 100}% abaixo do último lote. Vende todos os lotes de mergulho quando o RSI14 passa de ${fMergulho.DEFAULT_OPTIONS.rsiOut}, `
+      + `ou o fecho está ${fMergulho.DEFAULT_OPTIONS.target * 100}% acima do custo médio, ou ${fMergulho.DEFAULT_OPTIONS.disaster * 100}% abaixo do lote mais barato. `
+      + 'Sem reforços além dos lotes de mergulho; indicadores sobre preços ajustados, execução à abertura da sessão seguinte, sem comissões.',
+    windowYears: 2,
+    warmupYears: 1,
+    reasonLabels: { rsi: 'recuperação (RSI)', target: 'alvo', disaster: 'protecção', trend: 'quebra da SMA200' },
+    run: (quotes, { from } = {}) => fMergulho.backtest(quotes, { from }),
   },
 ];
 
