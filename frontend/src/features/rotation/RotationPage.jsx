@@ -7,9 +7,13 @@ import { EmptyState, ErrorState, Loading } from '../../components/feedback/state
 import { Field, Notice, Segmented } from '../../components/ui/controls.jsx';
 
 const RotationChart = lazy(() => import('./RotationChart.jsx'));
+import FundamentalsCard from './FundamentalsCard.jsx';
 
 const PERIODS = [{ value: 'recent', label: 'Últimos 2 anos' }, { value: 'verification', label: 'Verificação' }];
 const POSITIONS = [5, 10, 20];
+const WINDOWS = [{ value: 126, label: '6 meses' }, { value: 189, label: '9 meses' }, { value: 252, label: '12 meses' }];
+const REGIMES = [{ value: 0, label: 'Desligado' }, { value: 1, label: 'Sem compras novas' }, { value: 2, label: 'Fica em numerário' }];
+const SIZINGS = [{ value: 0, label: 'Lotes iguais' }, { value: 1, label: 'Pela volatilidade' }];
 const pct1 = (v) => (v == null ? '—' : `${v.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`);
 const signedPct = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${pct1(v)}`);
 const kEur = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${(v / 1000).toLocaleString('pt-PT', { maximumFractionDigits: 0 })} k€`);
@@ -51,14 +55,17 @@ export default function RotationPage() {
   const period = PERIODS.some((p) => p.value === params.get('periodo')) ? params.get('periodo') : 'recent';
   const positions = POSITIONS.includes(Number(params.get('posicoes'))) ? Number(params.get('posicoes')) : 10;
   const scope = params.get('lista') === '1' ? 'watchlist' : 'all';
+  const lookback = WINDOWS.some((w) => w.value === Number(params.get('janela'))) ? Number(params.get('janela')) : 252;
+  const regime = REGIMES.some((x) => x.value === Number(params.get('regime')) && params.get('regime') !== null) ? Number(params.get('regime')) : 0;
+  const sizing = params.get('dimensionamento') === '1' ? 1 : 0;
   const set = (key, value, fallback) => {
     const next = new URLSearchParams(params);
     if (String(value) === String(fallback)) next.delete(key); else next.set(key, value);
     setParams(next, { replace: true });
   };
   const q = useQuery({
-    queryKey: ['rotation', period, positions, scope],
-    queryFn: () => api.get(`/strategies/rotation?period=${period}&positions=${positions}&scope=${scope}`),
+    queryKey: ['rotation', period, positions, scope, lookback, regime, sizing],
+    queryFn: () => api.get(`/strategies/rotation?period=${period}&positions=${positions}&scope=${scope}&lookback=${lookback}&regime=${regime}&sizing=${sizing}`),
     placeholderData: (prev) => prev, staleTime: 5 * 60_000,
   });
   const r = q.data;
@@ -71,7 +78,7 @@ export default function RotationPage() {
         <div>
           <h1 className="page-title">Rotação</h1>
           <p className="page-sub">
-            Estratégia de carteira: no último dia útil de cada mês ordena os instrumentos pelo momentum de 12 meses sem o último e mantém os
+            Estratégia de carteira: no último dia útil de cada mês ordena os instrumentos pelo momentum de {lookback / 21} meses sem o último e mantém os
             {' '}{positions} melhores (só com momentum positivo, acima da SMA200 e com liquidez), com um lote de 15 000 € cada. Compra à abertura
             seguinte; uma posição só sai por ranking quando cai para além do lugar {positions * 2}. Simulação sobre cotações diárias, sem ordens.
           </p>
@@ -80,6 +87,33 @@ export default function RotationPage() {
           <Segmented label="Instrumentos" value={scope} onChange={(v) => set('lista', v === 'watchlist' ? '1' : '0', '0')}
             options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />
           <Segmented label="Período" value={period} onChange={(v) => set('periodo', v, 'recent')} options={PERIODS} />
+          <div style={{ minWidth: '8rem' }}>
+            <Field label="Janela do momentum">
+              {(p) => (
+                <select {...p} className="select" value={lookback} onChange={(e) => set('janela', e.target.value, 252)} style={{ minHeight: '2.75rem' }}>
+                  {WINDOWS.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
+                </select>
+              )}
+            </Field>
+          </div>
+          <div style={{ minWidth: '11rem' }}>
+            <Field label="Filtro de mercado" help="Amplitude: instrumentos acima da SMA200">
+              {(p) => (
+                <select {...p} className="select" value={regime} onChange={(e) => set('regime', e.target.value, 0)} style={{ minHeight: '2.75rem' }}>
+                  {REGIMES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+                </select>
+              )}
+            </Field>
+          </div>
+          <div style={{ minWidth: '11rem' }}>
+            <Field label="Dimensionamento">
+              {(p) => (
+                <select {...p} className="select" value={sizing} onChange={(e) => set('dimensionamento', e.target.value, 0)} style={{ minHeight: '2.75rem' }}>
+                  {SIZINGS.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+                </select>
+              )}
+            </Field>
+          </div>
           <div style={{ minWidth: '8rem' }}>
             <Field label="Posições">
               {(p) => (
@@ -110,6 +144,7 @@ export default function RotationPage() {
               <div><dt>Pior queda do resultado</dt><dd className="negative">{f.signedMoney(s.maxDrawdown)} ({pct1(s.maxDrawdownPct)})</dd></div>
               <div><dt>Operações fechadas · acerto</dt><dd>{s.closed} · {s.closed ? pct1((100 * s.wins) / s.closed) : '—'}</dd></div>
               <div><dt>Custos estimados</dt><dd>{f.money(s.costs, 'EUR', 0)}</dd></div>
+              {r.options.regime > 0 && <div><dt>Revisões com o mercado em baixa</dt><dd>{s.bearReviews} de {s.rebalances}</dd></div>}
             </dl>
             <p className="small muted" style={{ marginTop: '0.75rem' }}>
               Custos da SAXO estimados como no BackTest (comissão, spread e custódia). «Sobre o capital máximo» é o resultado a dividir pelo máximo
@@ -122,7 +157,8 @@ export default function RotationPage() {
           <section className="card" aria-labelledby="rot-next">
             <h2 id="rot-next" className="card-title" style={{ marginBottom: '0.25rem' }}>Próxima revisão</h2>
             <p className="small muted" style={{ marginTop: 0 }}>
-              Com os dados de {f.date(r.next.date)}: {r.next.eligible} instrumentos elegíveis. A revisão verdadeira faz-se no último dia útil do mês e as
+              Com os dados de {f.date(r.next.date)}: {r.next.eligible} instrumentos elegíveis; amplitude do mercado (acima da SMA200) {r.next.breadth == null ? '—' : pct1(r.next.breadth * 100)}
+              {r.options.regime > 0 && (r.next.bear ? ', abaixo do mínimo de 50 %: o filtro de mercado bloquearia as compras.' : ', acima do mínimo de 50 %: o filtro de mercado deixa comprar.')} A revisão verdadeira faz-se no último dia útil do mês e as
               ordens seguem à abertura seguinte. Isto é uma indicação para decisão manual: a Automação não usa esta estratégia.
             </p>
             <div className="grid" style={{ marginTop: '0.75rem' }}>
@@ -179,6 +215,7 @@ export default function RotationPage() {
           </section>
         </>
       )}
+      <FundamentalsCard scope={scope} />
     </>
   );
 }

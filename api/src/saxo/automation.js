@@ -95,6 +95,31 @@ async function strategyHolding(pool, userId, strategyId, instrumentId) {
   return Number(r.qty);
 }
 
+/** Quanto o valor actual está abaixo do máximo, em % (0 sem queda ou sem máximo conhecido). */
+export function drawdownPct(peak, current) {
+  const p = Number(peak);
+  const c = Number(current);
+  return p > 0 && Number.isFinite(c) && c < p ? ((p - c) / p) * 100 : 0;
+}
+
+/**
+ * Limites de segurança de um utilizador (saxo_automation_settings): { maxPositions, maxDrawdownPct }, ambos null = sem limite.
+ * Devolve as funções que a execução usa: `blockBuys` (mensagem ou null: perda máxima atingida) e `openLimit` (mensagem ou null:
+ * teto de posições atingido para abrir um instrumento novo).
+ */
+export function buildGuards({ maxPositions = null, maxDrawdownPct = null, peak = null, current = null, heldCount = 0 }) {
+  const dd = maxDrawdownPct != null ? drawdownPct(peak, current) : 0;
+  const blockBuys = maxDrawdownPct != null && dd >= maxDrawdownPct
+    ? `perda máxima da carteira atingida: a conta está ${dd.toFixed(1).replace('.', ',')} % abaixo do máximo (limite ${maxDrawdownPct} %); sem compras nem reforços`
+    : null;
+  let opened = 0;
+  return {
+    blockBuys,
+    openLimit: () => (maxPositions != null && heldCount + opened >= maxPositions ? `teto de posições atingido (${maxPositions}); sem novas posições` : null),
+    noteOpened: () => { opened += 1; },
+  };
+}
+
 /** A sessão fechada mais recente e se a recolha diária já a confirmou (senão os seus valores podem ser provisórios). */
 export async function lastFinalSession(pool, today) {
   const [[q]] = await pool.query(
@@ -109,7 +134,7 @@ export async function lastFinalSession(pool, today) {
 const FATAL = new Set(['SAXO_TOKEN_EXPIRED', 'SAXO_NO_TOKEN', 'SAXO_LIVE_BLOCKED']);
 
 /** Trata um sinal; devolve o resultado para as contagens. Erros de ligação sobem e param a execução (sem registar o sinal). */
-async function handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld, wait }) {
+async function handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld, wait, guards }) {
   const userId = session.userId;
   const unique = [userId, strategy.id, s.instrumentId, s.date, s.side];
   const [[seen]] = await pool.query(
@@ -140,6 +165,12 @@ async function handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld
     // Já conta como vendida para as estratégias seguintes desta execução (a posição da conta só é lida uma vez).
     takeHeld(s.instrumentId, quantity);
   } else {
+    // Limites de segurança: perda máxima da carteira (compras e reforços) e teto de posições (só instrumentos novos).
+    if (guards?.blockBuys) return finish('skipped', guards.blockBuys);
+    if (s.side === 'buy' && (await getHeld(s.instrumentId)) <= 0) {
+      const full = guards?.openLimit();
+      if (full) return finish('skipped', full);
+    }
     const quantity = buyQuantity(strategy.budget, s.lastClose);
     if (quantity < 1) return finish('skipped', `o orçamento da estratégia não chega para uma unidade a ${s.lastClose}`);
     const known = await storedResolution(pool, s.instrumentId, session.environment);
@@ -157,6 +188,7 @@ async function handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld
       if (err.code !== 'SAXO_TICK_SIZE' || !err.details?.suggested) throw err;
       res = await placeOrder(pool, cfg, session, { ...order, limitPrice: err.details.suggested }, { wait });
     }
+    if (s.side === 'buy') guards?.noteOpened();
     return finish('sent', null, res.order.id);
   } catch (err) {
     const [[o]] = await pool.query('SELECT id FROM saxo_orders WHERE user_id = ? AND idempotency_key = ?', [userId, key]);
@@ -198,10 +230,12 @@ export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSign
   const [rows] = await pool.query('SELECT strategy_id FROM saxo_automation_strategies WHERE user_id = ? AND enabled = 1', [userId]);
   const wait = createThrottle(() => cfg.saxo.orderSpacingMs);
   let held = null;
+  let pf = null;
+  const portfolio = async () => { pf ??= await getPortfolio(pool, session); return pf; };
   const getHeld = async (instrumentId) => {
     if (!held) {
       held = new Map();
-      for (const p of (await getPortfolio(pool, session)).positions) {
+      for (const p of (await portfolio()).positions) {
         if (p.instrumentId != null) held.set(p.instrumentId, (held.get(p.instrumentId) ?? 0) + Number(p.quantity));
       }
     }
@@ -209,6 +243,18 @@ export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSign
   };
   const takeHeld = (instrumentId, quantity) => held?.set(instrumentId, (held.get(instrumentId) ?? 0) - quantity);
   const counts = {};
+  const [[lim]] = await pool.query('SELECT max_positions, max_drawdown_pct FROM saxo_automation_settings WHERE user_id = ?', [userId]);
+  const maxPositions = lim?.max_positions ?? null;
+  const maxDrawdownPct = lim?.max_drawdown_pct ?? null;
+  let peak = null;
+  let current = null;
+  if (maxDrawdownPct != null) {
+    const [[h]] = await pool.query("SELECT MAX(total_value) AS peak FROM saxo_account_history WHERE user_id = ? AND environment = 'sim'", [userId]);
+    current = (await portfolio()).totalValue;
+    peak = Math.max(Number(h?.peak ?? 0), Number(current ?? 0));
+  }
+  if (maxPositions != null) await getHeld(-1); // carrega as posições da conta para as contar
+  const guards = buildGuards({ maxPositions, maxDrawdownPct, peak, current, heldCount: held ? [...held.values()].filter((q) => q > 0).length : 0 });
   const eligible = await eligibility(pool, cfg, userId, log);
   const startedAt = Date.now();
   const budgetMs = orderBudgetMs(clock.time); // até às 16:35 (limite das ordens)
@@ -221,7 +267,7 @@ export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSign
       .filter((s) => s.side === 'sell' || eligible(strategy.id, s.instrumentId));
     for (const s of items) {
       if (Date.now() - startedAt > budgetMs) { counts.late = (counts.late ?? 0) + 1; continue; } // passou o limite: fica para a abertura seguinte
-      const outcome = await handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld, wait });
+      const outcome = await handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld, wait, guards });
       counts[outcome] = (counts[outcome] ?? 0) + 1;
     }
   }
@@ -290,7 +336,7 @@ export async function runDueAutomation(pool, cfg, { now = new Date(), loadSignal
 /** Estado da automação de um utilizador: interruptor geral, um por estratégia e a última execução. */
 export async function automationStatus(pool, userId) {
   const globalOn = new Set((await enabledStrategies(pool)).map((s) => s.id));
-  const [[s]] = await pool.query('SELECT enabled FROM saxo_automation_settings WHERE user_id = ?', [userId]);
+  const [[s]] = await pool.query('SELECT enabled, max_positions, max_drawdown_pct FROM saxo_automation_settings WHERE user_id = ?', [userId]);
   const [rows] = await pool.query('SELECT strategy_id, enabled FROM saxo_automation_strategies WHERE user_id = ?', [userId]);
   const on = new Set(rows.filter((r) => r.enabled).map((r) => r.strategy_id));
   const off = new Set(AVAILABLE_STRATEGIES.filter((x) => !globalOn.has(x.id)).map((x) => x.id));
@@ -299,6 +345,7 @@ export async function automationStatus(pool, userId) {
   try { counts = run?.counts ? JSON.parse(run.counts) : {}; } catch { counts = {}; }
   return {
     enabled: Boolean(s?.enabled),
+    limits: { maxPositions: s?.max_positions ?? null, maxDrawdownPct: s?.max_drawdown_pct ?? null },
     strategies: AVAILABLE_STRATEGIES.map((x) => ({ id: x.id, name: x.name, summary: x.summary, budget: x.budget, enabled: on.has(x.id) && !off.has(x.id), disabledInSettings: off.has(x.id) })),
     lastRun: run ? { date: run.run_date, status: run.status, counts, detail: run.detail, startedAt: run.started_at.toISOString(), finishedAt: run.finished_at?.toISOString() ?? null } : null,
   };
@@ -307,6 +354,16 @@ export async function automationStatus(pool, userId) {
 export async function setAutomationEnabled(pool, userId, enabled) {
   await pool.query('INSERT INTO saxo_automation_settings (user_id, enabled) VALUES (?, ?) ON DUPLICATE KEY UPDATE enabled = VALUES(enabled)', [userId, enabled ? 1 : 0]);
   await audit(pool, userId, 'saxo.automation_toggle', 'user', userId, { enabled });
+}
+
+/** Define os limites de segurança (null = sem limite). */
+export async function setAutomationLimits(pool, userId, { maxPositions, maxDrawdownPct }) {
+  await pool.query(
+    `INSERT INTO saxo_automation_settings (user_id, enabled, max_positions, max_drawdown_pct) VALUES (?, 0, ?, ?)
+     ON DUPLICATE KEY UPDATE max_positions = VALUES(max_positions), max_drawdown_pct = VALUES(max_drawdown_pct)`,
+    [userId, maxPositions ?? null, maxDrawdownPct ?? null],
+  );
+  await audit(pool, userId, 'saxo.automation_limits', 'user', userId, { maxPositions: maxPositions ?? null, maxDrawdownPct: maxDrawdownPct ?? null });
 }
 
 export async function setAutomationStrategy(pool, userId, strategyId, enabled) {

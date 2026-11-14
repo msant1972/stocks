@@ -6,7 +6,7 @@ import { accountHistory } from '../saxo/history.js';
 import { AppError } from '../errors.js';
 import { AVAILABLE_STRATEGIES } from '../../../shared/strategies/index.js';
 import { assertEnabled } from '../services/strategySettings.js';
-import { automationComparison, automationOrders, automationStatus, setAutomationEnabled, setAutomationStrategy } from '../saxo/automation.js';
+import { automationComparison, automationOrders, automationStatus, setAutomationEnabled, setAutomationLimits, setAutomationStrategy } from '../saxo/automation.js';
 import { sendPendingEmails } from '../saxo/watcher.js';
 import { ErrorBody, Id, IsoDate } from '../schemas.js';
 
@@ -87,6 +87,7 @@ export default async function saxoRoutes(app, { pool, cfg }) {
 
   const AutomationStatus = z.object({
     enabled: z.boolean(),
+    limits: z.object({ maxPositions: z.number().nullable(), maxDrawdownPct: z.number().nullable() }),
     strategies: z.array(z.object({ id: z.string(), name: z.string(), summary: z.string().nullable(), budget: z.number().nullable(), enabled: z.boolean(), disabledInSettings: z.boolean() })),
     lastRun: z.object({
       date: z.string(), status: z.enum(['running', 'done', 'failed']), counts: z.record(z.string(), z.number()), detail: z.string().nullable(), startedAt: z.string(), finishedAt: z.string().nullable(),
@@ -110,6 +111,20 @@ export default async function saxoRoutes(app, { pool, cfg }) {
     },
   }, async (req) => {
     await setAutomationEnabled(pool, req.user.id, req.body.enabled);
+    return automationStatus(pool, req.user.id);
+  });
+
+  app.put('/saxo/automation/limits', {
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    schema: {
+      tags: ['SAXO'], summary: 'Limites de segurança da automação',
+      description: 'maxPositions: teto de instrumentos com posição na conta (sem novas posições quando atingido; os reforços continuam). '
+        + 'maxDrawdownPct: com o valor da conta mais de X % abaixo do seu máximo, não se enviam compras nem reforços (as vendas continuam). null = sem limite.',
+      body: z.object({ maxPositions: z.number().int().min(1).max(500).nullable(), maxDrawdownPct: z.number().int().min(1).max(90).nullable() }),
+      response: { 200: AutomationStatus, 400: ErrorBody },
+    },
+  }, async (req) => {
+    await setAutomationLimits(pool, req.user.id, req.body);
     return automationStatus(pool, req.user.id);
   });
 

@@ -30,6 +30,12 @@ import * as cAi from './c-ai.js';
 import * as dReversao from './d-reversao.js';
 import * as eOndas from './e-ondas.js';
 import * as fMergulho from './f-mergulho.js';
+import * as gDonchian from './g-donchian.js';
+import * as hCruzamento from './h-cruzamento.js';
+import * as iMaximo52 from './i-maximo52.js';
+import * as jBollinger from './j-bollinger.js';
+import * as kKeltner from './k-keltner.js';
+import * as lMacd from './l-macd.js';
 
 /**
  * Anos de histórico com que os Sinais (e as regras de alerta de sinal) correm as estratégias. A A-Momentum reconstrói a
@@ -163,6 +169,90 @@ export const STRATEGIES = [
     warmupYears: 1,
     reasonLabels: { rsi: 'recuperação (RSI)', target: 'alvo', disaster: 'protecção', trend: 'quebra da SMA200' },
     run: (quotes, { from } = {}) => fMergulho.backtest(quotes, { from }),
+  },
+  {
+    id: 'g-donchian',
+    name: 'G-Donchian',
+    available: true,
+    budget: gDonchian.DEFAULT_OPTIONS.budget,
+    execution: 'open',
+    summary: `Rotura de canais (Tartarugas): compra o máximo de ${gDonchian.DEFAULT_OPTIONS.entryN} sessões e vende o mínimo de ${gDonchian.DEFAULT_OPTIONS.exitN}`,
+    rules: `Compra ${eur(gDonchian.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho rompe o máximo das últimas ${gDonchian.DEFAULT_OPTIONS.entryN} sessões `
+      + `e vende tudo quando o fecho cai abaixo do mínimo das últimas ${gDonchian.DEFAULT_OPTIONS.exitN}. Uma posição de cada vez, sem reforços nem stop `
+      + 'além do canal de saída; sem comissões; indicadores sobre preços ajustados, execução à abertura da sessão seguinte.',
+    windowYears: 2, warmupYears: 1,
+    reasonLabels: { channel: 'canal' },
+    run: (quotes, { from } = {}) => gDonchian.backtest(quotes, { from }),
+  },
+  {
+    id: 'h-cruzamento',
+    name: 'H-Cruzamento',
+    available: true,
+    budget: hCruzamento.DEFAULT_OPTIONS.budget,
+    execution: 'open',
+    summary: 'Cruzamento de médias 50/200: compra no «golden cross» e vende no «death cross»',
+    rules: `Compra ${eur(hCruzamento.DEFAULT_OPTIONS.budget)} na abertura seguinte quando a SMA${hCruzamento.DEFAULT_OPTIONS.fast} cruza acima da SMA${hCruzamento.DEFAULT_OPTIONS.slow} `
+      + 'e vende tudo quando cruza abaixo. Uma posição de cada vez, sem reforços nem stop; sem comissões; indicadores sobre preços ajustados, '
+      + 'execução à abertura da sessão seguinte. Estratégia de referência: a mais simples e conhecida.',
+    windowYears: 2, warmupYears: 1,
+    reasonLabels: { cross: 'cruzamento' },
+    run: (quotes, { from } = {}) => hCruzamento.backtest(quotes, { from }),
+  },
+  {
+    id: 'i-maximo52',
+    name: 'I-Máximo52',
+    available: true,
+    budget: iMaximo52.DEFAULT_OPTIONS.budget,
+    execution: 'open',
+    summary: `Compra perto do máximo de ${iMaximo52.DEFAULT_OPTIONS.lookback} sessões (George e Hwang) e vende quando cai ${iMaximo52.DEFAULT_OPTIONS.exit * 100} % abaixo dele`,
+    rules: `Compra ${eur(iMaximo52.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho está a ${iMaximo52.DEFAULT_OPTIONS.enter * 100}% ou menos do máximo das últimas `
+      + `${iMaximo52.DEFAULT_OPTIONS.lookback} sessões e vende tudo quando cai mais de ${iMaximo52.DEFAULT_OPTIONS.exit * 100}% abaixo desse máximo. Uma posição de cada vez, `
+      + 'sem reforços; sem comissões; indicadores sobre preços ajustados, execução à abertura da sessão seguinte.',
+    windowYears: 2, warmupYears: 1,
+    reasonLabels: { drawdown: 'queda do máximo' },
+    run: (quotes, { from } = {}) => iMaximo52.backtest(quotes, { from }),
+  },
+  {
+    id: 'j-bollinger',
+    name: 'J-Bollinger',
+    available: true,
+    budget: jBollinger.DEFAULT_OPTIONS.budget,
+    execution: 'open',
+    summary: `Reversão nas bandas de Bollinger (${jBollinger.DEFAULT_OPTIONS.n} sessões, ${jBollinger.DEFAULT_OPTIONS.k} desvios): compra abaixo da banda inferior e vende na média`,
+    rules: `Compra ${eur(jBollinger.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho fica abaixo da banda inferior (média de ${jBollinger.DEFAULT_OPTIONS.n} sessões `
+      + `menos ${jBollinger.DEFAULT_OPTIONS.k} desvios-padrão) e vende tudo quando volta à média, ou ao fim de ${jBollinger.DEFAULT_OPTIONS.maxHold} sessões sem lá chegar. `
+      + 'Uma posição de cada vez, sem reforços nem stop; sem comissões; indicadores sobre preços ajustados, execução à abertura da sessão seguinte.',
+    windowYears: 2, warmupYears: 1,
+    reasonLabels: { mean: 'média', time: 'tempo' },
+    run: (quotes, { from } = {}) => jBollinger.backtest(quotes, { from }),
+  },
+  {
+    id: 'k-keltner',
+    name: 'K-Keltner',
+    available: true,
+    budget: kKeltner.DEFAULT_OPTIONS.budget,
+    execution: 'open',
+    summary: `Rotura do canal de Keltner: compra acima da EMA${kKeltner.DEFAULT_OPTIONS.n} + ${kKeltner.DEFAULT_OPTIONS.k} ATR e vende abaixo da EMA${kKeltner.DEFAULT_OPTIONS.n}`,
+    rules: `Compra ${eur(kKeltner.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o fecho rompe a banda superior (EMA de ${kKeltner.DEFAULT_OPTIONS.n} sessões mais `
+      + `${kKeltner.DEFAULT_OPTIONS.k} × ATR de ${kKeltner.DEFAULT_OPTIONS.atrN}) e vende tudo quando cai abaixo da EMA. Uma posição de cada vez, sem reforços nem stop; `
+      + 'sem comissões; indicadores sobre preços ajustados, execução à abertura da sessão seguinte.',
+    windowYears: 2, warmupYears: 1,
+    reasonLabels: { middle: 'média' },
+    run: (quotes, { from } = {}) => kKeltner.backtest(quotes, { from }),
+  },
+  {
+    id: 'l-macd',
+    name: 'L-MACD',
+    available: true,
+    budget: lMacd.DEFAULT_OPTIONS.budget,
+    execution: 'open',
+    summary: 'MACD (12, 26, 9): compra quando cruza acima da linha de sinal e vende quando cruza abaixo',
+    rules: `Compra ${eur(lMacd.DEFAULT_OPTIONS.budget)} na abertura seguinte quando o MACD (EMA${lMacd.DEFAULT_OPTIONS.fast} − EMA${lMacd.DEFAULT_OPTIONS.slow}) cruza acima da sua `
+      + `linha de sinal (EMA${lMacd.DEFAULT_OPTIONS.signal}) e vende tudo quando cruza abaixo. Uma posição de cada vez, sem reforços nem stop; sem comissões; `
+      + 'indicadores sobre preços ajustados, execução à abertura da sessão seguinte.',
+    windowYears: 2, warmupYears: 1,
+    reasonLabels: { cross: 'cruzamento' },
+    run: (quotes, { from } = {}) => lMacd.backtest(quotes, { from }),
   },
 ];
 

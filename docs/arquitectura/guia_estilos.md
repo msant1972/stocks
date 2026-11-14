@@ -284,7 +284,9 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Estratégia de carteira por momentum relativo (Rotacao.md). Filtros no cabeçalho, guardados no endereço: «Instrumentos» (Todos / A minha lista), «Período» (Últimos 2 anos / Verificação) e «Posições» (5, 10, 20).
 - Cartão «Resultado simulado» com `.kpis` (resultado depois de custos, % sobre o capital máximo, comprar e manter o universo, pior queda, operações e acerto, custos), nota sobre os custos e o viés de sobrevivência, e a curva do resultado acumulado (uma leitura por semana, linha de zero a tracejado).
 - Cartão «Próxima revisão» com três tabelas lado a lado — Comprar, Manter, Vender — com o lugar no ranking e o momentum 12-1; «fora do filtro» quando o instrumento já não é elegível. Indica que é uma indicação para decisão manual (a Automação não usa esta estratégia).
+- Filtros adicionais (desde 14 nov. 2026, desligados por omissão e guardados no endereço): «Janela do momentum» (6, 9, 12 meses), «Filtro de mercado» (Desligado, Sem compras novas, Fica em numerário) e «Dimensionamento» (Lotes iguais, Pela volatilidade). Com o filtro ligado, a «Próxima revisão» diz se a amplitude do mercado deixa comprar, e o resultado mostra as revisões com o mercado em baixa.
 - Cartões «Posições abertas na simulação» e «Operações fechadas» (as 100 mais recentes); instrumento com ligação ao Charts.
+- Cartão «Valor e qualidade»: as 30 empresas com melhor pontuação de fundamentais (pontuação, valor, qualidade, rendimentos, ROE, margem e a marca «também no momentum»), com o aviso de que é só informativo, sem simulação.
 
 ### 5.9. HeatMap
 

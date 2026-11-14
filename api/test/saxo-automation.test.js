@@ -1,7 +1,30 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { buildEligibility, buyLimit, buyQuantity, LAST_HOUR, lisbonClock, orderBudgetMs, ORDER_CUTOFF, runDueAutomation, runSlot, selectSignals, signalKey } from '../src/saxo/automation.js';
+import { buildEligibility, buildGuards, buyLimit, drawdownPct, buyQuantity, LAST_HOUR, lisbonClock, orderBudgetMs, ORDER_CUTOFF, runDueAutomation, runSlot, selectSignals, signalKey } from '../src/saxo/automation.js';
 import { encryptSecret } from '../src/secrets.js';
 import { api, hasTestDb, login, makeInstrument, makeUser, setup, TEST_SECRET_KEY } from './helpers.js';
+
+describe('automação: limites de segurança', () => {
+  it('quanto o valor está abaixo do máximo, em %', () => {
+    expect(drawdownPct(1000, 900)).toBeCloseTo(10);
+    expect(drawdownPct(1000, 1100)).toBe(0);
+    expect(drawdownPct(null, 900)).toBe(0);
+    expect(drawdownPct(0, 0)).toBe(0);
+  });
+
+  it('perda máxima: bloqueia as compras só quando a queda atinge o limite; sem limite não bloqueia', () => {
+    expect(buildGuards({ maxDrawdownPct: 10, peak: 1000, current: 905 }).blockBuys).toBeNull();
+    expect(buildGuards({ maxDrawdownPct: 10, peak: 1000, current: 900 }).blockBuys).toMatch(/perda máxima da carteira atingida.*10,0 % abaixo.*limite 10 %/);
+    expect(buildGuards({ peak: 1000, current: 100 }).blockBuys).toBeNull();
+  });
+
+  it('teto de posições: conta as da conta e as abertas nesta execução', () => {
+    const g = buildGuards({ maxPositions: 2, heldCount: 1 });
+    expect(g.openLimit()).toBeNull();
+    g.noteOpened();
+    expect(g.openLimit()).toMatch(/teto de posições atingido \(2\)/);
+    expect(buildGuards({ heldCount: 99 }).openLimit()).toBeNull(); // sem teto
+  });
+});
 
 describe('automação: regras', () => {
   it('recolha ao minuto 20 (08:20 a 16:20); Automação ao minuto 23 (08:23 a 16:23), até às 16:35 nas ordens, com a hora de Verão', () => {
@@ -186,6 +209,39 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     expect(f.orders[0].requestId).toBe(signalKey(signal(), 'a-momentum'));
     const [item] = await list();
     expect(item).toMatchObject({ outcome: 'sent', strategy: 'a-momentum', strategyName: 'A-Momentum', symbol: 'GALP.LS', order: { side: 'buy', orderType: 'limit', status: 'working', quantity: 1500 } });
+  });
+
+  it('limites de segurança: teto de posições (só instrumentos novos) e perda máxima (compras e reforços; as vendas saem)', async () => {
+    const lei = await makeInstrument(ctx.pool, 'NOVO.LS', { closes: ['20', '20'], sessions: [FINAL, '2026-11-06'] });
+    await ctx.pool.query(
+      "INSERT INTO saxo_instruments (instrument_id, environment, uic, saxo_symbol, exchange_id, currency, tradable, order_types, min_size, tick_scheme) VALUES (?, 'sim', 777, 'NOVO:xlis', 'LISB', 'EUR', 1, 'Market,Limit', 1, '{}')",
+      [lei],
+    );
+    const f = use({ positions: [[23737, 100]] }); // a conta já tem a GALP
+    await turnOn();
+    expect((await ana.put('/saxo/automation/limits', { maxPositions: 0, maxDrawdownPct: null })).statusCode).toBe(400);
+    const set = await ana.put('/saxo/automation/limits', { maxPositions: 1, maxDrawdownPct: null });
+    expect(set.json().limits).toEqual({ maxPositions: 1, maxDrawdownPct: null });
+    const novo = signal({ instrumentId: lei, symbol: 'NOVO.LS', lastClose: '20' });
+    await run({ 'a-momentum': [novo, signal({ date: '2026-11-06' })] });
+    // O instrumento novo fica de fora (teto de 1 posição, já ocupada pela GALP); a GALP, que a conta já tem, compra-se.
+    expect(f.orders).toHaveLength(1);
+    expect(f.orders[0].body.Uic).toBe(23737);
+    const items = await list();
+    expect(items.find((i) => i.symbol === 'NOVO.LS')).toMatchObject({ outcome: 'skipped', message: expect.stringMatching(/teto de posições atingido \(1\)/) });
+
+    // Perda máxima: a conta vale 1 000 000 e o máximo já foi 1 300 000 (23 % abaixo) com limite de 20 %.
+    await ctx.pool.query("DELETE FROM saxo_automation_orders");
+    await ctx.pool.query("INSERT INTO saxo_account_history (user_id, environment, session_date, total_value, currency) VALUES (?, 'sim', '2026-10-01', 1300000, 'EUR')", [userId]);
+    await ana.put('/saxo/automation/limits', { maxPositions: null, maxDrawdownPct: 20 });
+    await ctx.pool.query("DELETE FROM saxo_automation_runs");
+    const before = f.orders.length;
+    await run({ 'a-momentum': [signal({ date: '2026-11-06' }), signal({ side: 'sell', reason: 'stop', date: FINAL })] });
+    expect(f.orders.slice(before).map((o) => o.body.BuySell)).toEqual([]); // sem posição da automação: a venda é ignorada, e a compra bloqueada
+    const blocked = (await list()).find((i) => i.signalSide === 'buy');
+    expect(blocked).toMatchObject({ outcome: 'skipped', message: expect.stringMatching(/perda máxima da carteira atingida/) });
+    await ctx.pool.query('DELETE FROM saxo_account_history WHERE user_id = ?', [userId]);
+    expect((await ana.get('/saxo/automation')).json().limits).toEqual({ maxPositions: null, maxDrawdownPct: 20 });
   });
 
   it('corre de hora a hora: novos sinais da sessão em curso saem na hora seguinte, sem repetir os já enviados', async () => {

@@ -65,7 +65,7 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
   it('lista as estratégias e recusa ids desconhecidos', async () => {
     const list = (await ana.get('/strategies')).json();
     expect(list.defaultId).toBe('a-momentum');
-    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', true], ['c-ai', 'C-AI', true], ['d-reversao', 'D-Reversão', true], ['e-ondas', 'E-Ondas', true], ['f-mergulho', 'F-Mergulho', true]]);
+    expect(list.items.map((s) => [s.id, s.name, s.available])).toEqual([['a-momentum', 'A-Momentum', true], ['b-opus', 'B-Opus', true], ['c-ai', 'C-AI', true], ['d-reversao', 'D-Reversão', true], ['e-ondas', 'E-Ondas', true], ['f-mergulho', 'F-Mergulho', true], ['g-donchian', 'G-Donchian', true], ['h-cruzamento', 'H-Cruzamento', true], ['i-maximo52', 'I-Máximo52', true], ['j-bollinger', 'J-Bollinger', true], ['k-keltner', 'K-Keltner', true], ['l-macd', 'L-MACD', true]]);
     expect((await ana.get('/backtest?strategy=c-x')).statusCode).toBe(400);
     expect((await ana.get('/signals?strategy=c-x')).statusCode).toBe(400);
   });
@@ -165,7 +165,9 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
 
   it('melhor estratégia de cada instrumento: a de maior resultado no BackTest', async () => {
     const best = (await ana.get('/strategies/best')).json();
-    const ids = (await ana.get('/strategies')).json().items.filter((x) => x.available).map((x) => x.id);
+    // Só as ligadas contam (as novas G a L nascem desligadas em Definições → Estratégias).
+    const ids = (await ana.get('/strategies')).json().items.filter((x) => x.available && x.enabled).map((x) => x.id);
+    expect(ids).toEqual(['a-momentum', 'b-opus', 'c-ai', 'd-reversao', 'e-ondas', 'f-mergulho']);
     const per = {};
     for (const id of ids) per[id] = (await ana.get(`/backtest?strategy=${id}`)).json().items;
     expect(best.items.length).toBeGreaterThan(0);

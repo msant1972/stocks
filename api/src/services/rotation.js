@@ -46,15 +46,15 @@ export function rotationService(pool) {
   }
 
   /** period: 'recent' ou 'verification'; positions: nº de posições; ids: restringe o universo (null = todo o catálogo). */
-  async function run({ period = 'recent', positions = DEFAULT_OPTIONS.positions, ids = null, key = 'all' } = {}) {
+  async function run({ period = 'recent', positions = DEFAULT_OPTIONS.positions, ids = null, key = 'all', lookback = DEFAULT_OPTIONS.lookback, regime = 0, sizing = 0 } = {}) {
     const d = await load();
     if (!d.last) return null;
-    const cacheKey = `${period}|${positions}|${key}`;
+    const cacheKey = `${period}|${positions}|${key}|${lookback}|${regime}|${sizing}`;
     const hit = results.get(cacheKey);
     if (hit) return hit;
     const to = yearsBefore(d.last, PERIODS[period] ?? 0);
     const from = yearsBefore(to, WINDOW_YEARS);
-    const opt = { positions, keepRank: positions * 2 };
+    const opt = { positions, keepRank: positions * 2, lookback, regime, sizing };
     const o = { ...DEFAULT_OPTIONS, ...opt };
     const universe = d.instruments
       .filter((i) => !ids || ids.has(i.id))

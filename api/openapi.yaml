@@ -4556,6 +4556,19 @@ paths:
                 properties:
                   enabled:
                     type: boolean
+                  limits:
+                    type: object
+                    properties:
+                      maxPositions:
+                        nullable: true
+                        type: number
+                      maxDrawdownPct:
+                        nullable: true
+                        type: number
+                    required:
+                      - maxPositions
+                      - maxDrawdownPct
+                    additionalProperties: false
                   strategies:
                     type: array
                     items:
@@ -4617,6 +4630,7 @@ paths:
                     additionalProperties: false
                 required:
                   - enabled
+                  - limits
                   - strategies
                   - lastRun
                 additionalProperties: false
@@ -4645,6 +4659,19 @@ paths:
                 properties:
                   enabled:
                     type: boolean
+                  limits:
+                    type: object
+                    properties:
+                      maxPositions:
+                        nullable: true
+                        type: number
+                      maxDrawdownPct:
+                        nullable: true
+                        type: number
+                    required:
+                      - maxPositions
+                      - maxDrawdownPct
+                    additionalProperties: false
                   strategies:
                     type: array
                     items:
@@ -4706,6 +4733,146 @@ paths:
                     additionalProperties: false
                 required:
                   - enabled
+                  - limits
+                  - strategies
+                  - lastRun
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/saxo/automation/limits:
+    put:
+      summary: Limites de segurança da automação
+      tags:
+        - SAXO
+      description: "maxPositions: teto de instrumentos com posição na conta (sem novas
+        posições quando atingido; os reforços continuam). maxDrawdownPct: com o
+        valor da conta mais de X % abaixo do seu máximo, não se enviam compras
+        nem reforços (as vendas continuam). null = sem limite."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                maxPositions:
+                  nullable: true
+                  type: integer
+                  minimum: 1
+                  maximum: 500
+                maxDrawdownPct:
+                  nullable: true
+                  type: integer
+                  minimum: 1
+                  maximum: 90
+              required:
+                - maxPositions
+                - maxDrawdownPct
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enabled:
+                    type: boolean
+                  limits:
+                    type: object
+                    properties:
+                      maxPositions:
+                        nullable: true
+                        type: number
+                      maxDrawdownPct:
+                        nullable: true
+                        type: number
+                    required:
+                      - maxPositions
+                      - maxDrawdownPct
+                    additionalProperties: false
+                  strategies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        summary:
+                          nullable: true
+                          type: string
+                        budget:
+                          nullable: true
+                          type: number
+                        enabled:
+                          type: boolean
+                        disabledInSettings:
+                          type: boolean
+                      required:
+                        - id
+                        - name
+                        - summary
+                        - budget
+                        - enabled
+                        - disabledInSettings
+                      additionalProperties: false
+                  lastRun:
+                    nullable: true
+                    type: object
+                    properties:
+                      date:
+                        type: string
+                      status:
+                        type: string
+                        enum:
+                          - running
+                          - done
+                          - failed
+                      counts:
+                        type: object
+                        additionalProperties:
+                          type: number
+                      detail:
+                        nullable: true
+                        type: string
+                      startedAt:
+                        type: string
+                      finishedAt:
+                        nullable: true
+                        type: string
+                    required:
+                      - date
+                      - status
+                      - counts
+                      - detail
+                      - startedAt
+                      - finishedAt
+                    additionalProperties: false
+                required:
+                  - enabled
+                  - limits
                   - strategies
                   - lastRun
                 additionalProperties: false
@@ -4757,6 +4924,12 @@ paths:
               - d-reversao
               - e-ondas
               - f-mergulho
+              - g-donchian
+              - h-cruzamento
+              - i-maximo52
+              - j-bollinger
+              - k-keltner
+              - l-macd
           in: path
           name: strategyId
           required: true
@@ -4770,6 +4943,19 @@ paths:
                 properties:
                   enabled:
                     type: boolean
+                  limits:
+                    type: object
+                    properties:
+                      maxPositions:
+                        nullable: true
+                        type: number
+                      maxDrawdownPct:
+                        nullable: true
+                        type: number
+                    required:
+                      - maxPositions
+                      - maxDrawdownPct
+                    additionalProperties: false
                   strategies:
                     type: array
                     items:
@@ -4831,6 +5017,7 @@ paths:
                     additionalProperties: false
                 required:
                   - enabled
+                  - limits
                   - strategies
                   - lastRun
                 additionalProperties: false
@@ -9641,7 +9828,35 @@ paths:
         70, ou o fecho está 20% acima do custo médio, ou 25% abaixo do lote mais
         barato. Sem reforços além dos lotes de mergulho; indicadores sobre
         preços ajustados, execução à abertura da sessão seguinte, sem
-        comissões.) Simulação; não são recomendações."
+        comissões.) g-donchian (G-Donchian: Compra 15 000 € na abertura seguinte
+        quando o fecho rompe o máximo das últimas 30 sessões e vende tudo quando
+        o fecho cai abaixo do mínimo das últimas 40. Uma posição de cada vez,
+        sem reforços nem stop além do canal de saída; sem comissões; indicadores
+        sobre preços ajustados, execução à abertura da sessão seguinte.)
+        h-cruzamento (H-Cruzamento: Compra 15 000 € na abertura seguinte quando
+        a SMA50 cruza acima da SMA200 e vende tudo quando cruza abaixo. Uma
+        posição de cada vez, sem reforços nem stop; sem comissões; indicadores
+        sobre preços ajustados, execução à abertura da sessão seguinte.
+        Estratégia de referência: a mais simples e conhecida.) i-maximo52
+        (I-Máximo52: Compra 15 000 € na abertura seguinte quando o fecho está a
+        10% ou menos do máximo das últimas 126 sessões e vende tudo quando cai
+        mais de 15% abaixo desse máximo. Uma posição de cada vez, sem reforços;
+        sem comissões; indicadores sobre preços ajustados, execução à abertura
+        da sessão seguinte.) j-bollinger (J-Bollinger: Compra 15 000 € na
+        abertura seguinte quando o fecho fica abaixo da banda inferior (média de
+        40 sessões menos 1.5 desvios-padrão) e vende tudo quando volta à média,
+        ou ao fim de 80 sessões sem lá chegar. Uma posição de cada vez, sem
+        reforços nem stop; sem comissões; indicadores sobre preços ajustados,
+        execução à abertura da sessão seguinte.) k-keltner (K-Keltner: Compra
+        15 000 € na abertura seguinte quando o fecho rompe a banda superior (EMA
+        de 120 sessões mais 1 × ATR de 10) e vende tudo quando cai abaixo da
+        EMA. Uma posição de cada vez, sem reforços nem stop; sem comissões;
+        indicadores sobre preços ajustados, execução à abertura da sessão
+        seguinte.) l-macd (L-MACD: Compra 15 000 € na abertura seguinte quando o
+        MACD (EMA12 − EMA26) cruza acima da sua linha de sinal (EMA9) e vende
+        tudo quando cruza abaixo. Uma posição de cada vez, sem reforços nem
+        stop; sem comissões; indicadores sobre preços ajustados, execução à
+        abertura da sessão seguinte.) Simulação; não são recomendações."
       parameters:
         - schema:
             default: 5
@@ -9660,6 +9875,12 @@ paths:
               - d-reversao
               - e-ondas
               - f-mergulho
+              - g-donchian
+              - h-cruzamento
+              - i-maximo52
+              - j-bollinger
+              - k-keltner
+              - l-macd
           in: query
           name: strategy
           required: false
@@ -9943,6 +10164,12 @@ paths:
               - d-reversao
               - e-ondas
               - f-mergulho
+              - g-donchian
+              - h-cruzamento
+              - i-maximo52
+              - j-bollinger
+              - k-keltner
+              - l-macd
           in: path
           name: id
           required: true
@@ -10075,9 +10302,37 @@ paths:
         lotes de mergulho quando o RSI14 passa de 70, ou o fecho está 20% acima
         do custo médio, ou 25% abaixo do lote mais barato. Sem reforços além dos
         lotes de mergulho; indicadores sobre preços ajustados, execução à
-        abertura da sessão seguinte, sem comissões.) Posições abertas avaliadas
-        ao último fecho. Simulação no histórico; não altera a carteira nem é
-        recomendação."
+        abertura da sessão seguinte, sem comissões.) g-donchian (G-Donchian:
+        Compra 15 000 € na abertura seguinte quando o fecho rompe o máximo das
+        últimas 30 sessões e vende tudo quando o fecho cai abaixo do mínimo das
+        últimas 40. Uma posição de cada vez, sem reforços nem stop além do canal
+        de saída; sem comissões; indicadores sobre preços ajustados, execução à
+        abertura da sessão seguinte.) h-cruzamento (H-Cruzamento: Compra 15 000
+        € na abertura seguinte quando a SMA50 cruza acima da SMA200 e vende tudo
+        quando cruza abaixo. Uma posição de cada vez, sem reforços nem stop; sem
+        comissões; indicadores sobre preços ajustados, execução à abertura da
+        sessão seguinte. Estratégia de referência: a mais simples e conhecida.)
+        i-maximo52 (I-Máximo52: Compra 15 000 € na abertura seguinte quando o
+        fecho está a 10% ou menos do máximo das últimas 126 sessões e vende tudo
+        quando cai mais de 15% abaixo desse máximo. Uma posição de cada vez, sem
+        reforços; sem comissões; indicadores sobre preços ajustados, execução à
+        abertura da sessão seguinte.) j-bollinger (J-Bollinger: Compra 15 000 €
+        na abertura seguinte quando o fecho fica abaixo da banda inferior (média
+        de 40 sessões menos 1.5 desvios-padrão) e vende tudo quando volta à
+        média, ou ao fim de 80 sessões sem lá chegar. Uma posição de cada vez,
+        sem reforços nem stop; sem comissões; indicadores sobre preços
+        ajustados, execução à abertura da sessão seguinte.) k-keltner
+        (K-Keltner: Compra 15 000 € na abertura seguinte quando o fecho rompe a
+        banda superior (EMA de 120 sessões mais 1 × ATR de 10) e vende tudo
+        quando cai abaixo da EMA. Uma posição de cada vez, sem reforços nem
+        stop; sem comissões; indicadores sobre preços ajustados, execução à
+        abertura da sessão seguinte.) l-macd (L-MACD: Compra 15 000 € na
+        abertura seguinte quando o MACD (EMA12 − EMA26) cruza acima da sua linha
+        de sinal (EMA9) e vende tudo quando cruza abaixo. Uma posição de cada
+        vez, sem reforços nem stop; sem comissões; indicadores sobre preços
+        ajustados, execução à abertura da sessão seguinte.) Posições abertas
+        avaliadas ao último fecho. Simulação no histórico; não altera a carteira
+        nem é recomendação."
       parameters:
         - schema:
             default: all
@@ -10097,6 +10352,12 @@ paths:
               - d-reversao
               - e-ondas
               - f-mergulho
+              - g-donchian
+              - h-cruzamento
+              - i-maximo52
+              - j-bollinger
+              - k-keltner
+              - l-macd
           in: query
           name: strategy
           required: false
@@ -10935,6 +11196,115 @@ paths:
                   - validatedAt
                   - items
                 additionalProperties: false
+  /api/v1/strategies/fundamentals:
+    get:
+      summary: "Valor e qualidade: ordenação das empresas pelos fundamentais
+        (informativo, sem simulação)"
+      tags:
+        - Estratégia
+      description: "Pontuação de 0 a 1 (média dos percentis de: rendimento dos
+        resultados, rendimento do fluxo de caixa livre, ROE, margem líquida e
+        baixa dívida; mínimo de 4 indicadores). Só há os fundamentais de hoje
+        (sem histórico por data), por isso não se pode simular no passado sem
+        viés de antecipação. `inMomentum` marca as que também estão no topo da
+        rotação por momentum."
+      parameters:
+        - schema:
+            default: all
+            type: string
+            enum:
+              - all
+              - watchlist
+          in: query
+          name: scope
+          required: false
+        - schema:
+            default: 30
+            type: integer
+            minimum: 5
+            maximum: 100
+          in: query
+          name: limit
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  universe:
+                    type: number
+                  scored:
+                    type: number
+                  fetchedBefore:
+                    nullable: true
+                    type: string
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        sector:
+                          nullable: true
+                          type: string
+                        rank:
+                          type: number
+                        score:
+                          type: number
+                        value:
+                          nullable: true
+                          type: number
+                        quality:
+                          nullable: true
+                          type: number
+                        earningsYield:
+                          nullable: true
+                          type: number
+                        fcfYield:
+                          nullable: true
+                          type: number
+                        roe:
+                          nullable: true
+                          type: number
+                        margin:
+                          nullable: true
+                          type: number
+                        leverage:
+                          nullable: true
+                          type: number
+                        inMomentum:
+                          type: boolean
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - sector
+                        - rank
+                        - score
+                        - value
+                        - quality
+                        - earningsYield
+                        - fcfYield
+                        - roe
+                        - margin
+                        - leverage
+                        - inMomentum
+                      additionalProperties: false
+                required:
+                  - universe
+                  - scored
+                  - fetchedBefore
+                  - items
+                additionalProperties: false
   /api/v1/strategies/rotation:
     get:
       summary: "Rotação por momentum relativo: resultado simulado e revisão seguinte"
@@ -10974,6 +11344,33 @@ paths:
           in: query
           name: scope
           required: false
+        - schema:
+            default: 252
+            type: integer
+            minimum: -9007199254740991
+            maximum: 9007199254740991
+          in: query
+          name: lookback
+          required: false
+        - schema:
+            default: 0
+            type: integer
+            minimum: -9007199254740991
+            maximum: 9007199254740991
+          in: query
+          name: regime
+          required: false
+          description: "Filtro de regime de mercado: 0 desligado; 1 sem compras novas com
+            menos de metade do catálogo acima da SMA200; 2 também vende tudo"
+        - schema:
+            default: 0
+            type: integer
+            minimum: -9007199254740991
+            maximum: 9007199254740991
+          in: query
+          name: sizing
+          required: false
+          description: "0: lotes iguais; 1: pela volatilidade (entre ½ e 2 lotes)"
       responses:
         "200":
           description: Default Response
@@ -11028,6 +11425,12 @@ paths:
                         type: number
                       budget:
                         type: number
+                      regime:
+                        type: number
+                      regimeMin:
+                        type: number
+                      sizing:
+                        type: number
                     required:
                       - positions
                       - keepRank
@@ -11036,6 +11439,9 @@ paths:
                       - smaTrend
                       - minTradedValue
                       - budget
+                      - regime
+                      - regimeMin
+                      - sizing
                     additionalProperties: false
                   summary:
                     type: object
@@ -11067,6 +11473,8 @@ paths:
                       maxDrawdownPct:
                         type: number
                       rebalances:
+                        type: number
+                      bearReviews:
                         type: number
                       avgPositions:
                         type: number
@@ -11112,6 +11520,7 @@ paths:
                       - maxDrawdown
                       - maxDrawdownPct
                       - rebalances
+                      - bearReviews
                       - avgPositions
                       - buyHold
                     additionalProperties: false
@@ -11239,6 +11648,11 @@ paths:
                         description: Data AAAA-MM-DD
                       eligible:
                         type: number
+                      breadth:
+                        nullable: true
+                        type: number
+                      bear:
+                        type: boolean
                       keep:
                         type: array
                         items:
@@ -11362,6 +11776,8 @@ paths:
                     required:
                       - date
                       - eligible
+                      - breadth
+                      - bear
                       - keep
                       - buy
                       - sell

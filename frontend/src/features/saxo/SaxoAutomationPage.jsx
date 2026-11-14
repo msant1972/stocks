@@ -4,7 +4,8 @@ import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { AUTOMATION_STATUS, automationRunText, automationState, splitAutomationItems } from '../../lib/saxo.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
-import { Notice, Switch } from '../../components/ui/controls.jsx';
+import { useState } from 'react';
+import { Button, Field, Notice, Switch } from '../../components/ui/controls.jsx';
 import { SIM_BANNER, useSaxoStatus } from './SaxoOrderDialog.jsx';
 
 const SIDE = { buy: 'Compra', add: 'Reforço', sell: 'Venda' };
@@ -14,6 +15,48 @@ const STATE = {
   missed: { label: 'não executada', tone: 'badge-warning' }, unknown: { label: 'por confirmar', tone: 'badge-warning' },
 };
 const signedPct = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${v.toLocaleString('pt-PT', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`);
+
+/**
+ * Limites de segurança: teto de posições e interruptor de perda máxima da carteira. Campo vazio = sem limite.
+ */
+function Limits({ limits }) {
+  const qc = useQueryClient();
+  const [positions, setPositions] = useState(limits.maxPositions == null ? '' : String(limits.maxPositions));
+  const [drawdown, setDrawdown] = useState(limits.maxDrawdownPct == null ? '' : String(limits.maxDrawdownPct));
+  const save = useMutation({
+    mutationFn: (body) => api.put('/saxo/automation/limits', body),
+    onSuccess: (data) => qc.setQueryData(['saxo-automation'], data),
+  });
+  const num = (t, max) => (t.trim() === '' ? null : /^\d+$/.test(t.trim()) && Number(t) >= 1 && Number(t) <= max ? Number(t) : undefined);
+  const mp = num(positions, 500);
+  const md = num(drawdown, 90);
+  const bad = mp === undefined || md === undefined;
+  return (
+    <section className="card span-12" aria-labelledby="auto-limits-title">
+      <h2 id="auto-limits-title" className="card-title">Limites de segurança</h2>
+      <p className="small muted" style={{ marginTop: 0 }}>
+        Com o teto de posições atingido, as compras de instrumentos novos não se enviam (os reforços de posições que a conta já tem continuam).
+        Com o valor da conta mais de X % abaixo do seu máximo, não se enviam compras nem reforços; as vendas continuam a sair.
+        O que fica de fora aparece em «Sinais não enviados». Campo vazio: sem limite.
+      </p>
+      <form className="row" style={{ alignItems: 'flex-end' }} noValidate
+        onSubmit={(e) => { e.preventDefault(); if (!bad) save.mutate({ maxPositions: mp, maxDrawdownPct: md }); }}>
+        <div style={{ minWidth: '11rem' }}>
+          <Field label="Teto de posições" error={mp === undefined ? 'Inteiro de 1 a 500.' : null}>
+            {(p) => <input {...p} className="input num" inputMode="numeric" placeholder="sem limite" value={positions} onChange={(e) => setPositions(e.target.value)} />}
+          </Field>
+        </div>
+        <div style={{ minWidth: '14rem' }}>
+          <Field label="Perda máxima da carteira (%)" error={md === undefined ? 'Inteiro de 1 a 90.' : null}>
+            {(p) => <input {...p} className="input num" inputMode="numeric" placeholder="sem limite" value={drawdown} onChange={(e) => setDrawdown(e.target.value)} />}
+          </Field>
+        </div>
+        <Button type="submit" variant="primary" busy={save.isPending} disabled={bad}>Guardar limites</Button>
+      </form>
+      {save.error && <Notice tone="error">{errorMessage(save.error)}</Notice>}
+    </section>
+  );
+}
 
 /**
  * Automação face ao BackTest: o preço a que a SAXO executou cada ordem contra o preço que o BackTest assume (o fecho da
@@ -158,6 +201,8 @@ export default function SaxoAutomationPage() {
               Duas estratégias ligadas podem comprar o mesmo instrumento, com o orçamento de cada uma.
             </p>
           </section>
+
+          <Limits key={`${s.limits.maxPositions}-${s.limits.maxDrawdownPct}`} limits={s.limits} />
         </div>
       )}
 

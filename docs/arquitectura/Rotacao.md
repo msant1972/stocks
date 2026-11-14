@@ -65,6 +65,27 @@ outras o «capital máximo» é a soma dos máximos de cada instrumento (mais de
 Escolhi os parâmetros clássicos da literatura (12-1, 10 posições, histerese de 2 × N) e **não os afinei** pelos resultados. A variante
 sem filtro da SMA200 dá mais, mas o filtro serve para os mercados em queda, que os dois períodos de teste não têm.
 
+## 4b. Opções da página (14 nov. 2026)
+
+Desligadas por omissão (base: 12 meses, lotes iguais, sem filtro). Resultados sobre o catálogo, 10 posições, últimos 2 anos / verificação
+(base 52,6 % / 34,4 %):
+
+| Opção | Resultado | Pior queda | Capital máximo |
+|---|---|---|---|
+| Janela de 6 meses | 56,5 % / 13,7 % | −35 % / −26 % | 150 k€ |
+| Janela de 9 meses | 65,9 % / 39,8 % | −38 % / −17 % | 150 k€ |
+| Filtro de mercado: sem compras novas | 45,9 % / 28,5 % | −33 % / −17 % | 150 k€ |
+| Filtro de mercado: também vende tudo | 26,3 % / 20,9 % | −34 % / −17 % | 150 k€ |
+| Dimensionamento pela volatilidade | 41,9 % / 31,6 % | −26 % / −14 % | 113 k€ / 124 k€ |
+
+- **Filtro de regime (dual momentum):** com menos de metade dos instrumentos acima da SMA200 na data da revisão, não se compra (modo 1) ou também se vende
+  tudo e fica-se em numerário (modo 2). Só 2 de 24 revisões ficam em baixa nestes períodos, por isso o filtro só custa resultado e não se pode provar o
+  benefício sem uma queda prolongada nos dados.
+- **Dimensionamento pela volatilidade:** o lote de cada compra é o orçamento × (volatilidade mediana dos elegíveis / volatilidade do instrumento), entre ½ e 2
+  lotes. Reduz a pior queda e o capital investido; o retorno por unidade de queda sobe (1,6 / 2,3 contra 1,5 / 2,0).
+- **Janela:** 9 meses dá mais que 12 nos dois períodos, mas 6 meses dá menos na verificação (a diferença é ruído); fica 12, o valor da literatura.
+- **Valor e qualidade:** cartão informativo com as 30 melhores empresas por fundamentais, sem simulação (ver Novas-estrategias.md, secção 4).
+
 ## 5. Limitações e riscos
 
 - **Mercado em alta:** os dois períodos são de mercado em alta; o momentum tem quedas fortes nas viragens (o «crash» do momentum) que

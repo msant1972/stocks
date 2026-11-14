@@ -93,10 +93,10 @@ test('só vende com o SMA8/SMA125 abaixo de 1%', () => {
   assert.deepEqual([r.trades[0].sellDate, r.trades[0].sellPrice], ['2026-01-11', 10.5]);
 });
 
-test('registo de estratégias: A-Momentum igual ao backtest; B-Opus, C-AI, D-Reversão, E-Ondas e F-Mergulho disponíveis', async () => {
+test('registo de estratégias: A-Momentum igual ao backtest; B-Opus, C-AI, D-Reversão, E-Ondas, F-Mergulho e G a L disponíveis', async () => {
   const { STRATEGIES, getStrategy, DEFAULT_STRATEGY_ID } = await import('../src/lib/strategy.js');
   const { momentum } = await import('../src/lib/momentum.js');
-  assert.deepEqual(STRATEGIES.map((s) => [s.id, s.name, s.available, s.warmupYears]), [['a-momentum', 'A-Momentum', true, 0], ['b-opus', 'B-Opus', true, 1], ['c-ai', 'C-AI', true, 1], ['d-reversao', 'D-Reversão', true, 1], ['e-ondas', 'E-Ondas', true, 1], ['f-mergulho', 'F-Mergulho', true, 1]]);
+  assert.deepEqual(STRATEGIES.map((s) => [s.id, s.name, s.available, s.warmupYears]), [['a-momentum', 'A-Momentum', true, 0], ['b-opus', 'B-Opus', true, 1], ['c-ai', 'C-AI', true, 1], ['d-reversao', 'D-Reversão', true, 1], ['e-ondas', 'E-Ondas', true, 1], ['f-mergulho', 'F-Mergulho', true, 1], ['g-donchian', 'G-Donchian', true, 1], ['h-cruzamento', 'H-Cruzamento', true, 1], ['i-maximo52', 'I-Máximo52', true, 1], ['j-bollinger', 'J-Bollinger', true, 1], ['k-keltner', 'K-Keltner', true, 1], ['l-macd', 'L-MACD', true, 1]]);
   assert.equal(DEFAULT_STRATEGY_ID, 'a-momentum');
   assert.equal(getStrategy('b-opus').name, 'B-Opus');
   assert.equal(getStrategy('c-ai').name, 'C-AI');

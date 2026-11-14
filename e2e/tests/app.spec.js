@@ -421,7 +421,7 @@ test('Definições → Estratégias: desligar uma estratégia tira-a de todos os
   await expect(page.getByRole('columnheader', { name: /B-Opus/ })).toHaveCount(0);
   // Automação: a estratégia desligada nas Definições aparece marcada e não se liga.
   await page.goto('/saxo/automacao');
-  await expect(page.getByText('desligada nas Definições')).toBeVisible();
+  await expect(page.getByText('desligada nas Definições').first()).toBeVisible(); // a B-Opus e as novas G a L
   await expect(page.getByLabel('Automação da estratégia B-Opus')).toBeDisabled();
   // Tem de ficar pelo menos uma: com só a F-Mergulho ligada, o interruptor dela fica bloqueado.
   await page.goto('/definicoes');
@@ -506,4 +506,26 @@ test('Definições → Logotipos: Client ID da Brandfetch (CDN simulado)', async
   await card.getByRole('button', { name: 'Apagar' }).click();
   await expect(card.getByText('Sem Client ID: não se podem descarregar logotipos')).toBeVisible();
   await page.unroute('https://cdn.brandfetch.io/**');
+});
+
+test('Automação: limites de segurança (teto de posições e perda máxima) guardam-se e mantêm-se', async () => {
+  await page.goto('/saxo/automacao');
+  const card = page.getByRole('region', { name: 'Limites de segurança' });
+  await expect(card).toBeVisible();
+  await card.getByLabel('Teto de posições').fill('0');
+  await expect(card.getByText('Inteiro de 1 a 500.')).toBeVisible();
+  await expect(card.getByRole('button', { name: 'Guardar limites' })).toBeDisabled();
+  await card.getByLabel('Teto de posições').fill('8');
+  await card.getByLabel('Perda máxima da carteira (%)').fill('15');
+  await card.getByRole('button', { name: 'Guardar limites' }).click();
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Limites de segurança' }).getByLabel('Teto de posições')).toHaveValue('8');
+  await expect(page.getByRole('region', { name: 'Limites de segurança' }).getByLabel('Perda máxima da carteira (%)')).toHaveValue('15');
+  // Limpar volta a «sem limite».
+  const again = page.getByRole('region', { name: 'Limites de segurança' });
+  await again.getByLabel('Teto de posições').fill('');
+  await again.getByLabel('Perda máxima da carteira (%)').fill('');
+  await again.getByRole('button', { name: 'Guardar limites' }).click();
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Limites de segurança' }).getByLabel('Teto de posições')).toHaveValue('');
 });

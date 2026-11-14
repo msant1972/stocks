@@ -28,6 +28,12 @@ export const DEFAULT_OPTIONS = {
   minTradedValue: 5_000_000,
   tradedWindow: 50,
   staleSessions: 5,     // um instrumento sem cotação há mais destas sessões antes da revisão fica de fora
+  // Filtro de regime de mercado (dual momentum): amplitude = parte dos instrumentos acima da SMA200 na data da revisão.
+  regime: 0,            // 0 desligado; 1 sem compras novas com a amplitude abaixo de regimeMin; 2 também vende tudo (fica em numerário)
+  regimeMin: 0.5,
+  // Dimensionamento: 0 lotes iguais; 1 pela volatilidade (lote × volatilidade mediana / volatilidade do instrumento, entre ½ e 2 lotes).
+  sizing: 0,
+  volWindow: 60,
 };
 
 /** Valida e completa as opções (chaves desconhecidas e valores inválidos → erro). */
@@ -66,6 +72,7 @@ export function prepareInstrument(meta, quotes, o) {
   const close = [];
   const adj = [];
   const traded = [];
+  const rets = [];
   for (const q of quotes) {
     const c = Number(q.close);
     const op = Number(q.open);
@@ -75,9 +82,19 @@ export function prepareInstrument(meta, quotes, o) {
     close.push(c);
     adj.push(Number(q.adjClose ?? q.close) > 0 ? Number(q.adjClose ?? q.close) : c);
     traded.push(c * (Number(q.volume) || 0));
+    rets.push(adj.length > 1 ? adj.at(-1) / adj.at(-2) - 1 : 0);
   }
+  const vol = rets.map((_, i) => {
+    if (i < o.volWindow) return null;
+    let m = 0;
+    for (let k = i - o.volWindow + 1; k <= i; k++) m += rets[k];
+    m /= o.volWindow;
+    let ss = 0;
+    for (let k = i - o.volWindow + 1; k <= i; k++) ss += (rets[k] - m) ** 2;
+    return Math.sqrt(ss / (o.volWindow - 1));
+  });
   const index = new Map(dates.map((d, i) => [d, i]));
-  return { ...meta, dates, open, close, adj, sma: sma(adj, o.smaTrend), traded: sma(traded, o.tradedWindow), index };
+  return { ...meta, dates, open, close, adj, vol, sma: sma(adj, o.smaTrend), traded: sma(traded, o.tradedWindow), index };
 }
 
 /** Índice da última sessão com data ≤ d (busca binária), ou -1. */
@@ -101,18 +118,27 @@ export function score(inst, d, o, calendarPos) {
   if (!(gap <= o.staleSessions)) return null;
   const momentum = inst.adj[i - o.skip] / inst.adj[i - o.lookback] - 1;
   const eligible = momentum > 0 && inst.adj[i] > inst.sma[i] && (inst.traded[i] ?? 0) >= o.minTradedValue;
-  return { i, momentum, eligible };
+  return { i, momentum, eligible, above: inst.adj[i] > inst.sma[i] };
 }
 
 /** Ranking do universo à data d: elegíveis por momentum decrescente, cada um com o seu lugar (1 = o melhor). */
 export function rank(universe, d, o, calendarPos) {
   const rows = [];
+  let scored = 0;
+  let above = 0;
   for (const inst of universe) {
     const s = score(inst, d, o, calendarPos);
-    if (s?.eligible) rows.push({ inst, momentum: s.momentum, close: inst.close[s.i] });
+    if (!s) continue;
+    scored += 1;
+    if (s.above) above += 1;
+    if (s.eligible) rows.push({ inst, momentum: s.momentum, close: inst.close[s.i], vol: inst.vol[s.i] });
   }
   rows.sort((a, b) => b.momentum - a.momentum || a.inst.symbol.localeCompare(b.inst.symbol));
   rows.forEach((r, k) => { r.rank = k + 1; });
+  // Amplitude do mercado e volatilidade mediana dos elegíveis, para o filtro de regime e o dimensionamento.
+  rows.breadth = scored ? above / scored : null;
+  const vols = rows.map((r) => r.vol).filter((v) => v > 0).sort((a, b) => a - b);
+  rows.volRef = vols.length ? vols[vols.length >> 1] : null;
   return rows;
 }
 
@@ -134,7 +160,19 @@ export function plan(universe, d, current, o, calendarPos) {
     if (keep.length + buy.length >= o.positions) break;
     if (!kept.has(r.inst.id)) buy.push(r.inst.id);
   }
-  return { keep, sell, buy, ranking };
+  // Tamanho do lote de cada compra: 1 (lotes iguais) ou, com sizing 1, inversamente proporcional à volatilidade (entre ½ e 2 lotes).
+  const scale = new Map();
+  for (const id of buy) {
+    const r = byId.get(id);
+    scale.set(id, o.sizing === 1 && r.vol > 0 && ranking.volRef ? Math.min(2, Math.max(0.5, ranking.volRef / r.vol)) : 1);
+  }
+  // Filtro de regime: com a amplitude do mercado abaixo do mínimo, não se compra; no modo 2 vende-se tudo (numerário).
+  const bear = o.regime > 0 && ranking.breadth != null && ranking.breadth < o.regimeMin;
+  if (bear) {
+    buy.length = 0;
+    if (o.regime === 2) { sell.splice(0, sell.length, ...current); keep.length = 0; }
+  }
+  return { keep, sell, buy, scale, ranking, breadth: ranking.breadth, bear };
 }
 
 const monthOf = (d) => d.slice(0, 7);
@@ -192,7 +230,7 @@ export function simulate(universe, { from, to, ...options } = {}) {
       for (const id of pending.buy) {
         const inst = universe.find((u) => u.id === id);
         const px = openOf(inst, d);
-        const quantity = px ? Math.floor(o.budget / px.price) : 0;
+        const quantity = px ? Math.floor((o.budget * (pending.scale?.get(id) ?? 1)) / px.price) : 0;
         if (quantity < 1) continue;
         const lot = { date: px.date, price: px.price, quantity, cost: round2(quantity * px.price) };
         positions.set(id, { inst, buyDate: px.date, quantity, cost: lot.cost, lots: [lot] });
@@ -210,8 +248,9 @@ export function simulate(universe, { from, to, ...options } = {}) {
 
     if (reviews.has(d)) {
       const decision = plan(universe, d, [...positions.keys()], o, calendarPos);
-      rebalances.push({ date: d, sell: decision.sell.length, buy: decision.buy.length, keep: decision.keep.length });
-      pending = { sell: decision.sell, buy: decision.buy };
+      rebalances.push({ date: d, sell: decision.sell.length, buy: decision.buy.length, keep: decision.keep.length, breadth: decision.breadth });
+      pending = { sell: decision.sell, buy: decision.buy, scale: decision.scale };
+      rebalances[rebalances.length - 1].bear = decision.bear;
     }
   }
 
@@ -272,7 +311,7 @@ export function simulate(universe, { from, to, ...options } = {}) {
       costs: round2(costTotal), costsFirstYear: round2(firstYear), costsSecondYear: round2(secondYear),
       net: round2(total - costTotal), netPct: peakCost > 0 ? ((total - costTotal) / peakCost) * 100 : 0,
       maxDrawdown: round2(dd), maxDrawdownPct: peakCost > 0 ? (dd / peakCost) * 100 : 0,
-      rebalances: rebalances.length, avgPositions: round2(curve.reduce((s, c) => s + c.positions, 0) / curve.length),
+      rebalances: rebalances.length, bearReviews: rebalances.filter((x) => x.bear).length, avgPositions: round2(curve.reduce((s, c) => s + c.positions, 0) / curve.length),
       buyHold: bhN ? {
         instruments: bhN, cost: round2(bhCost), value: round2(bhValue), pnl: round2(bhValue - bhCost),
         pnlPct: (bhValue / bhCost - 1) * 100, net: round2(bhValue - bhCost - bhFees), netPct: ((bhValue - bhCost - bhFees) / bhCost) * 100,
@@ -306,7 +345,7 @@ function nextReview(universe, calendar, calendarPos, current, o) {
     return { instrumentId: id, symbol: inst.symbol, name: inst.name ?? null, rank: r?.rank ?? null, momentum: r?.momentum ?? null, reason: r ? 'ranking' : 'filtro' };
   });
   return {
-    date: d, eligible: decision.ranking.length,
+    date: d, eligible: decision.ranking.length, breadth: decision.breadth, bear: decision.bear,
     keep: decision.keep.map((id) => label(byId.get(id))), buy: decision.buy.map((id) => label(byId.get(id))), sell: sellInfo, top,
   };
 }
@@ -318,6 +357,6 @@ function emptyResult(o) {
       closed: 0, wins: 0, winsNet: 0, peakCost: 0, realized: 0, unrealized: 0, total: 0, totalPct: 0, costs: 0, costsFirstYear: 0, costsSecondYear: 0,
       net: 0, netPct: 0, maxDrawdown: 0, maxDrawdownPct: 0, rebalances: 0, avgPositions: 0, buyHold: null,
     },
-    next: { date: null, eligible: 0, keep: [], buy: [], sell: [], top: [] },
+    next: { date: null, eligible: 0, breadth: null, bear: false, keep: [], buy: [], sell: [], top: [] },
   };
 }
