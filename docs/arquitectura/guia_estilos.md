@@ -124,7 +124,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Indicadores soltos numa linha (`.kpis`: rótulo por cima e valor), em vez de uma caixa de resumo num cartão próprio (conta SAXO na Carteira e nas Ordens).
 - Gráficos com altura proporcional à janela (`.chart-box`: 38 % da altura, entre 320 e 520 px; HeatMap: a altura que resta; Timelapse: barras de 20 a 32 px para o top caber na janela).
 - Listas e campos dentro de barras de ferramentas usam a variante compacta (`.select-sm`, `.input-sm`, 40 px).
-- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap, Calor, Timelapse, Alertas); **SAXO** (Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação); **Estratégias** (Sinais, BackTest, Comparar, Rotação, WinnersLoosers, Promessas, Pechinchas, Laboratório); **Administração** (Utilizadores, Logotipos, só administradores, e Definições, que inclui os cartões «Cópias de segurança» e «Correspondência SAXO», só para administradores; cartões largos com tabelas ocupam as duas colunas, `.card-wide`). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
+- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap, Calor, Timelapse, Alertas); **SAXO** (Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação); **Estratégias** (Sinais, BackTest, Comparar, Rotação, Portfolio Recomendado, WinnersLoosers, Promessas, Pechinchas, Laboratório); **Administração** (Utilizadores, Logotipos, só administradores, e Definições, que inclui os cartões «Cópias de segurança» e «Correspondência SAXO», só para administradores; cartões largos com tabelas ocupam as duas colunas, `.card-wide`). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
 
 ### Tablet — de 768 a 1199 px
 
@@ -295,6 +295,15 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Filtros adicionais (desde 14 nov. 2026, desligados por omissão e guardados no endereço): «Janela do momentum» (6, 9, 12 meses), «Filtro de mercado» (Desligado, Sem compras novas, Fica em numerário) e «Dimensionamento» (Lotes iguais, Pela volatilidade). Com o filtro ligado, a «Próxima revisão» diz se a amplitude do mercado deixa comprar, e o resultado mostra as revisões com o mercado em baixa.
 - Cartões «Posições abertas na simulação» e «Operações fechadas» (as 100 mais recentes); instrumento com ligação ao Charts.
 - Cartão «Valor e qualidade»: as 30 empresas com melhor pontuação de fundamentais (pontuação, valor, qualidade, rendimentos, ROE, margem e a marca «também no momentum»), com o aviso de que é só informativo, sem simulação.
+
+### 5.8c. Portfolio Recomendado
+
+- Carteira-modelo de 20 instrumentos, revista de duas em duas semanas (Portfolio-Recomendado.md). Sem filtros: a carteira é a mesma para todos os utilizadores.
+- Cartão «Rendimento nos últimos 24 meses» com `.kpis` (Portfolio e catálogo em partes iguais em 24 meses; últimos 12, 6 e 3 meses, cada um com o catálogo ao lado em texto secundário; maior queda desde um máximo; posições fechadas e parte com ganho; custos pagos) e o gráfico em base 100: a carteira em `--series-price` (2 px) e o catálogo em `--text-secondary` (1,5 px), linha de 100 a tracejado, legenda por cima (`.legend-chips`) e resumo em texto por baixo, que é também o nome acessível do gráfico. Os valores nunca usam a cor da série; só o sinal (`positive`/`negative`).
+- Cartão «Revisão de <data>»: diz se a revisão já foi executada (abertura da sessão seguinte) ou se as ordens são para a próxima abertura (aviso `info` «Revisão nova»), quantos instrumentos eram elegíveis e quando é a revisão seguinte. Três tabelas a toda a largura, por esta ordem — **Comprar, Manter, Vender** — com logotipo, símbolo (ligação ao Charts), nome e sector, lugar no ranking, último fecho, peso (ou, em «Vender», o motivo num distintivo: «Saiu dos melhores» ou «Perdeu a tendência», com explicação em `title`), resultado desde a entrada com a data, e o botão da lista (`WatchButton`).
+- Cartão «Carteira por sector»: posições, peso e uma barra horizontal por sector (a barra é decorativa, `aria-hidden`; o valor está na coluna «Peso»); o título indica a parte investida.
+- Cartões «Revisões anteriores» (as 12 mais recentes: o que entrou, o que saiu e quantas ficaram) e «Posições fechadas» (as 100 mais recentes, com o motivo).
+- Aviso final (`Notice`): regra fixa sobre dados passados, não é aconselhamento, não foi posta à prova num mercado em queda e a Automação não usa esta carteira.
 
 ### 5.9. HeatMap
 

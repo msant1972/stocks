@@ -340,7 +340,7 @@ test('todas as páginas abrem sem erros', async () => {
     ['/', 'Visão geral'], ['/acompanhar', null], ['/charts', null], ['/orderbook', null], ['/heatmap', null], ['/timelapse', 'Timelapse'], ['/alertas', 'Alertas'],
     ['/saxo/carteira', 'Carteira SAXO'], ['/saxo/ordens', 'Ordens SAXO'], ['/saxo/alertas', null], ['/saxo/automacao', 'Automação'],
     ['/sinais', null], ['/backtest', null], ['/comparar', null], ['/winners-loosers', null], ['/promessas', null], ['/pechinchas', 'Pechinchas'],
-    ['/calor', 'Calor'], ['/rotacao', 'Rotação'], ['/utilizadores', null], ['/definicoes', 'Definições'],
+    ['/calor', 'Calor'], ['/rotacao', 'Rotação'], ['/portfolio-recomendado', 'Portfolio Recomendado'], ['/utilizadores', null], ['/definicoes', 'Definições'],
   ];
   for (const [url, title] of pages) {
     await page.goto(url);
@@ -528,4 +528,67 @@ test('Automação: limites de segurança (teto de posições e perda máxima) gu
   await again.getByRole('button', { name: 'Guardar limites' }).click();
   await page.reload();
   await expect(page.getByRole('region', { name: 'Limites de segurança' }).getByLabel('Teto de posições')).toHaveValue('');
+});
+
+test('Portfolio Recomendado: rendimento, listas a comprar, manter e vender, e botão da lista', async () => {
+  // A base de testes tem dois instrumentos com pouco histórico: a carteira vem de uma resposta simulada da API.
+  const item = (id, symbol, sector, rank, weight, pnlPct, extra = {}) => ({
+    instrumentId: id, symbol, name: `Empresa ${symbol}`, sector, rank, score: 100 - rank, close: 10 + rank, weight, buyDate: '2026-09-08', pnlPct, inWatchlist: false, ...extra,
+  });
+  const body = {
+    latestSession: '2026-11-13', firstDate: '2024-11-13', lastDate: '2026-11-13', universe: 300, windowMonths: 24,
+    options: { positions: 20, keepRank: 40, weeks: 2, maxPerSector: 5, minTradedValue: 1000000, capital: 300000 },
+    summary: {
+      returnPct: 41.26, benchmarkPct: 30.5, annualPct: 18.8, last12: { value: 12.3, benchmark: 9.1 }, last6: { value: -3.4, benchmark: 2.2 }, last3: null,
+      maxDrawdownPct: -12.5, benchmarkDrawdownPct: -10.1, reviews: 52, closed: 90, wins: 54, tradesPerReview: 2.4, avgPositions: 20, invested: 0.6,
+      benchmarkInstruments: 298, feesPct: 2.9,
+    },
+    curve: [{ date: '2024-11-13', value: 100, benchmark: 100 }, { date: '2025-11-14', value: 125.5, benchmark: 119 }, { date: '2026-11-13', value: 141.26, benchmark: 130.5 }],
+    review: {
+      date: '2026-11-02', executed: true, executionDate: '2026-11-03', next: '2026-11-16', eligible: 106,
+      buy: [item(901, 'NOVA.PA', 'Energy', 2, 0.2, 4.8, { buyDate: '2026-11-03' })],
+      keep: [item(902, 'FICA.DE', 'Utilities', 1, 0.25, 27.1), item(903, 'FICB.MI', 'Energy', 5, 0.15, -3.9)],
+      sell: [{ ...item(904, 'SAI.AS', 'Industrials', null, null, -15.6), reason: 'filtro', sellDate: '2026-11-03', weight: undefined }],
+    },
+    positions: [item(902, 'FICA.DE', 'Utilities', 1, 0.25, 27.1), item(901, 'NOVA.PA', 'Energy', 2, 0.2, 4.8), item(903, 'FICB.MI', 'Energy', 5, 0.15, -3.9)],
+    reviews: [{ date: '2026-11-02', eligible: 106, bought: ['NOVA.PA'], sold: ['SAI.AS'], kept: 2 }, { date: '2026-10-19', eligible: 109, bought: [], sold: [], kept: 3 }],
+    trades: [{ instrumentId: 904, symbol: 'SAI.AS', name: 'Empresa SAI.AS', buyDate: '2026-08-11', sellDate: '2026-11-03', reason: 'filtro', pnlPct: -15.6 }],
+  };
+  let added = null;
+  await page.route('**/api/v1/recommended-portfolio', (route) => route.fulfill({ json: body }));
+  await page.route('**/api/v1/watchlist/items', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    added = route.request().postDataJSON();
+    body.review.buy[0].inWatchlist = true;
+    return route.fulfill({ status: 201, json: { ok: true } });
+  });
+  await nav('Portfolio Recomendado').click();
+  await expect(page).toHaveURL(/\/portfolio-recomendado$/);
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Portfolio Recomendado');
+  // Rendimento dos 24 meses, contra o catálogo, e o gráfico.
+  const result = page.getByRole('region', { name: /Rendimento nos últimos 24 meses/ });
+  await expect(result).toContainText('+41,3 %');
+  await expect(result).toContainText('+30,5 %');
+  await expect(result).toContainText('−3,4 %'); // últimos 6 meses
+  await expect(result.getByRole('img')).toHaveAccessibleName(/Base 100 em 13 nov\. 2024.*Portfolio \+41,3 %.*catálogo em partes iguais \+30,5 %/);
+  // As três listas da última revisão.
+  const review = page.getByRole('region', { name: /Revisão de 2 nov\. 2026/ });
+  await expect(review).toContainText('executada na abertura de 3 nov. 2026');
+  await expect(review).toContainText('Próxima revisão: primeira sessão a partir de 16 nov. 2026');
+  await expect(review.getByRole('heading', { name: 'Comprar (1)' })).toBeVisible();
+  await expect(review.getByRole('heading', { name: 'Manter (2)' })).toBeVisible();
+  await expect(review.getByRole('heading', { name: 'Vender (1)' })).toBeVisible();
+  await expect(review.getByLabel('Comprar (1)')).toContainText('NOVA.PA');
+  await expect(review.getByLabel('Manter (2)')).toContainText('FICA.DE');
+  await expect(review.getByLabel('Vender (1)')).toContainText('Perdeu a tendência');
+  // Carteira por sector e revisões anteriores.
+  await expect(page.getByRole('region', { name: /Carteira por sector/ })).toContainText('60,0 % investido');
+  await expect(page.getByRole('region', { name: /Carteira por sector/ }).getByRole('row', { name: /Energy/ })).toContainText('35,0 %');
+  await expect(page.getByRole('region', { name: /Revisões anteriores/ })).toContainText('NOVA.PA');
+  // O botão põe o instrumento na lista do utilizador.
+  await review.getByRole('button', { name: 'Adicionar NOVA.PA à minha lista' }).click();
+  await expect(review.getByRole('button', { name: 'Remover NOVA.PA da minha lista' })).toBeVisible();
+  expect(added).toEqual({ instrumentId: 901 });
+  await page.unroute('**/api/v1/recommended-portfolio');
+  await page.unroute('**/api/v1/watchlist/items');
 });

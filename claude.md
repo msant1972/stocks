@@ -10,7 +10,7 @@ A carteira é a **conta de simulação (SIM) da SAXO Bank**: as ordens vão para
 |---|---|---|
 | `frontend/` | Interface | React |
 | `api/` | Middleware / API | Node.js |
-| `shared/` | Cálculos partilhados pela interface e pela API: momento, estratégias (A-Momentum, B-Opus, C-AI, D-Reversão, E-Ondas, F-Mergulho, G a L e a carteira «Rotação» por momentum relativo), custos de negociação estimados e Promessas | JavaScript |
+| `shared/` | Cálculos partilhados pela interface e pela API: momento, estratégias (A-Momentum, B-Opus, C-AI, D-Reversão, E-Ondas, F-Mergulho, G a L, a carteira «Rotação» por momentum relativo e o «Portfolio Recomendado» de 20 instrumentos), custos de negociação estimados e Promessas | JavaScript |
 | `db/` | Esquema e migrações | MariaDB |
 | `engines/fetcher/` | Motor de recolha de cotações | Python (yfinance) |
 | `engines/alerts/` | Motor de alertas por email | Python |
@@ -24,14 +24,14 @@ A carteira é a **conta de simulação (SIM) da SAXO Bank**: as ordens vão para
 - [Plano de implementação](docs/arquitectura/plano_implementacao.md)
 - [Guia de estilos UI/UX](docs/arquitectura/guia_estilos.md)
 - [Análise e decisões](docs/arquitectura/analise_e_decisoes.md)
-- Especificações: [livro de ofertas](docs/arquitectura/orderbook-spec.md), [estratégia B-Opus](docs/arquitectura/B-Opus.md) (e [ablação](docs/arquitectura/b-opus-ablacao.md)), [estratégia C-AI](docs/arquitectura/C-AI.md), [estratégia D-Reversão](docs/arquitectura/D-Reversao.md), [estratégia E-Ondas](docs/arquitectura/E-Ondas.md), [estratégia F-Mergulho](docs/arquitectura/F-Mergulho.md), [rotação por momentum relativo](docs/arquitectura/Rotacao.md), [estratégias G a L](docs/arquitectura/Novas-estrategias.md), [Promessas](docs/arquitectura/promessas.md)
+- Especificações: [livro de ofertas](docs/arquitectura/orderbook-spec.md), [estratégia B-Opus](docs/arquitectura/B-Opus.md) (e [ablação](docs/arquitectura/b-opus-ablacao.md)), [estratégia C-AI](docs/arquitectura/C-AI.md), [estratégia D-Reversão](docs/arquitectura/D-Reversao.md), [estratégia E-Ondas](docs/arquitectura/E-Ondas.md), [estratégia F-Mergulho](docs/arquitectura/F-Mergulho.md), [rotação por momentum relativo](docs/arquitectura/Rotacao.md), [Portfolio Recomendado](docs/arquitectura/Portfolio-Recomendado.md), [estratégias G a L](docs/arquitectura/Novas-estrategias.md), [Promessas](docs/arquitectura/promessas.md)
 
 Módulos da interface, por grupo do menu:
 
 - Visão geral
 - **Mercado:** Acompanhar, Charts, Orderbook, HeatMap, Calor, Timelapse, Alertas
 - **SAXO:** Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação
-- **Estratégias:** Sinais, BackTest, Comparar, Rotação, WinnersLoosers, Promessas, Pechinchas, Laboratório (registo das experiências)
+- **Estratégias:** Sinais, BackTest, Comparar, Rotação, Portfolio Recomendado, WinnersLoosers, Promessas, Pechinchas, Laboratório (registo das experiências)
 - **Administração:** Utilizadores e Logotipos (administradores), Definições (com os cartões Estratégias, Cópias de segurança e Correspondência SAXO, para administradores)
 
 Todas as páginas usam a largura toda do ecrã (ver o [guia de estilos](docs/arquitectura/guia_estilos.md), secção 4).

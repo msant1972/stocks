@@ -40,6 +40,7 @@ const NAV_GROUPS = [
       { to: '/backtest', label: 'BackTest', icon: 'backtest' },
       { to: '/comparar', label: 'Comparar', icon: 'compare' },
       { to: '/rotacao', label: 'Rotação', icon: 'rotation' },
+      { to: '/portfolio-recomendado', label: 'Portfolio Recomendado', icon: 'recommended' },
       { to: '/winners-loosers', label: 'WinnersLoosers', icon: 'winners' },
       { to: '/promessas', label: 'Promessas', icon: 'promise' },
       { to: '/pechinchas', label: 'Pechinchas', icon: 'bargain' },

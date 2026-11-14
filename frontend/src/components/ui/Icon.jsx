@@ -36,6 +36,7 @@ const PATHS = {
   timelapse: 'M4 6h12M4 12h8M4 18h15M19 3v6m3-3h-6',
   logos: 'M4 5h16v14H4V5Zm0 11 5-5 4 4 3-3 4 4M15 9h.01',
   rotation: 'M20 12a8 8 0 0 1-13.7 5.6M4 12a8 8 0 0 1 13.7-5.6M18 3v4h-4M6 21v-4h4',
+  recommended: 'M11 4a8 8 0 1 0 9 9h-9V4Zm3-1v7h7a7 7 0 0 0-7-7Z',
   heatmap: 'M3 4h10v9H3V4Zm12 0h6v5h-6V4Zm0 7h6v9h-6v-9ZM3 15h10v5H3v-5Z',
 };
 

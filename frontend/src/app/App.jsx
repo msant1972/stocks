@@ -27,6 +27,7 @@ const PromessasPage = lazy(() => import('../features/promessas/PromessasPage.jsx
 const PechinchasPage = lazy(() => import('../features/pechinchas/PechinchasPage.jsx'));
 const CalorPage = lazy(() => import('../features/calor/CalorPage.jsx'));
 const RotationPage = lazy(() => import('../features/rotation/RotationPage.jsx'));
+const RecommendedPortfolioPage = lazy(() => import('../features/portfolio/RecommendedPortfolioPage.jsx'));
 const LabPage = lazy(() => import('../features/lab/LabPage.jsx'));
 const SettingsPage = lazy(() => import('../features/settings/SettingsPage.jsx'));
 const UsersPage = lazy(() => import('../features/users/UsersPage.jsx'));
@@ -72,6 +73,7 @@ export default function App() {
           <Route path="pechinchas" element={<PechinchasPage />} />
           <Route path="calor" element={<CalorPage />} />
           <Route path="rotacao" element={<RotationPage />} />
+          <Route path="portfolio-recomendado" element={<RecommendedPortfolioPage />} />
           <Route path="laboratorio" element={<LabPage />} />
           <Route path="alertas" element={<AlertsPage />} />
           <Route path="utilizadores" element={<UsersPage />} />
