@@ -86,7 +86,9 @@ describe.skipIf(!hasTestDb)('autenticação em dois passos', () => {
     const res = await inject('POST', '/auth/mfa/verify', cookie, { code: totp(TOTP_SECRET) });
     expect(res.statusCode).toBe(429);
     expect(res.json().error.code).toBe('MFA_THROTTLED');
-    await ctx.pool.query("DELETE FROM audit_log WHERE action = 'auth.mfa_failed'"); // os testes seguintes usam a eva
+    const [[{ n }]] = await ctx.pool.query("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'auth.mfa_throttled'");
+    expect(Number(n)).toBe(1);
+    await ctx.pool.query("DELETE FROM audit_log WHERE action IN ('auth.mfa_failed', 'auth.mfa_throttled')"); // os testes seguintes usam a eva
     ctx.cfg.testNoRateLimit = false;
   });
 

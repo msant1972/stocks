@@ -4756,6 +4756,7 @@ paths:
               - c-ai
               - d-reversao
               - e-ondas
+              - f-mergulho
           in: path
           name: strategyId
           required: true
@@ -9590,47 +9591,57 @@ paths:
         reforça com mais 15 000 € sempre que o fecho sobe mais de 10% face à
         compra mais recente; vende tudo após uma «a subir» seguida de duas «a
         descer», mas só com o SMA8/SMA125 abaixo de 1%, ou, com a posição
-        reforçada, quando o fecho cai mais de 15% abaixo do preço do último
+        reforçada, quando o fecho cai mais de 25% abaixo do preço do último
         reforço. Sinais ignorados com o SMA10/SMA200 entre −1% e +1%. Executa ao
         fecho da sessão do sinal, uma posição de cada vez, sem comissões.)
         b-opus (B-Opus: Na última sessão de cada semana, sem posição, compra
         15 000 € na abertura seguinte quando o fecho e a SMA50 estão acima da
         SMA200, o M1 ((SMA10 − SMA125) / ATR22) e o M2 (momentum de 12 meses sem
         o último, dividido pela volatilidade) são positivos, o valor negociado
-        médio de 50 sessões é pelo menos 5 000 000 € e não houve um stop nas
-        últimas 10 sessões; não compra se a abertura subir mais de 1 ATR face ao
-        fecho. Reforça com mais 15 000 € na abertura seguinte sempre que o fecho
-        sobe mais de 10% face ao último lote (até 5 reforços). Vende tudo se o
-        preço tocar o stop chandelier (máximo desde a compra − 4 × ATR22, que só
-        sobe), ou, na revisão semanal, por falta de liquidez, quebra de
-        tendência, perda de momento ou ao fim de 20 sessões sem ganhar 1 ATR
-        (venda na abertura seguinte). Uma posição de cada vez, sem comissões;
-        indicadores sobre preços ajustados, execução a preços reais.) c-ai
-        (C-AI: Sem posição, compra 15 000 € na abertura seguinte quando o fecho
-        está acima da SMA200 e o M2 (momentum de 12 meses sem o último, dividido
-        pela volatilidade) é positivo. Vende tudo só quando o preço toca o stop
-        chandelier (máximo desde a compra − 5 × ATR22, que só sobe), verificado
-        todos os dias. Reforça com mais 15 000 € na abertura seguinte quando o
-        fecho sobe mais de 10% face ao último lote e o M2 é superior a 2, até 5
-        reforços. Volta a comprar logo que as condições se verifiquem depois de
-        um stop. Uma posição de cada vez, sem comissões; indicadores sobre
-        preços ajustados, execução a preços reais.) d-reversao (D-Reversão: Sem
-        posição, compra 15 000 € na abertura seguinte quando o fecho fica mais
-        de 2,5 desvios-padrão abaixo da média das últimas 20 sessões. Vende tudo
-        na abertura seguinte quando o RSI de 2 sessões passa 70 (ressalto) ou ao
-        fim de 10 sessões. Sem stop nem reforços; uma posição de cada vez, sem
-        comissões; indicadores sobre preços ajustados, execução a preços reais.)
-        e-ondas (E-Ondas: Em tendência de subida (SMA200 acima da de há 20
-        sessões), acompanha o fecho mais baixo desde a última venda e compra
-        15 000 € ao fecho quando o fecho sobe 5% acima dele, se esse mínimo foi
-        uma correcção (pelo menos 3% abaixo do máximo de 20 sessões) que chegou
-        perto da SMA200 (no máximo 3% acima dela); se o fundo não cumpre,
-        esquece-o e recomeça. Com posição, acompanha o fecho mais alto desde a
-        compra e vende tudo ao fecho quando o fecho cai 4% abaixo dele, depois
-        de o máximo ter chegado a 4% sobre a compra. Sem stop nem reforços; uma
+        médio de 50 sessões é pelo menos 5 000 000 €; não compra se a abertura
+        subir mais de 1 ATR face ao fecho. Reforça com mais 15 000 € na abertura
+        seguinte sempre que o fecho sobe mais de 10% face ao último lote (até 5
+        reforços). Vende tudo se o preço tocar o stop chandelier (máximo desde a
+        compra − 4 × ATR22, que só sobe), ou, na revisão semanal, por falta de
+        liquidez, quebra de tendência, perda de momento ou ao fim de 20 sessões
+        sem ganhar 1 ATR (venda na abertura seguinte). Uma posição de cada vez,
+        sem comissões; indicadores sobre preços ajustados, execução a preços
+        reais.) c-ai (C-AI: Sem posição, compra 15 000 € na abertura seguinte
+        quando o fecho está acima da SMA200 e o M2 (momentum de 12 meses sem o
+        último, dividido pela volatilidade) é positivo. Vende tudo só quando o
+        preço toca o stop chandelier (máximo desde a compra − 5 × ATR22, que só
+        sobe), verificado todos os dias. Reforça com mais 15 000 € na abertura
+        seguinte quando o fecho sobe mais de 10% face ao último lote e o M2 é
+        superior a 2, até 5 reforços. Volta a comprar logo que as condições se
+        verifiquem depois de um stop. Uma posição de cada vez, sem comissões;
+        indicadores sobre preços ajustados, execução a preços reais.) d-reversao
+        (D-Reversão: Sem posição, compra 15 000 € na abertura seguinte quando o
+        fecho fica mais de 2,5 desvios-padrão abaixo da média das últimas 20
+        sessões. Vende tudo na abertura seguinte quando o RSI de 2 sessões passa
+        70 (ressalto) ou ao fim de 10 sessões. Sem stop nem reforços; uma
         posição de cada vez, sem comissões; indicadores sobre preços ajustados,
-        execução ao fecho real da sessão do sinal.) Simulação; não são
-        recomendações."
+        execução a preços reais.) e-ondas (E-Ondas: Em tendência de subida
+        (SMA200 acima da de há 20 sessões), acompanha o fecho mais baixo desde a
+        última venda e compra 15 000 € ao fecho quando o fecho sobe 3% acima
+        dele, se esse mínimo foi uma correcção (pelo menos 3% abaixo do máximo
+        de 20 sessões) que chegou perto da SMA200 (no máximo 3% acima dela); se
+        o fundo não cumpre, esquece-o e recomeça. Com posição, acompanha o fecho
+        mais alto desde a compra e vende tudo ao fecho quando o fecho cai 6%
+        abaixo dele, depois de o máximo ter chegado a 4% sobre a compra; se ao
+        fim de 120 sessões o máximo ainda não chegou lá, vende (limite de tempo:
+        a onda não aconteceu). Sem stop nem reforços; uma posição de cada vez,
+        sem comissões; indicadores sobre preços ajustados, execução ao fecho
+        real da sessão do sinal.) f-mergulho (F-Mergulho: Duas partes
+        independentes, com lotes de 15 000 €. NÚCLEO: compra na abertura
+        seguinte quando o fecho está mais de 3% acima da SMA200 e vende quando
+        fica mais de 3% abaixo. MERGULHOS (até 3 lotes): compra na abertura
+        seguinte quando o RSI14 fecha abaixo de 40; cada lote seguinte só 10
+        sessões depois da última compra e com o fecho pelo menos 5% abaixo do
+        último lote. Vende todos os lotes de mergulho quando o RSI14 passa de
+        70, ou o fecho está 20% acima do custo médio, ou 25% abaixo do lote mais
+        barato. Sem reforços além dos lotes de mergulho; indicadores sobre
+        preços ajustados, execução à abertura da sessão seguinte, sem
+        comissões.) Simulação; não são recomendações."
       parameters:
         - schema:
             default: 5
@@ -9648,6 +9659,7 @@ paths:
               - c-ai
               - d-reversao
               - e-ondas
+              - f-mergulho
           in: query
           name: strategy
           required: false
@@ -9930,6 +9942,7 @@ paths:
               - c-ai
               - d-reversao
               - e-ondas
+              - f-mergulho
           in: path
           name: id
           required: true
@@ -10012,48 +10025,59 @@ paths:
         acções em queda); reforça com mais 15 000 € sempre que o fecho sobe mais
         de 10% face à compra mais recente; vende tudo após uma «a subir» seguida
         de duas «a descer», mas só com o SMA8/SMA125 abaixo de 1%, ou, com a
-        posição reforçada, quando o fecho cai mais de 15% abaixo do preço do
+        posição reforçada, quando o fecho cai mais de 25% abaixo do preço do
         último reforço. Sinais ignorados com o SMA10/SMA200 entre −1% e +1%.
         Executa ao fecho da sessão do sinal, uma posição de cada vez, sem
         comissões.) b-opus (B-Opus: Na última sessão de cada semana, sem
         posição, compra 15 000 € na abertura seguinte quando o fecho e a SMA50
         estão acima da SMA200, o M1 ((SMA10 − SMA125) / ATR22) e o M2 (momentum
         de 12 meses sem o último, dividido pela volatilidade) são positivos, o
-        valor negociado médio de 50 sessões é pelo menos 5 000 000 € e não houve
-        um stop nas últimas 10 sessões; não compra se a abertura subir mais de 1
-        ATR face ao fecho. Reforça com mais 15 000 € na abertura seguinte sempre
-        que o fecho sobe mais de 10% face ao último lote (até 5 reforços). Vende
-        tudo se o preço tocar o stop chandelier (máximo desde a compra − 4 ×
-        ATR22, que só sobe), ou, na revisão semanal, por falta de liquidez,
-        quebra de tendência, perda de momento ou ao fim de 20 sessões sem ganhar
-        1 ATR (venda na abertura seguinte). Uma posição de cada vez, sem
-        comissões; indicadores sobre preços ajustados, execução a preços reais.)
-        c-ai (C-AI: Sem posição, compra 15 000 € na abertura seguinte quando o
-        fecho está acima da SMA200 e o M2 (momentum de 12 meses sem o último,
-        dividido pela volatilidade) é positivo. Vende tudo só quando o preço
-        toca o stop chandelier (máximo desde a compra − 5 × ATR22, que só sobe),
-        verificado todos os dias. Reforça com mais 15 000 € na abertura seguinte
-        quando o fecho sobe mais de 10% face ao último lote e o M2 é superior a
-        2, até 5 reforços. Volta a comprar logo que as condições se verifiquem
-        depois de um stop. Uma posição de cada vez, sem comissões; indicadores
-        sobre preços ajustados, execução a preços reais.) d-reversao
-        (D-Reversão: Sem posição, compra 15 000 € na abertura seguinte quando o
-        fecho fica mais de 2,5 desvios-padrão abaixo da média das últimas 20
-        sessões. Vende tudo na abertura seguinte quando o RSI de 2 sessões passa
-        70 (ressalto) ou ao fim de 10 sessões. Sem stop nem reforços; uma
+        valor negociado médio de 50 sessões é pelo menos 5 000 000 €; não compra
+        se a abertura subir mais de 1 ATR face ao fecho. Reforça com mais 15 000
+        € na abertura seguinte sempre que o fecho sobe mais de 10% face ao
+        último lote (até 5 reforços). Vende tudo se o preço tocar o stop
+        chandelier (máximo desde a compra − 4 × ATR22, que só sobe), ou, na
+        revisão semanal, por falta de liquidez, quebra de tendência, perda de
+        momento ou ao fim de 20 sessões sem ganhar 1 ATR (venda na abertura
+        seguinte). Uma posição de cada vez, sem comissões; indicadores sobre
+        preços ajustados, execução a preços reais.) c-ai (C-AI: Sem posição,
+        compra 15 000 € na abertura seguinte quando o fecho está acima da SMA200
+        e o M2 (momentum de 12 meses sem o último, dividido pela volatilidade) é
+        positivo. Vende tudo só quando o preço toca o stop chandelier (máximo
+        desde a compra − 5 × ATR22, que só sobe), verificado todos os dias.
+        Reforça com mais 15 000 € na abertura seguinte quando o fecho sobe mais
+        de 10% face ao último lote e o M2 é superior a 2, até 5 reforços. Volta
+        a comprar logo que as condições se verifiquem depois de um stop. Uma
         posição de cada vez, sem comissões; indicadores sobre preços ajustados,
-        execução a preços reais.) e-ondas (E-Ondas: Em tendência de subida
-        (SMA200 acima da de há 20 sessões), acompanha o fecho mais baixo desde a
-        última venda e compra 15 000 € ao fecho quando o fecho sobe 5% acima
-        dele, se esse mínimo foi uma correcção (pelo menos 3% abaixo do máximo
-        de 20 sessões) que chegou perto da SMA200 (no máximo 3% acima dela); se
-        o fundo não cumpre, esquece-o e recomeça. Com posição, acompanha o fecho
-        mais alto desde a compra e vende tudo ao fecho quando o fecho cai 4%
-        abaixo dele, depois de o máximo ter chegado a 4% sobre a compra. Sem
-        stop nem reforços; uma posição de cada vez, sem comissões; indicadores
-        sobre preços ajustados, execução ao fecho real da sessão do sinal.)
-        Posições abertas avaliadas ao último fecho. Simulação no histórico; não
-        altera a carteira nem é recomendação."
+        execução a preços reais.) d-reversao (D-Reversão: Sem posição, compra
+        15 000 € na abertura seguinte quando o fecho fica mais de 2,5
+        desvios-padrão abaixo da média das últimas 20 sessões. Vende tudo na
+        abertura seguinte quando o RSI de 2 sessões passa 70 (ressalto) ou ao
+        fim de 10 sessões. Sem stop nem reforços; uma posição de cada vez, sem
+        comissões; indicadores sobre preços ajustados, execução a preços reais.)
+        e-ondas (E-Ondas: Em tendência de subida (SMA200 acima da de há 20
+        sessões), acompanha o fecho mais baixo desde a última venda e compra
+        15 000 € ao fecho quando o fecho sobe 3% acima dele, se esse mínimo foi
+        uma correcção (pelo menos 3% abaixo do máximo de 20 sessões) que chegou
+        perto da SMA200 (no máximo 3% acima dela); se o fundo não cumpre,
+        esquece-o e recomeça. Com posição, acompanha o fecho mais alto desde a
+        compra e vende tudo ao fecho quando o fecho cai 6% abaixo dele, depois
+        de o máximo ter chegado a 4% sobre a compra; se ao fim de 120 sessões o
+        máximo ainda não chegou lá, vende (limite de tempo: a onda não
+        aconteceu). Sem stop nem reforços; uma posição de cada vez, sem
+        comissões; indicadores sobre preços ajustados, execução ao fecho real da
+        sessão do sinal.) f-mergulho (F-Mergulho: Duas partes independentes, com
+        lotes de 15 000 €. NÚCLEO: compra na abertura seguinte quando o fecho
+        está mais de 3% acima da SMA200 e vende quando fica mais de 3% abaixo.
+        MERGULHOS (até 3 lotes): compra na abertura seguinte quando o RSI14
+        fecha abaixo de 40; cada lote seguinte só 10 sessões depois da última
+        compra e com o fecho pelo menos 5% abaixo do último lote. Vende todos os
+        lotes de mergulho quando o RSI14 passa de 70, ou o fecho está 20% acima
+        do custo médio, ou 25% abaixo do lote mais barato. Sem reforços além dos
+        lotes de mergulho; indicadores sobre preços ajustados, execução à
+        abertura da sessão seguinte, sem comissões.) Posições abertas avaliadas
+        ao último fecho. Simulação no histórico; não altera a carteira nem é
+        recomendação."
       parameters:
         - schema:
             default: all
@@ -10072,6 +10096,7 @@ paths:
               - c-ai
               - d-reversao
               - e-ondas
+              - f-mergulho
           in: query
           name: strategy
           required: false
@@ -10909,6 +10934,475 @@ paths:
                   - validation
                   - validatedAt
                   - items
+                additionalProperties: false
+  /api/v1/strategies/rotation:
+    get:
+      summary: "Rotação por momentum relativo: resultado simulado e revisão seguinte"
+      tags:
+        - Estratégia
+      description: No último dia útil de cada mês, ordena o universo pelo momentum de
+        12 meses sem o último e mantém os N melhores (só os de momentum
+        positivo, acima da SMA200 e com liquidez), com um lote de 15 000 € por
+        posição; decisão ao fecho, execução à abertura seguinte. Uma posição só
+        sai por ranking quando cai para além do dobro de N. `summary` traz os
+        custos estimados e a comparação com comprar e manter todo o universo em
+        partes iguais. `next` é a revisão que se faria com os últimos dados.
+      parameters:
+        - schema:
+            default: recent
+            type: string
+            enum:
+              - recent
+              - verification
+          in: query
+          name: period
+          required: false
+        - schema:
+            default: 10
+            type: integer
+            minimum: -9007199254740991
+            maximum: 9007199254740991
+          in: query
+          name: positions
+          required: false
+        - schema:
+            default: all
+            type: string
+            enum:
+              - all
+              - watchlist
+          in: query
+          name: scope
+          required: false
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: string
+                    enum:
+                      - recent
+                      - verification
+                  scope:
+                    type: string
+                    enum:
+                      - all
+                      - watchlist
+                  universe:
+                    type: number
+                  eligibleNow:
+                    type: number
+                  firstDate:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  lastDate:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  latestSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  options:
+                    type: object
+                    properties:
+                      positions:
+                        type: number
+                      keepRank:
+                        type: number
+                      lookback:
+                        type: number
+                      skip:
+                        type: number
+                      smaTrend:
+                        type: number
+                      minTradedValue:
+                        type: number
+                      budget:
+                        type: number
+                    required:
+                      - positions
+                      - keepRank
+                      - lookback
+                      - skip
+                      - smaTrend
+                      - minTradedValue
+                      - budget
+                    additionalProperties: false
+                  summary:
+                    type: object
+                    properties:
+                      closed:
+                        type: number
+                      wins:
+                        type: number
+                      winsNet:
+                        type: number
+                      peakCost:
+                        type: number
+                      realized:
+                        type: number
+                      unrealized:
+                        type: number
+                      total:
+                        type: number
+                      totalPct:
+                        type: number
+                      costs:
+                        type: number
+                      net:
+                        type: number
+                      netPct:
+                        type: number
+                      maxDrawdown:
+                        type: number
+                      maxDrawdownPct:
+                        type: number
+                      rebalances:
+                        type: number
+                      avgPositions:
+                        type: number
+                      buyHold:
+                        nullable: true
+                        type: object
+                        properties:
+                          instruments:
+                            type: number
+                          cost:
+                            type: number
+                          value:
+                            type: number
+                          pnl:
+                            type: number
+                          pnlPct:
+                            type: number
+                          net:
+                            type: number
+                          netPct:
+                            type: number
+                        required:
+                          - instruments
+                          - cost
+                          - value
+                          - pnl
+                          - pnlPct
+                          - net
+                          - netPct
+                        additionalProperties: false
+                    required:
+                      - closed
+                      - wins
+                      - winsNet
+                      - peakCost
+                      - realized
+                      - unrealized
+                      - total
+                      - totalPct
+                      - costs
+                      - net
+                      - netPct
+                      - maxDrawdown
+                      - maxDrawdownPct
+                      - rebalances
+                      - avgPositions
+                      - buyHold
+                    additionalProperties: false
+                  curve:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        pnl:
+                          type: number
+                        positions:
+                          type: number
+                      required:
+                        - date
+                        - pnl
+                        - positions
+                      additionalProperties: false
+                  trades:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        buyDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        quantity:
+                          type: number
+                        cost:
+                          type: number
+                        avgPrice:
+                          type: number
+                        pnl:
+                          type: number
+                        pnlPct:
+                          type: number
+                        sellDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        sellPrice:
+                          type: number
+                        proceeds:
+                          type: number
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - buyDate
+                        - quantity
+                        - cost
+                        - avgPrice
+                        - pnl
+                        - pnlPct
+                        - sellDate
+                        - sellPrice
+                        - proceeds
+                      additionalProperties: false
+                  open:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        symbol:
+                          type: string
+                        name:
+                          nullable: true
+                          type: string
+                        buyDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        quantity:
+                          type: number
+                        cost:
+                          type: number
+                        avgPrice:
+                          type: number
+                        pnl:
+                          type: number
+                        pnlPct:
+                          type: number
+                        lastDate:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        lastPrice:
+                          type: number
+                        value:
+                          type: number
+                      required:
+                        - instrumentId
+                        - symbol
+                        - name
+                        - buyDate
+                        - quantity
+                        - cost
+                        - avgPrice
+                        - pnl
+                        - pnlPct
+                        - lastDate
+                        - lastPrice
+                        - value
+                      additionalProperties: false
+                  next:
+                    type: object
+                    properties:
+                      date:
+                        nullable: true
+                        type: string
+                        pattern: ^\d{4}-\d{2}-\d{2}$
+                        description: Data AAAA-MM-DD
+                      eligible:
+                        type: number
+                      keep:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            instrumentId:
+                              type: number
+                            symbol:
+                              type: string
+                            name:
+                              nullable: true
+                              type: string
+                            rank:
+                              nullable: true
+                              type: number
+                            momentum:
+                              nullable: true
+                              type: number
+                            close:
+                              nullable: true
+                              type: number
+                          required:
+                            - instrumentId
+                            - symbol
+                            - name
+                            - rank
+                            - momentum
+                          additionalProperties: false
+                      buy:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            instrumentId:
+                              type: number
+                            symbol:
+                              type: string
+                            name:
+                              nullable: true
+                              type: string
+                            rank:
+                              nullable: true
+                              type: number
+                            momentum:
+                              nullable: true
+                              type: number
+                            close:
+                              nullable: true
+                              type: number
+                          required:
+                            - instrumentId
+                            - symbol
+                            - name
+                            - rank
+                            - momentum
+                          additionalProperties: false
+                      sell:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            instrumentId:
+                              type: number
+                            symbol:
+                              type: string
+                            name:
+                              nullable: true
+                              type: string
+                            rank:
+                              nullable: true
+                              type: number
+                            momentum:
+                              nullable: true
+                              type: number
+                            close:
+                              nullable: true
+                              type: number
+                            reason:
+                              type: string
+                              enum:
+                                - ranking
+                                - filtro
+                              description: "ranking: caiu abaixo do lugar de manutenção; filtro: já não é
+                                elegível (momentum, tendência ou liquidez)"
+                          required:
+                            - instrumentId
+                            - symbol
+                            - name
+                            - rank
+                            - momentum
+                            - reason
+                          additionalProperties: false
+                      top:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            instrumentId:
+                              type: number
+                            symbol:
+                              type: string
+                            name:
+                              nullable: true
+                              type: string
+                            rank:
+                              nullable: true
+                              type: number
+                            momentum:
+                              nullable: true
+                              type: number
+                            close:
+                              nullable: true
+                              type: number
+                          required:
+                            - instrumentId
+                            - symbol
+                            - name
+                            - rank
+                            - momentum
+                          additionalProperties: false
+                    required:
+                      - date
+                      - eligible
+                      - keep
+                      - buy
+                      - sell
+                      - top
+                    additionalProperties: false
+                required:
+                  - period
+                  - scope
+                  - universe
+                  - eligibleNow
+                  - firstDate
+                  - lastDate
+                  - latestSession
+                  - options
+                  - summary
+                  - curve
+                  - trades
+                  - open
+                  - next
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
                 additionalProperties: false
   /api/v1/experiments:
     get:

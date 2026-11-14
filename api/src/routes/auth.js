@@ -39,6 +39,8 @@ export default async function authRoutes(app, { pool, cfg, cookieOptions }) {
   /** Antes de verificar um código: demasiados códigos errados nesta conta → 429, sem verificar. */
   async function guardCodes(req) {
     if (await recentFailures('auth.mfa_failed', { userId: req.user.id }) >= MAX_CODE_FAILURES_PER_ACCOUNT) {
+      // Fica registado (com outra acção, que não conta para o limite) para se ver um ataque em curso.
+      await audit(pool, req.user.id, 'auth.mfa_throttled', 'user', req.user.id, { ip: req.ip });
       throw new AppError(429, 'MFA_THROTTLED', `demasiados códigos errados nesta conta; tente daqui a ${ACCOUNT_WINDOW_MINUTES} minutos`);
     }
   }
@@ -75,6 +77,8 @@ export default async function authRoutes(app, { pool, cfg, cookieOptions }) {
     // Por email (exista ou não a conta, para não revelar quais existem): ao fim de muitas falhas, recusa sem verificar.
     if (await recentFailures('auth.login_failed', { detail: JSON.stringify({ email }) }) >= MAX_LOGIN_FAILURES_PER_ACCOUNT) {
       await burnPasswordCheck(req.body.password);
+      // Fica registado (com outra acção, que não conta para o limite) para se ver um ataque em curso; só o email e o IP.
+      await audit(pool, null, 'auth.login_throttled', 'user', null, { email, ip: req.ip });
       throw new AppError(429, 'LOGIN_THROTTLED', `demasiadas tentativas para esta conta; tente daqui a ${ACCOUNT_WINDOW_MINUTES} minutos`);
     }
     const [[u]] = await pool.query(

@@ -28,13 +28,20 @@ describe.skipIf(!hasTestDb)('autenticação e sessões', () => {
 
   it('muitas palavras-passe erradas para o mesmo email recusam o login por 15 min, exista ou não a conta', async () => {
     await makeUser(ctx.pool, 'ze@exemplo.pt');
+    const [[{ prev }]] = await ctx.pool.query("SELECT COUNT(*) AS prev FROM audit_log WHERE action = 'auth.login_failed'");
     for (const email of ['ze@exemplo.pt', 'fantasma@exemplo.pt']) {
       const rows = Array.from({ length: 20 }, () => ['auth.login_failed', JSON.stringify({ email })]);
       await ctx.pool.query('INSERT INTO audit_log (action, detail) VALUES ?', [rows]);
       const res = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email, password: PASSWORD } });
       expect(res.statusCode).toBe(429);
       expect(res.json().error.code).toBe('LOGIN_THROTTLED');
+      // O bloqueio fica registado, sem contar para o limite (a acção é outra) e sem a palavra-passe.
+      const [logged] = await ctx.pool.query("SELECT detail FROM audit_log WHERE action = 'auth.login_throttled' ORDER BY id DESC LIMIT 1");
+      expect(JSON.parse(logged[0].detail)).toMatchObject({ email });
+      expect(logged[0].detail).not.toContain(PASSWORD);
     }
+    const [[{ n }]] = await ctx.pool.query("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'auth.login_failed'");
+    expect(Number(n)).toBe(Number(prev) + 40); // só as 2 × 20 inseridas: os bloqueios não somam falhas
     await ctx.pool.query("UPDATE audit_log SET created_at = NOW(3) - INTERVAL 16 MINUTE WHERE action = 'auth.login_failed'");
     const ok = await ctx.app.inject({ method: 'POST', url: '/api/v1/auth/login', payload: { email: 'ze@exemplo.pt', password: PASSWORD } });
     expect(ok.statusCode).toBe(200);

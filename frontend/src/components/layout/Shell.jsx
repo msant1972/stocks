@@ -39,6 +39,7 @@ const NAV_GROUPS = [
       { to: '/sinais', label: 'Sinais', icon: 'signals' },
       { to: '/backtest', label: 'BackTest', icon: 'backtest' },
       { to: '/comparar', label: 'Comparar', icon: 'compare' },
+      { to: '/rotacao', label: 'Rotação', icon: 'rotation' },
       { to: '/winners-loosers', label: 'WinnersLoosers', icon: 'winners' },
       { to: '/promessas', label: 'Promessas', icon: 'promise' },
       { to: '/pechinchas', label: 'Pechinchas', icon: 'bargain' },

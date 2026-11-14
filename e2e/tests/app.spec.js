@@ -340,7 +340,7 @@ test('todas as páginas abrem sem erros', async () => {
     ['/', 'Visão geral'], ['/acompanhar', null], ['/charts', null], ['/orderbook', null], ['/heatmap', null], ['/timelapse', 'Timelapse'], ['/alertas', 'Alertas'],
     ['/saxo/carteira', 'Carteira SAXO'], ['/saxo/ordens', 'Ordens SAXO'], ['/saxo/alertas', null], ['/saxo/automacao', 'Automação'],
     ['/sinais', null], ['/backtest', null], ['/comparar', null], ['/winners-loosers', null], ['/promessas', null], ['/pechinchas', 'Pechinchas'],
-    ['/calor', 'Calor'], ['/utilizadores', null], ['/definicoes', 'Definições'],
+    ['/calor', 'Calor'], ['/rotacao', 'Rotação'], ['/utilizadores', null], ['/definicoes', 'Definições'],
   ];
   for (const [url, title] of pages) {
     await page.goto(url);

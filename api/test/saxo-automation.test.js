@@ -103,6 +103,9 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     ctx.cfg.saxo.orderSpacingMs = 0;
     ctx.cfg.saxo.sleep = async () => {};
     ctx.cfg.testNoRateLimit = true;
+    // As cotações dos testes têm datas fixas (Nov. 2026) e a idade da cotação conta-se contra o relógio real: sem isto, os
+    // testes começavam a falhar quando passavam mais de maxQuoteAgeDays (7) dias sobre elas.
+    ctx.cfg.maxQuoteAgeDays = 36_500;
     userId = await makeUser(ctx.pool, 'auto@exemplo.pt');
     ana = api(ctx.app, await login(ctx.app, 'auto@exemplo.pt'));
   });

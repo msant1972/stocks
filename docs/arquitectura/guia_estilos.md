@@ -124,7 +124,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 - Indicadores soltos numa linha (`.kpis`: rótulo por cima e valor), em vez de uma caixa de resumo num cartão próprio (conta SAXO na Carteira e nas Ordens).
 - Gráficos com altura proporcional à janela (`.chart-box`: 38 % da altura, entre 320 e 520 px; HeatMap: a altura que resta; Timelapse: barras de 20 a 32 px para o top caber na janela).
 - Listas e campos dentro de barras de ferramentas usam a variante compacta (`.select-sm`, `.input-sm`, 40 px).
-- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap, Calor, Timelapse, Alertas); **SAXO** (Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação); **Estratégias** (Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Pechinchas, Laboratório); **Administração** (Utilizadores, Logotipos, só administradores, e Definições, que inclui os cartões «Cópias de segurança» e «Correspondência SAXO», só para administradores; cartões largos com tabelas ocupam as duas colunas, `.card-wide`). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
+- Menu lateral em secções com título: Visão geral; **Mercado** (Acompanhar, Charts, Orderbook, HeatMap, Calor, Timelapse, Alertas); **SAXO** (Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação); **Estratégias** (Sinais, BackTest, Comparar, Rotação, WinnersLoosers, Promessas, Pechinchas, Laboratório); **Administração** (Utilizadores, Logotipos, só administradores, e Definições, que inclui os cartões «Cópias de segurança» e «Correspondência SAXO», só para administradores; cartões largos com tabelas ocupam as duas colunas, `.card-wide`). Cada secção é um `role="group"`; a barra tem scroll próprio em ecrãs baixos.
 
 ### Tablet — de 768 a 1199 px
 
@@ -278,6 +278,13 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Para administradores, atalho para Utilizadores; para todos, «Terminar sessão» (em telemóvel, onde não há barra lateral nem botão direito, na folha «Mais»).
 - Para todos, cartão «SAXO Bank» com o distintivo «Simulação (SIM)» e três blocos: **Aplicação** (campos «App Key» e «App Secret», este de palavra-passe e nunca mostrado de novo; mostra o URL de retorno a registar no portal da SAXO; «Guardar aplicação» e «Remover aplicação»), **Ligação** (estado em texto; «Ligar à SAXO» leva ao login da SAXO e volta a `/definicoes?saxo=ok|erro` com uma mensagem; «Testar ligação» mostra conta e saldo; «Desligar»). Nos Charts, nos Sinais e na Carteira SAXO («Vender»), «Enviar à SAXO» abre um diálogo com o resumo e «Confirmar e enviar», que envia logo, com a faixa de aviso «Conta de simulação da SAXO Bank — não é dinheiro real»; nas compras, «Proteger com um stop» (fixo ou móvel, por omissão 8 % abaixo). Nos Sinais, «Enviar sinais à SAXO» abre o envio em lote: tabela com uma ordem por instrumento e «Confirmar e enviar N ordens». Nas Ordens SAXO, «Alterar» abre um diálogo com quantidade e preço e «Confirmar alteração».
 - Para administradores, «Envio de email (SMTP)»: servidor, segurança (STARTTLS, SSL/TLS, sem cifra, com a porta ajustada à escolha), porta, utilizador, «Palavra-passe SMTP» (nunca mostrada; «Definida. Deixe vazio para manter.»), remetente, e os botões «Guardar», «Enviar email de teste» e «Remover palavra-passe». Indicar quem fez a última alteração e que, sem configuração, os alertas não enviam emails.
+
+### 5.8b. Rotação
+
+- Estratégia de carteira por momentum relativo (Rotacao.md). Filtros no cabeçalho, guardados no endereço: «Instrumentos» (Todos / A minha lista), «Período» (Últimos 2 anos / Verificação) e «Posições» (5, 10, 20).
+- Cartão «Resultado simulado» com `.kpis` (resultado depois de custos, % sobre o capital máximo, comprar e manter o universo, pior queda, operações e acerto, custos), nota sobre os custos e o viés de sobrevivência, e a curva do resultado acumulado (uma leitura por semana, linha de zero a tracejado).
+- Cartão «Próxima revisão» com três tabelas lado a lado — Comprar, Manter, Vender — com o lugar no ranking e o momentum 12-1; «fora do filtro» quando o instrumento já não é elegível. Indica que é uma indicação para decisão manual (a Automação não usa esta estratégia).
+- Cartões «Posições abertas na simulação» e «Operações fechadas» (as 100 mais recentes); instrumento com ligação ao Charts.
 
 ### 5.9. HeatMap
 
