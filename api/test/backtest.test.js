@@ -188,6 +188,13 @@ describe.skipIf(!hasTestDb)('BackTest: estratégia em todos os instrumentos', ()
       expect(it.r63).toBeGreaterThan(0);
       if (k > 0) expect(it.score).toBeLessThanOrEqual(body.items[k - 1].score);
       expect(typeof it.pastWinner).toBe('boolean');
+      // Sinais da pontuação revista, momento do preço, melhor estratégia ligada e se está na minha lista.
+      expect(it.s50over200).toBeGreaterThan(0);
+      expect(it.upDays63).toBeGreaterThan(0);
+      expect(it.liq).toBeGreaterThanOrEqual(0);
+      expect(['pullback', 'high', 'mid']).toContain(it.setup);
+      expect(typeof it.inWatchlist).toBe('boolean');
+      if (it.best) { expect(it.best.total).toBeGreaterThan(0); expect(typeof it.best.name).toBe('string'); }
     }
     expect(body.items.some((i) => i.symbol === 'CURTO.LS')).toBe(false); // sem histórico suficiente
     expect((await ana.get('/promessas?scope=x')).statusCode).toBe(400);

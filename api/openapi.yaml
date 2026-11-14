@@ -11054,8 +11054,8 @@ paths:
         - Estratégia
       description: "Elegíveis: fecho acima da SMA200, SMA50 acima da SMA200 e
         rendimento de 3 meses positivo. Pontuação 0–100: percentis em todo o
-        catálogo de M2 (peso 2), volatilidade de 3 meses (menor é melhor) e
-        inclinação da SMA200 em 3 meses. pastWinner: ganhador em todas as
+        catálogo de M2, inclinação da SMA200 em 3 meses e SMA50/SMA200 (peso 1),
+        liquidez e sessões a subir (peso ½). pastWinner: ganhador em todas as
         estratégias nos últimos 2 anos (BackTest). Validação histórica em
         validation. Não é recomendação."
       parameters:
@@ -11170,6 +11170,47 @@ paths:
                         pastWinner:
                           nullable: true
                           type: boolean
+                        s50over200:
+                          type: number
+                          description: SMA50 / SMA200 − 1
+                        upDays63:
+                          type: number
+                          description: Parte das sessões a subir nos últimos 3 meses
+                        liq:
+                          type: number
+                          description: Valor negociado médio de 50 sessões
+                        rsi14:
+                          type: number
+                        dip20:
+                          type: number
+                          description: Distância ao máximo de 20 sessões
+                        setup:
+                          type: string
+                          enum:
+                            - pullback
+                            - high
+                            - mid
+                          description: "Onde está o preço: em recuo, perto do máximo de 52 semanas, ou a
+                            meio"
+                        best:
+                          nullable: true
+                          description: "Melhor estratégia ligada no BackTest dos últimos 2 anos (null:
+                            nenhuma ganha)"
+                          type: object
+                          properties:
+                            strategyId:
+                              type: string
+                            name:
+                              type: string
+                            total:
+                              type: number
+                          required:
+                            - strategyId
+                            - name
+                            - total
+                          additionalProperties: false
+                        inWatchlist:
+                          type: boolean
                       required:
                         - instrumentId
                         - symbol
@@ -11186,6 +11227,14 @@ paths:
                         - r252
                         - distHigh
                         - pastWinner
+                        - s50over200
+                        - upDays63
+                        - liq
+                        - rsi14
+                        - dip20
+                        - setup
+                        - best
+                        - inWatchlist
                       additionalProperties: false
                 required:
                   - computedAt

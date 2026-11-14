@@ -31,8 +31,8 @@ Módulos da interface, por grupo do menu:
 - Visão geral
 - **Mercado:** Acompanhar, Charts, Orderbook, HeatMap, Calor, Timelapse, Alertas
 - **SAXO:** Carteira SAXO, Ordens SAXO, Alertas SAXO, Automação
-- **Estratégias:** Sinais, BackTest, Comparar, WinnersLoosers, Promessas, Pechinchas, Laboratório (registo das experiências)
-- **Administração:** Utilizadores (administradores), Definições (com os cartões Estratégias, Cópias de segurança e Correspondência SAXO, para administradores)
+- **Estratégias:** Sinais, BackTest, Comparar, Rotação, WinnersLoosers, Promessas, Pechinchas, Laboratório (registo das experiências)
+- **Administração:** Utilizadores e Logotipos (administradores), Definições (com os cartões Estratégias, Cópias de segurança e Correspondência SAXO, para administradores)
 
 Todas as páginas usam a largura toda do ecrã (ver o [guia de estilos](docs/arquitectura/guia_estilos.md), secção 4).
 

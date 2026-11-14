@@ -23,7 +23,7 @@ A API serve `dist/` quando `STOCKS_FRONTEND_DIST` aponta para essa pasta, na mes
 ## Testes
 
 ```bash
-npm test           # node --test: funções puras (momento, estratégias incluindo a E-Ondas, a F-Mergulho e a rotação, SAXO, perfil da empresa, custos, Laboratório, Timelapse, gráfico…), 138 testes
+npm test           # node --test: funções puras (momento, as doze estratégias, a rotação, os fatores e as Promessas, SAXO, perfil da empresa, custos, Laboratório, Timelapse, gráfico…), 140 testes
 ```
 
 Testes no navegador e capturas de ecrã de todas as páginas: ver [e2e/README.md](../e2e/README.md).

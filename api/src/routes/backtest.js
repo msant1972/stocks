@@ -331,6 +331,8 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
       instrumentId: r.instrumentId, symbol: r.symbol, name: r.name, exchange: r.exchange, rank: r.rank, score: r.score,
       date: r.features.date, close: r.features.close, m2: r.features.m2, vol63: r.features.vol63, s200slope: r.features.s200slope,
       r63: r.features.r63, r252: r.features.r252, distHigh: r.features.distHigh, pastWinner: winners.has(r.instrumentId),
+      s50over200: r.features.s50over200, upDays63: r.features.upDays63, liq: Math.round(r.features.liq), rsi14: Math.round(r.features.rsi14 * 10) / 10,
+      dip20: r.features.dip20, setup: promessas.setup(r.features),
     }));
     return { at: Date.now(), items, ranked: ranked.length, asOf: items.reduce((m, i) => (i.date > m ? i.date : m), '') || null };
   }
@@ -339,7 +341,7 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
     schema: {
       tags: ['Estratégia'], summary: 'Promessas: instrumentos com sinais de continuarem ou passarem a ganhadores nos 12 meses seguintes',
       description: 'Elegíveis: fecho acima da SMA200, SMA50 acima da SMA200 e rendimento de 3 meses positivo. Pontuação 0–100: '
-        + 'percentis em todo o catálogo de M2 (peso 2), volatilidade de 3 meses (menor é melhor) e inclinação da SMA200 em 3 meses. '
+        + 'percentis em todo o catálogo de M2, inclinação da SMA200 em 3 meses e SMA50/SMA200 (peso 1), liquidez e sessões a subir (peso ½). '
         + 'pastWinner: ganhador em todas as estratégias nos últimos 2 anos (BackTest). Validação histórica em validation. Não é recomendação.',
       querystring: z.object({ scope: z.enum(['all', 'watchlist']).default('all') }),
       response: {
@@ -353,6 +355,11 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
             rank: z.number(), score: z.number(), date: IsoDate, close: z.number(),
             m2: z.number(), vol63: z.number(), s200slope: z.number(), r63: z.number(), r252: z.number(), distHigh: z.number(),
             pastWinner: z.boolean().nullable(),
+            s50over200: z.number().describe('SMA50 / SMA200 − 1'), upDays63: z.number().describe('Parte das sessões a subir nos últimos 3 meses'),
+            liq: z.number().describe('Valor negociado médio de 50 sessões'), rsi14: z.number(), dip20: z.number().describe('Distância ao máximo de 20 sessões'),
+            setup: z.enum(['pullback', 'high', 'mid']).describe('Onde está o preço: em recuo, perto do máximo de 52 semanas, ou a meio'),
+            best: z.object({ strategyId: z.string(), name: z.string(), total: z.number() }).nullable().describe('Melhor estratégia ligada no BackTest dos últimos 2 anos (null: nenhuma ganha)'),
+            inWatchlist: z.boolean(),
           })),
         }),
       },
@@ -362,7 +369,15 @@ export default async function backtestRoutes(app, { pool, cfg, warmup = () => {}
     if (!promCache) await refreshPromessas();
     else if (Date.now() - promCache.at > CACHE_MS) refreshPromessas().catch((err) => app.log.warn({ err }, 'promessas: recálculo falhou'));
     let { items } = promCache;
-    if (req.query.scope === 'watchlist') items = await onlyWatchlist(req.user.id, items);
+    const mine = await watchlistIds(req.user.id);
+    if (req.query.scope === 'watchlist') items = items.filter((i) => mine.has(i.instrumentId));
+    // Melhor estratégia entre as ligadas (a mesma do Acompanhar e da Automação): diz que estratégia negociaria o instrumento.
+    const on = await enabledStrategies(pool);
+    const best = bestByInstrument(on, await ensure(on));
+    items = items.map((i) => {
+      const b = best.get(i.instrumentId);
+      return { ...i, inWatchlist: mine.has(i.instrumentId), best: b && b.total > 0 ? { strategyId: b.strategyId, name: getStrategy(b.strategyId)?.name ?? b.strategyId, total: b.total } : null };
+    });
     const stored = await readAnalysis('promessas_validation');
     return {
       computedAt: new Date(promCache.at).toISOString(), asOf: promCache.asOf, topN: promessas.TOP_N,

@@ -137,7 +137,7 @@ Não depender de blur para conseguir contraste. A versão sem blur deve permanec
 
 - Conteúdo numa coluna.
 - Navegação inferior com Visão geral, Acompanhar, Charts, Carteira SAXO, Sinais e «Mais». «Mais» abre uma folha com todos os módulos, por secções e com «Terminar sessão», e fica destacado quando a página actual não é um dos atalhos.
-- Definições através do ícone na barra superior, onde ficam também o atalho para Utilizadores (administradores) e «Terminar sessão».
+- Em tablet e telemóvel mantém-se uma barra superior fina com o botão do menu (tablet) e o ícone das Definições, onde ficam também o atalho para Utilizadores (administradores) e «Terminar sessão»; o estado dos dados aparece na folha «Mais».
 - Modais complexos passam a ecrãs completos ou folhas inferiores acessíveis.
 - Respeitar áreas seguras do dispositivo e reservar espaço para a navegação fixa.
 - Evitar scroll horizontal da página; tabelas podem ter região de scroll própria devidamente identificada.
@@ -191,10 +191,10 @@ O detalhe do instrumento vive no Charts (5.3a); `/instrumentos/:id` redirecciona
 
 - Botão «Catálogo» (com `aria-expanded`, destacado quando aberto) mostra ou esconde o catálogo partilhado. A escolha fica guardada no browser; sem escolha, o catálogo só aparece quando a lista está vazia. Uma pesquisa abre-o sempre, e escondê-lo limpa a pesquisa. Escondido, não faz pedidos (nem ao livro da Euronext).
 - Pesquisa por designação, ticker e mercado no catálogo.
-- Tabela com instrumento, estado, último fecho (com a data da sessão), volume da sessão, variação, melhor estratégia e ISIN-MIC. A melhor estratégia é a de maior resultado nos últimos 2 anos (BackTest), com o resultado a verde e ligação para o gráfico com ela aplicada; «Nenhuma ganha» (com a menos má no `title`) quando todas perdem. O ISIN-MIC é uma ligação para o Orderbook e tem edição directa («Definir», ou o ícone de lápis quando já existe), com o MIC sugerido pela bolsa e validação do formato; nos instrumentos fora da Euronext a célula fica vazia (sem «Definir»).
+- Tabela com instrumento, estado, último fecho (com a data da sessão), volume da sessão, VT (último fecho × volume), variação, melhor estratégia e ISIN-MIC; o catálogo mostra todos os instrumentos (até 500). A melhor estratégia é a de maior resultado nos últimos 2 anos (BackTest), com o resultado a verde e ligação para o gráfico com ela aplicada; «Nenhuma ganha» (com a menos má no `title`) quando todas perdem. O ISIN-MIC é uma ligação para o Orderbook e tem edição directa («Definir», ou o ícone de lápis quando já existe), com o MIC sugerido pela bolsa e validação do formato; nos instrumentos fora da Euronext a célula fica vazia (sem «Definir»).
 - Botão «Mostrar OB» (`aria-pressed`, destacado quando ligado) mostra ou esconde as colunas do livro de ofertas; começa desligado sempre que a página abre e só ligado se fazem pedidos à Euronext. Desligado, a ordenação por desequilíbrio volta a Instrumento.
 - Colunas «Mid» e «Desequilíbrio» do livro Euronext (atraso 15 min), com o significado no `title` do cabeçalho: o mid é uma ligação para o Orderbook; o desequilíbrio usa verde acima de +0,1 e vermelho abaixo de −0,1, com «pressão compradora/vendedora/equilibrado» no `title` e para leitores de ecrã. «…» enquanto carrega; «—» sem ISIN-MIC ou quando o livro falha (motivo no `title`).
-- Cabeçalhos ordenáveis (Instrumento, Volume, Variação, Desequilíbrio): botão no cabeçalho com seta (▲/▼ na coluna activa, ↕ nas outras) e `aria-sort`; clicar na mesma coluna inverte o sentido; instrumento começa A→Z e as restantes do maior para o menor; sem valor ficam sempre no fim. No catálogo a ordenação fica no endereço (`?ordem=volume&sentido=desc`). Ordenado por desequilíbrio, uma nota explica que só os instrumentos mostrados entram na ordenação. Em «A minha lista» a ordenação é feita no browser sobre todos os instrumentos e fica guardada no browser.
+- Cabeçalhos ordenáveis (Instrumento, Volume, VT, Variação, Melhor estratégia, Desequilíbrio): botão no cabeçalho com seta (▲/▼ na coluna activa, ↕ nas outras) e `aria-sort`; clicar na mesma coluna inverte o sentido; instrumento começa A→Z e as restantes do maior para o menor; sem valor ficam sempre no fim. No catálogo a ordenação fica no endereço (`?ordem=volume&sentido=desc`). Ordenado por desequilíbrio, uma nota explica que só os instrumentos mostrados entram na ordenação. Em «A minha lista» a ordenação é feita no browser sobre todos os instrumentos e fica guardada no browser.
 - A variação mostra só o valor com sinal e a cor (verde a subir, vermelho a descer), sem as palavras «Subida»/«Descida».
 - Em «A minha lista», remover da lista é um ícone de caixote do lixo. No catálogo, «Acompanhar» e «Remover da lista» são texto, e o caixote do lixo (vermelho, só para administradores) apaga o instrumento do catálogo, depois de uma confirmação que explica que deixa de existir para todos (cotações, listas e alertas) e que não é possível com ordens enviadas à SAXO. Os botões só com ícone têm `title` e nome acessível completo (ex.: «Remover GALP.LS da lista»), e os rótulos ocultos ficam contidos no `.table-wrap` (`position: relative`) para não alargarem a página em telemóvel.
 - Botão «Validar agora (N)» com o número de instrumentos por validar, só visível quando há pendentes. Enquanto houver pendentes, a lista actualiza-se sozinha.
@@ -243,7 +243,8 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 - A carteira da aplicação é a conta de simulação da SAXO: faixa «Conta de simulação da SAXO Bank — não é dinheiro real».
 - Valor total, saldo disponível e montante investido claramente separados.
 - Evolução da carteira: gráfico do valor total sessão a sessão, com o capital inicial a tracejado como referência e um resumo textual; tooltip com o valor das posições, o saldo e a diferença face ao capital inicial. Antes da segunda leitura, uma frase explica quando o gráfico aparece.
-- Tabela de posições com instrumento, quantidade, preço de abertura, preço de referência, valor e resultado, com «Vender» em cada uma; posições fechadas à parte.
+- Tabela de posições com instrumento (logotipo de 28 px à esquerda do símbolo e do nome), quantidade, preço de abertura, preço de referência, valor e resultado, com «Vender» em cada uma; posições fechadas à parte.
+- «Vender Tudo» (vermelho, no canto superior direito): diálogo com a lista das ordens, contagem decrescente entre ordens (uma a cada 6 s) e o estado de cada uma.
 - Valores numéricos alinhados à direita; instrumento e mercado identificados sem ambiguidade.
 
 ### 5.5. Enviar ordem à SAXO
@@ -254,6 +255,13 @@ Formulário apresentado num modal em desktop e numa vista ampla em telemóvel: l
 
 - Lista cronológica com o estado real da ordem na SAXO (aberta, executada com quantidade e preço, expirada, cancelada, recusada).
 - Ordens abertas com «Alterar» e «Cancelar».
+
+### 5.6b. Automação
+
+- Faixa da conta de simulação e avisos quando falta a ligação à SAXO ou ela expirou.
+- Cartão «Enable» (interruptor geral, com o estado em texto e a última execução) e cartão «Estratégias» (um interruptor por estratégia, com o orçamento e o resumo; as desligadas nas Definições aparecem marcadas «desligada nas Definições» e com o interruptor bloqueado).
+- Cartão «Limites de segurança»: campos numéricos «Teto de posições» (1 a 500) e «Perda máxima da carteira (%)» (1 a 90), vazios = sem limite, com validação no campo e o botão «Guardar limites»; o texto explica o que cada um trava (compras de instrumentos novos; compras e reforços) e que as vendas saem sempre.
+- Cartão «Ordens enviadas» (tabela com o estado real na SAXO; «Sinais não enviados» num bloco expansível, com o motivo, incluindo os bloqueados pelos limites) e cartão «Automação face ao BackTest» (indicadores em `.kpis` e tabela por ordem).
 
 ### 5.7. Alertas
 
@@ -300,7 +308,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 ### 5.10. Orderbook
 
 - Escolha do instrumento entre os que têm ISIN-MIC (também por `?instrumento=` no URL, a partir de Acompanhar ou da página do instrumento).
-- Cabeçalho com símbolo, ISIN-MIC, carimbo «Actualizado na Euronext» com o atraso de 15 min, hora do pedido e «a actualizar…».
+- Cabeçalho com o logotipo (28 px), símbolo, ISIN-MIC, carimbo «Actualizado na Euronext» com o atraso de 15 min, hora do pedido e «a actualizar…».
 - Estatísticas: melhor compra (verde), melhor venda (vermelho), spread com % do mid, mid e desequilíbrio com texto (pressão compradora/vendedora/equilibrado).
 - Tabela lado a lado (# · Qtd compra · Compra │ Venda · Qtd venda · #); casas decimais do preço = máximo observado (mín. 2). A linha dos totais tem um separador espesso por cima e fundo verde do lado das compras («Total compra») e vermelho do lado das vendas («Total venda»), com texto branco a negrito (cores do HeatMap, contraste ≥ 4,98:1, iguais nos dois temas).
 - Gráfico de profundidade cumulativa em degrau, compras à esquerda e vendas à direita do mid, com linha do mid e resumo textual.
@@ -342,11 +350,11 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 
 ### 5.11c. Promessas
 
-- Subtítulo que diz o que a lista mede e que ganhadores do passado nem sempre continuam a sê-lo.
-- Quadro «Como é feita a lista»: condição dos últimos 3 meses, pontuação e resultado no passado (médias), com «Validação por período» expansível (tabela das 5 janelas e nota sobre a janela fraca).
-- Opções «Top 30 / Todos os elegíveis» e «Todos / A minha lista», no endereço (`?ver=todos`, `?lista=1`).
-- Tabela ordenável: posição, instrumento (ligação), pontuação com barra (0–100), M2, volatilidade de 3 meses, inclinação da SMA200, rendimentos de 3 e 12 meses, distância ao máximo de 52 semanas e «Em todas» (ganhou com todas as estratégias nos últimos 2 anos).
-- Aviso final de simulação estatística, sem garantia nem recomendação, com a hora do cálculo.
+- Subtítulo que diz o que a lista mede (instrumentos com mais probabilidade de darem oportunidades de negociação às estratégias) e para que serve (juntá-los à lista, que é onde a Automação e os Sinais actuam).
+- Quadro «Como é feita a lista»: condição dos últimos 3 meses, pontuação (M2, SMA200 a subir e SMA50/SMA200 com peso 1; liquidez e sessões a subir com peso ½) e resultado no passado (médias), com «Validação por período» expansível e uma nota com a validação da pontuação revista (42 datas mensais).
+- Opções «Top 30 / Todos os elegíveis» e «Todos / A minha lista», no endereço (`?ver=todos`, `?lista=1`); filtro «Momento» (Todos, Em recuo, Perto do máximo, A meio) por cima da tabela.
+- Tabela ordenável: posição, instrumento (ligação), pontuação com barra (0–100), M2, inclinação da SMA200, SMA50/SMA200, dias a subir, VT médio (liquidez), rendimentos de 3 e 12 meses, distância ao máximo de 52 semanas, «Momento» (distintivo: «Em recuo» a azul, «Perto do máximo» a verde, «A meio» neutro, com a explicação no `title`), «Melhor estratégia» (nome com ligação ao gráfico com ela aplicada e o resultado a verde, ou «Nenhuma ganha») e «Minha lista» (o botão de ícone do WinnersLoosers).
+- Aviso final de estatística sobre dados passados, sem garantia nem recomendação, com a hora do cálculo.
 
 ### 5.12. Utilizadores
 
@@ -429,7 +437,7 @@ Séries do gráfico (paleta categórica validada para daltonismo, em ordem fixa,
 | SMA200 | `#008300` | `#008300` |
 
 - Indicadores na mesma escala do preço (um só eixo); o momento num gráfico próprio por baixo, com marcas redondas no eixo e o zero sempre incluído.
-- HeatMap e barra de momento: verde `#1a7f45`, cinzento `#6b7079`, vermelho `#c0362c` (texto branco com contraste ≥ 4,98:1), iguais nos dois temas.
+- Barra de momento, totais do livro de ofertas e velas: verde `#1a7f45`, cinzento `#6b7079`, vermelho `#c0362c` (`--heat-*`; texto branco com contraste ≥ 4,98:1), iguais nos dois temas. O HeatMap e o Timelapse usam a escala divergente de 7 tons (`--div-up-1…3`, `--div-flat`, `--div-down-1…3`), com tons próprios em cada tema e o texto em `--div-ink-*`.
 - Marcadores da estratégia com letra (C, R, V), não só cor.
 
 Os exemplos de números usados em protótipos devem ser identificados como dados de demonstração e não permanecer como valores reais na aplicação publicada.
