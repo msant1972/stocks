@@ -611,7 +611,7 @@ test('Portfolio Recomendado: rendimento, listas a comprar, manter e vender, e bo
 });
 
 test('Fases de Wyckoff: coluna em Acompanhar, etiqueta no Charts e filtros no HeatMap e nas Promessas', async () => {
-  const LABELS = { accumulation: 'Acumulação', markup: 'Subida', distribution: 'Distribuição', markdown: 'Queda', undefined: 'Indefinida' };
+  const LABELS = { accumulation: 'Faixa no fundo', markup: 'Subida', distribution: 'Faixa no topo', markdown: 'Queda', undefined: 'Indefinida' };
   const w = await (await page.request.get('/api/v1/wyckoff')).json();
   expect(w.items).toHaveLength(2); // GALP e BCP têm mais de 52 semanas de cotações
   const instruments = (await (await page.request.get('/api/v1/instruments?limit=500')).json()).items;

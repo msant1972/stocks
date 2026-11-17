@@ -97,12 +97,12 @@ test('sem lookahead e histórico mínimo', () => {
 test('interface: etiquetas, ordem do ciclo, filtro e nota da faixa', () => {
   assert.deepEqual(PHASE_ORDER, PHASES);
   for (const p of PHASES) { assert.ok(PHASE_INFO[p].label); assert.ok(PHASE_INFO[p].help.length > 40); }
-  assert.equal(phaseLabel('distribution'), 'Distribuição');
+  assert.equal(phaseLabel('distribution'), 'Faixa no topo');
   assert.equal(phaseLabel('x'), '—');
   assert.deepEqual([phaseRank('accumulation'), phaseRank('markdown'), phaseRank('undefined'), phaseRank(undefined)], [0, 3, 4, null]);
   assert.deepEqual(phaseOptions().map((o) => o.value), ['all', ...PHASES]);
   assert.equal(phaseOptions({ markup: 7 })[2].label, 'Subida (7)');
-  assert.equal(phaseOptions({ markup: 7 })[1].label, 'Acumulação (0)');
+  assert.equal(phaseOptions({ markup: 7 })[1].label, 'Faixa no fundo (0)');
   assert.equal(rangeNote({ lateral: true, rangeSessions: 55, volumeBias: 0.3 }), 'Em faixa há 55 sessões; mais volume nos dias de subida.');
   assert.match(rangeNote({ lateral: true, rangeSessions: 40, volumeBias: -0.3 }), /dias de queda/);
   assert.match(rangeNote({ lateral: true, rangeSessions: 40, volumeBias: 0 }), /equilibrado/);

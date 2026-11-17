@@ -215,7 +215,7 @@ Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, 
 ### 5.3-A. Fase de Wyckoff (etiqueta)
 
 - Componente `PhaseBadge` (`components/finance/`), usado no Acompanhar, no Charts, nas Promessas e (como filtro) no HeatMap. Regras e estudo em Wyckoff.md.
-- Distintivo `.badge` com o nome da fase, nunca só a cor: «Acumulação» (`badge-accent`), «Subida» (`badge-positive`), «Distribuição» (`badge-warning`), «Queda» (`badge-negative`), «Indefinida» (sem cor). Sem histórico suficiente (52 semanas), um traço com a razão em `title`; enquanto carrega, «…».
+- Distintivo `.badge` com o nome da fase, nunca só a cor: «Faixa no fundo» (`badge-accent`), «Subida» (`badge-positive`), «Faixa no topo» (`badge-warning`; até 17 nov. 2026 eram «Acumulação» e «Distribuição», mas a regra não distingue acumulação de redistribuição nem distribuição de reacumulação), «Queda» (`badge-negative`), «Indefinida» (sem cor). Sem histórico suficiente (52 semanas), um traço com a razão em `title`; enquanto carrega, «…».
 - O `title` de cada etiqueta diz a regra, o que a teoria espera e o que o estudo mostrou (rendimento em 6 meses e resultado das estratégias, contra o catálogo); em faixa lateral acrescenta há quantas sessões e de que lado esteve o volume. A cor segue a teoria; a explicação é que diz o que aconteceu nos dados.
 - **Acompanhar:** coluna «Fase», a seguir a «Melhor estratégia», ordenável pela ordem do ciclo (acumulação, subida, distribuição, queda, indefinida; sem fase no fim).
 - **Charts:** a etiqueta fica na linha do símbolo, depois do estado do instrumento.

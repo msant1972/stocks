@@ -62,10 +62,47 @@ No rendimento do preço em 6 meses, a diferença para o catálogo em 2022 foi: d
 
 **Variante de 3 anos** (intervalo, queda e subida medidos em 3 anos em vez de 52 semanas; testada com os mesmos limiares e com queda de 35 % e subida de 50 %): só há fase a partir de nov. 2022, o que deixa 2 datas de 2022 e 41 de subida. Nas datas comuns dá praticamente o mesmo que a regra das 52 semanas (acumulação −4,0 e −3,8 pontos face ao catálogo, distribuição +2,3 e +3,2). **Não acrescenta nada**; a regra mantém-se nas 52 semanas, e a leitura de 273 sessões por instrumento chega.
 
+## Eventos das fases C e D (17 nov. 2026)
+
+**Pergunta.** O esquema completo do método distingue, dentro de cada faixa, os eventos que a resolvem: na fase C o *Spring* (falsa quebra do suporte que volta à faixa) e o *UTAD* (o mesmo, acima da resistência); na fase D o *SOS* e o *SOW* (saída da faixa com força e volume) e o *LPS* e o *LPSY* (o último recuo que respeita o nível rompido). É por eles que uma faixa no topo se revela distribuição ou reacumulação. Detectados em cotações diárias, prevêem o que acontece a seguir?
+
+**Definições** (sobre a faixa lateral das 40 sessões anteriores, a da regra das fases; preços ajustados):
+
+| Evento | Regra |
+|---|---|
+| Spring | o mínimo do dia fica pelo menos 1 % abaixo do suporte e, até 3 sessões depois, um fecho volta para dentro da faixa |
+| UTAD | o máximo fica pelo menos 1 % acima da resistência e, até 3 sessões depois, um fecho volta para dentro |
+| SOS | fecho acima da resistência, com volume de pelo menos 1,5 vezes a média de 50 sessões e no terço de cima do dia |
+| SOW | fecho abaixo do suporte, com o mesmo volume e no terço de baixo do dia |
+| LPS | até 25 sessões depois de um SOS, um recuo com volume abaixo da média até 3 % da antiga resistência, sem fechar abaixo dela |
+| LPSY | o espelho, depois de um SOW |
+
+Variante exigente: só faixas com 60 sessões ou mais, quebras de 2 %, regresso em 2 sessões e volume de 2 vezes a média.
+
+**Resultado** (16 799 eventos de nov. 2020 a mai. 2026; 2 531 na variante exigente). Rendimento nos 6 meses seguintes, diferença para a média do catálogo nas mesmas datas:
+
+| Evento | Todos | Faixa no topo | Faixa no fundo |
+|---|---|---|---|
+| Spring | −0,2 | +2,3 | −3,1 |
+| UTAD | +0,4 | +2,7 | −4,0 |
+| SOS | +0,9 | +3,6 | −5,1 |
+| SOW | −0,2 | +2,8 | −3,5 |
+| LPS | +0,7 | +3,7 | −7,0 |
+| LPSY | +0,1 | +2,8 | −1,7 |
+
+- **Eventos opostos dão o mesmo resultado.** Numa faixa no topo, um Spring (sinal de reacumulação) e um UTAD (sinal de distribuição) foram seguidos de +2,3 e +2,7 pontos; um SOS e um SOW, de +3,6 e +2,8. Nos dados diários, os eventos **não resolvem** a faixa.
+- **O que conta é o sítio da faixa e o mercado:** qualquer evento numa faixa no topo ficou acima do catálogo nos anos de subida e abaixo em 2022; numa faixa no fundo, o contrário. É o mesmo padrão das fases.
+- **O volume quase não muda nada** (UTAD com volume +1,5 pontos, sem volume 0,0; Spring +0,9 e −0,7).
+- A variante exigente dá a mesma conclusão.
+
+**Decisão:** não se implementam os eventos, as subfases A a E nem a resolução automática da faixa (passo 3 do plano). Os eventos, como os detectamos, não acrescentam informação às fases e ao mercado. Limitações: só cotações diárias (o método lê-se muitas vezes em gráficos intradiários e com mais atenção ao volume de cada barra), definições mecânicas de conceitos que no método são de leitura, e um só ano de queda.
+
 ## Como ler a etiqueta
 
-- **Subida** e **Distribuição**: foi onde as estratégias ligadas mais ganharam. «Distribuição» quer dizer «faixa no topo depois de uma subida»; pela teoria é um aviso, nos nossos dados foi quase sempre uma pausa (a teoria também lhe chama reacumulação, e só a saída da faixa as distingue).
-- **Acumulação**: pela teoria é a oportunidade; nos nossos dados foi onde menos convinha estar. Não é um sinal de compra.
+Desde 17 nov. 2026, as faixas chamam-se **«Faixa no topo»** e **«Faixa no fundo»** (antes «Distribuição» e «Acumulação»; os identificadores na API continuam `distribution` e `accumulation`). Pela teoria, uma faixa no topo pode ser distribuição ou reacumulação, e uma faixa no fundo acumulação ou redistribuição; só a saída da faixa diz qual, e a regra não a detecta (nem os eventos acima ajudam).
+
+- **Subida** e **Faixa no topo**: nos anos de subida, foi onde as estratégias ligadas mais ganharam (a faixa no topo foi quase sempre reacumulação); em 2022 a faixa no topo foi o pior grupo (distribuição).
+- **Faixa no fundo**: nos anos de subida, foi onde menos convinha estar; em 2022 ficou acima do catálogo. Não é um sinal de compra.
 - **Queda** e **Indefinida**: abaixo do catálogo, sem serem muito diferentes dele.
 
 A explicação de cada etiqueta (`title`) traz estes números.
