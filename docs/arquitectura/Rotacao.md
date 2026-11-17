@@ -88,7 +88,7 @@ Desligadas por omissão (base: 12 meses, lotes iguais, sem filtro). Resultados s
 
 ## 4c. Data de início (17 nov. 2026)
 
-Em vez do período (últimos 2 anos ou verificação), o utilizador pode escolher a **data de início**: a carteira começa vazia nesse dia, revê logo aí (sem esperar pelo fim do mês) e segue as revisões mensais até hoje. A data fica gravada por utilizador (tabela `portfolio_start_dates`) até ser alterada. A primeira data possível é a sessão em que 10 instrumentos (as posições por omissão) já têm o histórico do momentum de 12 meses e da SMA200. A rota passou a carregar os sete anos de histórico (eram cinco).
+Em vez do período (últimos 2 anos ou verificação), o utilizador pode escolher a **data de início**: a carteira começa vazia nesse dia, revê logo aí (sem esperar pelo fim do mês) e segue as revisões mensais até hoje. A data fica gravada por utilizador (tabela `portfolio_start_dates`) até ser alterada; **por omissão, 1 jan. 2026**, e «Usar o período» grava a escolha do período (sem data). Se a data por omissão não couber no histórico, a página usa o período. A primeira data possível é a sessão em que 10 instrumentos (as posições por omissão) já têm o histórico do momentum de 12 meses e da SMA200. A rota passou a carregar os sete anos de histórico (eram cinco).
 
 ## 5. Limitações e riscos
 

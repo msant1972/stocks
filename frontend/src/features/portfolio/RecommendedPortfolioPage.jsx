@@ -79,7 +79,9 @@ function PickTable({ id, title, hint, items, empty, kind, logoVersions, pending,
 export default function RecommendedPortfolioPage() {
   // Data de início gravada na base de dados (por utilizador): a carteira começa vazia nesse dia; sem ela, os últimos 24 meses.
   const saved = useStartDate('recommended-portfolio');
-  const start = saved.start;
+  // A data por omissão pode não caber no histórico (ex.: base sem dados suficientes): a API recusa-a e usa-se o período.
+  const [defaultRejected, setDefaultRejected] = useState(false);
+  const start = saved.isDefault && defaultRejected ? null : saved.start;
   const [draft, setDraft] = useState(null); // o que está no campo enquanto não é gravado (null: a data gravada)
   const [saveError, setSaveError] = useState(null);
   const [limits, setLimits] = useState({ minStart: null, latestSession: null });
@@ -88,6 +90,7 @@ export default function RecommendedPortfolioPage() {
     queryFn: () => api.get(`/recommended-portfolio${start ? `?start=${start}` : ''}`),
     staleTime: 5 * 60_000, placeholderData: (prev) => prev, enabled: saved.ready,
   });
+  if (q.error?.code === 'START_OUT_OF_RANGE' && saved.isDefault && start && !defaultRejected) setDefaultRejected(true);
   if (q.data?.minStart && (q.data.minStart !== limits.minStart || q.data.latestSession !== limits.latestSession)) {
     setLimits({ minStart: q.data.minStart, latestSession: q.data.latestSession });
   }
@@ -144,12 +147,12 @@ export default function RecommendedPortfolioPage() {
           </p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end' }}>
-          <div style={{ minWidth: '12rem' }}>
-            <Field label="Data de início" error={draftError}
-              help={limits.minStart ? `A carteira começa vazia nesse dia; a data fica gravada. De ${f.date(limits.minStart)} a ${f.date(limits.latestSession)}.` : 'A carteira começa vazia nesse dia; a data fica gravada.'}>
+          <div style={{ width: '10.5rem' }}>
+            <Field label="Data de início" error={draftError}>
               {(p) => (
                 <input {...p} type="date" className="input" value={shown} min={limits.minStart ?? undefined} max={limits.latestSession ?? undefined}
-                  onChange={(e) => setStart(e.target.value)} style={{ minHeight: '2.75rem' }} />
+                  onChange={(e) => setStart(e.target.value)} style={{ minHeight: '2.75rem' }}
+                  title={limits.minStart ? `A carteira começa vazia nesse dia; a data fica gravada. De ${f.date(limits.minStart)} a ${f.date(limits.latestSession)}.` : 'A carteira começa vazia nesse dia; a data fica gravada.'} />
               )}
             </Field>
           </div>

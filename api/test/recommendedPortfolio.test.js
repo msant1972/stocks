@@ -100,9 +100,10 @@ describe.skipIf(!hasTestDb)('portfolio recomendado', () => {
     expect((await ana.put('/portfolio-start-dates/recommended-portfolio', { start: latestSession })).statusCode).toBe(400);
     expect((await ana.put('/portfolio-start-dates/outro', { start: minStart })).statusCode).toBe(400);
     expect((await ana.get('/portfolio-start-dates')).json().items[0].start).toBe(minStart);
-    // null apaga.
+    // null grava a escolha do período do módulo (sem data), que também se mantém.
     expect((await ana.put('/portfolio-start-dates/recommended-portfolio', { start: null })).statusCode).toBe(204);
-    expect((await ana.get('/portfolio-start-dates')).json().items).toEqual([]);
+    expect((await ana.get('/portfolio-start-dates')).json().items).toEqual([{ module: 'recommended-portfolio', start: null }]);
+    await ctx.pool.query('DELETE FROM portfolio_start_dates');
   });
 
   it('exige sessão', async () => {

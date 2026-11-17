@@ -616,12 +616,14 @@ test('Portfolio Recomendado: rendimento, listas a comprar, manter e vender, e bo
   });
   await page.route('**/api/v1/portfolio-start-dates**', async (route) => {
     if (route.request().method() === 'PUT') { saved.push(route.request().postDataJSON().start); return route.fulfill({ status: 204 }); }
-    const last = saved.at(-1);
-    return route.fulfill({ json: { items: last ? [{ module: 'recommended-portfolio', start: last }] : [] } });
+    return route.fulfill({ json: { items: saved.length ? [{ module: 'recommended-portfolio', start: saved.at(-1) }] : [] } });
   });
   await page.reload();
   const field = page.getByLabel('Data de início');
-  await expect(field).toHaveValue('');
+  // Sem nada gravado, a data por omissão é 1 jan. 2026.
+  await expect(field).toHaveValue('2026-01-01');
+  await expect(page.getByRole('heading', { name: /Rendimento desde 1 jan\. 2026/ })).toBeVisible();
+  expect(asked).toContain('2026-01-01');
   await field.fill('2020-06-01');
   await expect(page.getByText('Sem histórico suficiente antes de 15/02/2021')).toBeVisible();
   expect(saved).toEqual([]);
@@ -631,9 +633,13 @@ test('Portfolio Recomendado: rendimento, listas a comprar, manter e vender, e bo
   expect(asked.at(-1)).toBe('2026-01-05');
   await page.reload();
   await expect(page.getByLabel('Data de início')).toHaveValue('2026-01-05');
+  // «Últimos 24 meses» grava a escolha do período, que se mantém depois de recarregar.
   await page.getByRole('button', { name: 'Últimos 24 meses' }).click();
   await expect(page.getByRole('heading', { name: /Rendimento nos últimos 24 meses/ })).toBeVisible();
   expect(saved.at(-1)).toBeNull();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: /Rendimento nos últimos 24 meses/ })).toBeVisible();
+  await expect(page.getByLabel('Data de início')).toHaveValue('');
   await page.unroute('**/api/v1/portfolio-start-dates**');
   await page.unroute('**/api/v1/recommended-portfolio?start=*');
   await page.unroute('**/api/v1/recommended-portfolio');
@@ -750,6 +756,9 @@ test('Rotação: campo «Data de início» (sem histórico na base de testes, a 
   await page.goto('/rotacao');
   const field = page.getByLabel('Data de início');
   await expect(field).toBeVisible();
+  // A data por omissão (1 jan. 2026) não cabe no histórico da base de testes: a página volta ao período, sem erro.
+  await expect(page.getByRole('heading', { name: /Resultado simulado/ })).toBeVisible();
+  await expect(field).toHaveValue('');
   await field.fill('2026-01-05');
   await expect(page.getByRole('alert').filter({ hasText: /histórico suficiente para escolher uma data de início/i })).toBeVisible();
   expect((await (await page.request.get('/api/v1/portfolio-start-dates')).json()).items).toEqual([]);

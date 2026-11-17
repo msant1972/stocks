@@ -61,7 +61,9 @@ export default function RotationPage() {
   const sizing = params.get('dimensionamento') === '1' ? 1 : 0;
   // Data de início gravada na base de dados (por utilizador): a carteira começa vazia nesse dia e vai até hoje; o período deixa de contar.
   const saved = useStartDate('rotation');
-  const start = saved.start;
+  // A data por omissão pode não caber no histórico (ex.: base sem dados suficientes): a API recusa-a e usa-se o período.
+  const [defaultRejected, setDefaultRejected] = useState(false);
+  const start = saved.isDefault && defaultRejected ? null : saved.start;
   const [draft, setDraft] = useState(null); // o que está no campo enquanto não é gravado (null: a data gravada)
   const [saveError, setSaveError] = useState(null);
   const [limits, setLimits] = useState({ minStart: null, latestSession: null });
@@ -76,6 +78,7 @@ export default function RotationPage() {
     placeholderData: (prev) => prev, staleTime: 5 * 60_000, enabled: saved.ready,
   });
   const r = q.data;
+  if (q.error?.code === 'START_OUT_OF_RANGE' && saved.isDefault && start && !defaultRejected) setDefaultRejected(true);
   if (r?.minStart && (r.minStart !== limits.minStart || r.latestSession !== limits.latestSession)) setLimits({ minStart: r.minStart, latestSession: r.latestSession });
   const shown = draft ?? start ?? '';
   const draftError = startError(shown, limits) ?? saveError;
@@ -108,12 +111,12 @@ export default function RotationPage() {
           <Segmented label="Instrumentos" value={scope} onChange={(v) => set('lista', v === 'watchlist' ? '1' : '0', '0')}
             options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />
           {!start && <Segmented label="Período" value={period} onChange={(v) => set('periodo', v, 'recent')} options={PERIODS} />}
-          <div style={{ minWidth: '12rem' }}>
-            <Field label="Data de início" error={draftError}
-              help={limits.minStart ? `Carteira vazia nesse dia, até hoje; a data fica gravada. De ${f.date(limits.minStart)} a ${f.date(limits.latestSession)}.` : 'Carteira vazia nesse dia, até hoje; a data fica gravada.'}>
+          <div style={{ width: '10.5rem' }}>
+            <Field label="Data de início" error={draftError}>
               {(p) => (
                 <input {...p} type="date" className="input" value={shown} min={limits.minStart ?? undefined} max={limits.latestSession ?? undefined}
-                  onChange={(e) => setStart(e.target.value)} style={{ minHeight: '2.75rem' }} />
+                  onChange={(e) => setStart(e.target.value)} style={{ minHeight: '2.75rem' }}
+                  title={limits.minStart ? `Carteira vazia nesse dia, até hoje; a data fica gravada. De ${f.date(limits.minStart)} a ${f.date(limits.latestSession)}.` : 'Carteira vazia nesse dia, até hoje; a data fica gravada.'} />
               )}
             </Field>
           </div>
@@ -127,16 +130,17 @@ export default function RotationPage() {
               )}
             </Field>
           </div>
-          <div style={{ minWidth: '11rem' }}>
-            <Field label="Filtro de mercado" help="Amplitude: instrumentos acima da SMA200">
+          <div style={{ width: '10rem' }}>
+            <Field label="Filtro de mercado">
               {(p) => (
-                <select {...p} className="select" value={regime} onChange={(e) => set('regime', e.target.value, 0)} style={{ minHeight: '2.75rem' }}>
+                <select {...p} className="select" value={regime} onChange={(e) => set('regime', e.target.value, 0)} style={{ minHeight: '2.75rem' }}
+                  title="Amplitude do mercado: parte dos instrumentos acima da SMA200">
                   {REGIMES.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
                 </select>
               )}
             </Field>
           </div>
-          <div style={{ minWidth: '11rem' }}>
+          <div style={{ width: '10rem' }}>
             <Field label="Dimensionamento">
               {(p) => (
                 <select {...p} className="select" value={sizing} onChange={(e) => set('dimensionamento', e.target.value, 0)} style={{ minHeight: '2.75rem' }}>
@@ -145,7 +149,7 @@ export default function RotationPage() {
               )}
             </Field>
           </div>
-          <div style={{ minWidth: '8rem' }}>
+          <div style={{ width: '5.5rem' }}>
             <Field label="Posições">
               {(p) => (
                 <select {...p} className="select" value={positions} onChange={(e) => set('posicoes', e.target.value, 10)} style={{ minHeight: '2.75rem' }}>

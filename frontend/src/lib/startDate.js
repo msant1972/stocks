@@ -14,17 +14,22 @@ export function startError(value, { minStart, latestSession }) {
   return null;
 }
 
+/** Data de início por omissão, enquanto o utilizador não escolher outra (nem o período do módulo). */
+export const DEFAULT_START = '2026-01-01';
+
 /**
  * Data de início gravada pelo utilizador para um módulo ('recommended-portfolio' ou 'rotation'), na base de dados
- * (GET/PUT /portfolio-start-dates): mantém-se até ser alterada. Devolve { start, ready, save(value|null) }.
+ * (GET/PUT /portfolio-start-dates): mantém-se até ser alterada. Sem nada gravado, DEFAULT_START; gravado null, o período do
+ * módulo (sem data). Devolve { start, isDefault, ready, save(value|null) }; isDefault: nada gravado (vale DEFAULT_START).
  */
 export function useStartDate(module) {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ['portfolio-start-dates'], queryFn: () => api.get('/portfolio-start-dates'), staleTime: Infinity });
-  const start = q.data?.items.find((i) => i.module === module)?.start ?? null;
+  const row = q.data?.items.find((i) => i.module === module);
+  const start = row ? row.start : DEFAULT_START;
   const save = async (value) => {
     await api.put(`/portfolio-start-dates/${module}`, { start: value || null });
     await qc.invalidateQueries({ queryKey: ['portfolio-start-dates'] });
   };
-  return { start, ready: !q.isPending, save };
+  return { start, isDefault: !row, ready: !q.isPending, save };
 }

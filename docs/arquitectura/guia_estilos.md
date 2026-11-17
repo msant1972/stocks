@@ -307,7 +307,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Cartões «Posições abertas na simulação» e «Operações fechadas» (as 100 mais recentes); instrumento com ligação ao Charts.
 - Cartão «Valor e qualidade»: as 30 empresas com melhor pontuação de fundamentais (pontuação, valor, qualidade, rendimentos, ROE, margem e a marca «também no momentum»), com o aviso de que é só informativo, sem simulação.
 
-- **Data de início** (desde 17 nov. 2026): o mesmo campo do Portfolio Recomendado; com data, o filtro «Período» desaparece (a carteira vai da data até hoje) e o botão fantasma «Usar o período» apaga-a.
+- **Data de início** (desde 17 nov. 2026): o mesmo campo do Portfolio Recomendado; com data, o filtro «Período» desaparece (a carteira vai da data até hoje) e o botão fantasma «Usar o período» grava a escolha do período; por omissão, 1 jan. 2026.
 
 ### 5.8c. Portfolio Recomendado
 
@@ -318,7 +318,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Cartões «Revisões anteriores» (as 12 mais recentes: o que entrou, o que saiu e quantas ficaram) e «Posições fechadas» (as 100 mais recentes, com o motivo).
 - Aviso final (`Notice`): regra fixa sobre dados passados, não é aconselhamento, não foi posta à prova num mercado em queda e a Automação não usa esta carteira.
 
-- **Data de início** (desde 17 nov. 2026): no cabeçalho, campo «Data de início» (`input type="date"`, com o calendário do browser e `min`/`max` entre a primeira data possível e a véspera da última sessão; a ajuda diz os limites e que a data fica gravada). Ao escolher uma data válida, grava-a (por utilizador, na base de dados) e o cartão passa a «Rendimento desde <data>»; uma data fora dos limites mostra o erro no campo e não grava. Com data, aparece o botão fantasma «Últimos 24 meses», que a apaga.
+- **Data de início** (desde 17 nov. 2026): no cabeçalho, campo «Data de início» (`input type="date"`, com o calendário do browser e `min`/`max` entre a primeira data possível e a véspera da última sessão; a ajuda diz os limites e que a data fica gravada). Ao escolher uma data válida, grava-a (por utilizador, na base de dados) e o cartão passa a «Rendimento desde <data>»; uma data fora dos limites mostra o erro no campo e não grava. Por omissão (nada gravado), 1 jan. 2026. Com data, aparece o botão fantasma «Últimos 24 meses», que grava a escolha do período (o campo fica vazio).
 
 ### 5.9. HeatMap
 
