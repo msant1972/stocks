@@ -212,6 +212,16 @@ O detalhe do instrumento vive no Charts (5.3a); `/instrumentos/:id` redirecciona
 
 Não disponibilizar filtros «Hoje», «1H» ou «Ao vivo». Durante a sessão, o indicador de dados, na barra lateral por baixo do nome do utilizador, mostra «Dados de <data> · sessão em curso, <hora>» (com o aviso de valores provisórios e atraso no `title`); a partir das 16h30 (fecho das bolsas, hora de Lisboa) a segunda linha passa a «sessão terminada · fecho às 19h01», com os valores provisórios da última recolha; depois das 19h00 volta a «Dados de <data>». Não animar pontos como se fossem actualizados em tempo real. Se a cobertura for inferior a três anos (a carga inicial), indicar o período efectivamente disponível e que a SMA200 e o momento podem não cobrir todo o gráfico.
 
+### 5.3-A. Fase de Wyckoff (etiqueta)
+
+- Componente `PhaseBadge` (`components/finance/`), usado no Acompanhar, no Charts, nas Promessas e (como filtro) no HeatMap. Regras e estudo em Wyckoff.md.
+- Distintivo `.badge` com o nome da fase, nunca só a cor: «Acumulação» (`badge-accent`), «Subida» (`badge-positive`), «Distribuição» (`badge-warning`), «Queda» (`badge-negative`), «Indefinida» (sem cor). Sem histórico suficiente (52 semanas), um traço com a razão em `title`; enquanto carrega, «…».
+- O `title` de cada etiqueta diz a regra, o que a teoria espera e o que o estudo mostrou (rendimento em 6 meses e resultado das estratégias, contra o catálogo); em faixa lateral acrescenta há quantas sessões e de que lado esteve o volume. A cor segue a teoria; a explicação é que diz o que aconteceu nos dados.
+- **Acompanhar:** coluna «Fase», a seguir a «Melhor estratégia», ordenável pela ordem do ciclo (acumulação, subida, distribuição, queda, indefinida; sem fase no fim).
+- **Charts:** a etiqueta fica na linha do símbolo, depois do estado do instrumento.
+- **Promessas:** coluna «Fase» depois de «Momento» e `select` «Fase de Wyckoff» ao lado do filtro «Momento».
+- **HeatMap:** `select` «Fase de Wyckoff» no cabeçalho, guardado no endereço (`?fase=`), com a contagem de cada fase entre os instrumentos do top; o texto por baixo da legenda passa a dizer quantos estão nessa fase, e sem nenhum aparece o estado vazio com a indicação para escolher «Todas as fases».
+
 ### 5.3a. Charts
 
 - Cabeçalho do gráfico: logotipo interno de 32 px à esquerda do símbolo. Sem logotipo guardado, o logotipo por omissão: quadrado cinzento claro com «Logo» (`DefaultLogo`), também no cartão «Empresa», no HeatMap e no Orderbook.

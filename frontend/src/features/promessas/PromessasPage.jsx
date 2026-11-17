@@ -4,13 +4,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
-import { Notice, Segmented } from '../../components/ui/controls.jsx';
+import { Field, Notice, Segmented } from '../../components/ui/controls.jsx';
 import SortHeader, { nextSort } from '../../components/ui/SortHeader.jsx';
 import WatchButton from '../../components/finance/WatchButton.jsx';
+import PhaseBadge from '../../components/finance/PhaseBadge.jsx';
+import { phaseOptions, phaseRank } from '../../lib/wyckoff.js';
 import { useToast } from '../../components/feedback/Toast.jsx';
-import { keys } from '../../lib/queries.js';
+import { keys, useWyckoff } from '../../lib/queries.js';
 
-const DEFAULT_DIR = { rank: 'asc', symbol: 'asc', score: 'desc', m2: 'desc', s200slope: 'desc', s50over200: 'desc', upDays63: 'desc', liq: 'desc', r63: 'desc', r252: 'desc', distHigh: 'desc', setup: 'asc', bestTotal: 'desc' };
+const DEFAULT_DIR = { rank: 'asc', symbol: 'asc', score: 'desc', m2: 'desc', s200slope: 'desc', s50over200: 'desc', upDays63: 'desc', liq: 'desc', r63: 'desc', r252: 'desc', distHigh: 'desc', setup: 'asc', phase: 'asc', bestTotal: 'desc' };
 /** Onde está o preço agora: diz que tipo de entrada é mais provável (não entra na pontuação). */
 const SETUP = {
   pullback: { label: 'Em recuo', tone: 'badge-accent', help: 'RSI14 abaixo de 45 ou 5 % ou mais abaixo do máximo de 20 sessões: é onde compram as estratégias de mergulho e de ondas (F-Mergulho, E-Ondas)' },
@@ -29,6 +31,9 @@ export default function PromessasPage() {
   const showAll = params.get('ver') === 'todos';
   const [sort, setSort] = useState({ key: 'rank', dir: 'asc' });
   const [setupFilter, setSetupFilter] = useState('all');
+  const [phaseFilter, setPhaseFilter] = useState('all');
+  const wyckoff = useWyckoff();
+  const phases = wyckoff.data?.byId;
   const [pending, setPending] = useState(new Set());
   const qc = useQueryClient();
   const toast = useToast();
@@ -39,15 +44,16 @@ export default function PromessasPage() {
   const rows = useMemo(() => {
     if (!data) return [];
     const base = (showAll || scope === 'watchlist' ? data.items : data.items.filter((i) => i.rank <= data.topN))
-      .filter((i) => setupFilter === 'all' || i.setup === setupFilter);
+      .filter((i) => setupFilter === 'all' || i.setup === setupFilter)
+      .filter((i) => phaseFilter === 'all' || phases?.get(i.instrumentId)?.phase === phaseFilter);
     const sign = sort.dir === 'asc' ? 1 : -1;
-    const val = (r) => (sort.key === 'bestTotal' ? r.best?.total ?? -Infinity : r[sort.key]);
+    const val = (r) => (sort.key === 'bestTotal' ? r.best?.total ?? -Infinity : sort.key === 'phase' ? phaseRank(phases?.get(r.instrumentId)?.phase) ?? 99 : r[sort.key]);
     return [...base].sort((a, b) => {
       const va = val(a); const vb = val(b);
       const c = typeof va === 'string' ? va.localeCompare(vb) : va - vb;
       return c * sign || a.rank - b.rank;
     });
-  }, [data, showAll, scope, sort, setupFilter]);
+  }, [data, showAll, scope, sort, setupFilter, phaseFilter, phases]);
 
   async function toggle(row) {
     setPending((p) => new Set(p).add(row.instrumentId));
@@ -163,13 +169,22 @@ export default function PromessasPage() {
                     {data.counts.eligible} elegíveis de {data.counts.ranked} instrumentos · sinais de {data.asOf ? f.date(data.asOf) : '—'}
                   </span>
                 </div>
-                <div style={{ marginBottom: '0.75rem' }}>
+                <div className="row" style={{ marginBottom: '0.75rem', alignItems: 'flex-end' }}>
                   <Segmented label="Momento" value={setupFilter} onChange={setSetupFilter}
                     options={[{ value: 'all', label: 'Todos' }, { value: 'pullback', label: 'Em recuo' }, { value: 'high', label: 'Perto do máximo' }, { value: 'mid', label: 'A meio' }]} />
+                  <div style={{ minWidth: '12rem' }}>
+                    <Field label="Fase de Wyckoff">
+                      {(p) => (
+                        <select {...p} className="select" value={phaseFilter} onChange={(e) => setPhaseFilter(e.target.value)} style={{ minHeight: '2.75rem' }}>
+                          {phaseOptions().map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                      )}
+                    </Field>
+                  </div>
                 </div>
                 {rows.length === 0 ? (
                   <EmptyState title="Sem instrumentos elegíveis" action={scope === 'watchlist' ? <Link className="button" to="/promessas">Ver todo o catálogo</Link> : null}>
-                    {setupFilter !== 'all' ? 'Nenhum elegível neste momento do preço; escolha «Todos».' : scope === 'watchlist' ? 'Nenhum instrumento da sua lista cumpre a condição dos últimos 3 meses.' : 'Nenhum instrumento cumpre a condição dos últimos 3 meses.'}
+                    {phaseFilter !== 'all' ? 'Nenhum elegível nesta fase; escolha «Todas as fases».' : setupFilter !== 'all' ? 'Nenhum elegível neste momento do preço; escolha «Todos».' : scope === 'watchlist' ? 'Nenhum instrumento da sua lista cumpre a condição dos últimos 3 meses.' : 'Nenhum instrumento cumpre a condição dos últimos 3 meses.'}
                   </EmptyState>
                 ) : (
                   <div className="table-wrap" tabIndex={0} aria-label="Lista de promessas">
@@ -188,6 +203,7 @@ export default function PromessasPage() {
                           {header('12 meses', 'r252', { align: 'r' })}
                           {header('Do máximo', 'distHigh', { align: 'r', title: 'Distância ao máximo de 52 semanas' })}
                           {header('Momento', 'setup', { title: 'Onde está o preço agora: em recuo, perto do máximo de 52 semanas ou a meio' })}
+                          {header('Fase', 'phase', { title: 'Fase de Wyckoff na última sessão fechada (passe o rato sobre a etiqueta para a explicação)' })}
                           {header('Melhor estratégia', 'bestTotal', { align: 'r', title: 'A estratégia ligada com melhor resultado no BackTest dos últimos 2 anos: a que a Automação usaria' })}
                           <th scope="col">Minha lista</th>
                         </tr>
@@ -215,6 +231,7 @@ export default function PromessasPage() {
                             <td className="r">{pctCell(r.r252, 0)}</td>
                             <td className="r">{pctCell(r.distHigh)}</td>
                             <td><span className={`badge ${SETUP[r.setup].tone}`} title={SETUP[r.setup].help}>{SETUP[r.setup].label}</span></td>
+                            <td><PhaseBadge w={phases?.get(r.instrumentId)} pending={wyckoff.isPending} /></td>
                             <td className="r">
                               {r.best
                                 ? <><Link to={`/charts?instrumento=${r.instrumentId}&estrategia=${r.best.strategyId}`} className="row-link">{r.best.name}</Link><div className="small positive num">{f.signedMoney(r.best.total)}</div></>

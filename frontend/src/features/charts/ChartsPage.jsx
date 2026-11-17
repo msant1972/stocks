@@ -1,10 +1,11 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import InstrumentLogo from '../../components/ui/InstrumentLogo.jsx';
+import PhaseBadge from '../../components/finance/PhaseBadge.jsx';
 import { Link, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useBestStrategies, useCatalog, useInstrument, useQuotes, useStrategies, useWatchlist } from '../../lib/queries.js';
+import { keys, useBestStrategies, useCatalog, useInstrument, useQuotes, useStrategies, useWatchlist, useWyckoff } from '../../lib/queries.js';
 import { InstrumentStatus, PriceChange, QuoteDate } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
@@ -70,6 +71,7 @@ export default function ChartsPage() {
   const toast = useToast();
   const watchlist = useWatchlist();
   const catalog = useCatalog(source !== 'lista');
+  const wyckoff = useWyckoff();
   const saxoLinked = Boolean(saxo.data?.configured && !saxo.data?.expired);
   const saxoPortfolio = useQuery({
     queryKey: ['saxo-portfolio'], queryFn: () => api.get('/saxo/portfolio'),
@@ -229,6 +231,7 @@ export default function ChartsPage() {
               {current.latest && <span className="financial-value" style={{ fontSize: '1.25rem', fontWeight: 600 }}>{f.price(current.latest.close, current.currency)}</span>}
               {current.latest && <PriceChange value={current.latest.changePct} />}
               <InstrumentStatus status={current.status} />
+              {wyckoff.data && <PhaseBadge w={wyckoff.data.byId.get(current.id)} />}
             </div>
             <p className="small muted">
               {[current.name, current.exchange, current.currency].filter(Boolean).join(' · ') || 'Dados do instrumento ainda por confirmar'}

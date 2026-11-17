@@ -51,6 +51,14 @@ export const useBestStrategies = () => useQuery({
   queryKey: keys.bestStrategies, queryFn: () => api.get('/strategies/best'), staleTime: 10 * 60_000,
   select: (d) => new Map(d.items.map((i) => [i.instrumentId, i])),
 });
+/**
+ * Fase de Wyckoff de cada instrumento (GET /wyckoff), para o Acompanhar, o Charts, as Promessas e o HeatMap.
+ * data: { byId: Map(instrumentId → linha), counts }.
+ */
+export const useWyckoff = () => useQuery({
+  queryKey: ['wyckoff'], queryFn: () => api.get('/wyckoff'), staleTime: 10 * 60_000,
+  select: (d) => ({ byId: new Map(d.items.map((i) => [i.instrumentId, i])), counts: d.counts, latestSession: d.latestSession }),
+});
 export const useAlerts = () => useQuery({ queryKey: keys.alerts, queryFn: () => api.get('/alerts') });
 export const useAlertEvents = () => useQuery({ queryKey: keys.alertEvents, queryFn: () => api.get('/alerts/events?limit=20') });
 

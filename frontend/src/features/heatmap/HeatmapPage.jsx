@@ -9,7 +9,8 @@ import { Button, Field, Segmented } from '../../components/ui/controls.jsx';
 import { changeTone, toneLegend } from '../../lib/timelapse.js';
 import { internalLogoUrl, logosEnabled } from '../../lib/logo.js';
 import { DefaultLogo } from '../../components/ui/InstrumentLogo.jsx';
-import { useLogoConfig } from '../../lib/queries.js';
+import { useLogoConfig, useWyckoff } from '../../lib/queries.js';
+import { PHASE_ORDER, phaseLabel, phaseOptions } from '../../lib/wyckoff.js';
 
 // Só os instrumentos com maior valor negociado (preço × volume) no período.
 const TOP = 20;
@@ -114,7 +115,12 @@ export default function HeatmapPage() {
     queryFn: () => api.get(`/heatmap?period=${period}&scope=${scope}&limit=${TOP}`),
     placeholderData: (prev) => prev,
   });
-  const items = q.data?.items ?? [];
+  const wyckoff = useWyckoff();
+  const phase = PHASE_ORDER.includes(params.get('fase')) ? params.get('fase') : 'all';
+  const all = q.data?.items ?? [];
+  // Filtro por fase de Wyckoff: fica só com os instrumentos do top que estão nessa fase.
+  const items = phase === 'all' ? all : all.filter((i) => wyckoff.data?.byId.get(i.instrumentId)?.phase === phase);
+  const phaseCounts = all.reduce((c, i) => { const p = wyckoff.data?.byId.get(i.instrumentId)?.phase; return p ? { ...c, [p]: (c[p] ?? 0) + 1 } : c; }, {});
   // O Treemap reescreve «name» com o nameKey; o nome do instrumento segue noutro campo.
   const data = items.map((i) => ({ ...i, instrumentName: i.name, size: Number(i.tradedValue) }));
   const first = items.reduce((m, i) => (!m || i.fromDate < m ? i.fromDate : m), null);
@@ -140,6 +146,15 @@ export default function HeatmapPage() {
               )}
             </Field>
           </div>
+          <div style={{ minWidth: '12rem' }}>
+            <Field label="Fase de Wyckoff">
+              {(p) => (
+                <select {...p} className="select" value={phase} onChange={(e) => setParam('fase', e.target.value, 'all')} style={{ minHeight: '2.75rem' }}>
+                  {phaseOptions(wyckoff.data ? phaseCounts : null).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              )}
+            </Field>
+          </div>
         </div>
       </div>
 
@@ -154,7 +169,7 @@ export default function HeatmapPage() {
           ))}
         </div>
         <p className="small muted" style={{ marginBottom: '1rem' }}>
-          {q.data && <><strong style={{ color: 'var(--text)' }}>Top {items.length} de {q.data.total} instrumentos</strong> por valor negociado. </>}
+          {q.data && <><strong style={{ color: 'var(--text)' }}>{phase === 'all' ? `Top ${items.length}` : `${items.length} em «${phaseLabel(phase)}», do top ${all.length},`} de {q.data.total} instrumentos</strong> por valor negociado. </>}
           Tamanho de cada quadrado: valor negociado (preço × volume) nas últimas {n === 1 ? 'sessão' : `${n} sessões`}
           {first && q.data?.latestSession && <> ({f.date(first)} a {f.date(q.data.latestSession)})</>}.
           A cor segue a variação (verdes sobem, vermelhos descem, cinzento quase não mexe; três intensidades por lado). A variação compara o último fecho ajustado com o de {n === 1 ? 'uma sessão' : `${n} sessões`} antes. Clique num quadrado para ver o instrumento.
@@ -163,7 +178,7 @@ export default function HeatmapPage() {
         {q.isPending ? <Loading rows={8} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : items.length === 0 ? (
           <EmptyState title="Sem dados para mostrar"
             action={scope === 'watchlist' ? <Link className="button" to="/acompanhar">Acompanhar instrumentos</Link> : null}>
-            {scope === 'watchlist' ? 'A sua lista não tem instrumentos activos com cotações no período.' : 'Ainda não há instrumentos activos com cotações no período.'}
+            {phase !== 'all' && all.length > 0 ? `Nenhum instrumento do top está em «${phaseLabel(phase)}»; escolha «Todas as fases».` : scope === 'watchlist' ? 'A sua lista não tem instrumentos activos com cotações no período.' : 'Ainda não há instrumentos activos com cotações no período.'}
           </EmptyState>
         ) : (
           <div className="heatmap-box" role="img"

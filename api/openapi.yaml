@@ -12410,6 +12410,134 @@ paths:
                 required:
                   - error
                 additionalProperties: false
+  /api/v1/wyckoff:
+    get:
+      summary: Fase de Wyckoff de cada instrumento, na última sessão fechada
+      tags:
+        - Estratégia
+      description: "accumulation: faixa lateral estreita no terço inferior do
+        intervalo de 52 semanas, depois de uma queda de 20 % ou mais;
+        distribution: faixa lateral no terço superior, depois de uma subida de
+        25 % ou mais; markup: fora de uma faixa, com o fecho acima da SMA50, a
+        SMA50 a subir e 3 meses positivos; markdown: o inverso; undefined: o
+        resto. `support` e `resistance` são os limites da faixa das últimas 40
+        sessões (fecho mais baixo e mais alto, a preços de hoje);
+        `rangeSessions` há quantas sessões o fecho anda dentro dela (só em faixa
+        lateral); `volumeBias` de que lado esteve o volume (−1 a 1). Descritivo:
+        não é uma previsão."
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  computedAt:
+                    nullable: true
+                    type: string
+                  latestSession:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
+                  counts:
+                    type: object
+                    properties:
+                      accumulation:
+                        type: number
+                      markup:
+                        type: number
+                      distribution:
+                        type: number
+                      markdown:
+                        type: number
+                      undefined:
+                        type: number
+                    required:
+                      - accumulation
+                      - markup
+                      - distribution
+                      - markdown
+                      - undefined
+                    additionalProperties: false
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        instrumentId:
+                          type: number
+                        phase:
+                          type: string
+                          enum:
+                            - accumulation
+                            - markup
+                            - distribution
+                            - markdown
+                            - undefined
+                        date:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                        lateral:
+                          type: boolean
+                        position:
+                          type: number
+                          description: "Lugar da faixa no intervalo de 52 semanas: 0 no mínimo, 1 no
+                            máximo"
+                        width:
+                          type: number
+                          description: Largura da faixa das últimas 40 sessões (fracção)
+                        support:
+                          type: number
+                        resistance:
+                          type: number
+                        rangeSessions:
+                          nullable: true
+                          type: number
+                        volumeBias:
+                          type: number
+                      required:
+                        - instrumentId
+                        - phase
+                        - date
+                        - lateral
+                        - position
+                        - width
+                        - support
+                        - resistance
+                        - rangeSessions
+                        - volumeBias
+                      additionalProperties: false
+                required:
+                  - computedAt
+                  - latestSession
+                  - counts
+                  - items
+                additionalProperties: false
+        "401":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
   /api/v1/experiments:
     get:
       summary: Experiências (a decorrer primeiro, depois as mais recentes)

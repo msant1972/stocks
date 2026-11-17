@@ -592,3 +592,37 @@ test('Portfolio Recomendado: rendimento, listas a comprar, manter e vender, e bo
   await page.unroute('**/api/v1/recommended-portfolio');
   await page.unroute('**/api/v1/watchlist/items');
 });
+
+test('Fases de Wyckoff: coluna em Acompanhar, etiqueta no Charts e filtros no HeatMap e nas Promessas', async () => {
+  const LABELS = { accumulation: 'Acumulação', markup: 'Subida', distribution: 'Distribuição', markdown: 'Queda', undefined: 'Indefinida' };
+  const w = await (await page.request.get('/api/v1/wyckoff')).json();
+  expect(w.items).toHaveLength(2); // GALP e BCP têm mais de 52 semanas de cotações
+  const instruments = (await (await page.request.get('/api/v1/instruments?limit=500')).json()).items;
+  const galp = instruments.find((i) => i.symbol === 'GALP.LS');
+  const galpPhase = w.items.find((x) => x.instrumentId === galp.id).phase;
+  // Acompanhar: coluna «Fase», com a etiqueta e a explicação.
+  await page.goto('/acompanhar');
+  const table = page.getByLabel('Tabela de instrumentos').first();
+  await expect(table.getByRole('columnheader', { name: /Fase/ })).toBeVisible();
+  const badge = table.getByRole('row', { name: /GALP\.LS/ }).getByText(LABELS[galpPhase], { exact: true });
+  await expect(badge).toBeVisible();
+  await expect(badge).toHaveAttribute('title', /Nos nossos dados|Nenhuma das quatro fases/);
+  // Charts: a etiqueta ao lado do símbolo.
+  await page.goto(`/charts?instrumento=${galp.id}`);
+  await expect(page.getByRole('region', { name: 'GALP.LS' }).getByText(LABELS[galpPhase], { exact: true }).first()).toBeVisible();
+  // HeatMap: o filtro mostra quantos há em cada fase e reduz o mapa.
+  await page.goto('/heatmap');
+  const filter = page.getByLabel('Fase de Wyckoff');
+  await expect(filter.getByRole('option', { name: `${LABELS[galpPhase]} (${w.counts[galpPhase]})` })).toBeAttached();
+  const empty = Object.keys(LABELS).find((p) => w.counts[p] === 0);
+  await filter.selectOption(empty);
+  await expect(page).toHaveURL(new RegExp(`fase=${empty}`));
+  await expect(page.getByText(`Nenhum instrumento do top está em «${LABELS[empty]}»`)).toBeVisible();
+  await filter.selectOption(galpPhase);
+  await expect(page.getByText(new RegExp(`${w.counts[galpPhase]} em «${LABELS[galpPhase]}», do top 2,`))).toBeVisible();
+  // Promessas: o filtro existe (a base de testes não tem histórico para elegíveis).
+  await page.goto('/promessas');
+  await expect(page.getByLabel('Fase de Wyckoff')).toBeVisible();
+  await page.getByLabel('Fase de Wyckoff').selectOption('markup');
+  await expect(page.getByText('Nenhum elegível nesta fase; escolha «Todas as fases».')).toBeVisible();
+});
