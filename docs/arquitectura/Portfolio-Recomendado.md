@@ -87,6 +87,10 @@ Variantes no mesmo período: com a pontuação anterior das Promessas, −10,8 %
 
 **O que fica por testar:** um filtro de mercado — por exemplo, deixar parte da carteira em numerário quando menos de metade do catálogo está acima da SMA200 (como o filtro de regime da Rotação). A medida é a mesma desta tabela: tem de reduzir a perda de 2022 sem tirar mais do que isso nos anos de subida.
 
+## Data de início (17 nov. 2026)
+
+Na página, o utilizador pode escolher a **data de início** da carteira: começa vazia nesse dia, faz logo aí a primeira revisão (ao fecho, com as compras na abertura seguinte, sem esperar pelo bloco de duas semanas) e segue as revisões normais até hoje; o rendimento é medido desde essa data, contra o catálogo comprado no mesmo dia. A data fica gravada por utilizador (tabela `portfolio_start_dates`) até ser alterada. A primeira data possível (`minStart`) é a sessão em que 20 instrumentos já têm as 316 sessões que a pontuação precisa (fev. 2021 com os sete anos de histórico). As carteiras de datas diferentes podem ter instrumentos diferentes: a escolha de cada revisão depende do que a carteira já tem (manutenção até ao lugar 40 e limite por sector).
+
 ## Limitações
 
 - **Falha num mercado em queda.** Com sete anos de dados (ver acima), perdeu 24,5 % em 2022 contra 8,8 % do catálogo e ficou sempre investida (nunca menos de 26 elegíveis).

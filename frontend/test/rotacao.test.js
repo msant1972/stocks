@@ -115,3 +115,16 @@ test('queda máxima do resultado acumulado', () => {
   assert.equal(maxDrawdown([0, -5, -3]), -5);
   assert.equal(maxDrawdown([]), 0);
 });
+
+test('rotação com data de início: revê logo na primeira sessão, sem esperar pelo fim do mês', () => {
+  const universe = [inst(1, 0.0010), inst(2, 0.0030), inst(3, 0.0020)];
+  const start = DAYS.find((d, i) => i > 600 && d.slice(8, 10) === '10');
+  const to = DAYS.at(-1);
+  const r = simulate(universe, { from: start, to, ...O, reviewAtStart: true });
+  assert.equal(r.firstDate, start);
+  assert.equal(r.rebalances[0].date, start);
+  assert.equal(r.curve[1].positions, 2);
+  const plain = simulate(universe, { from: start, to, ...O });
+  assert.notEqual(plain.rebalances[0].date, start);
+  assert.equal(plain.curve[1].positions, 0);
+});

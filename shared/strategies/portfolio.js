@@ -217,8 +217,10 @@ export function maxDrawdown(values) {
  *  - positions: a carteira à última sessão (peso, data de entrada, resultado);
  *  - reviews: as revisões da janela, da mais recente para a mais antiga, com o que entrou e saiu;
  *  - trades: posições fechadas na janela.
+ * reviewAtStart: faz uma revisão na primeira sessão da simulação (Portfolio com data de início escolhida: começa vazio e compra
+ * logo nesse dia, ao fecho, com execução na abertura seguinte).
  */
-export function simulate(universe, { start = null, from, to, weights = WEIGHTS, costs = DEFAULT_COSTS, ...options } = {}) {
+export function simulate(universe, { start = null, from, to, weights = WEIGHTS, costs = DEFAULT_COSTS, reviewAtStart = false, ...options } = {}) {
   const o = resolveOptions(options);
   const all = new Set();
   for (const inst of universe) for (const d of inst.dates) if (d <= to) all.add(d);
@@ -301,8 +303,9 @@ export function simulate(universe, { start = null, from, to, weights = WEIGHTS, 
     if (d >= from) feesPaid += custody;
     values.push({ date: d, value: cash + held, positions: positions.size });
 
-    // Revisão: a primeira sessão de um bloco novo (decide ao fecho, executa na abertura seguinte).
-    if (k > 0 && blockOf(d, o.weeks) !== blockOf(calendar[k - 1], o.weeks)) {
+    // Revisão: a primeira sessão de um bloco novo (decide ao fecho, executa na abertura seguinte); com reviewAtStart, também a
+    // primeira sessão da simulação (a carteira, vazia, começa a comprar logo na data de início, sem esperar pelo bloco seguinte).
+    if ((reviewAtStart && k === first) || (k > 0 && blockOf(d, o.weeks) !== blockOf(calendar[k - 1], o.weeks))) {
       const rows = ranking(universe, d, o, calendarPos, weights);
       const decision = plan(rows, [...positions.keys()], o);
       pending = { date: d, sell: decision.sell, buy: decision.buy };

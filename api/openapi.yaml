@@ -11565,6 +11565,14 @@ paths:
           name: sizing
           required: false
           description: "0: lotes iguais; 1: pela volatilidade (entre ½ e 2 lotes)"
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          in: query
+          name: start
+          required: false
+          description: "Data de início: a carteira começa vazia nesse dia, revê logo aí e
+            vai até à última sessão (o período deixa de contar)"
       responses:
         "200":
           description: Default Response
@@ -11573,6 +11581,16 @@ paths:
               schema:
                 type: object
                 properties:
+                  start:
+                    nullable: true
+                    description: "Data de início pedida (null: o período)"
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                  minStart:
+                    nullable: true
+                    description: Primeira data de início possível
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
                   period:
                     type: string
                     enum:
@@ -11978,6 +11996,8 @@ paths:
                       - top
                     additionalProperties: false
                 required:
+                  - start
+                  - minStart
                   - period
                   - scope
                   - universe
@@ -12029,8 +12049,20 @@ paths:
         revisão (o que comprar, manter e vender); `curve` e `summary` medem a
         carteira nos últimos 24 meses, em base 100, com dividendos e custos
         estimados da SAXO, contra todo o catálogo em partes iguais
-        (`benchmark`). Só usa sessões fechadas. Simulação sobre dados passados:
-        não é aconselhamento de investimento."
+        (`benchmark`). Só usa sessões fechadas. Com `start` (data de início), a
+        carteira começa vazia nessa data, faz logo aí a primeira revisão e é
+        medida daí até à última sessão (em vez dos últimos 24 meses); `minStart`
+        é a primeira data possível (há 20 instrumentos com histórico para a
+        pontuação). Simulação sobre dados passados: não é aconselhamento de
+        investimento."
+      parameters:
+        - schema:
+            type: string
+            pattern: ^\d{4}-\d{2}-\d{2}$
+          in: query
+          name: start
+          required: false
+          description: Data de início da carteira (AAAA-MM-DD); sem ela, os últimos 24 meses
       responses:
         "200":
           description: Default Response
@@ -12039,6 +12071,16 @@ paths:
               schema:
                 type: object
                 properties:
+                  start:
+                    nullable: true
+                    description: "Data de início pedida (null: últimos 24 meses)"
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                  minStart:
+                    nullable: true
+                    type: string
+                    pattern: ^\d{4}-\d{2}-\d{2}$
+                    description: Data AAAA-MM-DD
                   latestSession:
                     nullable: true
                     type: string
@@ -12520,6 +12562,8 @@ paths:
                         - pnlPct
                       additionalProperties: false
                 required:
+                  - start
+                  - minStart
                   - latestSession
                   - firstDate
                   - lastDate
@@ -12532,6 +12576,28 @@ paths:
                   - positions
                   - reviews
                   - trades
+                additionalProperties: false
+        "400":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
                 additionalProperties: false
         "401":
           description: Default Response
@@ -12837,6 +12903,101 @@ paths:
                 enum:
                   - null
         "404":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/portfolio-start-dates:
+    get:
+      summary: Datas de início gravadas pelo utilizador (Portfolio Recomendado e
+        Rotação)
+      tags:
+        - Estratégia
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        module:
+                          type: string
+                          enum:
+                            - recommended-portfolio
+                            - rotation
+                        start:
+                          type: string
+                          pattern: ^\d{4}-\d{2}-\d{2}$
+                          description: Data AAAA-MM-DD
+                      required:
+                        - module
+                        - start
+                      additionalProperties: false
+                required:
+                  - items
+                additionalProperties: false
+  /api/v1/portfolio-start-dates/{module}:
+    put:
+      summary: Gravar (ou apagar, com null) a data de início de um módulo
+      tags:
+        - Estratégia
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                start:
+                  nullable: true
+                  type: string
+                  pattern: ^\d{4}-\d{2}-\d{2}$
+                  description: Data AAAA-MM-DD
+              required:
+                - start
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - recommended-portfolio
+              - rotation
+          in: path
+          name: module
+          required: true
+      responses:
+        "204":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: string
+                nullable: true
+                enum:
+                  - null
+        "400":
           description: Default Response
           content:
             application/json:

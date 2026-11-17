@@ -553,6 +553,7 @@ test('Portfolio Recomendado: rendimento, listas a comprar, manter e vender, e bo
     instrumentId: id, symbol, name: `Empresa ${symbol}`, sector, rank, score: 100 - rank, close: 10 + rank, weight, buyDate: '2026-09-08', pnlPct, inWatchlist: false, ...extra,
   });
   const body = {
+    start: null, minStart: '2021-02-15',
     latestSession: '2026-11-13', firstDate: '2024-11-13', lastDate: '2026-11-13', universe: 300, windowMonths: 24,
     options: { positions: 20, keepRank: 40, weeks: 2, maxPerSector: 5, minTradedValue: 1000000, capital: 300000 },
     summary: {
@@ -606,6 +607,35 @@ test('Portfolio Recomendado: rendimento, listas a comprar, manter e vender, e bo
   await review.getByRole('button', { name: 'Adicionar NOVA.PA à minha lista' }).click();
   await expect(review.getByRole('button', { name: 'Remover NOVA.PA da minha lista' })).toBeVisible();
   expect(added).toEqual({ instrumentId: 901 });
+  // Data de início: grava-se (PUT) e mantém-se depois de recarregar; fora dos limites, erro sem gravar; «Últimos 24 meses» apaga.
+  const saved = [];
+  const asked = [];
+  await page.route('**/api/v1/recommended-portfolio?start=*', (route) => {
+    asked.push(new URL(route.request().url()).searchParams.get('start'));
+    return route.fulfill({ json: { ...body, start: asked.at(-1), firstDate: asked.at(-1) } });
+  });
+  await page.route('**/api/v1/portfolio-start-dates**', async (route) => {
+    if (route.request().method() === 'PUT') { saved.push(route.request().postDataJSON().start); return route.fulfill({ status: 204 }); }
+    const last = saved.at(-1);
+    return route.fulfill({ json: { items: last ? [{ module: 'recommended-portfolio', start: last }] : [] } });
+  });
+  await page.reload();
+  const field = page.getByLabel('Data de início');
+  await expect(field).toHaveValue('');
+  await field.fill('2020-06-01');
+  await expect(page.getByText('Sem histórico suficiente antes de 15/02/2021')).toBeVisible();
+  expect(saved).toEqual([]);
+  await field.fill('2026-01-05');
+  await expect(page.getByRole('heading', { name: /Rendimento desde 5 jan\. 2026/ })).toBeVisible();
+  expect(saved).toEqual(['2026-01-05']);
+  expect(asked.at(-1)).toBe('2026-01-05');
+  await page.reload();
+  await expect(page.getByLabel('Data de início')).toHaveValue('2026-01-05');
+  await page.getByRole('button', { name: 'Últimos 24 meses' }).click();
+  await expect(page.getByRole('heading', { name: /Rendimento nos últimos 24 meses/ })).toBeVisible();
+  expect(saved.at(-1)).toBeNull();
+  await page.unroute('**/api/v1/portfolio-start-dates**');
+  await page.unroute('**/api/v1/recommended-portfolio?start=*');
   await page.unroute('**/api/v1/recommended-portfolio');
   await page.unroute('**/api/v1/watchlist/items');
 });
@@ -714,4 +744,13 @@ test('Definições → Logotipos: interruptor para mostrar ou esconder o módulo
   await page.goto('/definicoes');
   await page.getByRole('region', { name: 'Logotipos' }).getByRole('switch', { name: 'Mostrar módulo de gestão de logotipos' }).evaluate((el) => el.click());
   await expect(nav('Logotipos')).toBeVisible();
+});
+
+test('Rotação: campo «Data de início» (sem histórico na base de testes, a API recusa e a página mostra o motivo)', async () => {
+  await page.goto('/rotacao');
+  const field = page.getByLabel('Data de início');
+  await expect(field).toBeVisible();
+  await field.fill('2026-01-05');
+  await expect(page.getByRole('alert').filter({ hasText: /histórico suficiente para escolher uma data de início/i })).toBeVisible();
+  expect((await (await page.request.get('/api/v1/portfolio-start-dates')).json()).items).toEqual([]);
 });

@@ -4,7 +4,7 @@ import { DEFAULT_OPTIONS, prepareInstrument, simulate } from '../../../shared/st
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha
 const WINDOW_YEARS = 2;
-const HISTORY_YEARS = 3 + 2; // aquecimento de 12 meses antes da janela, mais o período de verificação (2 anos)
+const HISTORY_YEARS = 7; // todo o histórico guardado: o período de verificação e as datas de início escolhidas precisam dele
 
 const stores = new WeakMap();
 
@@ -46,26 +46,39 @@ export function rotationService(pool) {
   }
 
   /** period: 'recent' ou 'verification'; positions: nº de posições; ids: restringe o universo (null = todo o catálogo). */
-  async function run({ period = 'recent', positions = DEFAULT_OPTIONS.positions, ids = null, key = 'all', lookback = DEFAULT_OPTIONS.lookback, regime = 0, sizing = 0 } = {}) {
+  async function run({ period = 'recent', positions = DEFAULT_OPTIONS.positions, ids = null, key = 'all', lookback = DEFAULT_OPTIONS.lookback, regime = 0, sizing = 0, start = null } = {}) {
     const d = await load();
     if (!d.last) return null;
-    const cacheKey = `${period}|${positions}|${key}|${lookback}|${regime}|${sizing}`;
+    const cacheKey = `${period}|${positions}|${key}|${lookback}|${regime}|${sizing}|${start ?? ''}`;
     const hit = results.get(cacheKey);
     if (hit) return hit;
-    const to = yearsBefore(d.last, PERIODS[period] ?? 0);
-    const from = yearsBefore(to, WINDOW_YEARS);
+    // Com data de início, a carteira começa vazia nesse dia e vai até à última sessão (o período não conta).
+    const to = start ? d.last : yearsBefore(d.last, PERIODS[period] ?? 0);
+    const from = start ?? yearsBefore(to, WINDOW_YEARS);
     const opt = { positions, keepRank: positions * 2, lookback, regime, sizing };
     const o = { ...DEFAULT_OPTIONS, ...opt };
     const universe = d.instruments
       .filter((i) => !ids || ids.has(i.id))
       .map((i) => prepareInstrument({ id: i.id, symbol: i.symbol, name: i.name }, i.quotes.filter((q) => q.date <= to), o))
       .filter((i) => i.dates.length);
-    const result = { ...simulate(universe, { from, to, ...opt }), period, universe: universe.length, latestSession: d.last };
+    const result = { ...simulate(universe, { from, to, ...opt, reviewAtStart: Boolean(start) }), period, universe: universe.length, latestSession: d.last, start };
     results.set(cacheKey, result);
     return result;
   }
 
-  store = { run, load };
+  /**
+   * Limites da data de início: minStart é a primeira sessão em que 10 instrumentos (as posições por omissão) já têm o histórico do momentum (lookback + 1
+   * sessões) e da SMA200; latestSession a última sessão.
+   */
+  async function limits(lookback = DEFAULT_OPTIONS.lookback) {
+    const d = await load();
+    const need = Math.max(lookback, DEFAULT_OPTIONS.smaTrend) + 1;
+    const ready = d.instruments.filter((i) => i.quotes.length > need).map((i) => i.quotes[need - 1].date).sort();
+    const n = DEFAULT_OPTIONS.positions; // posições por omissão (10)
+    return { minStart: ready.length >= n ? ready[n - 1] : null, latestSession: d.last };
+  }
+
+  store = { run, load, limits };
   if (cacheable) stores.set(pool, store);
   return store;
 }

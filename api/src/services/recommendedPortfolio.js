@@ -1,4 +1,7 @@
 import { monthsBefore, prepareInstrument, simulate } from '../../../shared/strategies/portfolio.js';
+import { SESSIONS_NEEDED } from '../../../shared/promessas.js';
+
+const STARTS_CACHED = 20; // resultados por data de início guardados (os mais recentes)
 
 const CACHE_MS = 10 * 60_000; // as cotações fechadas só mudam com a recolha
 export const WINDOW_MONTHS = 24;
@@ -17,8 +20,9 @@ export function recommendedPortfolioService(pool) {
   const cacheable = pool != null && typeof pool === 'object'; // (testes que montam a API sem base de dados)
   let store = cacheable ? stores.get(pool) : null;
   if (store) return store;
-  let cached = null; // { at, result }
+  let cached = null; // { at, result, universe, minStart }
   let loading = null;
+  const byStart = new Map(); // data de início → resultado (limpo a cada recálculo)
 
   /** Com resultado em cache responde logo; se já tem mais de 10 minutos, recalcula em segundo plano (como as outras análises). */
   async function run() {
@@ -47,16 +51,45 @@ export function recommendedPortfolioService(pool) {
         if (u.dates.length) universe.push(u);
       }
       const last = universe.map((u) => u.dates.at(-1)).sort().at(-1) ?? null;
+      // Primeira data de início útil: quando já há 20 instrumentos com o histórico que a pontuação precisa (316 sessões).
+      const ready = universe.filter((u) => u.dates.length >= SESSIONS_NEEDED).map((u) => u.dates[SESSIONS_NEEDED - 1]).sort();
+      const minStart = ready.length >= 20 ? ready[19] : null;
       const result = last
-        ? { ...simulate(universe, { from: monthsBefore(last, WINDOW_MONTHS), to: last }), universe: universe.length, latestSession: last }
+        ? { ...simulate(universe, { from: monthsBefore(last, WINDOW_MONTHS), to: last }), universe: universe.length, latestSession: last, start: null, minStart }
         : null;
-      cached = { at: Date.now(), result };
+      cached = { at: Date.now(), result, universe, minStart };
+      byStart.clear();
       return result;
     })().finally(() => { loading = null; });
     return loading;
   }
 
-  store = { run, refresh };
+  /**
+   * Carteira com data de início escolhida: começa vazia na primeira sessão a partir de `start`, revê logo nesse dia e é medida
+   * daí até à última sessão (em vez dos últimos 24 meses). `start` tem de estar entre minStart e a última sessão (a rota valida).
+   */
+  async function runFrom(start) {
+    const base = await run();
+    if (!base) return null;
+    const hit = byStart.get(start);
+    if (hit) return hit;
+    const { universe } = cached;
+    const result = {
+      ...simulate(universe, { start, from: start, to: base.latestSession, reviewAtStart: true }),
+      universe: universe.length, latestSession: base.latestSession, start, minStart: base.minStart,
+    };
+    byStart.set(start, result);
+    if (byStart.size > STARTS_CACHED) byStart.delete(byStart.keys().next().value);
+    return result;
+  }
+
+  /** Limites da data de início: { minStart, latestSession }. */
+  async function limits() {
+    const base = await run();
+    return { minStart: base?.minStart ?? null, latestSession: base?.latestSession ?? null };
+  }
+
+  store = { run, runFrom, limits, refresh };
   if (cacheable) stores.set(pool, store);
   return store;
 }

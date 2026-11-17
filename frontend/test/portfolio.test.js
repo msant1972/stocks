@@ -186,3 +186,21 @@ test('simulação: instrumentos que perdem a tendência saem pelo filtro e, sem 
   // Sem histórico nenhum: resultado vazio.
   assert.equal(simulate([], { from: DAYS[0], to }).firstDate, null);
 });
+
+test('simulação com data de início: começa vazia nesse dia e revê logo, sem esperar pelo bloco seguinte', () => {
+  const universe = [];
+  for (let k = 1; k <= 8; k++) universe.push(inst(k, 0.0004 * k, { sector: `S${k}` }));
+  // Uma quarta-feira a meio de um bloco de duas semanas.
+  const start = DAYS.find((d, i) => i > 700 && new Date(`${d}T00:00:00Z`).getUTCDay() === 3 && blockOf(d) === blockOf(DAYS[i - 2]));
+  const to = DAYS.at(-1);
+  const r = simulate(universe, { start, from: start, to, positions: 3, keepRank: 6, maxPerSector: 0, reviewAtStart: true });
+  assert.equal(r.firstDate, start);
+  assert.equal(r.curve[0].value, 100);
+  assert.equal(r.curve[0].positions, 0); // vazia no primeiro dia
+  assert.equal(r.reviews.at(-1).date, start); // a revisão mais antiga é a do dia de início
+  assert.equal(r.curve[1].positions, 3); // comprou na abertura seguinte
+  // Sem reviewAtStart, a primeira revisão só vem no bloco seguinte.
+  const plain = simulate(universe, { start, from: start, to, positions: 3, keepRank: 6, maxPerSector: 0 });
+  assert.notEqual(plain.reviews.at(-1).date, start);
+  assert.equal(plain.curve[1].positions, 0);
+});

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DEFAULT_OPTIONS } from '../../../shared/strategies/portfolio.js';
+import { AppError } from '../errors.js';
 import { ErrorBody, IsoDate } from '../schemas.js';
 import { recommendedPortfolioService, WINDOW_MONTHS } from '../services/recommendedPortfolio.js';
 
@@ -20,6 +21,7 @@ const SellItem = Item.omit({ weight: true }).extend({
 const Period = z.object({ value: N, benchmark: N.nullable() }).nullable();
 
 const emptyBody = () => ({
+  start: null, minStart: null,
   latestSession: null, firstDate: null, lastDate: null, universe: 0, windowMonths: WINDOW_MONTHS,
   options: pickOptions(DEFAULT_OPTIONS),
   summary: {
@@ -53,9 +55,13 @@ export default async function recommendedPortfolioRoutes(app, { pool, warmup = (
         + 'entre os `keepRank` melhores, vende as outras e compra os mais bem classificados até ter `positions`, no máximo `maxPerSector` '
         + 'por sector. `review` é a última revisão (o que comprar, manter e vender); `curve` e `summary` medem a carteira nos últimos 24 '
         + 'meses, em base 100, com dividendos e custos estimados da SAXO, contra todo o catálogo em partes iguais (`benchmark`). '
-        + 'Só usa sessões fechadas. Simulação sobre dados passados: não é aconselhamento de investimento.',
+        + 'Só usa sessões fechadas. Com `start` (data de início), a carteira começa vazia nessa data, faz logo aí a primeira revisão '
+        + 'e é medida daí até à última sessão (em vez dos últimos 24 meses); `minStart` é a primeira data possível (há 20 instrumentos com '
+        + 'histórico para a pontuação). Simulação sobre dados passados: não é aconselhamento de investimento.',
+      querystring: z.object({ start: IsoDate.optional().describe('Data de início da carteira (AAAA-MM-DD); sem ela, os últimos 24 meses') }),
       response: {
         200: z.object({
+          start: IsoDate.nullable().describe('Data de início pedida (null: últimos 24 meses)'), minStart: IsoDate.nullable(),
           latestSession: IsoDate.nullable(), firstDate: IsoDate.nullable(), lastDate: IsoDate.nullable(), universe: z.number(), windowMonths: z.number(),
           options: z.object({ positions: z.number(), keepRank: z.number(), weeks: z.number(), maxPerSector: z.number(), minTradedValue: z.number(), capital: z.number() }),
           summary: z.object({
@@ -77,11 +83,18 @@ export default async function recommendedPortfolioRoutes(app, { pool, warmup = (
             reason: z.enum(['ranking', 'filtro']), pnlPct: N,
           })),
         }),
-        401: ErrorBody,
+        400: ErrorBody, 401: ErrorBody,
       },
     },
   }, async (req) => {
-    const r = await svc.run();
+    const { start } = req.query;
+    if (start) {
+      const { minStart, latestSession } = await svc.limits();
+      if (!minStart || start < minStart || start >= latestSession) {
+        throw new AppError(400, 'START_OUT_OF_RANGE', !minStart ? 'ainda não há histórico suficiente para escolher uma data de início' : `a data de início tem de estar entre ${minStart} e a véspera da última sessão (${latestSession})`, { minStart, latestSession });
+      }
+    }
+    const r = start ? await svc.runFrom(start) : await svc.run();
     if (!r || !r.firstDate) return emptyBody();
     const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [req.user.id]);
     const mine = new Set(w.map((x) => Number(x.instrument_id)));
@@ -94,6 +107,7 @@ export default async function recommendedPortfolioRoutes(app, { pool, warmup = (
     const curve = r.curve.filter((c, i, a) => i === 0 || i === a.length - 1 || weekOf(c.date) !== weekOf(a[i + 1].date))
       .map(({ date, value, benchmark }) => ({ date, value, benchmark }));
     return {
+      start: r.start ?? null, minStart: r.minStart ?? null,
       latestSession: r.latestSession, firstDate: r.firstDate, lastDate: r.lastDate, universe: r.universe, windowMonths: WINDOW_MONTHS,
       options: pickOptions(r.options), summary: r.summary, curve,
       review: { ...r.review, buy: r.review.buy.map(item), keep: r.review.keep.map(item), sell: r.review.sell.map(sellItem) },

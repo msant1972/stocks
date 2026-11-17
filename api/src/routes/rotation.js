@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { fundamentalScores } from '../../../shared/fundamentals.js';
 import { DEFAULT_OPTIONS } from '../../../shared/strategies/rotacao.js';
+import { AppError } from '../errors.js';
 import { ErrorBody, IsoDate } from '../schemas.js';
 import { rotationService } from '../services/rotation.js';
 
@@ -87,9 +88,11 @@ export default async function rotationRoutes(app, { pool, warmup = () => {} }) {
           .describe('Filtro de regime de mercado: 0 desligado; 1 sem compras novas com menos de metade do catálogo acima da SMA200; 2 também vende tudo'),
         sizing: z.coerce.number().int().refine((n) => [0, 1].includes(n), 'dimensionamento: 0 ou 1').default(0)
           .describe('0: lotes iguais; 1: pela volatilidade (entre ½ e 2 lotes)'),
+        start: IsoDate.optional().describe('Data de início: a carteira começa vazia nesse dia, revê logo aí e vai até à última sessão (o período deixa de contar)'),
       }),
       response: {
         200: z.object({
+          start: IsoDate.nullable().describe('Data de início pedida (null: o período)'), minStart: IsoDate.nullable().describe('Primeira data de início possível'),
           period: z.enum(['recent', 'verification']), scope: z.enum(['all', 'watchlist']), universe: z.number(), eligibleNow: z.number(),
           firstDate: IsoDate.nullable(), lastDate: IsoDate.nullable(), latestSession: IsoDate.nullable(),
           options: z.object({ positions: z.number(), keepRank: z.number(), lookback: z.number(), skip: z.number(), smaTrend: z.number(), minTradedValue: z.number(), budget: z.number(), regime: z.number(), regimeMin: z.number(), sizing: z.number() }),
@@ -106,16 +109,20 @@ export default async function rotationRoutes(app, { pool, warmup = () => {} }) {
       },
     },
   }, async (req) => {
-    const { period, positions, scope, lookback, regime, sizing } = req.query;
+    const { period, positions, scope, lookback, regime, sizing, start = null } = req.query;
+    const { minStart, latestSession: last } = await svc.limits(lookback);
+    if (start && (!minStart || start < minStart || start >= last)) {
+      throw new AppError(400, 'START_OUT_OF_RANGE', !minStart ? 'ainda não há histórico suficiente para escolher uma data de início' : `a data de início tem de estar entre ${minStart} e a véspera da última sessão (${last})`, { minStart, latestSession: last });
+    }
     let ids = null;
     if (scope === 'watchlist') {
       const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [req.user.id]);
       ids = new Set(w.map((r) => Number(r.instrument_id)));
     }
-    const r = await svc.run({ period, positions, ids, key: scope === 'watchlist' ? `u${req.user.id}` : 'all', lookback, regime, sizing });
+    const r = await svc.run({ period, positions, ids, key: scope === 'watchlist' ? `u${req.user.id}` : 'all', lookback, regime, sizing, start });
     if (!r) {
       return {
-        period, scope, universe: 0, eligibleNow: 0, firstDate: null, lastDate: null, latestSession: null,
+        start, minStart, period, scope, universe: 0, eligibleNow: 0, firstDate: null, lastDate: null, latestSession: null,
         options: { ...DEFAULT_OPTIONS, positions, keepRank: positions * 2, lookback, regime, sizing }, summary: emptySummary(), curve: [],
         trades: [], open: [], next: { date: null, eligible: 0, breadth: null, bear: false, keep: [], buy: [], sell: [], top: [] },
       };
@@ -124,7 +131,7 @@ export default async function rotationRoutes(app, { pool, warmup = () => {} }) {
     const curve = r.curve.filter((c, i, a) => i === a.length - 1 || weekOf(c.date) !== weekOf(a[i + 1].date));
     const { universe, latestSession, next } = r;
     return {
-      period, scope, universe, eligibleNow: r.next.eligible, firstDate: r.firstDate, lastDate: r.lastDate, latestSession,
+      start, minStart, period, scope, universe, eligibleNow: r.next.eligible, firstDate: r.firstDate, lastDate: r.lastDate, latestSession,
       options: pickOptions(r.options), summary: pickSummary(r.summary), curve,
       trades: r.trades.map(pickTrade).sort((a, b) => b.sellDate.localeCompare(a.sellDate)), open: r.open.map(pickOpen),
       next,

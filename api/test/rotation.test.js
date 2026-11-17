@@ -51,6 +51,20 @@ describe.skipIf(!hasTestDb)('rotação por momentum relativo', () => {
     expect(mine.open.length).toBeLessThanOrEqual(3);
   });
 
+  it('data de início: a carteira começa vazia nesse dia e vai até à última sessão; gravada por utilizador', async () => {
+    const base = (await ana.get('/strategies/rotation')).json();
+    expect(base.start).toBeNull();
+    expect(base.minStart).toBeTruthy();
+    const [[row]] = await ctx.pool.query('SELECT session_date AS d FROM daily_quotes WHERE session_date > ? ORDER BY session_date LIMIT 1 OFFSET 60', [base.minStart]);
+    const start = typeof row.d === 'string' ? row.d : row.d.toISOString().slice(0, 10);
+    const r = (await ana.get(`/strategies/rotation?start=${start}&period=verification`)).json();
+    expect(r).toMatchObject({ start, firstDate: start, lastDate: base.lastDate }); // o período deixa de contar
+    expect(r.summary.rebalances).toBeGreaterThan(0);
+    expect((await ana.get('/strategies/rotation?start=2000-01-03')).statusCode).toBe(400);
+    expect((await ana.put('/portfolio-start-dates/rotation', { start })).statusCode).toBe(204);
+    expect((await ana.get('/portfolio-start-dates')).json().items).toEqual([{ module: 'rotation', start }]);
+  });
+
   it('recusa valores fora do esperado e exige sessão', async () => {
     expect((await ana.get('/strategies/rotation?positions=7')).statusCode).toBe(400);
     expect((await ana.get('/strategies/rotation?period=x')).statusCode).toBe(400);

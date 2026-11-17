@@ -86,6 +86,10 @@ Desligadas por omissão (base: 12 meses, lotes iguais, sem filtro). Resultados s
 - **Janela:** 9 meses dá mais que 12 nos dois períodos, mas 6 meses dá menos na verificação (a diferença é ruído); fica 12, o valor da literatura.
 - **Valor e qualidade:** cartão informativo com as 30 melhores empresas por fundamentais, sem simulação (ver Novas-estrategias.md, secção 4).
 
+## 4c. Data de início (17 nov. 2026)
+
+Em vez do período (últimos 2 anos ou verificação), o utilizador pode escolher a **data de início**: a carteira começa vazia nesse dia, revê logo aí (sem esperar pelo fim do mês) e segue as revisões mensais até hoje. A data fica gravada por utilizador (tabela `portfolio_start_dates`) até ser alterada. A primeira data possível é a sessão em que 10 instrumentos (as posições por omissão) já têm o histórico do momentum de 12 meses e da SMA200. A rota passou a carregar os sete anos de histórico (eram cinco).
+
 ## 5. Limitações e riscos
 
 - **Mercado em alta:** os dois períodos são de mercado em alta; o momentum tem quedas fortes nas viragens (o «crash» do momentum) que

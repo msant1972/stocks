@@ -31,6 +31,7 @@ import rotationRoutes from './routes/rotation.js';
 import recommendedPortfolioRoutes from './routes/recommendedPortfolio.js';
 import wyckoffRoutes from './routes/wyckoff.js';
 import strategyChoiceRoutes from './routes/strategyChoices.js';
+import startDateRoutes from './routes/startDates.js';
 import experimentRoutes from './routes/experiments.js';
 import backupRoutes from './routes/backups.js';
 import { scheduleWarmups } from './services/warmup.js';
@@ -174,6 +175,7 @@ export async function buildApp({ pool, cfg, logger = true, warm = false }) {
     await api.register(recommendedPortfolioRoutes, opts);
     await api.register(wyckoffRoutes, opts);
     await api.register(strategyChoiceRoutes, opts);
+    await api.register(startDateRoutes, opts);
     await api.register(experimentRoutes, opts);
     await api.register(backupRoutes, opts);
     if (warm) scheduleWarmups(app, pool, warmups);

@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { useQuery } from '@tanstack/react-query';
-import { api } from '../../lib/api.js';
+import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
-import { Field, Notice, Segmented } from '../../components/ui/controls.jsx';
+import { Button, Field, Notice, Segmented } from '../../components/ui/controls.jsx';
+import { startError, useStartDate } from '../../lib/startDate.js';
 
 const RotationChart = lazy(() => import('./RotationChart.jsx'));
 import FundamentalsCard from './FundamentalsCard.jsx';
@@ -58,17 +59,37 @@ export default function RotationPage() {
   const lookback = WINDOWS.some((w) => w.value === Number(params.get('janela'))) ? Number(params.get('janela')) : 252;
   const regime = REGIMES.some((x) => x.value === Number(params.get('regime')) && params.get('regime') !== null) ? Number(params.get('regime')) : 0;
   const sizing = params.get('dimensionamento') === '1' ? 1 : 0;
+  // Data de início gravada na base de dados (por utilizador): a carteira começa vazia nesse dia e vai até hoje; o período deixa de contar.
+  const saved = useStartDate('rotation');
+  const start = saved.start;
+  const [draft, setDraft] = useState(null); // o que está no campo enquanto não é gravado (null: a data gravada)
+  const [saveError, setSaveError] = useState(null);
+  const [limits, setLimits] = useState({ minStart: null, latestSession: null });
   const set = (key, value, fallback) => {
     const next = new URLSearchParams(params);
     if (String(value) === String(fallback)) next.delete(key); else next.set(key, value);
     setParams(next, { replace: true });
   };
   const q = useQuery({
-    queryKey: ['rotation', period, positions, scope, lookback, regime, sizing],
-    queryFn: () => api.get(`/strategies/rotation?period=${period}&positions=${positions}&scope=${scope}&lookback=${lookback}&regime=${regime}&sizing=${sizing}`),
-    placeholderData: (prev) => prev, staleTime: 5 * 60_000,
+    queryKey: ['rotation', period, positions, scope, lookback, regime, sizing, start],
+    queryFn: () => api.get(`/strategies/rotation?period=${period}&positions=${positions}&scope=${scope}&lookback=${lookback}&regime=${regime}&sizing=${sizing}${start ? `&start=${start}` : ''}`),
+    placeholderData: (prev) => prev, staleTime: 5 * 60_000, enabled: saved.ready,
   });
   const r = q.data;
+  if (r?.minStart && (r.minStart !== limits.minStart || r.latestSession !== limits.latestSession)) setLimits({ minStart: r.minStart, latestSession: r.latestSession });
+  const shown = draft ?? start ?? '';
+  const draftError = startError(shown, limits) ?? saveError;
+  const setStart = async (value) => {
+    setDraft(value);
+    setSaveError(null);
+    if (value && startError(value, limits)) return; // fora dos limites: fica no campo, com o erro, sem gravar
+    try {
+      await saved.save(value);
+      setDraft(null);
+    } catch (err) {
+      setSaveError(errorMessage(err));
+    }
+  };
   const s = r?.summary;
   const bh = s?.buyHold;
 
@@ -86,7 +107,17 @@ export default function RotationPage() {
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <Segmented label="Instrumentos" value={scope} onChange={(v) => set('lista', v === 'watchlist' ? '1' : '0', '0')}
             options={[{ value: 'all', label: 'Todos' }, { value: 'watchlist', label: 'A minha lista' }]} />
-          <Segmented label="Período" value={period} onChange={(v) => set('periodo', v, 'recent')} options={PERIODS} />
+          {!start && <Segmented label="Período" value={period} onChange={(v) => set('periodo', v, 'recent')} options={PERIODS} />}
+          <div style={{ minWidth: '12rem' }}>
+            <Field label="Data de início" error={draftError}
+              help={limits.minStart ? `Carteira vazia nesse dia, até hoje; a data fica gravada. De ${f.date(limits.minStart)} a ${f.date(limits.latestSession)}.` : 'Carteira vazia nesse dia, até hoje; a data fica gravada.'}>
+              {(p) => (
+                <input {...p} type="date" className="input" value={shown} min={limits.minStart ?? undefined} max={limits.latestSession ?? undefined}
+                  onChange={(e) => setStart(e.target.value)} style={{ minHeight: '2.75rem' }} />
+              )}
+            </Field>
+          </div>
+          {start && <Button variant="ghost" onClick={() => setStart('')} title="Voltar ao período (últimos 2 anos ou verificação)">Usar o período</Button>}
           <div style={{ minWidth: '8rem' }}>
             <Field label="Janela do momentum">
               {(p) => (

@@ -72,6 +72,39 @@ describe.skipIf(!hasTestDb)('portfolio recomendado', () => {
     expect(r.reviews[0].date).toBe(r.review.date);
   });
 
+  it('data de início: começa vazia nesse dia e revê logo; fora dos limites, 400', async () => {
+    const base = (await ana.get('/recommended-portfolio')).json();
+    expect(base.start).toBeNull();
+    expect(base.minStart).toBeTruthy();
+    // Uma data a meio do histórico (depois de minStart e antes da última sessão).
+    const [[row]] = await ctx.pool.query('SELECT session_date AS d FROM daily_quotes WHERE session_date > ? ORDER BY session_date LIMIT 1 OFFSET 100', [base.minStart]);
+    const start = typeof row.d === 'string' ? row.d : row.d.toISOString().slice(0, 10);
+    const r = (await ana.get(`/recommended-portfolio?start=${start}`)).json();
+    expect(r).toMatchObject({ start, firstDate: start, lastDate: base.lastDate, minStart: base.minStart });
+    expect(r.curve[0]).toMatchObject({ date: start, value: 100 });
+    expect(r.reviews.length).toBeGreaterThan(0);
+    // Antes de minStart ou depois da última sessão: recusado.
+    const early = await ana.get('/recommended-portfolio?start=2000-01-03');
+    expect(early.statusCode).toBe(400);
+    expect(early.json().error.code).toBe('START_OUT_OF_RANGE');
+    expect((await ana.get(`/recommended-portfolio?start=${base.latestSession}`)).statusCode).toBe(400);
+  });
+
+  it('data de início gravada por utilizador e por módulo, até ser alterada', async () => {
+    const { minStart, latestSession } = (await ana.get('/recommended-portfolio')).json();
+    expect((await ana.get('/portfolio-start-dates')).json().items).toEqual([]);
+    expect((await ana.put('/portfolio-start-dates/recommended-portfolio', { start: minStart })).statusCode).toBe(204);
+    expect((await ana.get('/portfolio-start-dates')).json().items).toEqual([{ module: 'recommended-portfolio', start: minStart }]);
+    // Fora dos limites e módulo desconhecido: recusado, e a data gravada mantém-se.
+    expect((await ana.put('/portfolio-start-dates/recommended-portfolio', { start: '2000-01-03' })).statusCode).toBe(400);
+    expect((await ana.put('/portfolio-start-dates/recommended-portfolio', { start: latestSession })).statusCode).toBe(400);
+    expect((await ana.put('/portfolio-start-dates/outro', { start: minStart })).statusCode).toBe(400);
+    expect((await ana.get('/portfolio-start-dates')).json().items[0].start).toBe(minStart);
+    // null apaga.
+    expect((await ana.put('/portfolio-start-dates/recommended-portfolio', { start: null })).statusCode).toBe(204);
+    expect((await ana.get('/portfolio-start-dates')).json().items).toEqual([]);
+  });
+
   it('exige sessão', async () => {
     expect((await ctx.app.inject({ method: 'GET', url: '/api/v1/recommended-portfolio' })).statusCode).toBe(401);
   });

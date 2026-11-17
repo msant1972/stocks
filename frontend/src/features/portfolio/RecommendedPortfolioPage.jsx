@@ -6,10 +6,11 @@ import * as f from '../../lib/format.js';
 import { keys, useCatalog } from '../../lib/queries.js';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
-import { Notice } from '../../components/ui/controls.jsx';
+import { Button, Field, Notice } from '../../components/ui/controls.jsx';
 import InstrumentLogo from '../../components/ui/InstrumentLogo.jsx';
 import WatchButton from '../../components/finance/WatchButton.jsx';
 import { bySector, pct1, reviewState, signedPct, tone } from './format.js';
+import { startError, useStartDate } from '../../lib/startDate.js';
 
 const PortfolioChart = lazy(() => import('./PortfolioChart.jsx'));
 
@@ -76,7 +77,33 @@ function PickTable({ id, title, hint, items, empty, kind, logoVersions, pending,
  * sector e as revisões anteriores.
  */
 export default function RecommendedPortfolioPage() {
-  const q = useQuery({ queryKey: ['recommended-portfolio'], queryFn: () => api.get('/recommended-portfolio'), staleTime: 5 * 60_000 });
+  // Data de início gravada na base de dados (por utilizador): a carteira começa vazia nesse dia; sem ela, os últimos 24 meses.
+  const saved = useStartDate('recommended-portfolio');
+  const start = saved.start;
+  const [draft, setDraft] = useState(null); // o que está no campo enquanto não é gravado (null: a data gravada)
+  const [saveError, setSaveError] = useState(null);
+  const [limits, setLimits] = useState({ minStart: null, latestSession: null });
+  const q = useQuery({
+    queryKey: ['recommended-portfolio', start],
+    queryFn: () => api.get(`/recommended-portfolio${start ? `?start=${start}` : ''}`),
+    staleTime: 5 * 60_000, placeholderData: (prev) => prev, enabled: saved.ready,
+  });
+  if (q.data?.minStart && (q.data.minStart !== limits.minStart || q.data.latestSession !== limits.latestSession)) {
+    setLimits({ minStart: q.data.minStart, latestSession: q.data.latestSession });
+  }
+  const shown = draft ?? start ?? '';
+  const draftError = startError(shown, limits) ?? saveError;
+  const setStart = async (value) => {
+    setDraft(value);
+    setSaveError(null);
+    if (value && startError(value, limits)) return; // fora dos limites: fica no campo, com o erro, sem gravar
+    try {
+      await saved.save(value);
+      setDraft(null);
+    } catch (err) {
+      setSaveError(errorMessage(err));
+    }
+  };
   const catalog = useCatalog();
   const logoVersions = new Map((catalog.data?.items ?? []).map((i) => [i.id, i.logoVersion]));
   const [pending, setPending] = useState(new Set());
@@ -116,18 +143,30 @@ export default function RecommendedPortfolioPage() {
             ou perde a tendência. Simulação sobre cotações diárias, sem ordens.
           </p>
         </div>
+        <div className="row" style={{ alignItems: 'flex-end' }}>
+          <div style={{ minWidth: '12rem' }}>
+            <Field label="Data de início" error={draftError}
+              help={limits.minStart ? `A carteira começa vazia nesse dia; a data fica gravada. De ${f.date(limits.minStart)} a ${f.date(limits.latestSession)}.` : 'A carteira começa vazia nesse dia; a data fica gravada.'}>
+              {(p) => (
+                <input {...p} type="date" className="input" value={shown} min={limits.minStart ?? undefined} max={limits.latestSession ?? undefined}
+                  onChange={(e) => setStart(e.target.value)} style={{ minHeight: '2.75rem' }} />
+              )}
+            </Field>
+          </div>
+          {start && <Button variant="ghost" onClick={() => setStart('')} title="Voltar aos últimos 24 meses">Últimos 24 meses</Button>}
+        </div>
       </div>
 
       {q.isPending ? <Loading rows={6} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !r.firstDate ? (
         <EmptyState title="Sem dados para a carteira">Não há instrumentos com histórico suficiente (pelo menos 15 meses de cotações).</EmptyState>
       ) : (
         <>
-          <section className="card" aria-labelledby="pr-result">
+          <section className="card" aria-labelledby="pr-result" style={{ opacity: q.isFetching ? 0.6 : 1 }}>
             <h2 id="pr-result" className="card-title" style={{ marginBottom: '0.75rem' }}>
-              Rendimento nos últimos {r.windowMonths} meses · {f.date(r.firstDate)} a {f.date(r.lastDate)}
+              Rendimento {r.start ? `desde ${f.date(r.start)}` : `nos últimos ${r.windowMonths} meses`} · {f.date(r.firstDate)} a {f.date(r.lastDate)}
             </h2>
             <dl className="kpis">
-              <div><dt>Portfolio, {r.windowMonths} meses</dt><dd className={tone(s.returnPct)}>{signedPct(s.returnPct)}</dd></div>
+              <div><dt>Portfolio, {r.start ? 'desde o início' : `${r.windowMonths} meses`}</dt><dd className={tone(s.returnPct)}>{signedPct(s.returnPct)}</dd></div>
               <div><dt>Catálogo em partes iguais ({s.benchmarkInstruments})</dt><dd>{signedPct(s.benchmarkPct)}</dd></div>
               <div><dt>Últimos 12 meses</dt><dd>{versus(s.last12)}</dd></div>
               <div><dt>Últimos 6 meses</dt><dd>{versus(s.last6)}</dd></div>
@@ -217,7 +256,7 @@ export default function RecommendedPortfolioPage() {
           </section>
 
           <section className="card" aria-labelledby="pr-trades">
-            <h2 id="pr-trades" className="card-title" style={{ marginBottom: '0.75rem' }}>Posições fechadas <span className="muted small">({s.closed} em {r.windowMonths} meses; as 100 mais recentes)</span></h2>
+            <h2 id="pr-trades" className="card-title" style={{ marginBottom: '0.75rem' }}>Posições fechadas <span className="muted small">({s.closed} {r.start ? `desde ${f.date(r.start)}` : `em ${r.windowMonths} meses`}; as 100 mais recentes)</span></h2>
             {r.trades.length === 0 ? <p className="small muted">Ainda sem posições fechadas.</p> : (
               <div className="table-wrap" tabIndex={0} aria-labelledby="pr-trades" style={{ maxHeight: 420, overflowY: 'auto' }}>
                 <table className="data">
