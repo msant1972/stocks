@@ -115,7 +115,7 @@ sudo systemctl start stocks-daily                  # forçar recolha e alertas a
 sudo systemctl start stocks-backup                 # forçar uma cópia de segurança
 ```
 
-Depois de aumentar `STOCKS_HISTORY_YEARS` (5 por omissão desde 8 nov. 2026; era 3), completar o histórico dos instrumentos já existentes (feito em produção a 8 nov. 2026, ao passar para 5):
+Depois de aumentar `STOCKS_HISTORY_YEARS` (7 por omissão desde 17 nov. 2026; antes 5 e 3), completar o histórico dos instrumentos já existentes (feito em produção a 8 nov. 2026, ao passar para 5, e a 17 nov. 2026, ao passar para 7: 324 instrumentos, cerca de 562 000 sessões):
 
 ```bash
 sudo -u stocks-svc bash -c 'set -a; . /etc/stocks/stocks.env; cd /opt/stocks/engines/fetcher && .venv/bin/python -m fetcher backfill'
