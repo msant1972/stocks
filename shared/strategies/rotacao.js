@@ -183,8 +183,9 @@ const monthOf = (d) => d.slice(0, 7);
  * lots, pnl e pnlPct), `open` as posições abertas, `curve` o resultado acumulado por sessão, `next` a revisão que se faria com os
  * últimos dados (ranking e decisões) e `summary` o resumo com os custos estimados e a comparação com comprar e manter.
  * reviewAtStart: revê também na primeira sessão da janela (data de início escolhida: a carteira começa vazia e compra logo).
+ * rebalance: false = carteira fixa (com reviewAtStart, compra os melhores na data de início e mantém-nos até ao fim, sem revisões).
  */
-export function simulate(universe, { from, to, reviewAtStart = false, ...options } = {}) {
+export function simulate(universe, { from, to, reviewAtStart = false, rebalance = true, ...options } = {}) {
   const o = resolveOptions(options);
   // Calendário comum: união das datas das sessões da janela.
   const all = new Set();
@@ -196,7 +197,7 @@ export function simulate(universe, { from, to, reviewAtStart = false, ...options
 
   // Revisões: o último dia útil de cada mês da janela (decisão ao fecho; execução na abertura seguinte).
   const reviews = new Set();
-  for (let k = 0; k < window.length - 1; k++) if (monthOf(window[k]) !== monthOf(window[k + 1])) reviews.add(window[k]);
+  if (rebalance) for (let k = 0; k < window.length - 1; k++) if (monthOf(window[k]) !== monthOf(window[k + 1])) reviews.add(window[k]);
   // Com data de início escolhida, a carteira (vazia) também revê na primeira sessão, em vez de esperar pelo fim do mês.
   if (reviewAtStart) reviews.add(window[0]);
 

@@ -128,3 +128,13 @@ test('rotação com data de início: revê logo na primeira sessão, sem esperar
   assert.notEqual(plain.rebalances[0].date, start);
   assert.equal(plain.curve[1].positions, 0);
 });
+
+test('rotação fixa (data de início sem revisões): uma só revisão, no primeiro dia', () => {
+  const universe = [inst(1, 0.0010), inst(2, 0.0030), inst(3, 0.0020)];
+  const start = DAYS.find((d, i) => i > 600 && d.slice(8, 10) === '10');
+  const r = simulate(universe, { from: start, to: DAYS.at(-1), ...O, reviewAtStart: true, rebalance: false });
+  assert.equal(r.rebalances.length, 1);
+  assert.equal(r.rebalances[0].date, start);
+  assert.equal(r.trades.length, 0);
+  assert.deepEqual(r.open.map((p) => p.symbol).sort(), ['S2', 'S3']);
+});

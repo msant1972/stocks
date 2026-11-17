@@ -104,7 +104,8 @@ export default function RotationPage() {
           <p className="page-sub">
             Estratégia de carteira: no último dia útil de cada mês ordena os instrumentos pelo momentum de {lookback / 21} meses sem o último e mantém os
             {' '}{positions} melhores (só com momentum positivo, acima da SMA200 e com liquidez), com um lote de 15 000 € cada. Compra à abertura
-            seguinte; uma posição só sai por ranking quando cai para além do lugar {positions * 2}. Simulação sobre cotações diárias, sem ordens.
+            seguinte; uma posição só sai por ranking quando cai para além do lugar {positions * 2}. Com uma data de início, a carteira é fixa: os melhores
+            desse dia, mantidos até hoje sem revisões. Simulação sobre cotações diárias, sem ordens.
           </p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end' }}>
@@ -189,6 +190,12 @@ export default function RotationPage() {
             {r.curve.length > 1 && <Suspense fallback={<Loading rows={3} />}><RotationChart curve={r.curve} /></Suspense>}
           </section>
 
+          {start ? (
+            <Notice tone="info">
+              Carteira fixa: os {positions} melhores do ranking de {f.date(r.firstDate)}, só com os dados até esse dia, comprados na abertura seguinte e mantidos
+              até hoje, sem revisões (ver «Posições abertas na simulação»). Para a rotação mensal, use «Usar o período».
+            </Notice>
+          ) : (
           <section className="card" aria-labelledby="rot-next">
             <h2 id="rot-next" className="card-title" style={{ marginBottom: '0.25rem' }}>Próxima revisão</h2>
             <p className="small muted" style={{ marginTop: 0 }}>
@@ -202,6 +209,7 @@ export default function RotationPage() {
               <div className="span-4"><PickTable title="Vender" hint="Caíram para além do lugar de manutenção ou deixaram de ser elegíveis." items={r.next.sell} empty="Nada a vender." withReason /></div>
             </div>
           </section>
+          )}
 
           <section className="card" aria-labelledby="rot-open">
             <h2 id="rot-open" className="card-title" style={{ marginBottom: '0.75rem' }}>Posições abertas na simulação <span className="muted small">({r.open.length})</span></h2>

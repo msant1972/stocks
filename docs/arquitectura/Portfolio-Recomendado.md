@@ -87,9 +87,15 @@ Variantes no mesmo período: com a pontuação anterior das Promessas, −10,8 %
 
 **O que fica por testar:** um filtro de mercado — por exemplo, deixar parte da carteira em numerário quando menos de metade do catálogo está acima da SMA200 (como o filtro de regime da Rotação). A medida é a mesma desta tabela: tem de reduzir a perda de 2022 sem tirar mais do que isso nos anos de subida.
 
-## Data de início (17 nov. 2026)
+## Data de início: carteira fixa (17 nov. 2026)
 
-Na página, o utilizador pode escolher a **data de início** da carteira: começa vazia nesse dia, faz logo aí a primeira revisão (ao fecho, com as compras na abertura seguinte, sem esperar pelo bloco de duas semanas) e segue as revisões normais até hoje; o rendimento é medido desde essa data, contra o catálogo comprado no mesmo dia. A data fica gravada por utilizador (tabela `portfolio_start_dates`) até ser alterada; **por omissão, 1 jan. 2026** (`DEFAULT_START`), e «Últimos 24 meses» grava a escolha do período (sem data). Se a data por omissão não couber no histórico, a página usa os últimos 24 meses. A primeira data possível (`minStart`) é a sessão em que 20 instrumentos já têm as 316 sessões que a pontuação precisa (fev. 2021 com os sete anos de histórico). As carteiras de datas diferentes podem ter instrumentos diferentes: a escolha de cada revisão depende do que a carteira já tem (manutenção até ao lugar 40 e limite por sector).
+Na página, o utilizador pode escolher a **data de início**. Com ela, a carteira é **fixa**: começa vazia nesse dia, escolhe os 20 melhores com a pontuação das Promessas calculada só com os dados até esse dia (tendência intacta, liquidez, no máximo 5 por sector), compra-os em partes iguais na abertura seguinte e **mantém-nos até hoje, sem revisões**. O rendimento é medido desde essa data, contra o catálogo comprado no mesmo dia. A página mostra a «Carteira escolhida em <data>» (lugar no ranking desse dia, peso de hoje e resultado desde a compra) em vez de Comprar/Manter/Vender, das revisões anteriores e das posições fechadas.
+
+Sem data de início («Últimos 24 meses»), é o modelo com revisões de duas em duas semanas, descrito acima. Com revisões, a carteira de hoje é a mesma para qualquer data de início (cada revisão escolhe com os dados desse dia e, depois de algumas, a carteira só depende dos sinais recentes), por isso a data de início só tem efeito na carteira fixa.
+
+A data fica gravada por utilizador (tabela `portfolio_start_dates`) até ser alterada; **por omissão, 1 jan. 2026** (`DEFAULT_START`), e «Últimos 24 meses» grava a escolha do período (sem data). Se a data por omissão não couber no histórico, a página usa os últimos 24 meses. A primeira data possível (`minStart`) é a sessão em que 20 instrumentos já têm as 316 sessões que a pontuação precisa (fev. 2021 com os sete anos de histórico).
+
+Exemplo (17 nov. 2026): início a 2 jun. 2025, +21,3 % contra +23,4 % do catálogo; a 1 jan. 2026, +20,2 % contra +12,2 %; a 1 set. 2026, −3,4 % contra +0,5 %.
 
 ## Limitações
 

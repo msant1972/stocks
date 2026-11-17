@@ -65,8 +65,8 @@ export function recommendedPortfolioService(pool) {
   }
 
   /**
-   * Carteira com data de início escolhida: começa vazia na primeira sessão a partir de `start`, revê logo nesse dia e é medida
-   * daí até à última sessão (em vez dos últimos 24 meses). `start` tem de estar entre minStart e a última sessão (a rota valida).
+   * Carteira fixa com data de início: começa vazia na primeira sessão a partir de `start`, compra os 20 melhores com os sinais desse
+   * dia e mantém-nos até à última sessão, sem revisões; é medida daí até hoje (em vez dos últimos 24 meses). `start` tem de estar entre minStart e a última sessão (a rota valida).
    */
   async function runFrom(start) {
     const base = await run();
@@ -75,7 +75,7 @@ export function recommendedPortfolioService(pool) {
     if (hit) return hit;
     const { universe } = cached;
     const result = {
-      ...simulate(universe, { start, from: start, to: base.latestSession, reviewAtStart: true }),
+      ...simulate(universe, { start, from: start, to: base.latestSession, reviewAtStart: true, rebalance: false }),
       universe: universe.length, latestSession: base.latestSession, start, minStart: base.minStart,
     };
     byStart.set(start, result);

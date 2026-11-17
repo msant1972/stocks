@@ -140,10 +140,14 @@ export default function RecommendedPortfolioPage() {
         <div>
           <h1 className="page-title">Portfolio Recomendado</h1>
           <p className="page-sub">
-            Carteira-modelo de {o?.positions ?? 20} instrumentos, revista de duas em duas semanas. Em cada revisão ordena o catálogo pela pontuação
-            das Promessas (tendência longa, liquidez e regularidade), só entre os instrumentos com a tendência intacta, e diz o que comprar,
-            manter e vender: no máximo {o?.maxPerSector ?? 5} por sector, e uma posição só sai quando deixa de estar entre os {o?.keepRank ?? 40} melhores
-            ou perde a tendência. Simulação sobre cotações diárias, sem ordens.
+            {start
+              ? <>Carteira fixa de {o?.positions ?? 20} instrumentos, escolhidos na data de início pela pontuação das Promessas (tendência longa, liquidez e
+                regularidade), só entre os que tinham a tendência intacta e com os dados até esse dia, no máximo {o?.maxPerSector ?? 5} por sector, e mantidos
+                até hoje sem revisões. Sem data de início («Últimos 24 meses»), a carteira é revista de duas em duas semanas. Simulação sobre cotações diárias, sem ordens.</>
+              : <>Carteira-modelo de {o?.positions ?? 20} instrumentos, revista de duas em duas semanas. Em cada revisão ordena o catálogo pela pontuação
+                das Promessas (tendência longa, liquidez e regularidade), só entre os instrumentos com a tendência intacta, e diz o que comprar,
+                manter e vender: no máximo {o?.maxPerSector ?? 5} por sector, e uma posição só sai quando deixa de estar entre os {o?.keepRank ?? 40} melhores
+                ou perde a tendência. Com uma data de início, a carteira é fixa. Simulação sobre cotações diárias, sem ordens.</>}
           </p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end' }}>
@@ -175,46 +179,62 @@ export default function RecommendedPortfolioPage() {
               <div><dt>Últimos 6 meses</dt><dd>{versus(s.last6)}</dd></div>
               <div><dt>Últimos 3 meses</dt><dd>{versus(s.last3)}</dd></div>
               <div><dt>Maior queda desde um máximo</dt><dd><span className="negative">{signedPct(s.maxDrawdownPct)}</span> <span className="small muted">catálogo {signedPct(s.benchmarkDrawdownPct)}</span></dd></div>
-              <div><dt>Posições fechadas · com ganho</dt><dd>{s.closed} · {s.closed ? pct1((100 * s.wins) / s.closed) : '—'}</dd></div>
+              {r.start
+                ? <div><dt>Posições a ganhar</dt><dd>{r.positions.filter((p) => p.pnlPct > 0).length} de {r.positions.length}</dd></div>
+                : <div><dt>Posições fechadas · com ganho</dt><dd>{s.closed} · {s.closed ? pct1((100 * s.wins) / s.closed) : '—'}</dd></div>}
               <div><dt>Custos pagos</dt><dd>{pct1(s.feesPct)}</dd></div>
             </dl>
             {r.curve.length > 1 && <Suspense fallback={<Loading rows={3} />}><PortfolioChart curve={r.curve} /></Suspense>}
             <p className="small muted" style={{ marginTop: '0.75rem' }}>
-              Valores com dividendos e depois de custos estimados da SAXO (comissão, spread e custódia), como no BackTest. O rendimento é o de quem
-              tivesse seguido todas as revisões, comprando e vendendo na abertura da sessão seguinte a cada uma ({s.reviews} revisões,
-              {' '}{s.tradesPerReview.toLocaleString('pt-PT', { maximumFractionDigits: 1 })} trocas em média). O catálogo é o de hoje: as empresas que saíram da bolsa não
-              entram, o que favorece os dois resultados.
+              Valores com dividendos e depois de custos estimados da SAXO (comissão, spread e custódia), como no BackTest.{' '}
+              {r.start
+                ? <>Carteira fixa: os {r.positions.length} instrumentos escolhidos com os sinais de {f.date(r.firstDate)}, comprados na abertura seguinte e mantidos até hoje, sem revisões; o catálogo foi comprado no mesmo dia.</>
+                : <>O rendimento é o de quem tivesse seguido todas as revisões, comprando e vendendo na abertura da sessão seguinte a cada uma ({s.reviews} revisões,
+                  {' '}{s.tradesPerReview.toLocaleString('pt-PT', { maximumFractionDigits: 1 })} trocas em média).</>}
+              {' '}O catálogo é o de hoje: as empresas que saíram da bolsa não entram, o que favorece os dois resultados.
             </p>
           </section>
 
-          <section className="card" aria-labelledby="pr-review">
-            <h2 id="pr-review" className="card-title" style={{ marginBottom: '0.25rem' }}>
-              {state === 'none' ? 'Ainda sem revisões' : `Revisão de ${f.date(r.review.date)}`}
-            </h2>
-            {state !== 'none' && (
+          {r.start ? (
+            <section className="card" aria-labelledby="pr-fixed">
+              <h2 id="pr-fixed" className="card-title" style={{ marginBottom: '0.25rem' }}>Carteira escolhida em {f.date(r.firstDate)}</h2>
               <p className="small muted" style={{ marginTop: 0 }}>
-                {state === 'pending'
-                  ? 'Decidida com o fecho desse dia: as compras e as vendas são para a abertura da sessão seguinte.'
-                  : `Decidida com o fecho desse dia e executada na abertura de ${f.date(r.review.executionDate)}.`}
-                {' '}{r.review.eligible} instrumentos elegíveis em {r.universe}. Próxima revisão: primeira sessão a partir de {f.date(r.review.next)}, depois do fecho.
+                Os {r.positions.length} instrumentos com melhor pontuação das Promessas nesse dia ({r.review.eligible} elegíveis), só com os dados até essa data,
+                no máximo {o.maxPerSector} por sector, comprados em partes iguais na abertura seguinte e mantidos até hoje, sem revisões. «Lugar» é o lugar no ranking desse dia.
               </p>
-            )}
-            {state === 'pending' && <Notice tone="info">Revisão nova: as listas abaixo são as ordens a dar na abertura da próxima sessão.</Notice>}
-            <div className="grid" style={{ marginTop: '0.75rem' }}>
-              <div className="span-12">
-                <PickTable id="pr-buy" title="Comprar" kind="buy" items={r.review.buy} empty="Nada a comprar nesta revisão."
-                  hint="Entram na carteira, pela ordem do ranking, em partes iguais do dinheiro disponível." logoVersions={logoVersions} pending={pending} onToggle={toggle} />
+              <PickTable id="pr-fixed-list" title="Carteira" kind="keep" items={r.positions} empty="Nenhum instrumento elegível nesse dia."
+                hint={`Peso de hoje e resultado desde a compra, com dividendos e custos.`} logoVersions={logoVersions} pending={pending} onToggle={toggle} />
+            </section>
+          ) : (
+          <section className="card" aria-labelledby="pr-review">
+              <h2 id="pr-review" className="card-title" style={{ marginBottom: '0.25rem' }}>
+                {state === 'none' ? 'Ainda sem revisões' : `Revisão de ${f.date(r.review.date)}`}
+              </h2>
+              {state !== 'none' && (
+                <p className="small muted" style={{ marginTop: 0 }}>
+                  {state === 'pending'
+                    ? 'Decidida com o fecho desse dia: as compras e as vendas são para a abertura da sessão seguinte.'
+                    : `Decidida com o fecho desse dia e executada na abertura de ${f.date(r.review.executionDate)}.`}
+                  {' '}{r.review.eligible} instrumentos elegíveis em {r.universe}. Próxima revisão: primeira sessão a partir de {f.date(r.review.next)}, depois do fecho.
+                </p>
+              )}
+              {state === 'pending' && <Notice tone="info">Revisão nova: as listas abaixo são as ordens a dar na abertura da próxima sessão.</Notice>}
+              <div className="grid" style={{ marginTop: '0.75rem' }}>
+                <div className="span-12">
+                  <PickTable id="pr-buy" title="Comprar" kind="buy" items={r.review.buy} empty="Nada a comprar nesta revisão."
+                    hint="Entram na carteira, pela ordem do ranking, em partes iguais do dinheiro disponível." logoVersions={logoVersions} pending={pending} onToggle={toggle} />
+                </div>
+                <div className="span-12">
+                  <PickTable id="pr-keep" title="Manter" kind="keep" items={r.review.keep} empty="Nenhuma posição a manter."
+                    hint="Continuam na carteira, sem reequilibrar os pesos." logoVersions={logoVersions} pending={pending} onToggle={toggle} />
+                </div>
+                <div className="span-12">
+                  <PickTable id="pr-sell" title="Vender" kind="sell" items={r.review.sell} empty="Nada a vender nesta revisão."
+                    hint="Saem da carteira: deixaram de estar entre os melhores ou perderam a tendência." logoVersions={logoVersions} pending={pending} onToggle={toggle} />
+                </div>
               </div>
-              <div className="span-12">
-                <PickTable id="pr-keep" title="Manter" kind="keep" items={r.review.keep} empty="Nenhuma posição a manter."
-                  hint="Continuam na carteira, sem reequilibrar os pesos." logoVersions={logoVersions} pending={pending} onToggle={toggle} />
-              </div>
-              <div className="span-12">
-                <PickTable id="pr-sell" title="Vender" kind="sell" items={r.review.sell} empty="Nada a vender nesta revisão."
-                  hint="Saem da carteira: deixaram de estar entre os melhores ou perderam a tendência." logoVersions={logoVersions} pending={pending} onToggle={toggle} />
-              </div>
-            </div>
-          </section>
+            </section>
+          )}
 
           <section className="card" aria-labelledby="pr-sectors">
             <h2 id="pr-sectors" className="card-title" style={{ marginBottom: '0.5rem' }}>
@@ -239,46 +259,50 @@ export default function RecommendedPortfolioPage() {
             )}
           </section>
 
+          {!r.start && (
+            <>
           <section className="card" aria-labelledby="pr-history">
-            <h2 id="pr-history" className="card-title" style={{ marginBottom: '0.75rem' }}>Revisões anteriores <span className="muted small">(as {r.reviews.length} mais recentes)</span></h2>
-            <div className="table-wrap" tabIndex={0} aria-labelledby="pr-history">
-              <table className="data">
-                <thead><tr><th scope="col">Revisão</th><th scope="col">Entraram</th><th scope="col">Saíram</th><th scope="col" className="r">Mantidas</th></tr></thead>
-                <tbody>
-                  {r.reviews.map((x) => (
-                    <tr key={x.date}>
-                      <td className="small">{f.date(x.date)}</td>
-                      <td className="small">{x.bought.length ? x.bought.join(', ') : <span className="muted">—</span>}</td>
-                      <td className="small">{x.sold.length ? x.sold.join(', ') : <span className="muted">—</span>}</td>
-                      <td className="r num">{x.kept}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+                <h2 id="pr-history" className="card-title" style={{ marginBottom: '0.75rem' }}>Revisões anteriores <span className="muted small">(as {r.reviews.length} mais recentes)</span></h2>
+                <div className="table-wrap" tabIndex={0} aria-labelledby="pr-history">
+                  <table className="data">
+                    <thead><tr><th scope="col">Revisão</th><th scope="col">Entraram</th><th scope="col">Saíram</th><th scope="col" className="r">Mantidas</th></tr></thead>
+                    <tbody>
+                      {r.reviews.map((x) => (
+                        <tr key={x.date}>
+                          <td className="small">{f.date(x.date)}</td>
+                          <td className="small">{x.bought.length ? x.bought.join(', ') : <span className="muted">—</span>}</td>
+                          <td className="small">{x.sold.length ? x.sold.join(', ') : <span className="muted">—</span>}</td>
+                          <td className="r num">{x.kept}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
 
-          <section className="card" aria-labelledby="pr-trades">
-            <h2 id="pr-trades" className="card-title" style={{ marginBottom: '0.75rem' }}>Posições fechadas <span className="muted small">({s.closed} {r.start ? `desde ${f.date(r.start)}` : `em ${r.windowMonths} meses`}; as 100 mais recentes)</span></h2>
-            {r.trades.length === 0 ? <p className="small muted">Ainda sem posições fechadas.</p> : (
-              <div className="table-wrap" tabIndex={0} aria-labelledby="pr-trades" style={{ maxHeight: 420, overflowY: 'auto' }}>
-                <table className="data">
-                  <thead><tr><th scope="col">Instrumento</th><th scope="col">Entrada</th><th scope="col">Saída</th><th scope="col">Motivo</th><th scope="col" className="r">Resultado</th></tr></thead>
-                  <tbody>
-                    {r.trades.map((t, k) => (
-                      <tr key={`${t.instrumentId}-${t.buyDate}-${k}`}>
-                        <td><Link to={`/charts?instrumento=${t.instrumentId}`} className="row-link">{t.symbol}</Link><div className="small muted">{t.name}</div></td>
-                        <td className="small">{f.date(t.buyDate)}</td>
-                        <td className="small">{f.date(t.sellDate)}</td>
-                        <td className="small" title={REASONS[t.reason].help}>{REASONS[t.reason].label}</td>
-                        <td className={`r num ${tone(t.pnlPct)}`}>{signedPct(t.pnlPct)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+              <section className="card" aria-labelledby="pr-trades">
+                <h2 id="pr-trades" className="card-title" style={{ marginBottom: '0.75rem' }}>Posições fechadas <span className="muted small">({s.closed} {r.start ? `desde ${f.date(r.start)}` : `em ${r.windowMonths} meses`}; as 100 mais recentes)</span></h2>
+                {r.trades.length === 0 ? <p className="small muted">Ainda sem posições fechadas.</p> : (
+                  <div className="table-wrap" tabIndex={0} aria-labelledby="pr-trades" style={{ maxHeight: 420, overflowY: 'auto' }}>
+                    <table className="data">
+                      <thead><tr><th scope="col">Instrumento</th><th scope="col">Entrada</th><th scope="col">Saída</th><th scope="col">Motivo</th><th scope="col" className="r">Resultado</th></tr></thead>
+                      <tbody>
+                        {r.trades.map((t, k) => (
+                          <tr key={`${t.instrumentId}-${t.buyDate}-${k}`}>
+                            <td><Link to={`/charts?instrumento=${t.instrumentId}`} className="row-link">{t.symbol}</Link><div className="small muted">{t.name}</div></td>
+                            <td className="small">{f.date(t.buyDate)}</td>
+                            <td className="small">{f.date(t.sellDate)}</td>
+                            <td className="small" title={REASONS[t.reason].help}>{REASONS[t.reason].label}</td>
+                            <td className={`r num ${tone(t.pnlPct)}`}>{signedPct(t.pnlPct)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </>
+          )}
 
           <Notice tone="info">
             Carteira calculada por uma regra fixa sobre dados passados; os resultados passados não garantem os futuros e isto não é aconselhamento de

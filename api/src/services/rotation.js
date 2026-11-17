@@ -52,7 +52,7 @@ export function rotationService(pool) {
     const cacheKey = `${period}|${positions}|${key}|${lookback}|${regime}|${sizing}|${start ?? ''}`;
     const hit = results.get(cacheKey);
     if (hit) return hit;
-    // Com data de início, a carteira começa vazia nesse dia e vai até à última sessão (o período não conta).
+    // Com data de início, carteira fixa: começa vazia nesse dia, compra os N melhores e mantém-nos até à última sessão (o período não conta).
     const to = start ? d.last : yearsBefore(d.last, PERIODS[period] ?? 0);
     const from = start ?? yearsBefore(to, WINDOW_YEARS);
     const opt = { positions, keepRank: positions * 2, lookback, regime, sizing };
@@ -61,7 +61,7 @@ export function rotationService(pool) {
       .filter((i) => !ids || ids.has(i.id))
       .map((i) => prepareInstrument({ id: i.id, symbol: i.symbol, name: i.name }, i.quotes.filter((q) => q.date <= to), o))
       .filter((i) => i.dates.length);
-    const result = { ...simulate(universe, { from, to, ...opt, reviewAtStart: Boolean(start) }), period, universe: universe.length, latestSession: d.last, start };
+    const result = { ...simulate(universe, { from, to, ...opt, reviewAtStart: Boolean(start), rebalance: !start }), period, universe: universe.length, latestSession: d.last, start };
     results.set(cacheKey, result);
     return result;
   }

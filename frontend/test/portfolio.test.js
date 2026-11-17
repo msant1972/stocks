@@ -204,3 +204,20 @@ test('simulação com data de início: começa vazia nesse dia e revê logo, sem
   assert.notEqual(plain.reviews.at(-1).date, start);
   assert.equal(plain.curve[1].positions, 0);
 });
+
+test('carteira fixa (data de início sem revisões): compra os melhores desse dia com os dados até ele e mantém-nos até ao fim', () => {
+  // O instrumento 9 só passa a ser o melhor depois da data de início: a carteira fixa não o compra; a revista sim.
+  const universe = [];
+  for (let k = 1; k <= 6; k++) universe.push(inst(k, 0.0004 * k, { sector: `S${k}` }));
+  universe.push(inst(9, 0, { sector: 'S9', drift: (i) => (i < 850 ? 0.0001 : 0.01) }));
+  const start = DAYS[800];
+  const to = DAYS.at(-1);
+  const fixed = simulate(universe, { start, from: start, to, positions: 3, keepRank: 6, maxPerSector: 0, reviewAtStart: true, rebalance: false });
+  assert.equal(fixed.reviews.length, 1);
+  assert.equal(fixed.reviews[0].date, start);
+  assert.deepEqual(fixed.positions.map((p) => p.symbol).sort(), ['S04', 'S05', 'S06']); // os melhores na data de início
+  assert.equal(fixed.trades.length, 0);
+  assert.ok(fixed.positions.every((p) => p.buyDate === DAYS[801]));
+  const revised = simulate(universe, { start, from: start, to, positions: 3, keepRank: 3, maxPerSector: 0, reviewAtStart: true });
+  assert.ok(revised.positions.some((p) => p.symbol === 'S09'));
+});

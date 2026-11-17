@@ -218,9 +218,10 @@ export function maxDrawdown(values) {
  *  - reviews: as revisões da janela, da mais recente para a mais antiga, com o que entrou e saiu;
  *  - trades: posições fechadas na janela.
  * reviewAtStart: faz uma revisão na primeira sessão da simulação (Portfolio com data de início escolhida: começa vazio e compra
- * logo nesse dia, ao fecho, com execução na abertura seguinte).
+ * logo nesse dia, ao fecho, com execução na abertura seguinte). rebalance: false = carteira fixa, sem as revisões seguintes (com
+ * reviewAtStart, compra os melhores na data de início, com os sinais desse dia, e mantém-nos até ao fim).
  */
-export function simulate(universe, { start = null, from, to, weights = WEIGHTS, costs = DEFAULT_COSTS, reviewAtStart = false, ...options } = {}) {
+export function simulate(universe, { start = null, from, to, weights = WEIGHTS, costs = DEFAULT_COSTS, reviewAtStart = false, rebalance = true, ...options } = {}) {
   const o = resolveOptions(options);
   const all = new Set();
   for (const inst of universe) for (const d of inst.dates) if (d <= to) all.add(d);
@@ -305,7 +306,7 @@ export function simulate(universe, { start = null, from, to, weights = WEIGHTS, 
 
     // Revisão: a primeira sessão de um bloco novo (decide ao fecho, executa na abertura seguinte); com reviewAtStart, também a
     // primeira sessão da simulação (a carteira, vazia, começa a comprar logo na data de início, sem esperar pelo bloco seguinte).
-    if ((reviewAtStart && k === first) || (k > 0 && blockOf(d, o.weeks) !== blockOf(calendar[k - 1], o.weeks))) {
+    if ((reviewAtStart && k === first) || (rebalance && k > 0 && blockOf(d, o.weeks) !== blockOf(calendar[k - 1], o.weeks))) {
       const rows = ranking(universe, d, o, calendarPos, weights);
       const decision = plan(rows, [...positions.keys()], o);
       pending = { date: d, sell: decision.sell, buy: decision.buy };

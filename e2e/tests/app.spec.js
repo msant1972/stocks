@@ -623,6 +623,10 @@ test('Portfolio Recomendado: rendimento, listas a comprar, manter e vender, e bo
   // Sem nada gravado, a data por omissão é 1 jan. 2026.
   await expect(field).toHaveValue('2026-01-01');
   await expect(page.getByRole('heading', { name: /Rendimento desde 1 jan\. 2026/ })).toBeVisible();
+  // Com data de início, carteira fixa: mostra a carteira escolhida nesse dia, sem Comprar/Manter/Vender nem revisões.
+  await expect(page.getByRole('heading', { name: /Carteira escolhida em/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Revisão de/ })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: /Revisões anteriores/ })).toHaveCount(0);
   expect(asked).toContain('2026-01-01');
   await field.fill('2020-06-01');
   await expect(page.getByText('Sem histórico suficiente antes de 15/02/2021')).toBeVisible();
