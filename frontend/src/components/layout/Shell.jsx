@@ -3,7 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { useMe, useStatus } from '../../lib/queries.js';
+import { useLogoConfig, useMe, useStatus } from '../../lib/queries.js';
 import Icon from '../ui/Icon.jsx';
 import Avatar from '../ui/Avatar.jsx';
 import { Loading } from '../feedback/states.jsx';
@@ -56,8 +56,9 @@ const NAV_GROUPS = [
     ],
   },
 ];
-const visibleGroups = (isAdmin) => NAV_GROUPS
-  .map((g) => ({ ...g, items: g.items.filter((n) => !n.admin || isAdmin) }))
+// hidden: entradas escondidas por configuração (ex.: «Logotipos», em Definições → Logotipos).
+const visibleGroups = (isAdmin, hidden = new Set()) => NAV_GROUPS
+  .map((g) => ({ ...g, items: g.items.filter((n) => (!n.admin || isAdmin) && !hidden.has(n.to)) }))
   .filter((g) => g.items.length);
 // Atalhos da barra inferior em telemóvel; todos os módulos ficam no botão «Mais».
 const MOBILE_SHORTCUTS = ['/', '/acompanhar', '/charts', '/saxo/carteira', '/sinais'];
@@ -137,7 +138,8 @@ export default function Shell() {
   const navigate = useNavigate();
 
   useEffect(() => { setNavOpen(false); setMoreOpen(false); }, [location.pathname]);
-  const groups = visibleGroups(data?.user.isAdmin);
+  const logoCfg = useLogoConfig();
+  const groups = visibleGroups(data?.user.isAdmin, new Set(logoCfg.data?.showModule === false ? ['/logotipos'] : []));
   // «Mais» fica destacado quando a página actual não é um dos atalhos.
   const onShortcut = MOBILE_NAV.some((n) => (n.end ? location.pathname === n.to : location.pathname.startsWith(n.to)));
 

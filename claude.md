@@ -1,6 +1,6 @@
 # Stocks — Plataforma de Simulação e Acompanhamento de Acções
 
-Aplicação para acompanhar acções cotadas em EUR (Euronext, Xetra, Madrid, Helsínquia, Viena…), consultar o histórico diário (cinco anos guardados, dois mostrados), testar estratégias e receber alertas por email.
+Aplicação para acompanhar acções cotadas em EUR (Euronext, Xetra, Madrid, Helsínquia, Viena…), consultar o histórico diário (sete anos guardados, até cinco mostrados), testar estratégias e receber alertas por email.
 
 A carteira é a **conta de simulação (SIM) da SAXO Bank**: as ordens vão para essa conta (grupo «SAXO» do menu), com um passo de confirmação, e o valor da conta é guardado em cada sessão para o gráfico da evolução. Não há carteira virtual própria (foi retirada a 6 nov. 2026). A conta real da SAXO está bloqueada por omissão. A Automação pode enviar sozinha as ordens dos sinais das estratégias escolhidas, só na conta de simulação e desligada por omissão. Para já, a aplicação tem um só utilizador.
 

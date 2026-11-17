@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { valueAtY } from './valueAtY.js';
+import { RANGES, RANGE_KEY, readRange } from '../../lib/chartRange.js';
 import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceArea, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as f from '../../lib/format.js';
 import { adjustedOhlc } from '../../lib/candles.js';
@@ -11,13 +12,8 @@ import { rsiSeries, rsiZone } from '../../lib/rsi.js';
 import { getStrategy } from '../../lib/strategy.js';
 import { Button, Segmented } from '../ui/controls.jsx';
 
-const RANGES = [
-  { value: '1M', label: '1M', months: 1 },
-  { value: '3M', label: '3M', months: 3 },
-  { value: '6M', label: '6M', months: 6 },
-  { value: '1A', label: '1A', months: 12 },
-  { value: '2A', label: '2A', months: 24 },
-];
+
+
 
 // Ordem fixa (cores validadas por esta ordem); calculados na BD sobre o fecho ajustado.
 export const INDICATORS = [
@@ -30,19 +26,10 @@ export const INDICATORS = [
 
 const STORAGE_KEY = 'stocks.indicators';
 const MOMENTUM_KEY = 'stocks.momentum';
-const RANGE_KEY = 'stocks.periodo';
 const TYPE_KEY = 'stocks.tipoGrafico';
 const VOLUME_KEY = 'stocks.volume';
 const RSI_KEY = 'stocks.rsi';
 const TYPES = [{ value: 'linha', label: 'Linha' }, { value: 'velas', label: 'Velas' }];
-
-/** Último período escolhido no gráfico (guardado no browser); 1A por omissão. */
-function readRange() {
-  try {
-    const saved = localStorage.getItem(RANGE_KEY);
-    return RANGES.some((r) => r.value === saved) ? saved : '1A';
-  } catch { return '1A'; }
-}
 
 function readType() {
   try { return localStorage.getItem(TYPE_KEY) === 'velas' ? 'velas' : 'linha'; } catch { return 'linha'; }
@@ -262,11 +249,14 @@ function SignalMarker({ cx, cy, side }) {
  * alternativa em tabela.
  */
 /** strategy: id de uma estratégia do registo (shared/strategies/) ou null. */
-export default function DailyChart({ quotes, currency, symbol, strategy = null, onStrategyResult = null, positions = null, showPositions = false, onShowPositions = null }) {
+export default function DailyChart({ quotes, currency, symbol, strategy = null, onStrategyResult = null, positions = null, showPositions = false, onShowPositions = null, onRangeChange = null }) {
   const [range, setRangeState] = useState(readRange);
+  const onRangeRef = useRef(onRangeChange);
+  onRangeRef.current = onRangeChange;
   const setRange = (value) => {
     setRangeState(value);
     try { localStorage.setItem(RANGE_KEY, value); } catch { /* só nesta sessão */ }
+    onRangeRef.current?.(RANGES.find((r) => r.value === value).months); // a página pede mais histórico para o 5A
   };
   const [selected, setSelected] = useState(readSelection);
   const [showTable, setShowTable] = useState(false);
@@ -314,11 +304,15 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null, 
   const mom = useMemo(() => momentum(quotes), [quotes]);
   const rsi = useMemo(() => rsiSeries(quotes), [quotes]); // RSI14, também sobre todo o histórico
   const strat = getStrategy(strategy);
-  // A estratégia actua nos últimos windowYears anos; o histórico anterior (se houver) serve de aquecimento.
-  const strategyResult = useMemo(
-    () => (strat && quotes.length ? strat.run(quotes, { mom, from: f.yearsBefore(quotes.at(-1).date, strat.windowYears) }) : null),
-    [strat, quotes, mom],
-  );
+  // A estratégia actua nos últimos windowYears anos, com warmupYears de aquecimento antes, como no BackTest: com o período de 5
+  // anos o gráfico tem mais histórico, mas a simulação usa só essa janela, para dar o mesmo resultado que o BackTest.
+  const strategyResult = useMemo(() => {
+    if (!strat || !quotes.length) return null;
+    const last = quotes.at(-1).date;
+    const start = f.yearsBefore(last, strat.windowYears + (strat.warmupYears ?? 0));
+    const k = Math.max(0, quotes.findIndex((q) => q.date >= start));
+    return strat.run(quotes.slice(k), { mom: mom.slice(k), from: f.yearsBefore(last, strat.windowYears) });
+  }, [strat, quotes, mom]);
   // O resultado da simulação mostra-se no cartão «Estratégia» da página (a pedido): o gráfico só o entrega e desenha os marcadores.
   useEffect(() => {
     onStrategyResult?.(strategyResult && strat ? { strat, result: strategyResult } : null);

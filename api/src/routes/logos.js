@@ -26,6 +26,7 @@ const Config = z.object({
   provider: z.literal('brandfetch'),
   clientId: z.string().nullable().describe('Chave de cliente da Brandfetch; null sem configuração (sem logotipos)'),
   enabled: z.boolean().describe('Interruptor global: desligado, nenhuma página mostra logotipos'),
+  showModule: z.boolean().describe('Mostrar o módulo «Logotipos» (gestão, administradores) na barra lateral'),
   updatedAt: z.string().nullable(), updatedBy: z.string().nullable(),
 });
 
@@ -38,9 +39,9 @@ const Config = z.object({
 export default async function logoRoutes(app, { pool }) {
   async function read() {
     const [[r]] = await pool.query(
-      'SELECT s.client_id, s.enabled, s.updated_at, u.name AS updated_by FROM logo_settings s LEFT JOIN users u ON u.id = s.updated_by WHERE s.id = 1',
+      'SELECT s.client_id, s.enabled, s.show_module, s.updated_at, u.name AS updated_by FROM logo_settings s LEFT JOIN users u ON u.id = s.updated_by WHERE s.id = 1',
     );
-    return { provider: 'brandfetch', clientId: r?.client_id ?? null, enabled: r ? Boolean(r.enabled) : true, updatedAt: r?.updated_at?.toISOString() ?? null, updatedBy: r?.updated_by ?? null };
+    return { provider: 'brandfetch', clientId: r?.client_id ?? null, enabled: r ? Boolean(r.enabled) : true, showModule: r ? Boolean(r.show_module) : true, updatedAt: r?.updated_at?.toISOString() ?? null, updatedBy: r?.updated_by ?? null };
   }
   const adminOnly = (req) => { if (!req.user.isAdmin) throw new AppError(403, 'FORBIDDEN', 'reservado a administradores'); };
 
@@ -79,6 +80,22 @@ export default async function logoRoutes(app, { pool }) {
       [req.body.enabled, req.user.id],
     );
     await audit(pool, req.user.id, 'admin.logos_enabled', 'logo_settings', 1, { enabled: req.body.enabled });
+    return read();
+  });
+
+  app.put('/admin/logos/module', {
+    schema: {
+      tags: ['Administração'], summary: 'Mostrar ou esconder o módulo «Logotipos» na barra lateral',
+      body: z.object({ show: z.boolean() }), response: { 200: Config, 403: ErrorBody },
+    },
+  }, async (req) => {
+    adminOnly(req);
+    await pool.query(
+      `INSERT INTO logo_settings (id, show_module, updated_by) VALUES (1, ?, ?)
+       ON DUPLICATE KEY UPDATE show_module = VALUES(show_module), updated_by = VALUES(updated_by)`,
+      [req.body.show, req.user.id],
+    );
+    await audit(pool, req.user.id, 'admin.logos_module', 'logo_settings', 1, { show: req.body.show });
     return read();
   });
 

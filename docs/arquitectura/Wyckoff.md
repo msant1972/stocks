@@ -44,6 +44,24 @@ Com cada fase vêm o **suporte** e a **resistência** (fecho mais baixo e mais a
 
 **Sensibilidade.** O resultado não depende dos parâmetros: com janela de 30 ou 60 sessões, aperto de 1,0 ou 1,6, queda mínima de 15 % ou 30 % e subida mínima de 20 % ou 35 %, a acumulação fica sempre entre +1,6 % e +2,7 % em 6 meses e a distribuição entre +10,8 % e +12,3 %.
 
+## Revalidação com sete anos (17 nov. 2026)
+
+Com o histórico alargado a sete anos (nov. 2019 a nov. 2026), a regra das 52 semanas passa a ter **66 datas mensais** (dez. 2020 a mai. 2026, 20 858 observações) e inclui **o mercado em queda de 2022**. Resultado líquido médio das doze estratégias nos 6 meses seguintes, por fase e por período (entre parênteses, o catálogo nas mesmas datas):
+
+| Fase | 2021 (subida) | **2022 (queda)** | 2023–2026 (subida) | Todo o período |
+|---|---|---|---|---|
+| Acumulação | 426 € (678 €) | **479 € (427 €)** | −40 € (480 €) | 146 € (478 €) |
+| Subida | 247 € (322 €) | −438 € (−283 €) | 734 € (463 €) | 486 € (335 €) |
+| Distribuição | 415 € (351 €) | **−978 € (−349 €)** | 838 € (464 €) | 602 € (387 €) |
+| Queda | −298 € (−261 €) | 48 € (−71 €) | 254 € (564 €) | 139 € (275 €) |
+| Indefinida | 246 € (231 €) | 28 € (−14 €) | 282 € (490 €) | 226 € (350 €) |
+
+No rendimento do preço em 6 meses, a diferença para o catálogo em 2022 foi: distribuição −6,2 pontos (acima do catálogo só em 3 de 11 datas), acumulação +2,4 pontos (7 de 12 datas).
+
+**O que muda na leitura:** as fases **dependem do mercado**. Em 2022, a distribuição foi o pior grupo e a acumulação ficou acima do catálogo — o que a teoria diz. Nos anos de subida foi o contrário. A etiqueta descreve bem a situação do instrumento, mas o que ela anuncia depende de o mercado, no seu conjunto, estar a subir ou a cair. Com um único ano de queda, isto é uma indicação, não uma prova.
+
+**Variante de 3 anos** (intervalo, queda e subida medidos em 3 anos em vez de 52 semanas; testada com os mesmos limiares e com queda de 35 % e subida de 50 %): só há fase a partir de nov. 2022, o que deixa 2 datas de 2022 e 41 de subida. Nas datas comuns dá praticamente o mesmo que a regra das 52 semanas (acumulação −4,0 e −3,8 pontos face ao catálogo, distribuição +2,3 e +3,2). **Não acrescenta nada**; a regra mantém-se nas 52 semanas, e a leitura de 273 sessões por instrumento chega.
+
 ## Como ler a etiqueta
 
 - **Subida** e **Distribuição**: foi onde as estratégias ligadas mais ganharam. «Distribuição» quer dizer «faixa no topo depois de uma subida»; pela teoria é um aviso, nos nossos dados foi quase sempre uma pausa (a teoria também lhe chama reacumulação, e só a saída da faixa as distingue).
@@ -54,7 +72,7 @@ A explicação de cada etiqueta (`title`) traz estes números.
 
 ## Limitações
 
-- **Só mercado a subir.** De 2023 a 2026 o catálogo subiu 8,4 % por semestre, em média. Não há um ciclo completo no histórico: a teoria descreve topos e fundos de mercado, e este período quase não os teve. Num mercado em queda, as faixas no topo podem bem ser distribuições verdadeiras.
+- **Um só ano de queda.** Com os sete anos, há 2022 (ver a revalidação acima), mas é um único mercado em queda: chega para ver que as fases mudam de sentido com o mercado, não para medir quanto.
 - **Volume diário.** A leitura tradicional de Wyckoff usa o volume ao longo do dia; aqui só há o volume da sessão.
 - **Viés de sobrevivência:** o catálogo é o de hoje.
 - **Observações sobrepostas:** datas mensais com janelas de 6 meses; os resultados são indicativos.

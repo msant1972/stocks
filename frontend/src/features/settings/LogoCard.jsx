@@ -28,11 +28,15 @@ export default function LogoCard() {
     mutationFn: (enabled) => api.put('/admin/logos/enabled', { enabled }),
     onSuccess: (data) => { qc.setQueryData(['logos-config'], data); toast(data.enabled ? 'Logotipos ligados' : 'Logotipos desligados'); },
   });
+  const toggleModule = useMutation({
+    mutationFn: (show) => api.put('/admin/logos/module', { show }),
+    onSuccess: (data) => { qc.setQueryData(['logos-config'], data); toast(data.showModule ? 'Módulo Logotipos visível na barra lateral' : 'Módulo Logotipos escondido da barra lateral'); },
+  });
   const remove = useMutation({ mutationFn: () => api.del('/admin/logos'), onSuccess: done('Client ID da Brandfetch apagado') });
   const current = cfg.data?.clientId;
   const v = value.trim();
   const secret = looksLikeSecret(v);
-  const error = save.error ?? remove.error ?? toggle.error;
+  const error = save.error ?? remove.error ?? toggle.error ?? toggleModule.error;
   const enabled = cfg.data?.enabled !== false;
   const sample = logoUrl(SAMPLE, current, 32);
 
@@ -45,9 +49,15 @@ export default function LogoCard() {
         <a href="https://brandfetch.com/developers" target="_blank" rel="noopener noreferrer">Brandfetch Logo API</a>, com o Client ID abaixo.
       </p>
       {cfg.data && (
-        <div className="row" style={{ gap: '0.5rem', marginBottom: '0.5rem' }}>
-          <Switch label="Mostrar logotipos" checked={enabled} disabled={toggle.isPending} onChange={(v) => toggle.mutate(v)} />
-          <span aria-hidden="true">Mostrar logotipos em todas as páginas</span>
+        <div className="row" style={{ gap: '0.5rem 2.5rem', marginBottom: '0.5rem' }}>
+          <div className="row" style={{ gap: '0.5rem' }}>
+            <Switch label="Mostrar logotipos" checked={enabled} disabled={toggle.isPending} onChange={(v) => toggle.mutate(v)} />
+            <span aria-hidden="true">Mostrar logotipos em todas as páginas</span>
+          </div>
+          <div className="row" style={{ gap: '0.5rem' }} title="Mostra ou esconde «Logotipos» na barra lateral (Administração); a página continua a abrir pela ligação acima">
+            <Switch label="Mostrar módulo de gestão de logotipos" checked={cfg.data.showModule !== false} disabled={toggleModule.isPending} onChange={(v) => toggleModule.mutate(v)} />
+            <span aria-hidden="true">Mostrar módulo de gestão de logotipos</span>
+          </div>
         </div>
       )}
       {cfg.data && (

@@ -8594,6 +8594,10 @@ paths:
                   enabled:
                     type: boolean
                     description: "Interruptor global: desligado, nenhuma página mostra logotipos"
+                  showModule:
+                    type: boolean
+                    description: Mostrar o módulo «Logotipos» (gestão, administradores) na barra
+                      lateral
                   updatedAt:
                     nullable: true
                     type: string
@@ -8604,6 +8608,7 @@ paths:
                   - provider
                   - clientId
                   - enabled
+                  - showModule
                   - updatedAt
                   - updatedBy
                 additionalProperties: false
@@ -8644,6 +8649,10 @@ paths:
                   enabled:
                     type: boolean
                     description: "Interruptor global: desligado, nenhuma página mostra logotipos"
+                  showModule:
+                    type: boolean
+                    description: Mostrar o módulo «Logotipos» (gestão, administradores) na barra
+                      lateral
                   updatedAt:
                     nullable: true
                     type: string
@@ -8654,6 +8663,7 @@ paths:
                   - provider
                   - clientId
                   - enabled
+                  - showModule
                   - updatedAt
                   - updatedBy
                 additionalProperties: false
@@ -8725,6 +8735,10 @@ paths:
                   enabled:
                     type: boolean
                     description: "Interruptor global: desligado, nenhuma página mostra logotipos"
+                  showModule:
+                    type: boolean
+                    description: Mostrar o módulo «Logotipos» (gestão, administradores) na barra
+                      lateral
                   updatedAt:
                     nullable: true
                     type: string
@@ -8735,6 +8749,7 @@ paths:
                   - provider
                   - clientId
                   - enabled
+                  - showModule
                   - updatedAt
                   - updatedBy
                 additionalProperties: false
@@ -8796,6 +8811,10 @@ paths:
                   enabled:
                     type: boolean
                     description: "Interruptor global: desligado, nenhuma página mostra logotipos"
+                  showModule:
+                    type: boolean
+                    description: Mostrar o módulo «Logotipos» (gestão, administradores) na barra
+                      lateral
                   updatedAt:
                     nullable: true
                     type: string
@@ -8806,6 +8825,83 @@ paths:
                   - provider
                   - clientId
                   - enabled
+                  - showModule
+                  - updatedAt
+                  - updatedBy
+                additionalProperties: false
+        "403":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                      message:
+                        type: string
+                      details: {}
+                    required:
+                      - code
+                      - message
+                    additionalProperties: false
+                required:
+                  - error
+                additionalProperties: false
+  /api/v1/admin/logos/module:
+    put:
+      summary: Mostrar ou esconder o módulo «Logotipos» na barra lateral
+      tags:
+        - Administração
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                show:
+                  type: boolean
+              required:
+                - show
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  provider:
+                    type: string
+                    enum:
+                      - brandfetch
+                  clientId:
+                    nullable: true
+                    description: Chave de cliente da Brandfetch; null sem configuração (sem
+                      logotipos)
+                    type: string
+                  enabled:
+                    type: boolean
+                    description: "Interruptor global: desligado, nenhuma página mostra logotipos"
+                  showModule:
+                    type: boolean
+                    description: Mostrar o módulo «Logotipos» (gestão, administradores) na barra
+                      lateral
+                  updatedAt:
+                    nullable: true
+                    type: string
+                  updatedBy:
+                    nullable: true
+                    type: string
+                required:
+                  - provider
+                  - clientId
+                  - enabled
+                  - showModule
                   - updatedAt
                   - updatedBy
                 additionalProperties: false

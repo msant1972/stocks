@@ -12,7 +12,7 @@ Este guia estabelece uma proposta visual e funcional para implementação. Os va
 
 - Sem dinheiro real: as ordens vão para a conta de simulação da SAXO Bank.
 - A carteira e o saldo são os dessa conta.
-- Histórico diário dos últimos dois anos nos gráficos, com cinco anos guardados (o BackTest usa os dois anteriores como período de verificação), sujeito à disponibilidade dos dados.
+- Histórico diário dos últimos dois anos nos gráficos (até cinco com o período 5A), com sete anos guardados (o BackTest usa os dois anteriores como período de verificação), sujeito à disponibilidade dos dados.
 - Alertas por email agrupados num único resumo por utilizador, enviado após a recolha diária das cotações.
 - Instrumentos cotados em EUR e conta SAXO em EUR.
 - Ausência de cotações em tempo real (durante a sessão só há a vela provisória do dia, actualizada de hora a hora) e de execução real em bolsa.
@@ -202,7 +202,7 @@ O detalhe do instrumento vive no Charts (5.3a); `/instrumentos/:id` redirecciona
 - Estados do instrumento: «A validar», «Activo» e «Inválido» (com o motivo, ex.: «Não está cotado em EUR»).
 - Ticker em destaque, com nome, mercado e moeda próximos.
 - Fecho diário, variação e data da sessão sempre visíveis.
-- Gráfico principal com selecção «1M», «3M», «6M», «1A» e «2A»; o período escolhido fica guardado no browser e é o usado ao abrir qualquer instrumento (1A na primeira vez).
+- Gráfico principal com selecção «1M», «3M», «6M», «1A», «2A» e «5A» (desde 17 nov. 2026; o 5A não tem atalho de teclado, porque 1–5 são os outros); o período escolhido fica guardado no browser e é o usado ao abrir qualquer instrumento (1A na primeira vez).
 - Indicação «Dados diários» junto ao selector de período.
 - Acções «Adicionar à lista», «Criar alerta», menu «Estratégia» e «Simular operação».
 - Botões de indicadores por cima do gráfico (EMA9, SMA10, SMA50, SMA125, SMA200), que servem também de legenda; selecção guardada no browser.
@@ -292,6 +292,7 @@ Exemplo: «Avisar quando o fecho diário de [instrumento] for superior a 150,00 
 - Estado ou data de actualização dos dados, quando disponível.
 - «Autenticação em dois passos»: estado «Activa» e data, códigos de recuperação por usar (aviso a partir de 3 ou menos), «Gerar novos códigos de recuperação» e «Trocar de aplicação»; ambos pedem um código (com alternativa «Usar um código de recuperação»), e trocar de aplicação pede também a palavra-passe e explica que as sessões terminam.
 - Barra lateral: fotografia redonda (36 px; sem fotografia, as iniciais) à esquerda do nome; botão direito (ou clique, ou tecla de menu) sobre ela abre um menu com «Terminar sessão» (fecha com Esc, clique fora ou deslocação). Em Utilizadores, a coluna «Fotografia» tem «Carregar/Alterar» e «Remover». Já não há botão «Terminar sessão» nem o texto «Simulação · sem dinheiro real» na barra lateral.
+- Cartão «Logotipos» (Definições, administradores): dois interruptores lado a lado — «Mostrar logotipos em todas as páginas» e «Mostrar módulo de gestão de logotipos» (desde 17 nov. 2026: mostra ou esconde a entrada «Logotipos» da barra lateral; escondida, a página continua a abrir pela ligação do cartão) — e o Client ID da Brandfetch.
 - Módulo Logotipos (Administração): contagens em `.kpis`, botão principal «Descarregar os próximos N» (N ≤ 10, desactivado sem Client ID, a correr ou sem nada em falta), caixa «Tentar de novo os que a Brandfetch não tinha», tabela do lote com o estado de cada um (À espera, A descarregar…, Guardado, Sem logotipo na Brandfetch, Erro) e tabela dos últimos registos com miniatura de 32 px.
 - Para administradores, atalho para Utilizadores; para todos, «Terminar sessão» (em telemóvel, onde não há barra lateral nem botão direito, na folha «Mais»).
 - Para todos, cartão «SAXO Bank» com o distintivo «Simulação (SIM)» e três blocos: **Aplicação** (campos «App Key» e «App Secret», este de palavra-passe e nunca mostrado de novo; mostra o URL de retorno a registar no portal da SAXO; «Guardar aplicação» e «Remover aplicação»), **Ligação** (estado em texto; «Ligar à SAXO» leva ao login da SAXO e volta a `/definicoes?saxo=ok|erro` com uma mensagem; «Testar ligação» mostra conta e saldo; «Desligar»). Nos Charts, nos Sinais e na Carteira SAXO («Vender»), «Enviar à SAXO» abre um diálogo com o resumo e «Confirmar e enviar», que envia logo, com a faixa de aviso «Conta de simulação da SAXO Bank — não é dinheiro real»; nas compras, «Proteger com um stop» (fixo ou móvel, por omissão 8 % abaixo). Nos Sinais, «Enviar sinais à SAXO» abre o envio em lote: tabela com uma ordem por instrumento e «Confirmar e enviar N ordens». Nas Ordens SAXO, «Alterar» abre um diálogo com quantidade e preço e «Confirmar alteração».

@@ -90,10 +90,25 @@ No catálogo inteiro subiram 78 %, 77 % e 78 % dos instrumentos: «subir» era o
 
 A API mostra ainda uma tabela de validação por janelas (listas de há 12, 9 e 6 meses), recalculada todas as semanas com a pontuação em vigor (`scripts/analysis-revalidation.mjs`, tabela `analysis_results`).
 
+## Revalidação com sete anos (17 nov. 2026)
+
+Com o histórico alargado a sete anos, a mesma medida (resultado líquido das estratégias A, C, E e F nos 6 meses seguintes, 30 primeiros contra o catálogo) passa a ter 63 datas mensais, de fev. 2021 a mai. 2026:
+
+| Período | Datas | 30 primeiros | Catálogo | Datas em que ganhou | Comprar e manter: 30 primeiros / catálogo |
+|---|---|---|---|---|---|
+| 2021 (subida) | 10 | −357 € | 72 € | 4 de 10 | +1,1 % / +3,4 % |
+| **2022 (queda)** | 12 | **−893 €** | −75 € | **3 de 12** | −2,9 % / +2,6 % |
+| 2023–2026 (subida) | 41 | 2 095 € | 815 € | 37 de 41 | +15,2 % / +8,5 % |
+| Todo o período | 63 | 1 137 € | 527 € | 44 de 63 | +9,5 % / +6,6 % |
+
+A pontuação anterior perdeu ainda mais vezes em 2021 e 2022 (1 de 10 e 1 de 12). Com as doze estratégias em vez de quatro, o padrão é o mesmo.
+
+**Leitura:** a vantagem das Promessas vem dos anos 2023 a 2026. Em 2021 e em 2022 os 30 primeiros ficaram abaixo do catálogo: a pontuação escolhe tendência e momentum, que funcionam enquanto o mercado sobe e falham quando vira (em jan. 2022, os 30 primeiros caíram 26 % em 6 meses, o catálogo 13 %). A lista não encolheu em 2022 (27 a 30 elegíveis em todas as datas): a condição de elegibilidade não serviu de travão. A pontuação revista continua melhor do que a anterior em todo o período (1 137 € contra 715 €).
+
 ## Limitações
 
 - Menos de quatro anos de listas e janelas de 6 meses sobrepostas: a validação é indicativa, não estatisticamente forte.
-- Período de subida generalizada; num mercado em queda, a condição de elegibilidade deixa a lista curta ou vazia, e não há dados para saber como se comporta.
+- Num mercado em queda a pontuação falhou (2022, ver acima) e a lista não encolheu; só há um ano de queda nos dados.
 - Viés de sobrevivência: só acções que existem hoje no catálogo.
 - A pontuação foi revista com as estratégias A, C, E e F ligadas; se o conjunto de estratégias ligadas mudar muito, a revisão deve ser repetida.
 

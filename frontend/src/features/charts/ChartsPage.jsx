@@ -13,6 +13,7 @@ import { Button, Notice, Segmented, Switch } from '../../components/ui/controls.
 import Icon from '../../components/ui/Icon.jsx';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
 import { effectiveStrategy, getStrategy } from '../../lib/strategy.js';
+import { savedRangeMonths } from '../../lib/chartRange.js';
 import CompanyPanel from './CompanyPanel.jsx';
 import StrategyPanel from '../../components/finance/StrategyPanel.jsx';
 import SaxoOrderDialog, { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
@@ -22,9 +23,15 @@ import AlertDialog from '../alerts/AlertDialog.jsx';
 const DailyChart = lazy(() => import('../../components/finance/DailyChart.jsx'));
 
 /** Início das cotações a pedir: estratégias com aquecimento precisam de histórico antes da janela em que actuam. */
-const quotesFromFor = (strategyId, lastSession) => {
+/**
+ * Início das cotações a pedir à API: por omissão os 2 anos da API; mais, se a estratégia precisar de aquecimento ou se o período do
+ * gráfico for maior (5A).
+ */
+const quotesFromFor = (strategyId, lastSession, rangeMonths = 24) => {
+  if (!lastSession) return undefined;
   const st = getStrategy(strategyId);
-  return st?.warmupYears && lastSession ? f.yearsBefore(lastSession, st.windowYears + st.warmupYears) : undefined;
+  const years = Math.max(st?.warmupYears ? st.windowYears + st.warmupYears : 2, Math.ceil(rangeMonths / 12));
+  return years > 2 ? f.yearsBefore(lastSession, years) : undefined;
 };
 
 /**
@@ -174,14 +181,15 @@ export default function ChartsPage() {
     listRef.current?.querySelector(`[data-id="${next.id}"]`)?.focus();
   };
 
-  const quotes = useQuotes(current?.id, current?.status === 'active', quotesFromFor(strategy, current?.lastSession));
+  const [rangeMonths, setRangeMonths] = useState(savedRangeMonths);
+  const quotes = useQuotes(current?.id, current?.status === 'active', quotesFromFor(strategy, current?.lastSession, rangeMonths));
 
   // Pré-carrega os vizinhos na lista, para a troca ser imediata.
   useEffect(() => {
     if (items.length < 2 || index < 0) return;
     for (const d of [1, -1]) {
       const n = items[(index + d + items.length) % items.length];
-      const from = quotesFromFor(strategyFor(n), n.lastSession);
+      const from = quotesFromFor(strategyFor(n), n.lastSession, rangeMonths);
       qc.prefetchQuery({ queryKey: keys.quotes(n.id, from), queryFn: () => api.get(`/instruments/${n.id}/quotes${from ? `?from=${from}` : ''}`) });
     }
   });
@@ -254,10 +262,11 @@ export default function ChartsPage() {
 
   const showing = quotes.data?.instrumentId === current.id;
   const tradable = current.status === 'active' && current.currency === 'EUR' && current.latest;
-  // A carga inicial começa três anos antes do dia da recolha: tolera-se uma semana de diferença.
+  // Aviso quando o histórico não cobre o período pedido (três anos, ou cinco no período 5A): tolera-se uma semana de diferença.
+  const coverageYears = rangeMonths > 36 ? 5 : 3;
   const coverageLimit = current.lastSession && (() => {
     const [y, m, d] = current.lastSession.split('-').map(Number);
-    return new Date(Date.UTC(y - 3, m - 1, d + 7)).toISOString().slice(0, 10);
+    return new Date(Date.UTC(y - coverageYears, m - 1, d + 7)).toISOString().slice(0, 10);
   })();
 
   return (
@@ -316,14 +325,14 @@ export default function ChartsPage() {
           {actionError && <Notice tone="error">{actionError}</Notice>}
           {current.status === 'pending' && (
             <Notice>
-              A validar no fornecedor de dados: confirma-se que o símbolo existe e está cotado em EUR, e carregam-se até três anos de histórico diário.
+              A validar no fornecedor de dados: confirma-se que o símbolo existe e está cotado em EUR, e carregam-se até sete anos de histórico diário.
               Esta página actualiza-se sozinha.{detail.data?.fetch?.lastError && <> Última tentativa: {detail.data.fetch.lastError}.</>}
             </Notice>
           )}
           {current.status === 'invalid' && <Notice tone="error">Instrumento inválido: {current.statusReason}.</Notice>}
           {current.status === 'active' && coverageLimit && current.firstSession > coverageLimit && (
             <p className="small warning-text">
-              Cobertura inferior a três anos: o fornecedor só tem dados desde {f.date(current.firstSession)}, por isso a SMA200 e o momento podem não cobrir todo o gráfico.
+              Cobertura inferior a {coverageYears === 5 ? 'cinco' : 'três'} anos: o fornecedor só tem dados desde {f.date(current.firstSession)}, por isso a SMA200 e o momento podem não cobrir todo o gráfico.
             </p>
           )}
           {current.currency && current.currency !== 'EUR' && <p className="small warning-text">Só são simuláveis instrumentos em EUR.</p>}
@@ -335,7 +344,7 @@ export default function ChartsPage() {
               <Suspense fallback={<Loading rows={8} label="A carregar o gráfico…" />}>
                 <DailyChart quotes={quotes.data.quotes} currency={current.currency} symbol={quotes.data.symbol} strategy={showing ? strategy : null} onStrategyResult={setStratInfo}
                   positions={saxoLinked ? (saxoPortfolio.data?.positions ?? []).filter((p) => p.instrumentId === current.id) : null}
-                  showPositions={showPositions} onShowPositions={setShowPositions} />
+                  showPositions={showPositions} onShowPositions={setShowPositions} onRangeChange={setRangeMonths} />
               </Suspense>
             </div>
           )}

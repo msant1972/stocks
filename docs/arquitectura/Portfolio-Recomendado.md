@@ -67,9 +67,29 @@ Quase todas as variantes ganham ao catálogo nos dois períodos, mas com diferen
 
 A data em que a simulação começa não muda a carteira de hoje: com seis datas de início diferentes (de fev. 2023 a nov. 2024), as 20 posições actuais são as mesmas.
 
+## Revalidação com sete anos (17 nov. 2026)
+
+Com o histórico alargado a sete anos, a carteira tem revisões desde mar. 2021 e passa pelo mercado em queda de 2022. Rendimento por ano civil, com custos (a carteira simulada desde o início do histórico; o catálogo comprado no início de cada janela):
+
+| Ano | Portfolio | Catálogo | Diferença | Maior queda: Portfolio / catálogo |
+|---|---|---|---|---|
+| 2021 (desde mar.) | +19,6 % | +18,2 % | +1,4 | −13,9 % / −5,8 % |
+| **2022 (queda)** | **−24,5 %** | −8,8 % | **−15,6** | **−30,2 %** / −21,4 % |
+| 2023 | +9,6 % | +17,4 % | −7,8 | −8,4 % / −9,9 % |
+| 2024 | +27,4 % | +11,3 % | +16,1 | −12,1 % / −9,0 % |
+| 2025 | +43,2 % | +29,4 % | +13,9 | −15,6 % / −14,6 % |
+| 2026 (até 13 nov.) | +16,0 % | +12,2 % | +3,9 | −16,7 % / −9,5 % |
+| **Mar. 2021 a nov. 2026** | **+119,0 %** | **+129,9 %** | **−10,9** | −31,2 % / −21,5 % |
+
+**Leitura:** em todo o período, a carteira **ficou abaixo do catálogo em partes iguais**. Os +80 % contra +50 % dos últimos 24 meses são reais, mas dependem do período: em 2022 a carteira perdeu quase três vezes mais do que o catálogo, e em 2023 não recuperou ao mesmo ritmo. Como nas Promessas, a regra segue a tendência e o momentum: ganha nos anos de subida e falha quando o mercado vira. O número de elegíveis nunca desceu abaixo de 26 (jul. 2022), por isso a carteira ficou sempre investida.
+
+Variantes no mesmo período: com a pontuação anterior das Promessas, −10,8 % em 2022 e +103,2 % no total (pior no total, melhor na queda); sem limite por sector, −23,9 % em 2022 e +114,5 % no total.
+
+**O que fica por testar:** um filtro de mercado — por exemplo, deixar parte da carteira em numerário quando menos de metade do catálogo está acima da SMA200 (como o filtro de regime da Rotação). A medida é a mesma desta tabela: tem de reduzir a perda de 2022 sem tirar mais do que isso nos anos de subida.
+
 ## Limitações
 
-- **Só mercado a subir.** O histórico (nov. 2021 a nov. 2026) não tem uma queda prolongada depois de a regra ter sinais (fev. 2023). Num mercado em queda há menos elegíveis e parte da carteira fica em numerário, mas não há dados para medir quanto protege.
+- **Falha num mercado em queda.** Com sete anos de dados (ver acima), perdeu 24,5 % em 2022 contra 8,8 % do catálogo e ficou sempre investida (nunca menos de 26 elegíveis).
 - **A pontuação das Promessas foi revista com datas deste mesmo período** (jan. 2023 a abr. 2026): o resultado não é um teste independente da pontuação. As variantes com sinais da literatura (momentum 12-1, rendimento de 12 meses) dão resultados parecidos.
 - **Viés de sobrevivência:** o catálogo é o de hoje; favorece a carteira e a comparação.
 - **Sem stops:** entre revisões não há saídas, e uma posição pode cair muito antes de perder a tendência (exemplo: TKA.DE, −22 % em dois meses).

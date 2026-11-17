@@ -36,6 +36,18 @@ describe.skipIf(!hasTestDb)('logotipos (Brandfetch)', () => {
     await ctx.pool.query("DELETE FROM audit_log WHERE action LIKE 'admin.logos%'");
   });
 
+  it('mostrar o módulo Logotipos na barra lateral: só administradores; não mexe nos outros interruptores', async () => {
+    expect((await ana.get('/logos/config')).json().showModule).toBe(true); // por omissão, visível
+    expect((await ana.put('/admin/logos/module', { show: false })).statusCode).toBe(403);
+    expect((await admin.put('/admin/logos/module', { show: false })).json()).toMatchObject({ showModule: false, enabled: true });
+    expect((await ana.get('/logos/config')).json().showModule).toBe(false);
+    expect((await admin.put('/admin/logos/module', { show: 'x' })).statusCode).toBe(400);
+    expect((await admin.put('/admin/logos/module', { show: true })).json().showModule).toBe(true);
+    const [[a]] = await ctx.pool.query("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'admin.logos_module'");
+    expect(Number(a.n)).toBe(2);
+    await ctx.pool.query("DELETE FROM audit_log WHERE action LIKE 'admin.logos%'");
+  });
+
   it('só administradores guardam e apagam; todos lêem', async () => {
     expect((await ana.put('/admin/logos', { clientId: 'abcdefgh12' })).statusCode).toBe(403);
     expect((await admin.put('/admin/logos', { clientId: 'a b' })).statusCode).toBe(400);

@@ -240,8 +240,8 @@ export default function RecommendedPortfolioPage() {
 
           <Notice tone="info">
             Carteira calculada por uma regra fixa sobre dados passados; os resultados passados não garantem os futuros e isto não é aconselhamento de
-            investimento. A regra não foi posta à prova num mercado em queda prolongada: nesse caso há menos instrumentos elegíveis e parte da
-            carteira fica em numerário. A Automação não usa esta carteira.
+            investimento. A regra segue a tendência: no mercado em queda de 2022 perdeu 24,5 %, contra 8,8 % do catálogo, e de mar. 2021 a hoje
+            rendeu +119 % contra +130 % do catálogo; a vantagem dos últimos 24 meses depende de o mercado estar a subir. A Automação não usa esta carteira.
           </Notice>
         </>
       )}

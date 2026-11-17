@@ -677,3 +677,41 @@ test('Charts: a estratégia escolhida fica guardada e é a que os Sinais mostram
   await filter.getByRole('button', { name: 'Toda a lista' }).click();
   await expect(page).toHaveURL(/instrumentos=todos/);
 });
+
+test('Charts: período 5A pede cinco anos de cotações e fica guardado', async () => {
+  const galp = (await (await page.request.get('/api/v1/instruments?limit=500')).json()).items.find((i) => i.symbol === 'GALP.LS');
+  await page.goto(`/charts?instrumento=${galp.id}`);
+  const periods = page.getByRole('group', { name: 'Período do gráfico' });
+  await expect(periods.getByRole('button', { name: '5A' })).toBeVisible();
+  const asked = page.waitForRequest((r) => /\/api\/v1\/instruments\/\d+\/quotes\?from=\d{4}-\d{2}-\d{2}/.test(r.url()));
+  await periods.getByRole('button', { name: '5A' }).click();
+  const url = new URL((await asked).url());
+  const from = url.searchParams.get('from');
+  const instrument = (await (await page.request.get(url.pathname.replace('/quotes', ''))).json());
+  expect(Number(instrument.lastSession.slice(0, 4)) - Number(from.slice(0, 4))).toBe(5);
+  await expect(periods.getByRole('button', { name: '5A' })).toHaveAttribute('aria-pressed', 'true');
+  await page.reload();
+  await expect(page.getByRole('group', { name: 'Período do gráfico' }).getByRole('button', { name: '5A' })).toHaveAttribute('aria-pressed', 'true');
+  // Volta ao período por omissão (os outros testes contam com ele).
+  await page.getByRole('group', { name: 'Período do gráfico' }).getByRole('button', { name: '1A' }).click();
+});
+
+test('Definições → Logotipos: interruptor para mostrar ou esconder o módulo Logotipos na barra lateral', async () => {
+  await page.goto('/definicoes');
+  const card = page.getByRole('region', { name: 'Logotipos' });
+  const sw = card.getByRole('switch', { name: 'Mostrar módulo de gestão de logotipos' });
+  await expect(sw).toBeChecked();
+  await expect(nav('Logotipos')).toBeVisible();
+  await sw.evaluate((el) => el.click()); // a caixa está escondida atrás do desenho do interruptor
+  await expect(page.getByText('Módulo Logotipos escondido da barra lateral')).toBeVisible();
+  await expect(nav('Logotipos')).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'Logotipos' }).getByRole('switch', { name: 'Mostrar módulo de gestão de logotipos' })).not.toBeChecked();
+  await expect(nav('Logotipos')).toHaveCount(0);
+  // A página continua a abrir pela ligação do cartão.
+  await page.getByRole('region', { name: 'Logotipos' }).getByRole('link', { name: 'Logotipos' }).click();
+  await expect(page).toHaveURL(/\/logotipos$/);
+  await page.goto('/definicoes');
+  await page.getByRole('region', { name: 'Logotipos' }).getByRole('switch', { name: 'Mostrar módulo de gestão de logotipos' }).evaluate((el) => el.click());
+  await expect(nav('Logotipos')).toBeVisible();
+});

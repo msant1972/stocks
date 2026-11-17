@@ -1,7 +1,7 @@
 /**
  * Fases de Wyckoff na interface (GET /wyckoff; regras em shared/wyckoff.js, estudo em docs/arquitectura/Wyckoff.md).
- * Etiqueta, cor e explicação de cada fase. A explicação diz o que a teoria espera e o que os nossos dados mostraram: no
- * período estudado (fev. 2023 a nov. 2026, mercado a subir) as fases não previram o que a teoria diz.
+ * Etiqueta, cor e explicação de cada fase. A explicação diz o que a teoria espera e o que os nossos dados mostraram: nos anos
+ * de subida (2023 a 2026) as fases deram o contrário da teoria; no mercado em queda de 2022, deram o que a teoria diz.
  */
 export const PHASE_ORDER = ['accumulation', 'markup', 'distribution', 'markdown', 'undefined'];
 
@@ -10,7 +10,7 @@ export const PHASE_INFO = {
     label: 'Acumulação', tone: 'badge-accent',
     help: 'Faixa lateral estreita perto dos mínimos de 52 semanas, depois de uma queda de 20 % ou mais. A teoria espera uma subida a seguir; '
       + 'nos nossos dados (2023 a 2026) foi o grupo mais fraco: 6 meses depois, +1,9 % em média (catálogo +8,4 %), e as estratégias ligadas '
-      + 'não ganharam (−27 € por estratégia; catálogo 490 €).',
+      + 'não ganharam (−27 € por estratégia; catálogo 490 €). No mercado em queda de 2022 foi o contrário: ficou acima do catálogo.',
   },
   markup: {
     label: 'Subida', tone: 'badge-positive',
@@ -21,7 +21,8 @@ export const PHASE_INFO = {
     label: 'Distribuição', tone: 'badge-warning',
     help: 'Faixa lateral estreita perto dos máximos de 52 semanas, depois de uma subida de 25 % ou mais. A teoria espera uma queda a seguir; '
       + 'nos nossos dados (2023 a 2026) foi muitas vezes só uma pausa: 6 meses depois, +11,4 % em média (catálogo +8,4 %) e 70 % estavam '
-      + 'mais altas; as estratégias ligadas ganharam 850 € por estratégia (catálogo 490 €).',
+      + 'mais altas; as estratégias ligadas ganharam 850 € por estratégia (catálogo 490 €). No mercado em queda de 2022 foi o contrário: '
+      + 'foi o pior grupo (−978 € por estratégia; catálogo −349 €), como a teoria prevê.',
   },
   markdown: {
     label: 'Queda', tone: 'badge-negative',
