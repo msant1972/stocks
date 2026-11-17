@@ -30,6 +30,8 @@ export default function SignalsPage() {
   const budget = strategy.budget;
   const side = ['buy', 'add', 'sell'].includes(params.get('tipo')) ? params.get('tipo') : 'all';
   const sessions = PERIODS.includes(params.get('sessoes')) ? params.get('sessoes') : '5';
+  // Por omissão, só os instrumentos cuja estratégia (escolhida no Charts, ou a melhor) é esta: os que a Automação negociaria.
+  const only = params.get('instrumentos') === 'todos' ? 'all' : 'chosen';
   const [saxoTrade, setSaxoTrade] = useState(null); // { instrument, side, quantity }
   const [saxoBatch, setSaxoBatch] = useState(false);
   const saxo = useSaxoStatus();
@@ -58,8 +60,8 @@ export default function SignalsPage() {
     }
   }
   const q = useQuery({
-    queryKey: ['signals', strategyId, sessions, 'watchlist'],
-    queryFn: () => api.get(`/signals?strategy=${strategyId}&sessions=${sessions}&scope=watchlist`),
+    queryKey: ['signals', strategyId, sessions, 'watchlist', only],
+    queryFn: () => api.get(`/signals?strategy=${strategyId}&sessions=${sessions}&scope=watchlist&only=${only}`),
     placeholderData: (prev) => prev,
     staleTime: 5 * 60_000,
   });
@@ -80,11 +82,13 @@ export default function SignalsPage() {
       <div className="page-head">
         <div>
           <h1 className="page-title">Sinais</h1>
-          <p className="page-sub">Compras, reforços e vendas da estratégia {strategy.name} aplicada virtualmente aos instrumentos da minha lista{q.data?.instruments != null ? ` (${q.data.instruments})` : ''}.</p>
+          <p className="page-sub">Compras, reforços e vendas da estratégia {strategy.name} aplicada virtualmente aos instrumentos da minha lista{q.data?.instruments != null ? ` (${q.data.instruments})` : ''}{only === 'chosen' ? ', só nos que têm esta estratégia (a escolhida no Charts ou, sem escolha, a melhor): os que a Automação negociaria' : ''}.</p>
         </div>
         <div className="row" style={{ alignItems: 'flex-end' }}>
           <Link className="button mobile-only-inline" to="/backtest">BackTest</Link>
           <StrategySelect value={strategyId} onChange={(id) => setParam('estrategia', id, strategies.defaultId)} />
+          <Segmented label="Instrumentos" value={only} onChange={(v) => setParam('instrumentos', v === 'all' ? 'todos' : 'escolhida', 'escolhida')}
+            options={[{ value: 'chosen', label: 'Com esta estratégia' }, { value: 'all', label: 'Toda a lista' }]} />
           <Segmented label="Tipo de sinal" value={side} onChange={(v) => setParam('tipo', v, 'all')}
             options={[
               { value: 'all', label: `Todos${q.data ? ` (${all.length})` : ''}` },
@@ -115,7 +119,7 @@ export default function SignalsPage() {
           <div className="card-head">
             <h2 id="sig-title" className="card-title">Sinais{q.data?.latestSession ? ` até ${f.date(q.data.latestSession)}` : ''}</h2>
             <div className="row">
-              {q.data && <span className="small muted">{items.length} {items.length === 1 ? 'sinal' : 'sinais'}</span>}
+              {q.data && <span className="small muted">{items.length} {items.length === 1 ? 'sinal' : 'sinais'}{only === 'chosen' && q.data.hidden > 0 ? ` · ${q.data.hidden} noutros instrumentos (com outra estratégia)` : ''}</span>}
               {saxo.data?.configured && !saxo.data.expired && items.length > 0 && (
                 <Button size="small" onClick={() => setSaxoBatch(true)} title="Pré-validar e enviar à conta de simulação da SAXO uma ordem por sinal da lista">Enviar sinais à SAXO</Button>
               )}
@@ -126,7 +130,11 @@ export default function SignalsPage() {
               <EmptyState title="A sua lista está vazia" action={<Link className="button" to="/acompanhar">Acompanhar instrumentos</Link>}>
                 Os sinais são calculados para os instrumentos da sua lista.
               </EmptyState>
-            ) : <EmptyState title="Sem sinais no período">Experimente alargar o período ou mudar o tipo de sinal.</EmptyState>
+            ) : <EmptyState title="Sem sinais no período">
+              {only === 'chosen' && q.data.hidden > 0
+                ? `Há ${q.data.hidden} ${q.data.hidden === 1 ? 'sinal' : 'sinais'} da ${strategy.name} em instrumentos com outra estratégia; escolha «Toda a lista» para os ver.`
+                : 'Experimente alargar o período ou mudar o tipo de sinal.'}
+            </EmptyState>
           ) : (
             <div className="table-wrap" tabIndex={0} aria-label="Tabela de sinais" style={{ opacity: q.isFetching ? 0.6 : 1 }}>
               <table className="data">
@@ -159,6 +167,7 @@ export default function SignalsPage() {
                         <td>
                           <Link to={`/instrumentos/${i.instrumentId}?estrategia=${strategyId}`} className="row-link">{i.symbol}</Link>
                           <div className="small muted cx-name">{i.name}</div>
+                          {i.chosen === false && <div className="small muted" title="A estratégia deste instrumento (escolhida no Charts, ou a melhor) é outra: a Automação não compra este sinal">Outra estratégia no instrumento</div>}
                         </td>
                         <td className="r">{f.price(i.price)}</td>
                         <td className="r">

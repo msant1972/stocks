@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { valueAtY } from './valueAtY.js';
 import { Area, Bar, CartesianGrid, Cell, ComposedChart, Line, ReferenceArea, ReferenceDot, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import * as f from '../../lib/format.js';
 import { adjustedOhlc } from '../../lib/candles.js';
@@ -143,20 +144,50 @@ function Readout({ data, currency, visible, showMomentum, showRsi, hoverRef }) {
 /** Cursor vertical dos gráficos sincronizados (a linha horizontal é a CrossHair). */
 const CURSOR = { stroke: 'var(--text-secondary)', strokeWidth: 1, strokeDasharray: '4 3' };
 
-/** Linha horizontal que acompanha o rato no painel onde está (com a linha vertical do cursor do gráfico, forma uma cruz). */
-function CrossHair() {
+// Valores da etiqueta da cruz sobre o eixo da direita (como os do próprio eixo; funções estáveis, fora do componente).
+const formatPriceAxis = (v) => f.number(v);
+const RSI_DOMAIN = [0, 100];
+const formatRsiAxis = (v) => v.toLocaleString('pt-PT', { maximumFractionDigits: 0 });
+const formatPctAxis = (v) => `${v.toLocaleString('pt-PT', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+
+/**
+ * Linha horizontal que acompanha o rato no painel onde está (com a linha vertical do cursor do gráfico, forma uma cruz). Com
+ * `domain` (o domínio fixo do eixo da direita) e `format`, mostra também o valor à altura do rato, numa etiqueta sobre esse eixo.
+ */
+function CrossHair({ domain = null, format = null }) {
   const ref = useRef(null);
+  const labelRef = useRef(null);
+  const domainRef = useRef(domain);
+  domainRef.current = domain;
   useEffect(() => {
     const line = ref.current;
+    const label = labelRef.current;
     const host = line?.parentElement;
     if (!host) return undefined;
-    const move = (e) => { line.style.display = 'block'; line.style.top = `${e.clientY - host.getBoundingClientRect().top}px`; };
-    const leave = () => { line.style.display = 'none'; };
+    const move = (e) => {
+      const y = e.clientY - host.getBoundingClientRect().top;
+      line.style.display = 'block';
+      line.style.top = `${y}px`;
+      if (!label) return;
+      const rect = host.querySelector('svg.recharts-surface clipPath rect');
+      const plot = rect && { y: Number(rect.getAttribute('y')), height: Number(rect.getAttribute('height')) };
+      const v = valueAtY(y, plot, domainRef.current);
+      if (v == null) { label.style.display = 'none'; return; }
+      label.textContent = format(v);
+      label.style.display = 'block';
+      label.style.top = `${y}px`;
+    };
+    const leave = () => { line.style.display = 'none'; if (label) label.style.display = 'none'; };
     host.addEventListener('mousemove', move);
     host.addEventListener('mouseleave', leave);
     return () => { host.removeEventListener('mousemove', move); host.removeEventListener('mouseleave', leave); };
-  }, []);
-  return <div ref={ref} className="chart-hline" aria-hidden="true" />;
+  }, [format]);
+  return (
+    <>
+      <div ref={ref} className="chart-hline" aria-hidden="true" />
+      {domain && format && <div ref={labelRef} className="chart-hline-value num" aria-hidden="true" />}
+    </>
+  );
 }
 
 /** Caixa com a medida (sessões, dias e %) no topo da área marcada ao arrastar. */
@@ -374,6 +405,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null, 
   const lo = Math.min(...plotted);
   const hi = Math.max(...plotted);
   const pad = (hi - lo) * 0.08 || hi * 0.02;
+  const priceDomain = [lo - pad, hi + pad];
   const coverageStart = quotes[0].date;
   const requestedStart = cutoff(quotes.at(-1).date, RANGES.find((r) => r.value === range).months);
   // Indicadores sem valor no início do período (histórico insuficiente para a janela).
@@ -424,7 +456,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null, 
       {/* Painéis (preço, volume e momento) a ocupar a altura da janela; o texto, a estratégia e os dados ficam por baixo. */}
       <div className="chart-stage" ref={stageRef} style={stageHeight ? { height: stageHeight } : undefined}>
         <div className="chart-pane chart-pane-price" role="img" aria-labelledby={`${tableId}-summary`}>
-          <CrossHair />
+          <CrossHair domain={priceDomain} format={formatPriceAxis} />
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data} syncId="historico" margin={{ top: 8, right: 0, bottom: 0, left: 8 }} {...hoverProps} onMouseMove={onPriceMove} onMouseDown={onPriceDown}>
               <defs>
@@ -439,7 +471,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null, 
                 tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
               />
               <YAxis orientation="right"
-                domain={[lo - pad, hi + pad]} width={64} tickLine={false} axisLine={false}
+                domain={priceDomain} width={64} tickLine={false} axisLine={false}
                 tickFormatter={(v) => f.number(v)} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
               />
               <Tooltip content={() => null} cursor={CURSOR} />
@@ -493,7 +525,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null, 
         {showRsi && (
           <div className="chart-pane chart-pane-rsi" role="img"
             aria-label={`RSI14 de ${symbol}: ${last.rsi == null ? 'sem dados' : `${rsiLabel(last.rsi)}${rsiZone(last.rsi) ? `, ${rsiZone(last.rsi)}` : ''}`}.`}>
-            <CrossHair />
+            <CrossHair domain={RSI_DOMAIN} format={formatRsiAxis} />
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart data={data} syncId="historico" margin={{ top: 4, right: 0, bottom: 0, left: 8 }} {...hoverProps}>
                 <CartesianGrid stroke="var(--border)" vertical={false} />
@@ -527,7 +559,7 @@ export default function DailyChart({ quotes, currency, symbol, strategy = null, 
             </div>
             <div className="chart-pane-fill" role="img"
               aria-label={`Momento de ${symbol}: SMA10/SMA200 em ${pctLabel(last.wave)}, ${trendLabel(last.rising)}; SMA8/SMA125 em ${pctLabel(last.wave125)}.`}>
-              <CrossHair />
+              <CrossHair domain={[momentumTicks[0], momentumTicks.at(-1)]} format={formatPctAxis} />
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={data} syncId="historico" barCategoryGap={0} barGap={0} margin={{ top: 4, right: 0, bottom: 0, left: 8 }} {...hoverProps}>
                   <CartesianGrid stroke="var(--border)" vertical={false} />

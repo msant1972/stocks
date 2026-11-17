@@ -364,21 +364,21 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     expect(f.orders[0].body).toMatchObject({ BuySell: 'Buy', OrderType: 'Limit', OrderDuration: { DurationType: 'DayOrder' } });
   });
 
-  it('compras só na lista e na melhor estratégia de cada instrumento; as vendas valem sempre', async () => {
+  it('compras só na lista e na estratégia de cada instrumento; as vendas valem sempre', async () => {
     const f = use({ positions: [[23737, 800]] });
     await turnOn('c-ai');
-    // C-AI não é a melhor estratégia da GALP (é a B-Opus): a compra fica de fora, sem ordem nem registo de falha.
-    const notBest = buildEligibility({ mine: new Set([galp]), best: new Map([[galp, { strategyId: 'b-opus', total: 500 }]]) });
-    await run({ 'c-ai': [signal()] }, { eligibility: async () => notBest });
+    // A estratégia da GALP é a B-Opus, não a C-AI: a compra fica de fora, sem ordem nem registo de falha.
+    const notOwn = buildEligibility({ mine: new Set([galp]), strategyOf: new Map([[galp, 'b-opus']]) });
+    await run({ 'c-ai': [signal()] }, { eligibility: async () => notOwn });
     expect(f.orders).toHaveLength(0);
     expect(await list()).toHaveLength(0);
     // Fora da lista: também não.
-    const notMine = buildEligibility({ mine: new Set(), best: new Map([[galp, { strategyId: 'c-ai', total: 500 }]]) });
+    const notMine = buildEligibility({ mine: new Set(), strategyOf: new Map([[galp, 'c-ai']]) });
     await ctx.pool.query('DELETE FROM saxo_automation_runs');
     await run({ 'c-ai': [signal()] }, { eligibility: async () => notMine });
     expect(f.orders).toHaveLength(0);
-    // Na lista e com a C-AI como melhor: compra.
-    const ok = buildEligibility({ mine: new Set([galp]), best: new Map([[galp, { strategyId: 'c-ai', total: 500 }]]) });
+    // Na lista e com a C-AI como estratégia do instrumento: compra.
+    const ok = buildEligibility({ mine: new Set([galp]), strategyOf: new Map([[galp, 'c-ai']]) });
     await ctx.pool.query('DELETE FROM saxo_automation_runs');
     await run({ 'c-ai': [signal()] }, { eligibility: async () => ok });
     expect(f.orders).toHaveLength(1);
@@ -389,17 +389,31 @@ describe.skipIf(!hasTestDb)('automação: API e execução', () => {
     expect(f.orders.filter((o) => o.body.BuySell === 'Sell')).toHaveLength(1);
   });
 
-  it('elegibilidade: na lista, melhor estratégia do instrumento e resultado positivo', () => {
-    const el = buildEligibility({
-      mine: new Set([1, 2, 3]),
-      best: new Map([[1, { strategyId: 'c-ai', total: 100 }], [2, { strategyId: 'c-ai', total: -50 }], [4, { strategyId: 'c-ai', total: 900 }]]),
-    });
+  it('elegibilidade: na lista e com a estratégia do instrumento («Nenhuma» não compra)', () => {
+    const el = buildEligibility({ mine: new Set([1, 2, 3]), strategyOf: new Map([[1, 'c-ai'], [2, null], [4, 'c-ai']]) });
     expect(el('c-ai', 1)).toBe(true);
     expect(el('a-momentum', 1)).toBe(false); // outra estratégia
-    expect(el('c-ai', 2)).toBe(false);       // «Nenhuma ganha»
-    expect(el('c-ai', 3)).toBe(false);       // sem resultado
+    expect(el('c-ai', 2)).toBe(false);       // «Nenhuma»
+    expect(el('c-ai', 3)).toBe(false);       // sem estratégia
     expect(el('c-ai', 4)).toBe(false);       // fora da lista
   });
+
+  it('a estratégia escolhida no Charts manda na Automação; sem escolha, vale a melhor', async () => {
+    const { loadEligibility } = await import('../src/saxo/automation.js');
+    const [[u]] = await ctx.pool.query('SELECT id FROM users ORDER BY id LIMIT 1');
+    await ctx.pool.query('INSERT IGNORE INTO watchlist_items (user_id, instrument_id) VALUES (?, ?)', [u.id, galp]);
+    await ctx.pool.query('DELETE FROM instrument_strategy_choices');
+    // Escolha explícita: A-Momentum (mesmo que não seja a melhor).
+    await ctx.pool.query("INSERT INTO instrument_strategy_choices (user_id, instrument_id, strategy_id) VALUES (?, ?, 'a-momentum')", [u.id, galp]);
+    let el = await loadEligibility(ctx.pool, ctx.cfg, u.id);
+    expect(el('a-momentum', galp)).toBe(true);
+    expect(el('c-ai', galp)).toBe(false);
+    // «Nenhuma»: nenhuma estratégia compra.
+    await ctx.pool.query('UPDATE instrument_strategy_choices SET strategy_id = NULL WHERE user_id = ? AND instrument_id = ?', [u.id, galp]);
+    el = await loadEligibility(ctx.pool, ctx.cfg, u.id);
+    expect(['a-momentum', 'b-opus', 'c-ai', 'f-mergulho'].some((id) => el(id, galp))).toBe(false);
+    await ctx.pool.query('DELETE FROM instrument_strategy_choices');
+  }, 120_000);
 
   it('recusa da SAXO fica registada com a ordem e não se repete', async () => {
     const f = use({ fail: () => json({ ErrorInfo: { Message: 'Saldo insuficiente' } }, 400) });

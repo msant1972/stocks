@@ -4,7 +4,7 @@ import { buildItems, computeAll } from '../services/signals.js';
 import { storedResolution } from './catalog.js';
 import { createThrottle } from './client.js';
 import { enabledStrategies } from '../services/strategySettings.js';
-import { bestByInstrument, strategyResults } from '../services/strategyResults.js';
+import { effectiveStrategies } from '../services/strategyChoices.js';
 import { getPortfolio, listOrders, openSession, parseScheme, pickAccount, placeOrder } from './service.js';
 import { nearestTick } from './ticks.js';
 
@@ -201,24 +201,20 @@ async function handleSignal(pool, cfg, session, s, strategy, { getHeld, takeHeld
 }
 
 /**
- * Quem pode comprar: só os instrumentos da lista do utilizador, cada um pela sua melhor estratégia (a de maior resultado no
- * BackTest entre as ligadas, desde que ganhe: «Nenhuma ganha» não compra). Função pura sobre `mine` (Set de ids da lista) e
- * `best` (Map id → { strategyId, total }). As vendas não passam por aqui: uma posição que a automação tem vende-se sempre.
+ * Quem pode comprar: só os instrumentos da lista do utilizador, cada um pela sua estratégia — a escolhida no Charts ou, sem
+ * escolha, a melhor ligada no BackTest, desde que ganhe (shared/strategies/choice.js). Função pura sobre `mine` (Set de ids da
+ * lista) e `strategyOf` (Map id → strategyId | null, já resolvida). As vendas não passam por aqui: uma posição que a automação
+ * tem vende-se sempre.
  */
-export function buildEligibility({ mine, best }) {
-  return (strategyId, instrumentId) => {
-    const b = best.get(instrumentId);
-    return mine.has(instrumentId) && b?.strategyId === strategyId && b.total > 0;
-  };
+export function buildEligibility({ mine, strategyOf }) {
+  return (strategyId, instrumentId) => mine.has(instrumentId) && strategyOf.get(instrumentId) === strategyId;
 }
 
-/** Elegibilidade de compra de um utilizador, com os resultados do BackTest em cache (partilhados com as rotas). */
+/** Elegibilidade de compra de um utilizador: as escolhas guardadas e, sem escolha, a melhor (resultados do BackTest em cache). */
 export async function loadEligibility(pool, cfg, userId, log = null) {
   const [w] = await pool.query('SELECT instrument_id FROM watchlist_items WHERE user_id = ?', [userId]);
   const mine = new Set(w.map((r) => Number(r.instrument_id)));
-  const on = await enabledStrategies(pool);
-  const best = mine.size ? bestByInstrument(on, await strategyResults(pool, cfg, log).ensure(on)) : new Map();
-  return buildEligibility({ mine, best });
+  return buildEligibility({ mine, strategyOf: await effectiveStrategies(pool, cfg, userId, mine, log) });
 }
 
 /** Execução de um utilizador: refresca as ordens, lê os sinais das estratégias ligadas e envia. */
@@ -262,7 +258,7 @@ export async function runForUser(pool, cfg, userId, clock, { lastFinal, loadSign
   for (const { strategy_id: id } of rows) {
     const strategy = getStrategy(id);
     if (!strategy?.available || !on.has(id)) continue;
-    // Compras e reforços só nos instrumentos da lista cuja melhor estratégia é esta; as vendas valem sempre (strategyHolding).
+    // Compras e reforços só nos instrumentos da lista cuja estratégia (escolhida, ou a melhor) é esta; as vendas valem sempre.
     const items = selectSignals(await loadSignals(strategy), { lastFinal, today: clock.date })
       .filter((s) => s.side === 'sell' || eligible(strategy.id, s.instrumentId));
     for (const s of items) {

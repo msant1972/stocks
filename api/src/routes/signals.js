@@ -3,6 +3,7 @@ import { AVAILABLE_STRATEGIES, getStrategy } from '../../../shared/strategies/in
 import { assertEnabled, defaultStrategyId, enabledStrategies } from '../services/strategySettings.js';
 import { IsoDate } from '../schemas.js';
 import { buildItems, computeAll, MAX_SESSIONS } from '../services/signals.js';
+import { effectiveStrategies } from '../services/strategyChoices.js';
 
 const CACHE_MS = 10 * 60_000; // as cotações só mudam com a recolha diária
 
@@ -17,7 +18,7 @@ const Signal = z.object({
   momentumPct: z.string().nullable().describe('SMA10/SMA200 − 1 na última sessão, em %'),
 });
 
-export default async function signalRoutes(app, { pool, warmup = () => {} }) {
+export default async function signalRoutes(app, { pool, cfg, warmup = () => {} }) {
   const cache = new Map(); // por estratégia
   let running = Promise.resolve();
   const fresh = (e) => e && Date.now() - e.at <= CACHE_MS;
@@ -52,6 +53,9 @@ export default async function signalRoutes(app, { pool, warmup = () => {} }) {
     return new Set(w.map((r) => Number(r.instrument_id)));
   }
   const sessionsQuery = z.coerce.number().int().min(1).max(MAX_SESSIONS).default(5);
+  const onlyQuery = z.enum(['chosen', 'all']).describe('chosen: só os instrumentos cuja estratégia (a escolhida no Charts ou, sem escolha, a melhor ligada) é a do sinal; all: todos');
+  /** Estratégia de cada instrumento da lista (escolhida ou a melhor), para o filtro `only=chosen` e a marca `chosen`. */
+  const strategyOf = (req, ids) => effectiveStrategies(pool, cfg, req.user.id, ids, app.log);
 
   app.get('/signals', {
     schema: {
@@ -62,12 +66,14 @@ export default async function signalRoutes(app, { pool, warmup = () => {} }) {
         sessions: sessionsQuery,
         strategy: z.enum(AVAILABLE_STRATEGIES.map((s) => s.id)).optional().describe('Por omissão, a A-Momentum ou a primeira ligada'),
         scope: z.enum(['all', 'watchlist']).default('all').describe('watchlist: só os instrumentos da minha lista (página Sinais)'),
+        only: onlyQuery.default('all'),
       }),
       response: {
         200: z.object({
           strategy: z.string(), sessions: z.number(), scope: z.enum(['all', 'watchlist']),
           instruments: z.number().nullable().describe('Instrumentos da minha lista (scope=watchlist); null em todo o catálogo'),
-          latestSession: IsoDate.nullable(), items: z.array(Signal),
+          only: z.enum(['chosen', 'all']), hidden: z.number().describe('Sinais escondidos pelo filtro `only=chosen`'),
+          latestSession: IsoDate.nullable(), items: z.array(Signal.extend({ chosen: z.boolean().nullable().describe('A estratégia do sinal é a deste instrumento: a escolhida no Charts ou, sem escolha, a melhor ligada') })),
         }),
       },
     },
@@ -77,16 +83,25 @@ export default async function signalRoutes(app, { pool, warmup = () => {} }) {
     await assertEnabled(pool, strategy.id);
     const mine = req.query.scope === 'watchlist' ? await watchlistIds(req.user.id) : null;
     const { items, latestSession } = buildItems(await entryFor(strategy), req.query.sessions, strategy.id, mine);
-    return { strategy: strategy.id, sessions: req.query.sessions, scope: req.query.scope, instruments: mine ? mine.size : null, latestSession, items };
+    // Marca (e, com only=chosen, filtra) os sinais cuja estratégia é a do instrumento.
+    const ids = mine ?? new Set(items.map((i) => i.instrumentId));
+    const own = await strategyOf(req, ids);
+    const marked = items.map((i) => ({ ...i, chosen: own.has(i.instrumentId) ? own.get(i.instrumentId) === strategy.id : null }));
+    const kept = req.query.only === 'chosen' ? marked.filter((i) => i.chosen) : marked;
+    return {
+      strategy: strategy.id, sessions: req.query.sessions, scope: req.query.scope, only: req.query.only, hidden: marked.length - kept.length,
+      instruments: mine ? mine.size : null, latestSession, items: kept,
+    };
   });
 
   app.get('/signals/watchlist', {
     schema: {
       tags: ['Sinais'], summary: 'Sinais de todas as estratégias nos instrumentos da minha lista (últimas N sessões)',
-      description: 'Junta os sinais das estratégias disponíveis, só nos instrumentos da lista de acompanhamento do utilizador. '
+      description: 'Junta os sinais das estratégias disponíveis, só nos instrumentos da lista de acompanhamento do utilizador; por omissão '
+        + '(only=chosen) só os da estratégia de cada instrumento (a escolhida no Charts ou, sem escolha, a melhor ligada). '
         + 'Usa as mesmas caches dos Sinais. Simulação; não são recomendações.',
-      querystring: z.object({ sessions: sessionsQuery.default(1) }),
-      response: { 200: z.object({ sessions: z.number(), latestSession: IsoDate.nullable(), items: z.array(SignalWithStrategy) }) },
+      querystring: z.object({ sessions: sessionsQuery.default(1), only: onlyQuery.default('chosen') }),
+      response: { 200: z.object({ sessions: z.number(), only: z.enum(['chosen', 'all']), hidden: z.number(), latestSession: IsoDate.nullable(), items: z.array(SignalWithStrategy) }) },
     },
   }, async (req) => {
     const mine = await watchlistIds(req.user.id);
@@ -98,6 +113,9 @@ export default async function signalRoutes(app, { pool, warmup = () => {} }) {
       if (r.latestSession && (!latestSession || r.latestSession > latestSession)) latestSession = r.latestSession;
     }
     items.sort((a, b) => (a.date === b.date ? a.symbol.localeCompare(b.symbol) : b.date.localeCompare(a.date)));
-    return { sessions: req.query.sessions, latestSession, items };
+    if (req.query.only === 'all') return { sessions: req.query.sessions, only: 'all', hidden: 0, latestSession, items };
+    const own = await strategyOf(req, mine);
+    const kept = items.filter((i) => own.get(i.instrumentId) === i.strategy);
+    return { sessions: req.query.sessions, only: 'chosen', hidden: items.length - kept.length, latestSession, items: kept };
   });
 }

@@ -41,7 +41,15 @@ describe.skipIf(!hasTestDb)('sinais da estratégia', () => {
     expect(empty.items).toEqual([]);                                   // lista vazia
     const [[{ id }]] = await ctx.pool.query("SELECT id FROM instruments WHERE symbol = 'COMPRA.LS'");
     expect((await ana.post('/watchlist/items', { instrumentId: Number(id) })).statusCode).toBe(204);
+    // Sem escolha e sem estratégia que ganhe (5 sessões de histórico): por omissão (only=chosen) não aparece nada.
+    const hidden = (await ana.get('/signals/watchlist')).json();
+    expect(hidden).toMatchObject({ only: 'chosen', items: [] });
+    expect(hidden.hidden).toBeGreaterThan(0);
+    expect((await ana.get('/signals/watchlist?only=all')).json().items.length).toBe(hidden.hidden);
+    // Escolhida a A-Momentum no Charts: passa a aparecer só o sinal dela.
+    expect((await ana.put(`/instruments/${id}/strategy`, { strategyId: 'a-momentum' })).statusCode).toBe(204);
     const mine = (await ana.get('/signals/watchlist')).json();
+    expect(mine.items.map((i) => i.strategy)).toEqual(['a-momentum']);
     expect(mine.sessions).toBe(1);
     // A A-Momentum dá o sinal de compra construído no teste; cada item indica a sua estratégia.
     expect(mine.items.find((i) => i.strategy === 'a-momentum')).toMatchObject({ symbol: 'COMPRA.LS', side: 'buy', sessionsAgo: 0 });
@@ -53,10 +61,46 @@ describe.skipIf(!hasTestDb)('sinais da estratégia', () => {
     const mine = (await ana.get('/signals?sessions=5&scope=watchlist')).json();
     expect(mine).toMatchObject({ scope: 'watchlist', instruments: 1 });
     expect(mine.items.map((i) => i.symbol)).toEqual(['COMPRA.LS']);
+    expect(mine.items[0].chosen).toBe(true); // a A-Momentum é a escolhida (teste anterior)
     const [[{ id }]] = await ctx.pool.query("SELECT id FROM instruments WHERE symbol = 'COMPRA.LS'");
+    // Filtro only=chosen nos Sinais: com outra estratégia escolhida, o sinal da A-Momentum fica escondido (e contado).
+    expect((await ana.put(`/instruments/${id}/strategy`, { strategyId: 'c-ai' })).statusCode).toBe(204);
+    const other = (await ana.get('/signals?sessions=5&scope=watchlist&only=chosen')).json();
+    expect(other).toMatchObject({ only: 'chosen', hidden: 1, items: [] });
+    expect((await ana.get('/signals?sessions=5&scope=watchlist')).json().items[0].chosen).toBe(false); // only=all por omissão
+    // «Nenhuma»: também esconde.
+    expect((await ana.put(`/instruments/${id}/strategy`, { strategyId: null })).statusCode).toBe(204);
+    expect((await ana.get('/signals?sessions=5&scope=watchlist&only=chosen')).json().items).toEqual([]);
     expect((await ana.del(`/watchlist/items/${id}`)).statusCode).toBe(204);
     const none = (await ana.get('/signals?sessions=5&scope=watchlist')).json();
     expect(none).toMatchObject({ instruments: 0, items: [] });
     expect((await ana.get('/signals?sessions=5')).json()).toMatchObject({ scope: 'all', instruments: null }); // todo o catálogo, por omissão
+  });
+
+  it('escolha da estratégia: guardar, ler, voltar à melhor, e validação', async () => {
+    const [[{ id }]] = await ctx.pool.query("SELECT id FROM instruments WHERE symbol = 'COMPRA.LS'");
+    expect((await ana.put(`/instruments/${id}/strategy`, { strategyId: 'b-opus' })).statusCode).toBe(204);
+    let items = (await ana.get('/strategy-choices')).json().items;
+    expect(items).toEqual([expect.objectContaining({ instrumentId: Number(id), strategyId: 'b-opus' })]);
+    // Só uma por instrumento: substitui.
+    expect((await ana.put(`/instruments/${id}/strategy`, { strategyId: 'a-momentum' })).statusCode).toBe(204);
+    items = (await ana.get('/strategy-choices')).json().items;
+    expect(items.map((i) => i.strategyId)).toEqual(['a-momentum']);
+    // Cada utilizador tem as suas.
+    await makeUser(ctx.pool, 'rui@exemplo.pt');
+    const rui = api(ctx.app, await login(ctx.app, 'rui@exemplo.pt'));
+    expect((await rui.get('/strategy-choices')).json().items).toEqual([]);
+    // Voltar à melhor apaga a escolha.
+    expect((await ana.del(`/instruments/${id}/strategy`)).statusCode).toBe(204);
+    expect((await ana.get('/strategy-choices')).json().items).toEqual([]);
+    // Validação: estratégia desconhecida, instrumento inexistente, estratégia desligada, sem sessão.
+    expect((await ana.put(`/instruments/${id}/strategy`, { strategyId: 'x' })).statusCode).toBe(400);
+    expect((await ana.put('/instruments/999999/strategy', { strategyId: 'a-momentum' })).statusCode).toBe(404);
+    await ctx.pool.query("INSERT INTO strategy_settings (strategy_id, enabled) VALUES ('l-macd', 0) ON DUPLICATE KEY UPDATE enabled = 0");
+    expect((await ana.put(`/instruments/${id}/strategy`, { strategyId: 'l-macd' })).json().error.code).toBe('STRATEGY_DISABLED');
+    await ctx.pool.query("DELETE FROM strategy_settings WHERE strategy_id = 'l-macd'");
+    expect((await ctx.app.inject({ method: 'PUT', url: `/api/v1/instruments/${id}/strategy`, payload: { strategyId: null } })).statusCode).toBe(401);
+    const [[a]] = await ctx.pool.query("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'strategy.choice'");
+    expect(Number(a.n)).toBeGreaterThan(3);
   });
 });

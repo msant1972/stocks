@@ -103,6 +103,23 @@ test('Charts: eixo dos valores à direita, cruz no cursor e medida ao arrastar (
   await page.mouse.move(box.x + box.width * 0.4, y);
   const hline = price.locator('.chart-hline');
   await expect(hline).toBeVisible();
+  // Valor à altura da cruz, numa etiqueta sobre o eixo da direita, entre os valores do eixo.
+  const tag = price.locator('.chart-hline-value');
+  await expect(tag).toBeVisible();
+  await expect(tag).toHaveText(/^\d+,\d\d$/);
+  const tagBox = await tag.boundingBox();
+  expect(tagBox.x).toBeGreaterThan(box.x + box.width * 0.8);
+  expect(Math.abs(tagBox.y + tagBox.height / 2 - y)).toBeLessThan(2);
+  const ticks = (await price.locator('svg text').filter({ hasText: /^\d+,\d\d$/ }).allTextContents()).map((v) => Number(v.replace(',', '.')));
+  const shown = Number((await tag.textContent()).replace(',', '.'));
+  expect(shown).toBeGreaterThan(Math.min(...ticks) - (Math.max(...ticks) - Math.min(...ticks)));
+  expect(shown).toBeLessThan(Math.max(...ticks) + (Math.max(...ticks) - Math.min(...ticks)));
+  // Mais acima, valor maior; fora do painel, a etiqueta desaparece.
+  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.25);
+  expect(Number((await tag.textContent()).replace(',', '.'))).toBeGreaterThan(shown);
+  await page.mouse.move(box.x + box.width * 0.4, box.y - 40);
+  await expect(tag).toBeHidden();
+  await page.mouse.move(box.x + box.width * 0.4, y);
   // RSI14: painel entre o volume e o momento (com o botão para o esconder).
   const rsiBox = await page.locator('.chart-pane-rsi').boundingBox();
   const volBox = await page.locator('.chart-pane-volume').boundingBox();
@@ -625,4 +642,38 @@ test('Fases de Wyckoff: coluna em Acompanhar, etiqueta no Charts e filtros no He
   await expect(page.getByLabel('Fase de Wyckoff')).toBeVisible();
   await page.getByLabel('Fase de Wyckoff').selectOption('markup');
   await expect(page.getByText('Nenhum elegível nesta fase; escolha «Todas as fases».')).toBeVisible();
+});
+
+test('Charts: a estratégia escolhida fica guardada e é a que os Sinais mostram', async () => {
+  const instruments = (await (await page.request.get('/api/v1/instruments?limit=500')).json()).items;
+  const galp = instruments.find((i) => i.symbol === 'GALP.LS');
+  await page.request.delete(`/api/v1/instruments/${galp.id}/strategy`);
+  await page.goto(`/charts?instrumento=${galp.id}`);
+  const card = page.getByRole('region', { name: 'GALP.LS' });
+  await card.getByLabel('Estratégia').selectOption('c-ai');
+  await expect(card.getByText(/Estratégia deste instrumento: C-AI, escolhida por si/)).toBeVisible();
+  await expect(page).not.toHaveURL(/estrategia=/);
+  let choices = (await (await page.request.get('/api/v1/strategy-choices')).json()).items;
+  expect(choices).toEqual([expect.objectContaining({ instrumentId: galp.id, strategyId: 'c-ai' })]);
+  // Ao voltar ao instrumento, a escolha mantém-se.
+  await page.reload();
+  await expect(page.getByRole('region', { name: 'GALP.LS' }).getByLabel('Estratégia')).toHaveValue('c-ai');
+  // Aberto de outra página com outra estratégia: mostra-a, sem mudar a escolha, e oferece escolhê-la.
+  await page.goto(`/charts?instrumento=${galp.id}&estrategia=a-momentum`);
+  const shown = page.getByRole('region', { name: 'GALP.LS' });
+  await expect(shown.getByLabel('Estratégia')).toHaveValue('a-momentum');
+  await expect(shown.getByText(/A ver a A-Momentum, aberta a partir de outra página/)).toBeVisible();
+  // «Nenhuma» e depois «Voltar à melhor».
+  await shown.getByLabel('Estratégia').selectOption('');
+  await expect(shown.getByText(/Escolheu nenhuma estratégia para este instrumento/)).toBeVisible();
+  await shown.getByRole('button', { name: 'Voltar à melhor' }).click();
+  await expect(shown.getByRole('button', { name: 'Voltar à melhor' })).toHaveCount(0);
+  choices = (await (await page.request.get('/api/v1/strategy-choices')).json()).items;
+  expect(choices).toEqual([]);
+  // Sinais: por omissão só os instrumentos com esta estratégia; «Toda a lista» mostra os outros.
+  await page.goto('/sinais');
+  const filter = page.getByRole('group', { name: 'Instrumentos' });
+  await expect(filter.getByRole('button', { name: 'Com esta estratégia' })).toHaveAttribute('aria-pressed', 'true');
+  await filter.getByRole('button', { name: 'Toda a lista' }).click();
+  await expect(page).toHaveURL(/instrumentos=todos/);
 });

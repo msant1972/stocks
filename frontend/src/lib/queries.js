@@ -13,6 +13,7 @@ export const keys = {
   quotes: (id, from) => ['quotes', Number(id), from ?? null],
   search: (q, sort, dir) => ['instruments', q, sort, dir],
   bestStrategies: ['strategies', 'best'],
+  strategyChoices: ['strategy-choices'],
 };
 
 /** Chave da Brandfetch para os logotipos (null sem configuração). */
@@ -58,6 +59,14 @@ export const useBestStrategies = () => useQuery({
 export const useWyckoff = () => useQuery({
   queryKey: ['wyckoff'], queryFn: () => api.get('/wyckoff'), staleTime: 10 * 60_000,
   select: (d) => ({ byId: new Map(d.items.map((i) => [i.instrumentId, i])), counts: d.counts, latestSession: d.latestSession }),
+});
+/**
+ * Estratégia escolhida pelo utilizador em cada instrumento (no Charts; GET /strategy-choices).
+ * data: Map(instrumentId → strategyId | null), null = «Nenhuma». Sem linha, vale a melhor (shared/strategies/choice.js).
+ */
+export const useStrategyChoices = () => useQuery({
+  queryKey: keys.strategyChoices, queryFn: () => api.get('/strategy-choices'), staleTime: 10 * 60_000,
+  select: (d) => new Map(d.items.map((i) => [i.instrumentId, i.strategyId])),
 });
 export const useAlerts = () => useQuery({ queryKey: keys.alerts, queryFn: () => api.get('/alerts') });
 export const useAlertEvents = () => useQuery({ queryKey: keys.alertEvents, queryFn: () => api.get('/alerts/events?limit=20') });

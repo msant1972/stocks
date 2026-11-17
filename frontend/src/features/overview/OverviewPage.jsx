@@ -83,12 +83,12 @@ function SignalsTodayCard() {
       <div className="card-head">
         <div>
           <h2 id="sg-title" className="card-title">Sinais da última sessão</h2>
-          <p className="small muted">Nos instrumentos da minha lista{q.data?.latestSession ? ` (${f.date(q.data.latestSession)})` : ''}. Simulação.</p>
+          <p className="small muted">Nos instrumentos da minha lista, de cada um só a sua estratégia{q.data?.latestSession ? ` (${f.date(q.data.latestSession)})` : ''}. Simulação.</p>
         </div>
         <Link to="/sinais" className="small">Ver sinais</Link>
       </div>
       {q.isPending ? <Loading rows={3} /> : q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : items.length === 0 ? (
-        <p className="small muted">Nenhuma estratégia deu sinais nos instrumentos da sua lista na última sessão.</p>
+        <p className="small muted">A estratégia de nenhum instrumento da sua lista deu sinais na última sessão.</p>
       ) : (
         <ul className="list">
           {items.slice(0, SHOWN).map((s) => {

@@ -5,14 +5,14 @@ import { Link, useSearchParams } from 'react-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, errorMessage } from '../../lib/api.js';
 import * as f from '../../lib/format.js';
-import { keys, useBestStrategies, useCatalog, useInstrument, useQuotes, useStrategies, useWatchlist, useWyckoff } from '../../lib/queries.js';
+import { keys, useBestStrategies, useCatalog, useInstrument, useQuotes, useStrategies, useStrategyChoices, useWatchlist, useWyckoff } from '../../lib/queries.js';
 import { InstrumentStatus, PriceChange, QuoteDate } from '../../components/finance/finance.jsx';
 import { EmptyState, ErrorState, Loading } from '../../components/feedback/states.jsx';
 import { useToast } from '../../components/feedback/Toast.jsx';
 import { Button, Notice, Segmented, Switch } from '../../components/ui/controls.jsx';
 import Icon from '../../components/ui/Icon.jsx';
 import StrategySelect from '../../components/finance/StrategySelect.jsx';
-import { getStrategy } from '../../lib/strategy.js';
+import { effectiveStrategy, getStrategy } from '../../lib/strategy.js';
 import CompanyPanel from './CompanyPanel.jsx';
 import StrategyPanel from '../../components/finance/StrategyPanel.jsx';
 import SaxoOrderDialog, { useSaxoStatus } from '../saxo/SaxoOrderDialog.jsx';
@@ -54,6 +54,30 @@ const SORTS = {
   sobe: { label: 'Maiores subidas', cmp: (a, b) => (Number(b.latest?.changePct ?? -Infinity) - Number(a.latest?.changePct ?? -Infinity)) || a.symbol.localeCompare(b.symbol) },
   desce: { label: 'Maiores descidas', cmp: (a, b) => (Number(a.latest?.changePct ?? Infinity) - Number(b.latest?.changePct ?? Infinity)) || a.symbol.localeCompare(b.symbol) },
 };
+/**
+ * Linha por baixo do cabeçalho: de onde vem a estratégia do instrumento (escolhida, «Nenhuma» ou a melhor, automática) e, quando a
+ * estratégia mostrada veio de uma ligação (?estrategia) e não é a do instrumento, a opção de a escolher.
+ */
+function StrategyChoiceNote({ own, shown, overridden, onReset, onUseShown, busy }) {
+  const name = (id) => getStrategy(id)?.name ?? id;
+  const text = own.source === 'chosen' ? <>Estratégia deste instrumento: <strong>{name(own.strategyId)}</strong>, escolhida por si.</>
+    : own.source === 'none' ? <>Escolheu <strong>nenhuma</strong> estratégia para este instrumento: a Automação não o compra e os Sinais não o mostram.</>
+      : own.source === 'best' ? <>Estratégia deste instrumento: <strong>{name(own.strategyId)}</strong>, a melhor ligada (automática, enquanto não escolher outra).</>
+        : <>Nenhuma estratégia ganha neste instrumento: a Automação não o compra enquanto não escolher uma.</>;
+  return (
+    <p className="small muted strategy-choice" style={{ margin: '0 0 0.75rem' }}>
+      {text}{' '}É a que a Automação usa para comprar e a que os Sinais mostram.
+      {overridden && shown !== own.strategyId && (
+        <> A ver a <strong>{shown ? name(shown) : 'nenhuma'}</strong>, aberta a partir de outra página.{' '}
+          <Button size="small" variant="ghost" onClick={onUseShown} busy={busy}>Escolher {shown ? name(shown) : 'nenhuma'}</Button></>
+      )}
+      {(own.source === 'chosen' || own.source === 'none') && (
+        <>{' '}<Button size="small" variant="ghost" onClick={onReset} busy={busy} title="Apagar a escolha: passa a valer a melhor estratégia ligada">Voltar à melhor</Button></>
+      )}
+    </p>
+  );
+}
+
 export default function ChartsPage() {
   const [params, setParams] = useSearchParams();
   const source = SOURCES.some((s) => s.value === params.get('fonte')) ? params.get('fonte') : 'lista';
@@ -98,15 +122,21 @@ export default function ChartsPage() {
   const current = detail.data ?? items[index];
 
   const strategies = useStrategies();
+  const choices = useStrategyChoices();
   const bestFor = (i) => {
     const b = i && bestMap.data?.get(i.id);
     return b && b.total > 0 && strategies.isEnabled(b.strategyId) ? b.strategyId : null;
   };
-  // Escolha explícita no menu (incluindo «nenhuma») mantém-se ao mudar de instrumento; sem ela, a melhor de cada um.
+  // Estratégia do instrumento: a escolhida pelo utilizador (guardada; é a que a Automação e os Sinais usam) ou, sem escolha, a melhor.
+  const ownFor = (i) => effectiveStrategy({
+    choice: i && choices.data?.has(i.id) ? choices.data.get(i.id) : undefined, best: i && bestMap.data?.get(i.id), isEnabled: strategies.isEnabled,
+  });
+  // ?estrategia (ligações de outras páginas) mostra essa estratégia sem mudar a escolha; sem ele, a do instrumento.
   const raw = params.get('estrategia');
-  const strategyFor = (i) => (raw == null ? bestFor(i) : raw === '1' ? strategies.defaultId : strategies.isEnabled(raw) ? raw : null);
+  const strategyFor = (i) => (raw == null ? ownFor(i).strategyId : raw === '1' ? strategies.defaultId : strategies.isEnabled(raw) ? raw : null);
   const strategy = strategyFor(current);
   const bestId = bestFor(current);
+  const own = ownFor(current);
 
   const setParam = (key, value) => setParams((p) => {
     const next = new URLSearchParams(p);
@@ -114,6 +144,28 @@ export default function ChartsPage() {
     return next;
   }, { replace: true });
   const select = (i) => setParam('instrumento', String(i.id));
+  const [choosing, setChoosing] = useState(false);
+  /** Guarda a estratégia do instrumento (null = «Nenhuma») e deixa de mostrar a do endereço: passa a valer a escolhida. */
+  async function saveChoice(request, label) {
+    setChoosing(true);
+    setActionError(null);
+    try {
+      await request();
+      await qc.invalidateQueries({ queryKey: keys.strategyChoices });
+      qc.invalidateQueries({ queryKey: ['signals'] }); // os Sinais filtram pela estratégia de cada instrumento
+      setParams((p) => { const next = new URLSearchParams(p); next.delete('estrategia'); return next; }, { replace: true });
+      toast(label);
+    } catch (err) {
+      setActionError(errorMessage(err));
+    } finally {
+      setChoosing(false);
+    }
+  }
+  const chooseStrategy = (id) => saveChoice(
+    () => api.put(`/instruments/${current.id}/strategy`, { strategyId: id ?? null }),
+    id ? `${current.symbol}: estratégia ${getStrategy(id).name}` : `${current.symbol}: nenhuma estratégia (a Automação não compra)`,
+  );
+  const resetStrategy = () => saveChoice(() => api.del(`/instruments/${current.id}/strategy`), `${current.symbol}: volta à melhor estratégia`);
   const move = (delta) => {
     if (!items.length) return;
     const from = index >= 0 ? index : delta > 0 ? -1 : 0;
@@ -246,7 +298,7 @@ export default function ChartsPage() {
             <Button size="small" variant="ghost" className="icon-button" onClick={() => move(1)} title="Instrumento seguinte (↓)">
               <Icon name="chevron" size={18} /><span className="visually-hidden">Instrumento seguinte</span>
             </Button>
-            <StrategySelect value={strategy} onChange={(id) => setParam('estrategia', id ?? 'nenhuma')} allowNone best={bestId} disabled={current.status !== 'active'} />
+            <StrategySelect value={strategy} onChange={chooseStrategy} allowNone best={bestId} disabled={current.status !== 'active' || choosing} />
             <Button onClick={toggleWatch} busy={busy} disabled={current.status === 'invalid' && !current.inWatchlist}>
               {current.inWatchlist ? 'Remover da lista' : 'Adicionar à lista'}
             </Button>
@@ -255,6 +307,10 @@ export default function ChartsPage() {
             {saxo.data?.configured && <Button variant="primary" onClick={() => setSaxoOrder(true)} disabled={!tradable} title="Enviar uma ordem para a conta de simulação da SAXO Bank">Enviar à SAXO</Button>}
           </div>
         </div>
+
+        {current.status === 'active' && (
+          <StrategyChoiceNote own={own} shown={strategy} overridden={raw != null} onReset={resetStrategy} onUseShown={() => chooseStrategy(strategy)} busy={choosing} />
+        )}
 
         <div className="stack" style={{ gap: '0.75rem' }}>
           {actionError && <Notice tone="error">{actionError}</Notice>}
